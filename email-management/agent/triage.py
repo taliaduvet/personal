@@ -158,6 +158,9 @@ def should_skip_email(msg, service):
     subj = (headers.get('subject') or '').lower()
     if any(x in subj for x in ['receipt', 'order confirmed', 'shipped', 'delivery']):
         return True
+    # Skip Gemini Notes — never actionable
+    if 'gemini' in from_addr and ('notes' in from_addr or 'note' in subj):
+        return True
     return False
 
 
@@ -175,6 +178,7 @@ def extract_tasks_with_gemini(emails_batch, category_preset):
 
     system = f"""You extract actionable tasks from emails and draft polite replies.
 Categories (use exactly): {cat_str}
+Prefer a single consolidated task per email when possible. Only create multiple tasks if the email clearly has distinct, separate actions.
 Return JSON only. For each email, output:
 - is_actionable: true only if there is a clear task the recipient should do (e.g. send something, reply, schedule, complete work). False for newsletters, FYI, social niceties.
 - tasks: array of {{"text": "short task desc", "category": "one of {cat_str}", "deadline": "YYYY-MM-DD" or null, "priority": "critical|high|medium|low"}}

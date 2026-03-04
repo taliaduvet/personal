@@ -299,6 +299,17 @@ body {
   margin: 0 0 0.5rem 0;
   font-size: 1.1rem;
   color: var(--accent-amber);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.email-triage-header .close-email-triage-btn {
+  margin-left: auto;
+  padding: 0.2rem 0.4rem;
+  font-size: 1.2rem;
+  line-height: 1;
 }
 
 .email-triage-status {
@@ -332,10 +343,17 @@ body {
   margin-bottom: 0.25rem;
 }
 
-.email-triage-text {
+.email-triage-task-input {
+  display: block;
+  width: 100%;
   margin: 0 0 0.5rem 0;
+  padding: 0.4rem 0.5rem;
   font-size: 0.9rem;
-  color: var(--text-muted);
+  color: var(--text);
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-sizing: border-box;
 }
 
 .email-triage-draft {
@@ -717,6 +735,18 @@ body.sidebar-open .sidebar-overlay {
   border-left-color: var(--accent-amber);
 }
 
+.task-card.dragging {
+  opacity: 0.6;
+}
+
+.task-card[draggable="true"] {
+  cursor: grab;
+}
+
+.task-card[draggable="true"]:active {
+  cursor: grabbing;
+}
+
 .task-card input[type="checkbox"] {
   margin-top: 0.2rem;
   cursor: pointer;
@@ -728,7 +758,8 @@ body.sidebar-open .sidebar-overlay {
 }
 
 .task-text {
-  word-break: break-word;
+  overflow-wrap: break-word;
+  word-break: normal;
 }
 
 .task-meta {

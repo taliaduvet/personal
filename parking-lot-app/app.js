@@ -414,6 +414,12 @@
         if (cb) cb.checked = state.selectedIds.has(id);
         updateAddToSuggestionsBtn();
       });
+      card.addEventListener('dragstart', (e) => {
+        e.dataTransfer.setData('text/plain', card.dataset.id);
+        e.dataTransfer.effectAllowed = 'move';
+        card.classList.add('dragging');
+      });
+      card.addEventListener('dragend', () => card.classList.remove('dragging'));
     });
 
     container.querySelectorAll('.btn-edit').forEach(btn => {
@@ -426,21 +432,6 @@
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         deleteItem(btn.dataset.id, true);
-      });
-    });
-
-    container.querySelectorAll('.btn-move').forEach(sel => {
-      sel.addEventListener('change', (e) => {
-        const id = e.target.dataset.id;
-        const newCat = e.target.value;
-        if (!newCat) return;
-        const item = state.items.find(i => i.id === id);
-        if (item) {
-          item.category = newCat;
-          saveState();
-          renderColumns();
-        }
-        e.target.value = '';
       });
     });
 
@@ -463,7 +454,7 @@
     const staleNudge = daysParked >= 30 ? ` title="Parked ${daysParked} days — consider doing it or dropping it"` : '';
 
     return `
-      <div class="task-card ${overdue ? 'overdue' : ''} ${checked ? 'selected' : ''} ${daysParked >= 30 ? 'stale-nudge' : ''}" data-id="${item.id}"${staleNudge}>
+      <div class="task-card ${overdue ? 'overdue' : ''} ${checked ? 'selected' : ''} ${daysParked >= 30 ? 'stale-nudge' : ''}" data-id="${item.id}" draggable="true"${staleNudge}>
         <input type="checkbox" ${checked ? 'checked' : ''}>
         <div class="task-content">
           <div class="task-text">${escapeHtml(item.text)}</div>
@@ -475,10 +466,6 @@
           </div>
         </div>
         <div class="task-actions">
-          <select class="btn-move" data-id="${item.id}" title="Move to column">
-            <option value="">Move</option>
-            ${getCategories().map(c => `<option value="${c.id}" ${c.id === item.category ? 'disabled' : ''}>${escapeHtml(getCategoryLabel(c.id))}</option>`).join('')}
-          </select>
           <button class="btn-edit" data-id="${item.id}" title="Edit">✎</button>
           <button class="btn-drop" data-id="${item.id}" title="Drop">×</button>
         </div>
@@ -1057,6 +1044,22 @@
     if (deadline) document.getElementById('deadline-input').value = deadline;
   }
 
+  function applySmartFieldsToEdit() {
+    const textEl = document.getElementById('edit-text');
+    if (!textEl) return;
+    const text = textEl.value;
+    const cat = detectCategory(text);
+    if (cat) {
+      const sel = document.getElementById('edit-category');
+      if (sel && sel.querySelector(`option[value="${cat}"]`)) sel.value = cat;
+    }
+    const deadline = extractDeadline(text);
+    if (deadline) {
+      const inp = document.getElementById('edit-deadline');
+      if (inp) inp.value = deadline;
+    }
+  }
+
   function addSingle() {
     const submitBtn = document.getElementById('submit-single');
     if (submitBtn?.disabled) return;
@@ -1385,12 +1388,12 @@
         ? 'https://mail.google.com/mail/u/0/#inbox/' + encodeURIComponent(t.thread_id)
         : 'https://mail.google.com/mail/u/0/#inbox';
       const subj = escapeHtml((t.subject || '').slice(0, 60));
-      const text = escapeHtml((t.text || '').slice(0, 120));
+      const text = (t.text || '').slice(0, 500);
       const draft = t.draft_reply ? '<details class="email-triage-draft"><summary>Draft reply</summary><pre>' + escapeHtml(t.draft_reply.slice(0, 500)) + '</pre></details>' : '';
       return `<div class="email-triage-card" data-id="${t.id}">
         <div class="email-triage-card-main">
           <strong>${subj}</strong>
-          <p class="email-triage-text">${text}</p>
+          <input type="text" class="email-triage-task-input" data-id="${t.id}" value="${escapeHtml(text)}" placeholder="Task name (edit before adding)">
           ${draft}
           <div class="email-triage-actions">
             <select class="email-triage-category" data-id="${t.id}">${getCategories().map(c => `<option value="${c.id}" ${c.id === t.category ? 'selected' : ''}>${escapeHtml(getCategoryLabel(c.id))}</option>`).join('')}</select>
@@ -1412,8 +1415,11 @@
   function addEmailTaskToParkingLot(id) {
     const t = state.emailTriageItems.find(x => x.id === id);
     if (!t || !window.talkAbout) return;
-    const cat = document.querySelector(`.email-triage-category[data-id="${id}"]`)?.value || t.category;
-    const item = createItem(t.text, cat, t.deadline, t.priority || 'medium');
+    const input = document.querySelector(`.email-triage-task-input[data-id="${id}"]`);
+    const text = input?.value?.trim() || t.text;
+    const cat = detectCategory(text) || document.querySelector(`.email-triage-category[data-id="${id}"]`)?.value || t.category;
+    const deadline = extractDeadline(text) || t.deadline;
+    const item = createItem(text, cat, deadline, t.priority || 'medium');
     state.items.push(item);
     state.lastCategory = cat;
     saveState();
@@ -1456,6 +1462,27 @@
       backBtn.style.display = 'none';
       renderColumns();
     });
+
+    const columnsEl = document.getElementById('columns');
+    if (columnsEl) {
+      columnsEl.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+      });
+      columnsEl.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const column = e.target.closest('.column');
+        if (!column) return;
+        const id = e.dataTransfer.getData('text/plain');
+        const newCat = column.dataset.category;
+        const item = state.items.find(i => i.id === id);
+        if (item && newCat && item.category !== newCat) {
+          item.category = newCat;
+          saveState();
+          renderColumns();
+        }
+      });
+    }
 
     const addToSuggestionsBtn = document.getElementById('add-to-suggestions-btn');
     if (addToSuggestionsBtn) addToSuggestionsBtn.addEventListener('click', addToSuggestions);
@@ -1628,6 +1655,9 @@
     const saveEditBtn = document.getElementById('save-edit');
     if (saveEditBtn) saveEditBtn.addEventListener('click', saveEdit);
 
+    const editTextEl = document.getElementById('edit-text');
+    if (editTextEl) editTextEl.addEventListener('input', applySmartFieldsToEdit);
+
     const settingsBtn = document.getElementById('settings-btn');
     if (settingsBtn) settingsBtn.addEventListener('click', openSettingsModal);
 
@@ -1697,10 +1727,11 @@
     const emailTriageBtn = document.getElementById('email-triage-btn');
     if (emailTriageBtn) emailTriageBtn.addEventListener('click', openEmailTriage);
 
-    const closeEmailTriage = document.getElementById('close-email-triage');
-    if (closeEmailTriage) closeEmailTriage.addEventListener('click', () => {
-      const s = document.getElementById('email-triage-section');
-      if (s) s.style.display = 'none';
+    document.querySelectorAll('.close-email-triage-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const s = document.getElementById('email-triage-section');
+        if (s) s.style.display = 'none';
+      });
     });
 
     const closeAnalytics = document.getElementById('close-analytics');
