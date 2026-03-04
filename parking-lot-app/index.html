@@ -57,6 +57,15 @@
           <div class="today-header-actions">
             <button id="menu-btn" class="btn-icon btn-hamburger" title="Menu" aria-label="Open menu"><span class="hamburger-line"></span><span class="hamburger-line"></span><span class="hamburger-line"></span></button>
             <button id="email-triage-btn" class="btn-secondary btn-sm btn-email-triage" title="Email triage">Email triage</button>
+            <div id="email-triage-section" class="email-triage-dropdown" style="display:none">
+              <div class="email-triage-dropdown-content">
+                <h3 class="email-triage-header">Email Triage</h3>
+                <p id="email-triage-status" class="email-triage-status"></p>
+                <div id="email-triage-list" class="email-triage-list"></div>
+                <p id="email-triage-empty" class="email-triage-empty" style="display:none">No new tasks — you're caught up!</p>
+                <button id="close-email-triage" class="btn-secondary">Close</button>
+              </div>
+            </div>
           </div>
         </div>
         <div id="today-list" class="today-list"></div>
@@ -266,16 +275,6 @@
       <h3>This week</h3>
       <p id="analytics-text"></p>
       <button id="close-analytics" class="btn-secondary">Close</button>
-    </div>
-  </div>
-
-  <div id="email-triage-section" class="analytics-panel email-triage-panel" style="display:none">
-    <div class="analytics-content">
-      <h3 class="email-triage-header">Email Triage</h3>
-      <p id="email-triage-status" class="email-triage-status"></p>
-      <div id="email-triage-list" class="email-triage-list"></div>
-      <p id="email-triage-empty" class="email-triage-empty" style="display:none">No new tasks — you're caught up!</p>
-      <button id="close-email-triage" class="btn-secondary">Close</button>
     </div>
   </div>
 
