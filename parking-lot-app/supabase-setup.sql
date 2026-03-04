@@ -35,6 +35,17 @@ drop policy if exists "Allow all for anon" on user_preferences;
 create policy "Allow all for anon" on user_preferences for all using (true) with check (true);
 alter publication supabase_realtime add table user_preferences;
 
+-- Device preferences (personal sync across your devices only, never shared with partner)
+create table if not exists device_preferences (
+  device_sync_id text primary key,
+  preferences jsonb not null default '{}',
+  updated_at timestamptz default now()
+);
+alter table device_preferences enable row level security;
+drop policy if exists "Allow all for anon" on device_preferences;
+create policy "Allow all for anon" on device_preferences for all using (true) with check (true);
+alter publication supabase_realtime add table device_preferences;
+
 -- Email triage agent tables (added_by scopes each person's triage separately)
 create table if not exists email_tasks (
   id uuid default gen_random_uuid() primary key,

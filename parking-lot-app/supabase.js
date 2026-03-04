@@ -92,6 +92,50 @@
       return () => client.removeChannel(channel);
     },
 
+    async getDevicePreferences(deviceSyncId) {
+      const client = getClient();
+      if (!client) return { error: 'Supabase not configured' };
+      const { data, error } = await client.from('device_preferences')
+        .select('preferences')
+        .eq('device_sync_id', deviceSyncId)
+        .maybeSingle();
+      if (error) return { error: error.message };
+      return data?.preferences || {};
+    },
+
+    async saveDevicePreferences(deviceSyncId, preferences) {
+      const client = getClient();
+      if (!client) return { error: 'Supabase not configured' };
+      const { error } = await client.from('device_preferences').upsert({
+        device_sync_id: deviceSyncId,
+        preferences: preferences || {},
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'device_sync_id' });
+      return { error };
+    },
+
+    subscribeDevicePreferences(deviceSyncId, callback) {
+      const client = getClient();
+      if (!client) return () => {};
+      const channel = client.channel('device_prefs_' + deviceSyncId)
+        .on('postgres_changes', {
+          event: '*',
+          schema: 'public',
+          table: 'device_preferences',
+          filter: 'device_sync_id=eq.' + deviceSyncId
+        }, async () => {
+          const prefs = await client.from('device_preferences')
+            .select('preferences')
+            .eq('device_sync_id', deviceSyncId)
+            .maybeSingle();
+          if (prefs?.data?.preferences && typeof callback === 'function') {
+            callback(prefs.data.preferences);
+          }
+        })
+        .subscribe();
+      return () => client.removeChannel(channel);
+    },
+
     subscribeTalkAbout(pairId, callback) {
       const client = getClient();
       if (!client) {

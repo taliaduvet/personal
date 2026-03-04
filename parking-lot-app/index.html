@@ -24,8 +24,8 @@
         <button id="entry-link-btn" class="btn-secondary btn-entry">Link a device (sync settings)</button>
       </div>
       <div id="entry-link-form" class="entry-link-form" style="display:none">
-        <p class="entry-hint">Enter the sync code from your other device (laptop, phone, etc.).</p>
-        <input id="entry-link-code" type="text" placeholder="e.g. abc12345" maxlength="12" autocomplete="off">
+        <p class="entry-hint">Enter the device sync code from Settings on your other device (laptop, phone, etc.).</p>
+        <input id="entry-link-code" type="text" placeholder="e.g. abc12345" maxlength="20" autocomplete="off">
         <div class="entry-link-actions">
           <button id="entry-link-submit" class="btn-primary">Link</button>
           <button id="entry-link-cancel" class="btn-secondary">Cancel</button>
@@ -215,9 +215,14 @@
       </div>
       <div class="modal-body">
         <div id="settings-sync-code" class="settings-sync-code" style="display:none">
-          <h4 class="settings-section-title">Sync code</h4>
-          <p class="settings-hint">Enter this on your other devices (Link a device on the welcome screen) to sync settings.</p>
+          <h4 class="settings-section-title">Device sync code</h4>
+          <p class="settings-hint">Enter this on your other devices (Link a device on the welcome screen) to sync settings. Never share with your partner.</p>
           <p id="settings-sync-code-display" class="settings-sync-code-display"></p>
+        </div>
+        <div id="settings-pair-code" class="settings-sync-code" style="display:none">
+          <h4 class="settings-section-title">Pair code</h4>
+          <p class="settings-hint">Share with your partner to enable Talk about. Only for couples.</p>
+          <p id="settings-pair-code-display" class="settings-sync-code-display"></p>
         </div>
         <h4 class="settings-section-title">Your name</h4>
         <p class="settings-hint">Shown next to the pair code in the menu.</p>

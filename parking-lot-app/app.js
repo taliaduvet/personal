@@ -56,6 +56,7 @@
     editingId: null,
     pairId: null,
     addedBy: null,
+    deviceSyncId: null,
     talkAboutItems: [],
     talkAboutUnsubscribe: null,
     prefsUnsubscribe: null,
@@ -88,6 +89,14 @@
   function savePairState() {
     if (state.pairId) localStorage.setItem(STORAGE_PREFIX + 'pairId', state.pairId);
     if (state.addedBy) localStorage.setItem(STORAGE_PREFIX + 'addedBy', state.addedBy);
+  }
+
+  function loadDeviceSyncState() {
+    state.deviceSyncId = localStorage.getItem(STORAGE_PREFIX + 'deviceSyncId');
+  }
+
+  function saveDeviceSyncState() {
+    if (state.deviceSyncId) localStorage.setItem(STORAGE_PREFIX + 'deviceSyncId', state.deviceSyncId);
   }
 
   function loadState() {
@@ -904,7 +913,7 @@
           state.columnColors[cat] = e.target.value;
           const hexInp = colorsContainer.querySelector(`.color-hex-input[data-cat="${cat}"]`);
           if (hexInp) hexInp.value = e.target.value;
-          saveColumnColorsToSupabase();
+          saveDevicePreferencesToSupabase();
           renderColumns();
         });
       });
@@ -916,7 +925,7 @@
             state.columnColors[cat] = val;
             const colorInp = colorsContainer.querySelector(`.color-input[data-cat="${cat}"]`);
             if (colorInp) colorInp.value = val;
-            saveColumnColorsToSupabase();
+            saveDevicePreferencesToSupabase();
             renderColumns();
           }
         });
@@ -936,31 +945,85 @@
 
     const syncCodeEl = document.getElementById('settings-sync-code');
     const syncCodeDisplay = document.getElementById('settings-sync-code-display');
+    const pairCodeEl = document.getElementById('settings-pair-code');
+    const pairCodeDisplay = document.getElementById('settings-pair-code-display');
     if (syncCodeEl && syncCodeDisplay) {
-      if (state.pairId) {
+      if (state.deviceSyncId) {
         syncCodeEl.style.display = 'block';
-        syncCodeDisplay.textContent = state.pairId;
+        syncCodeDisplay.textContent = state.deviceSyncId;
       } else {
         syncCodeEl.style.display = 'none';
+      }
+    }
+    if (pairCodeEl && pairCodeDisplay) {
+      if (state.pairId) {
+        pairCodeEl.style.display = 'block';
+        pairCodeDisplay.textContent = state.pairId;
+      } else {
+        pairCodeEl.style.display = 'none';
       }
     }
     document.getElementById('settings-modal').style.display = 'flex';
   }
 
-  function getPreferencesForSupabase() {
+  function getPreferencesForDevice() {
     const prefs = { ...getActiveColumnColors() };
     if (state.buttonColor) prefs.__button = state.buttonColor;
     if (state.textColor) prefs.__text = state.textColor;
+    prefs.custom_labels = { ...(state.customLabels || {}) };
+    prefs.category_preset = state.categoryPreset || 'generic';
     return prefs;
   }
 
-  function saveColumnColorsToSupabase() {
-    if (!window.talkAbout || !state.pairId) return;
+  function applyDevicePreferencesToState(prefs) {
+    if (!prefs || typeof prefs !== 'object') return;
+    if (prefs.__button) { state.buttonColor = prefs.__button; delete prefs.__button; }
+    if (prefs.__text) { state.textColor = prefs.__text; delete prefs.__text; }
+    if (prefs.custom_labels) { state.customLabels = prefs.custom_labels; delete prefs.custom_labels; }
+    if (prefs.category_preset) { state.categoryPreset = prefs.category_preset; delete prefs.category_preset; }
+    if (Object.keys(prefs).length) state.columnColors = prefs;
+  }
+
+  async function runDeviceSyncMigration() {
+    if (state.deviceSyncId) return;
+    if (!window.talkAbout) return;
+    if (state.pairId) {
+      state.deviceSyncId = state.pairId + '_' + (state.addedBy || 'Talia');
+      try {
+        const oldPrefs = await window.talkAbout.getUserPreferences(state.pairId, state.addedBy);
+        const payload = (oldPrefs && !oldPrefs.error && typeof oldPrefs === 'object') ? oldPrefs : getPreferencesForDevice();
+        const { error } = await window.talkAbout.saveDevicePreferences(state.deviceSyncId, payload);
+        if (error) console.warn('Migration save failed', error);
+      } catch (e) {
+        console.warn('Migration failed', e);
+        const payload = getPreferencesForDevice();
+        await window.talkAbout.saveDevicePreferences(state.deviceSyncId, payload);
+      }
+      if (hasChosenSolo()) {
+        state.pairId = null;
+        state.addedBy = 'Talia';
+        localStorage.removeItem(STORAGE_PREFIX + 'pairId');
+        localStorage.setItem(STORAGE_PREFIX + 'addedBy', 'Talia');
+      }
+    } else {
+      state.deviceSyncId = window.talkAbout.generatePairId();
+      try {
+        const payload = getPreferencesForDevice();
+        await window.talkAbout.saveDevicePreferences(state.deviceSyncId, payload);
+      } catch (e) {
+        console.warn('Seed failed', e);
+      }
+    }
+    saveDeviceSyncState();
+  }
+
+  function saveDevicePreferencesToSupabase() {
+    if (!window.talkAbout || !state.deviceSyncId) return;
     if (state.savePrefsTimeout) clearTimeout(state.savePrefsTimeout);
     state.savePrefsTimeout = setTimeout(async () => {
       state.savePrefsTimeout = null;
       try {
-        const { error } = await window.talkAbout.saveUserPreferences(state.pairId, state.addedBy, getPreferencesForSupabase());
+        const { error } = await window.talkAbout.saveDevicePreferences(state.deviceSyncId, getPreferencesForDevice());
         if (error) showToast('Could not sync preferences — will retry when online');
       } catch (e) {
         showToast('Could not sync preferences — will retry when online');
@@ -1029,8 +1092,8 @@
         else badge.textContent = (state.displayName || '').trim() || 'Solo';
       }
       closeSettingsModal();
-      if (window.talkAbout && state.pairId) {
-        const { error } = await window.talkAbout.saveUserPreferences(state.pairId, state.addedBy, getPreferencesForSupabase());
+      if (window.talkAbout && state.deviceSyncId) {
+        const { error } = await window.talkAbout.saveDevicePreferences(state.deviceSyncId, getPreferencesForDevice());
         if (error) {
           showToast('Settings saved locally. Could not sync to cloud — ' + (error || 'Supabase not configured'));
         } else {
@@ -1304,15 +1367,14 @@
       if (linkPartnerBtn) linkPartnerBtn.style.display = 'block';
     }
     loadState();
+    await runDeviceSyncMigration();
     try {
-      if (window.talkAbout && state.pairId) {
-        const prefs = await window.talkAbout.getUserPreferences(state.pairId, state.addedBy);
+      if (window.talkAbout && state.deviceSyncId) {
+        const prefs = await window.talkAbout.getDevicePreferences(state.deviceSyncId);
         if (prefs?.error) {
           showToast('Could not load preferences — using local settings');
-        } else if (prefs && typeof prefs === 'object') {
-          if (prefs.__button) { state.buttonColor = prefs.__button; delete prefs.__button; }
-          if (prefs.__text) { state.textColor = prefs.__text; delete prefs.__text; }
-          if (Object.keys(prefs).length) state.columnColors = prefs;
+        } else {
+          applyDevicePreferencesToState(prefs);
         }
       }
     } catch (e) {
@@ -1333,26 +1395,21 @@
         state.talkAboutItems = items;
         renderTalkAbout();
       });
+    } else if (state.talkAboutUnsubscribe) {
+      state.talkAboutUnsubscribe();
+      state.talkAboutUnsubscribe = null;
+    }
+    if (window.talkAbout && state.deviceSyncId) {
       if (state.prefsUnsubscribe) state.prefsUnsubscribe();
-      state.prefsUnsubscribe = window.talkAbout.subscribeUserPreferences(state.pairId, state.addedBy, (prefs) => {
-        if (prefs && typeof prefs === 'object') {
-          if (prefs.__button) { state.buttonColor = prefs.__button; delete prefs.__button; }
-          if (prefs.__text) { state.textColor = prefs.__text; delete prefs.__text; }
-          if (Object.keys(prefs).length) state.columnColors = prefs;
-          applyThemeColors();
-          updateCategorySelectOptions();
-          renderColumns();
-        }
+      state.prefsUnsubscribe = window.talkAbout.subscribeDevicePreferences(state.deviceSyncId, (prefs) => {
+        applyDevicePreferencesToState(prefs);
+        applyThemeColors();
+        updateCategorySelectOptions();
+        renderColumns();
       });
-    } else {
-      if (state.talkAboutUnsubscribe) {
-        state.talkAboutUnsubscribe();
-        state.talkAboutUnsubscribe = null;
-      }
-      if (state.prefsUnsubscribe) {
-        state.prefsUnsubscribe();
-        state.prefsUnsubscribe = null;
-      }
+    } else if (state.prefsUnsubscribe) {
+      state.prefsUnsubscribe();
+      state.prefsUnsubscribe = null;
     }
     const triagePairId = state.pairId || 'solo_default';
     const triageAddedBy = state.addedBy;
@@ -1708,7 +1765,7 @@
       state.buttonColor = e.target.value;
       if (btnHexEl) btnHexEl.value = e.target.value;
       applyThemeColors();
-      saveColumnColorsToSupabase();
+      saveDevicePreferencesToSupabase();
     });
     if (btnHexEl) btnHexEl.addEventListener('input', (e) => {
       const val = e.target.value.trim();
@@ -1716,14 +1773,14 @@
         state.buttonColor = val;
         if (btnColorEl) btnColorEl.value = val;
         applyThemeColors();
-        saveColumnColorsToSupabase();
+        saveDevicePreferencesToSupabase();
       }
     });
     if (textColorEl) textColorEl.addEventListener('input', (e) => {
       state.textColor = e.target.value;
       if (textHexEl) textHexEl.value = e.target.value;
       applyThemeColors();
-      saveColumnColorsToSupabase();
+      saveDevicePreferencesToSupabase();
     });
     if (textHexEl) textHexEl.addEventListener('input', (e) => {
       const val = e.target.value.trim();
@@ -1731,7 +1788,7 @@
         state.textColor = val;
         if (textColorEl) textColorEl.value = val;
         applyThemeColors();
-        saveColumnColorsToSupabase();
+        saveDevicePreferencesToSupabase();
       }
     });
 
@@ -1842,29 +1899,39 @@
       if (e.target.id === 'link-partner-modal') closeLinkPartnerModal();
     });
 
-    if (createBtn) createBtn.addEventListener('click', () => {
+    if (createBtn) createBtn.addEventListener('click', async () => {
       state.pairId = window.talkAbout ? window.talkAbout.generatePairId() : 'demo' + Date.now().toString(36).slice(-6);
       state.addedBy = 'Talia';
+      state.deviceSyncId = window.talkAbout ? window.talkAbout.generatePairId() : 'dev' + Date.now().toString(36).slice(-6);
       savePairState();
+      saveDeviceSyncState();
+      if (window.talkAbout) {
+        try { await window.talkAbout.saveDevicePreferences(state.deviceSyncId, getPreferencesForDevice()); } catch (e) {}
+      }
       if (actions) actions.style.display = 'none';
       if (created) created.style.display = 'block';
       if (codeEl) codeEl.textContent = state.pairId;
     });
 
-    if (continueBtn) continueBtn.addEventListener('click', () => {
+    if (continueBtn) continueBtn.addEventListener('click', async () => {
       closeLinkPartnerModal();
-      showMainApp();
+      await showMainApp();
     });
 
-    if (joinBtn) joinBtn.addEventListener('click', () => {
+    if (joinBtn) joinBtn.addEventListener('click', async () => {
       const code = (joinInput && joinInput.value) ? joinInput.value.trim().toLowerCase() : '';
       if (!code) { showToast('Enter a pair code'); return; }
       const asTalia = document.getElementById('link-join-talia');
       state.pairId = code;
       state.addedBy = (asTalia && asTalia.checked) ? 'Talia' : 'Garren';
+      state.deviceSyncId = window.talkAbout ? window.talkAbout.generatePairId() : 'dev' + Date.now().toString(36).slice(-6);
       savePairState();
+      saveDeviceSyncState();
+      if (window.talkAbout) {
+        try { await window.talkAbout.saveDevicePreferences(state.deviceSyncId, getPreferencesForDevice()); } catch (e) {}
+      }
       closeLinkPartnerModal();
-      showMainApp();
+      await showMainApp();
     });
 
     if (joinInput) joinInput.addEventListener('keydown', (e) => {
@@ -1874,24 +1941,29 @@
 
   function bindPairSetup() {
     const createBtn = document.getElementById('create-pair-btn');
-    if (createBtn) createBtn.addEventListener('click', () => {
+    if (createBtn) createBtn.addEventListener('click', async () => {
       state.pairId = window.talkAbout ? window.talkAbout.generatePairId() : 'demo' + Date.now().toString(36).slice(-6);
       state.addedBy = 'Talia';
+      state.deviceSyncId = window.talkAbout ? window.talkAbout.generatePairId() : 'dev' + Date.now().toString(36).slice(-6);
       savePairState();
+      saveDeviceSyncState();
+      if (window.talkAbout) {
+        try { await window.talkAbout.saveDevicePreferences(state.deviceSyncId, getPreferencesForDevice()); } catch (e) {}
+      }
       document.getElementById('pair-created').style.display = 'block';
       document.querySelector('.pair-actions').style.display = 'none';
       document.getElementById('pair-code-display').textContent = state.pairId;
     });
 
     const continueBtn = document.getElementById('continue-after-create');
-    if (continueBtn) continueBtn.addEventListener('click', () => {
+    if (continueBtn) continueBtn.addEventListener('click', async () => {
       document.getElementById('pair-created').style.display = 'none';
-      showMainApp();
+      await showMainApp();
       bindEvents();
     });
 
     const joinBtn = document.getElementById('join-pair-btn');
-    if (joinBtn) joinBtn.addEventListener('click', () => {
+    if (joinBtn) joinBtn.addEventListener('click', async () => {
       const input = document.getElementById('join-code-input');
       const code = (input && input.value) ? input.value.trim().toLowerCase() : '';
       if (!code) {
@@ -1901,9 +1973,14 @@
       const asTalia = document.getElementById('join-as-talia');
       state.pairId = code;
       state.addedBy = (asTalia && asTalia.checked) ? 'Talia' : 'Garren';
+      state.deviceSyncId = window.talkAbout ? window.talkAbout.generatePairId() : 'dev' + Date.now().toString(36).slice(-6);
       savePairState();
+      saveDeviceSyncState();
+      if (window.talkAbout) {
+        try { await window.talkAbout.saveDevicePreferences(state.deviceSyncId, getPreferencesForDevice()); } catch (e) {}
+      }
       document.getElementById('pair-setup').style.display = 'none';
-      showMainApp();
+      await showMainApp();
       bindEvents();
     });
 
@@ -1919,11 +1996,11 @@
     banner.style.display = navigator.onLine ? 'none' : 'block';
   }
 
-  function init() {
+  async function init() {
     window.addEventListener('online', () => {
       updateOfflineBanner();
       showToast('Back online — sync resumed');
-      if (window.talkAbout && state.pairId) saveColumnColorsToSupabase();
+      if (window.talkAbout && state.deviceSyncId) saveDevicePreferencesToSupabase();
     });
     window.addEventListener('offline', updateOfflineBanner);
     updateOfflineBanner();
@@ -1935,20 +2012,11 @@
       });
     }
     loadPairState();
-    if (state.pairId) {
+    loadDeviceSyncState();
+    if (state.pairId || hasChosenSolo() || state.deviceSyncId) {
       document.getElementById('entry-screen').style.display = 'none';
       document.getElementById('pair-setup').style.display = 'none';
-      showMainApp();
-      bindEvents();
-    } else if (hasChosenSolo()) {
-      if (!state.pairId) {
-        state.pairId = window.talkAbout ? window.talkAbout.generatePairId() : 'solo' + Date.now().toString(36).slice(-6);
-        state.addedBy = 'Talia';
-        savePairState();
-      }
-      document.getElementById('entry-screen').style.display = 'none';
-      document.getElementById('pair-setup').style.display = 'none';
-      showMainApp();
+      await showMainApp();
       bindEvents();
     } else {
       document.getElementById('entry-screen').style.display = 'block';
@@ -1974,32 +2042,45 @@
     if (linkCancel) linkCancel.addEventListener('click', () => {
       if (linkForm) linkForm.style.display = 'none';
     });
-    if (linkSubmit) linkSubmit.addEventListener('click', () => {
+    if (linkSubmit) linkSubmit.addEventListener('click', async () => {
       const code = (linkCode && linkCode.value) ? linkCode.value.trim().toLowerCase().replace(/\s/g, '') : '';
       if (!code || code.length < 6) {
         showToast('Enter a valid sync code (from your other device)');
         return;
       }
-      state.pairId = code;
-      state.addedBy = 'Talia';
-      savePairState();
+      state.deviceSyncId = code;
+      saveDeviceSyncState();
       if (linkForm) linkForm.style.display = 'none';
       document.getElementById('entry-screen').style.display = 'none';
-      showMainApp();
+      try {
+        if (window.talkAbout) {
+          const prefs = await window.talkAbout.getDevicePreferences(state.deviceSyncId);
+          if (!prefs?.error) applyDevicePreferencesToState(prefs);
+          saveState();
+        }
+        showToast('Device linked. If settings look wrong, check the code.');
+      } catch (e) {
+        showToast('Device linked. If settings look wrong, check the code.');
+      }
+      await showMainApp();
       bindEvents();
     });
     if (linkCode) linkCode.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') document.getElementById('entry-link-submit').click();
     });
-    if (soloBtn) soloBtn.addEventListener('click', () => {
+    if (soloBtn) soloBtn.addEventListener('click', async () => {
       setChosenSolo();
-      if (!state.pairId) {
-        state.pairId = window.talkAbout ? window.talkAbout.generatePairId() : 'solo' + Date.now().toString(36).slice(-6);
-        state.addedBy = 'Talia';
-        savePairState();
+      if (!state.deviceSyncId) {
+        state.deviceSyncId = window.talkAbout ? window.talkAbout.generatePairId() : 'solo' + Date.now().toString(36).slice(-6);
+        saveDeviceSyncState();
+        if (window.talkAbout) {
+          try {
+            await window.talkAbout.saveDevicePreferences(state.deviceSyncId, getPreferencesForDevice());
+          } catch (e) { console.warn('Seed failed', e); }
+        }
       }
       document.getElementById('entry-screen').style.display = 'none';
-      showMainApp();
+      await showMainApp();
       bindEvents();
     });
     if (coupleBtn) coupleBtn.addEventListener('click', () => {
@@ -2012,8 +2093,8 @@
   bindLinkPartnerModal();
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
+    document.addEventListener('DOMContentLoaded', () => init().catch(e => console.error('Init failed', e)));
   } else {
-    init();
+    init().catch(e => console.error('Init failed', e));
   }
 })();
