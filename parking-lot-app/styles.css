@@ -388,8 +388,15 @@ body {
   grid-column: 2;
 }
 
-.btn-hamburger {
+.today-header-actions {
   grid-column: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+.btn-hamburger {
   justify-self: end;
 }
 
@@ -1296,10 +1303,13 @@ body.sidebar-open .sidebar-overlay {
     grid-row: 2;
   }
 
-  .btn-hamburger {
+  .today-header-actions {
     grid-column: 2;
     grid-row: 1;
     align-self: center;
+  }
+
+  .btn-hamburger {
     justify-self: end;
   }
 

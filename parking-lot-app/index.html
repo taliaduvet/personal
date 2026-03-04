@@ -54,7 +54,10 @@
             <button id="clear-suggestions" class="btn-secondary">Clear suggestions</button>
           </div>
           <span id="completed-tally" class="tally">Completed today: 0</span>
-          <button id="menu-btn" class="btn-icon btn-hamburger" title="Menu" aria-label="Open menu"><span class="hamburger-line"></span><span class="hamburger-line"></span><span class="hamburger-line"></span></button>
+          <div class="today-header-actions">
+            <button id="menu-btn" class="btn-icon btn-hamburger" title="Menu" aria-label="Open menu"><span class="hamburger-line"></span><span class="hamburger-line"></span><span class="hamburger-line"></span></button>
+            <button id="email-triage-btn" class="btn-secondary btn-sm btn-email-triage" title="Email triage">Email triage</button>
+          </div>
         </div>
         <div id="today-list" class="today-list"></div>
       </header>
@@ -285,7 +288,6 @@
     <nav class="sidebar-nav">
       <button id="link-partner-btn" class="sidebar-item sidebar-link-partner" style="display:none">Link partner</button>
       <button id="settings-btn" class="sidebar-item" data-action="settings">Settings</button>
-      <button id="email-triage-btn" class="sidebar-item" data-action="email-triage">Email triage</button>
       <button id="archive-btn" class="sidebar-item" data-action="archive">View archive</button>
       <button id="analytics-btn" class="sidebar-item" data-action="analytics">Analytics</button>
       <button id="export-btn" class="sidebar-item" data-action="export">Export backup</button>
