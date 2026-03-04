@@ -6,7 +6,7 @@ A shared task manager for two people, with a real-time "Talk about" section that
 
 1. **Create a Supabase project** at [supabase.com](https://supabase.com).
 
-2. **Run the SQL** in Supabase Dashboard → SQL Editor. Copy the contents of `supabase-setup.sql` and execute it. (If you already ran it, run it again—it includes Realtime enablement.)
+2. **Run the SQL** in Supabase Dashboard → SQL Editor. Copy the contents of `supabase-setup.sql` and execute it. (If you already ran it, run it again—it includes Realtime enablement.) If you set up email triage before `added_by` existed, run `supabase-triage-added-by.sql` once.
 
 3. **Get your credentials** from Supabase Dashboard → Project Settings → API:
    - Project URL
@@ -44,6 +44,21 @@ A shared task manager for two people, with a real-time "Talk about" section that
 - **Join pair**: The other person enters the code and joins.
 - **Personal columns** (Work, Hobbies, Life, Other) are stored locally on each device—no sync.
 - **Talk about** items sync in real time between both devices via Supabase. Add something, and it appears on both screens.
+
+## What’s shared vs private (couples)
+
+| Data | Shared? | Where |
+|------|--------|-------|
+| **Talk about** | ✓ Both see | Supabase (pair_id) |
+| Parking lot tasks | ✗ Each device only | localStorage |
+| Today’s Suggestions | ✗ Each device only | localStorage |
+| Archive | ✗ Each device only | localStorage |
+| Column colors / theme | ✗ Per person | Supabase (pair_id + added_by) |
+| **Email triage** | ✗ Per person | Supabase (pair_id + added_by) |
+
+The only thing that overlaps between you and your partner is **Talk about**. Everything else stays on your device or is scoped to your identity (Talia vs Garren).
+
+If both of you run the email triage agent, each person sets it up with their own Gmail credentials and `PARKING_LOT_ADDED_BY` matching who they are. See `email-management/README.md` for details.
 
 ---
 

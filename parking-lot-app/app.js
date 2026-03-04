@@ -975,49 +975,73 @@
   }
 
   async function saveSettingsAndClose() {
-    const newPreset = (document.querySelector('input[name="category-preset"]:checked') || {}).value || 'generic';
-    const oldPreset = state.categoryPreset || 'generic';
-    if (newPreset !== oldPreset) {
-      const mapKey = oldPreset + '_to_' + newPreset;
-      const map = PRESET_MIGRATION[mapKey];
-      if (map) {
-        state.items.forEach(item => {
-          if (map[item.category]) item.category = map[item.category];
-        });
-        state.categoryPreset = newPreset;
-        state.customLabels = {};
-        const newCats = CATEGORY_PRESETS[newPreset];
-        state.lastCategory = (newCats && newCats[0]) ? newCats[0].id : 'life';
+    try {
+      const newPreset = (document.querySelector('input[name="category-preset"]:checked') || {}).value || 'generic';
+      const oldPreset = state.categoryPreset || 'generic';
+      if (newPreset !== oldPreset) {
+        const mapKey = oldPreset + '_to_' + newPreset;
+        const map = PRESET_MIGRATION[mapKey];
+        if (map) {
+          state.items.forEach(item => {
+            if (map[item.category]) item.category = map[item.category];
+          });
+          state.categoryPreset = newPreset;
+          state.customLabels = {};
+          const newCats = CATEGORY_PRESETS[newPreset];
+          state.lastCategory = (newCats && newCats[0]) ? newCats[0].id : 'life';
+        }
       }
-    }
-    const displayNameInp = document.getElementById('settings-display-name');
-    if (displayNameInp) state.displayName = displayNameInp.value.trim();
+      const displayNameInp = document.getElementById('settings-display-name');
+      if (displayNameInp) state.displayName = displayNameInp.value.trim();
 
-    const btnColorInp = document.getElementById('settings-button-color');
-    const textColorInp = document.getElementById('settings-text-color');
-    if (btnColorInp && btnColorInp.value) state.buttonColor = btnColorInp.value;
-    if (textColorInp && textColorInp.value) state.textColor = textColorInp.value;
+      const btnColorInp = document.getElementById('settings-button-color');
+      const textColorInp = document.getElementById('settings-text-color');
+      if (btnColorInp && btnColorInp.value) state.buttonColor = btnColorInp.value;
+      if (textColorInp && textColorInp.value) state.textColor = textColorInp.value;
 
-    const inputs = document.querySelectorAll('#settings-column-inputs input[data-cat]');
-    inputs.forEach(inp => {
-      const val = inp.value.trim();
-      if (val) state.customLabels[inp.dataset.cat] = val;
-      else delete state.customLabels[inp.dataset.cat];
-    });
-    applyThemeColors();
-    if (window.talkAbout && state.pairId) {
-      await window.talkAbout.saveUserPreferences(state.pairId, state.addedBy, getPreferencesForSupabase());
+      const inputs = document.querySelectorAll('#settings-column-inputs input[data-cat]');
+      inputs.forEach(inp => {
+        const val = inp.value.trim();
+        if (val) state.customLabels[inp.dataset.cat] = val;
+        else delete state.customLabels[inp.dataset.cat];
+      });
+
+      const colorsContainer = document.getElementById('settings-column-colors');
+      if (colorsContainer) {
+        colorsContainer.querySelectorAll('.color-input[data-cat]').forEach(inp => {
+          const cat = inp.dataset.cat;
+          if (cat && cat !== '__button' && cat !== '__text') state.columnColors[cat] = inp.value;
+        });
+        colorsContainer.querySelectorAll('.color-hex-input[data-cat]').forEach(inp => {
+          const cat = inp.dataset.cat;
+          const val = inp.value.trim();
+          if (cat && cat !== '__button' && cat !== '__text' && /^#[0-9a-fA-F]{6}$/.test(val)) {
+            state.columnColors[cat] = val;
+          }
+        });
+      }
+
+      applyThemeColors();
+      if (window.talkAbout && state.pairId) {
+        const { error } = await window.talkAbout.saveUserPreferences(state.pairId, state.addedBy, getPreferencesForSupabase());
+        if (error) {
+          showToast('Could not sync preferences — ' + (error || 'unknown error'));
+        }
+      }
+      saveState();
+      updateCategorySelectOptions();
+      renderColumns();
+      const badge = document.getElementById('pair-badge');
+      if (badge) {
+        if (state.pairId) badge.textContent = state.pairId + ' · ' + ((state.displayName || '').trim() || state.addedBy);
+        else badge.textContent = (state.displayName || '').trim() || 'Solo';
+      }
+      closeSettingsModal();
+      showToast('Settings saved');
+    } catch (e) {
+      console.warn('Save settings failed', e);
+      showToast('Could not save settings — ' + (e.message || 'try again'));
     }
-    saveState();
-    updateCategorySelectOptions();
-    renderColumns();
-    const badge = document.getElementById('pair-badge');
-    if (badge) {
-      if (state.pairId) badge.textContent = state.pairId + ' · ' + ((state.displayName || '').trim() || state.addedBy);
-      else badge.textContent = (state.displayName || '').trim() || 'Solo';
-    }
-    closeSettingsModal();
-    showToast('Settings saved');
   }
 
   function applySmartFields() {
@@ -1190,11 +1214,35 @@
   }
 
   function openEmailTriage() {
-    if (window.talkAbout && typeof SUPABASE_URL !== 'undefined') {
-      renderEmailTriage(true);
-    } else {
+    if (!window.talkAbout || typeof SUPABASE_URL === 'undefined') {
       showToast('Email triage unavailable — connect Supabase first');
+      return;
     }
+    renderEmailTriage(true);
+    const triagePairId = state.pairId || 'solo_default';
+    const triageAddedBy = state.addedBy;
+    window.talkAbout.getLastAgentRun(triagePairId, triageAddedBy).then(run => {
+      state.lastAgentRun = run;
+      if (!run && !state.pairId && triageAddedBy) {
+        window.talkAbout.getLastAgentRun(triagePairId, null).then(fallbackRun => {
+          if (fallbackRun) state.lastAgentRun = fallbackRun;
+          renderEmailTriage(false);
+        });
+      } else {
+        renderEmailTriage(false);
+      }
+    });
+    window.talkAbout.getEmailTasks(triagePairId, triageAddedBy).then(({ data, error }) => {
+      state.emailTriageItems = error ? [] : (data || []);
+      if (state.emailTriageItems.length === 0 && !state.pairId && triageAddedBy) {
+        window.talkAbout.getEmailTasks(triagePairId, null).then(({ data: fallbackData }) => {
+          if (fallbackData?.length) state.emailTriageItems = fallbackData;
+          renderEmailTriage(false);
+        });
+      } else {
+        renderEmailTriage(false);
+      }
+    });
   }
 
   function addTalkAbout() {

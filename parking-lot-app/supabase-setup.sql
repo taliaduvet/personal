@@ -34,10 +34,11 @@ alter table user_preferences enable row level security;
 drop policy if exists "Allow all for anon" on user_preferences;
 create policy "Allow all for anon" on user_preferences for all using (true) with check (true);
 
--- Email triage agent tables
+-- Email triage agent tables (added_by scopes each person's triage separately)
 create table if not exists email_tasks (
   id uuid default gen_random_uuid() primary key,
   pair_id text not null,
+  added_by text not null,
   thread_id text,
   email_id text,
   subject text,
@@ -66,6 +67,7 @@ create policy "Allow all for anon" on processed_emails for all using (true) with
 create table if not exists agent_runs (
   id uuid default gen_random_uuid() primary key,
   pair_id text not null,
+  added_by text not null,
   run_at timestamptz default now(),
   status text not null,
   emails_processed int default 0,
