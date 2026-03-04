@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Couples Parking Lot</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🅿</text></svg>">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Pair setup (shown when no pair_id) -->
+    <div id="pair-setup" class="pair-setup">
+      <h1>Couples Parking Lot</h1>
+      <p class="pair-hint">Create a pair to get started, or join with a code from your partner.</p>
+      <div class="pair-actions">
+        <button id="create-pair-btn" class="btn-primary">Create pair</button>
+        <div class="pair-divider">or</div>
+        <div class="join-row">
+          <input id="join-code-input" type="text" placeholder="Enter pair code" maxlength="12" autocomplete="off">
+          <button id="join-pair-btn" class="btn-primary">Join</button>
+        </div>
+      </div>
+      <div id="pair-created" class="pair-created" style="display:none">
+        <p>Share this code with your partner:</p>
+        <p id="pair-code-display" class="pair-code"></p>
+        <button id="continue-after-create" class="btn-primary">Continue</button>
+      </div>
+    </div>
+
+    <!-- Main app (hidden until pair connected) -->
+    <div id="main-app" style="display:none">
+      <header id="today-bar" class="sticky-bar">
+        <div class="today-header">
+          <h2>Today's Suggestions</h2>
+          <span id="completed-tally" class="tally">Completed today: 0</span>
+          <span id="pair-badge" class="pair-badge"></span>
+          <button id="clear-suggestions" class="btn-secondary">Clear suggestions</button>
+          <button id="archive-btn" class="btn-secondary">View archive</button>
+          <button id="analytics-btn" class="btn-secondary">Analytics</button>
+          <button id="export-btn" class="btn-secondary">Export backup</button>
+          <input type="file" id="import-input" accept=".json" style="display:none">
+          <button id="import-btn" class="btn-secondary">Import</button>
+        </div>
+        <div id="today-list" class="today-list"></div>
+      </header>
+
+      <main id="main-content">
+        <div id="overview" class="overview">
+          <div class="columns-header">
+            <button id="back-btn" class="btn-back" style="display:none">← Overview</button>
+          </div>
+          <div id="columns" class="columns"></div>
+          <div id="talk-about-section" class="talk-about-section">
+            <h3 class="talk-about-header">Talk about</h3>
+            <div id="talk-about-list" class="talk-about-list"></div>
+            <div class="talk-about-add">
+              <input id="talk-about-input" type="text" placeholder="Something to discuss..." autocomplete="off">
+              <button id="talk-about-add-btn" class="btn-primary">Add</button>
+            </div>
+          </div>
+          <div id="add-to-suggestions-area" class="add-to-suggestions">
+            <button id="add-to-suggestions-btn" class="btn-primary" disabled>Add selected to Today's Suggestions</button>
+          </div>
+        </div>
+
+        <div id="focus-mode" class="focus-mode" style="display:none">
+          <div class="focus-content">
+            <h1>Your Focus</h1>
+            <p id="focus-tally" class="focus-tally">Completed today: 0</p>
+            <div id="focus-list" class="focus-list"></div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <div class="floating-buttons" id="floating-buttons" style="display:none">
+    <button id="focus-btn" class="fab" title="Focus mode">◎</button>
+    <button id="add-btn" class="fab fab-primary" title="Add task">+</button>
+  </div>
+
+  <div id="add-modal" class="modal" style="display:none">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Add to parking lot</h3>
+        <button id="close-add" class="btn-close">×</button>
+      </div>
+      <div class="modal-body">
+        <div id="single-add" class="add-form">
+          <div class="input-row">
+            <input id="task-input" type="text" placeholder="e.g. work project due march 15" autocomplete="off">
+            <button id="mic-btn" class="btn-icon" title="Voice input">🎤</button>
+          </div>
+          <div class="add-options">
+            <label>Category</label>
+            <select id="category-select">
+              <option value="work">Work</option>
+              <option value="hobbies">Hobbies</option>
+              <option value="life">Life</option>
+              <option value="other">Other</option>
+            </select>
+            <label>Deadline (optional)</label>
+            <input id="deadline-input" type="date">
+            <label>Priority <span class="hint-link" id="priority-hint" title="How to decide?">?</span></label>
+            <select id="priority-select">
+              <option value="critical">Critical</option>
+              <option value="high">High</option>
+              <option value="medium" selected>Medium</option>
+              <option value="low">Low</option>
+            </select>
+          </div>
+          <button id="submit-single" class="btn-primary">Add</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="edit-modal" class="modal" style="display:none">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Edit</h3>
+        <button id="close-edit" class="btn-close">×</button>
+      </div>
+      <div class="modal-body">
+        <input id="edit-text" type="text">
+        <select id="edit-category"></select>
+        <input id="edit-deadline" type="date">
+        <select id="edit-priority"></select>
+        <button id="save-edit" class="btn-primary">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="archive-modal" class="modal" style="display:none">
+    <div class="modal-content modal-wide">
+      <div class="modal-header">
+        <h3>Archive — Completed items</h3>
+        <button id="close-archive" class="btn-close">×</button>
+      </div>
+      <div class="modal-body">
+        <div id="archive-list" class="archive-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="analytics-panel" class="analytics-panel" style="display:none">
+    <div class="analytics-content">
+      <h3>This week</h3>
+      <p id="analytics-text"></p>
+      <button id="close-analytics" class="btn-secondary">Close</button>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="supabase.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
