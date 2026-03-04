@@ -50,6 +50,7 @@
     lastCategory: 'life',
     drillDownCategory: null,
     selectedIds: new Set(),
+    searchQuery: '',
     undoItem: null,
     undoTimeout: null,
     editingId: null,
@@ -62,7 +63,10 @@
     categoryPreset: 'generic',
     buttonColor: null,
     textColor: null,
-    displayName: ''
+    displayName: '',
+    emailTriageItems: [],
+    lastAgentRun: null,
+    emailTriageUnsubscribe: null
   };
 
   function loadPairState() {
@@ -148,8 +152,10 @@
 
   function extractDeadline(text) {
     const t = (text || '').toLowerCase();
-    const year = new Date().getFullYear();
-    const monthDay = t.match(/(?:due\s+)?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{1,2})(?:\s+(\d{4}))?/i);
+    const now = new Date();
+    const year = now.getFullYear();
+
+    const monthDay = t.match(/(?:due\s+)?(?:by\s+)?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{1,2})(?:\s+(\d{4}))?/i);
     if (monthDay) {
       const m = MONTHS[monthDay[1].toLowerCase().slice(0,3)];
       const d = parseInt(monthDay[2], 10);
@@ -157,13 +163,68 @@
       const date = new Date(y, m - 1, d);
       if (!isNaN(date.getTime())) return date.toISOString().slice(0, 10);
     }
-    const slash = t.match(/(?:due\s+)?(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2,4}))?/);
+    const slash = t.match(/(?:due\s+)?(?:by\s+)?(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2,4}))?/);
     if (slash) {
       const m = parseInt(slash[1], 10);
       const d = parseInt(slash[2], 10);
       const y = slash[3] ? (slash[3].length === 2 ? 2000 + parseInt(slash[3], 10) : parseInt(slash[3], 10)) : year;
       const date = new Date(y, m - 1, d);
       if (!isNaN(date.getTime())) return date.toISOString().slice(0, 10);
+    }
+
+    const dayNames = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
+    const nextDay = t.match(/(?:due\s+)?(?:by\s+)?(?:next|this)\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)/i);
+    if (nextDay) {
+      const targetDay = dayNames.indexOf(nextDay[1].toLowerCase());
+      const isThis = /this\s+/.test(t);
+      let d = new Date(now);
+      const currentDay = d.getDay();
+      let diff = targetDay - currentDay;
+      if (diff <= 0 && !isThis) diff += 7;
+      else if (diff < 0 && isThis) diff += 7;
+      else if (diff === 0 && isThis) diff = 0;
+      else if (diff === 0) diff = 7;
+      d.setDate(d.getDate() + diff);
+      return d.toISOString().slice(0, 10);
+    }
+
+    const endOfMonth = t.match(/(?:due\s+)?(?:by\s+)?(?:the\s+)?(?:end\s+of\s+(?:the\s+)?month|eom)/i);
+    if (endOfMonth) {
+      const d = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      return d.toISOString().slice(0, 10);
+    }
+
+    const inWeeks = t.match(/(?:due\s+)?(?:by\s+)?(?:in\s+)?(\d+)\s+weeks?(?:\s+from\s+now)?/i);
+    if (inWeeks) {
+      const d = new Date(now);
+      d.setDate(d.getDate() + parseInt(inWeeks[1], 10) * 7);
+      return d.toISOString().slice(0, 10);
+    }
+
+    const inDays = t.match(/(?:due\s+)?(?:by\s+)?(?:in\s+)?(\d+)\s+days?(?:\s+from\s+now)?/i);
+    if (inDays) {
+      const d = new Date(now);
+      d.setDate(d.getDate() + parseInt(inDays[1], 10));
+      return d.toISOString().slice(0, 10);
+    }
+
+    if (/\b(?:due\s+)?(?:by\s+)?tomorrow\b/i.test(t)) {
+      const d = new Date(now);
+      d.setDate(d.getDate() + 1);
+      return d.toISOString().slice(0, 10);
+    }
+
+    if (/\b(?:due\s+)?(?:by\s+)?next\s+week\b/i.test(t)) {
+      const d = new Date(now);
+      d.setDate(d.getDate() + 7);
+      return d.toISOString().slice(0, 10);
+    }
+
+    if (typeof window !== 'undefined' && window.chrono) {
+      try {
+        const parsed = window.chrono.parseDate(t);
+        if (parsed && !isNaN(parsed.getTime())) return parsed.toISOString().slice(0, 10);
+      } catch (e) { /* fallback to null */ }
     }
     return null;
   }
@@ -174,6 +235,12 @@
     if (deadline) {
       result = result.replace(/(?:due\s+)?(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{1,2}(?:\s+\d{4})?/gi, '');
       result = result.replace(/(?:due\s+)?\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?/gi, '');
+      result = result.replace(/(?:due\s+)?(?:by\s+)?(?:the\s+)?end\s+of\s+(?:the\s+)?(?:next\s+)?month/gi, '');
+      result = result.replace(/(?:due\s+)?(?:by\s+)?eom\b/gi, '');
+      result = result.replace(/(?:due\s+)?(?:by\s+)?(?:next|this)\s+(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)/gi, '');
+      result = result.replace(/(?:due\s+)?(?:by\s+)?(?:in\s+)?\d+\s+(?:days?|weeks?)(?:\s+from\s+now)?/gi, '');
+      result = result.replace(/(?:due\s+)?(?:by\s+)?tomorrow\b/gi, '');
+      result = result.replace(/(?:due\s+)?(?:by\s+)?next\s+week\b/gi, '');
     }
     if (category) {
       if (category === 'work') result = result.replace(/\bwork\b/gi, '');
@@ -186,7 +253,7 @@
     return result.replace(/\s+/g, ' ').trim();
   }
 
-  function createItem(text, category, deadline, priority) {
+  function createItem(text, category, deadline, priority, recurrence) {
     const cleanText = stripAutoExtractedFromText(text, category, deadline) || text.trim();
     return {
       id: 'id_' + Date.now() + '_' + Math.random().toString(36).slice(2),
@@ -195,6 +262,7 @@
       parkedAt: Date.now(),
       deadline: deadline || null,
       priority: priority || 'medium',
+      recurrence: recurrence || null,
       archived: false
     };
   }
@@ -242,7 +310,10 @@
   }
 
   function getItemsByCategory(cat) {
-    return getActiveItems().filter(i => i.category === cat);
+    let items = getActiveItems().filter(i => i.category === cat);
+    const q = (state.searchQuery || '').trim().toLowerCase();
+    if (q) items = items.filter(i => (i.text || '').toLowerCase().includes(q));
+    return items;
   }
 
   function getCategoryLabel(catId) {
@@ -351,6 +422,21 @@
       });
     });
 
+    container.querySelectorAll('.btn-move').forEach(sel => {
+      sel.addEventListener('change', (e) => {
+        const id = e.target.dataset.id;
+        const newCat = e.target.value;
+        if (!newCat) return;
+        const item = state.items.find(i => i.id === id);
+        if (item) {
+          item.category = newCat;
+          saveState();
+          renderColumns();
+        }
+        e.target.value = '';
+      });
+    });
+
     container.querySelectorAll('.column-add-btn, .column-add-hint').forEach(el => {
       el.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -366,17 +452,26 @@
     const checked = state.selectedIds.has(item.id);
     const overdue = fd && fd.overdue;
 
+    const daysParked = Math.floor((Date.now() - item.parkedAt) / 86400000);
+    const staleNudge = daysParked >= 30 ? ` title="Parked ${daysParked} days — consider doing it or dropping it"` : '';
+
     return `
-      <div class="task-card ${overdue ? 'overdue' : ''} ${checked ? 'selected' : ''}" data-id="${item.id}">
+      <div class="task-card ${overdue ? 'overdue' : ''} ${checked ? 'selected' : ''} ${daysParked >= 30 ? 'stale-nudge' : ''}" data-id="${item.id}"${staleNudge}>
         <input type="checkbox" ${checked ? 'checked' : ''}>
         <div class="task-content">
           <div class="task-text">${escapeHtml(item.text)}</div>
           <div class="task-meta">
             <span>Parked ${duration}</span>
             ${fd ? `<span class="${overdue ? 'overdue-badge' : ''}">${escapeHtml(fd.text)}</span>` : ''}
+            ${daysParked >= 30 ? `<span class="stale-badge" title="Parked ${daysParked} days">${daysParked}d</span>` : ''}
+            ${item.recurrence ? `<span class="recurrence-badge" title="Recurs ${item.recurrence}">↻</span>` : ''}
           </div>
         </div>
         <div class="task-actions">
+          <select class="btn-move" data-id="${item.id}" title="Move to column">
+            <option value="">Move</option>
+            ${getCategories().map(c => `<option value="${c.id}" ${c.id === item.category ? 'disabled' : ''}>${escapeHtml(getCategoryLabel(c.id))}</option>`).join('')}
+          </select>
           <button class="btn-edit" data-id="${item.id}" title="Edit">✎</button>
           <button class="btn-drop" data-id="${item.id}" title="Drop">×</button>
         </div>
@@ -412,15 +507,41 @@
     renderTalkAbout();
   }
 
+  function moveTodayUp(id) {
+    const idx = state.todaySuggestionIds.indexOf(id);
+    if (idx <= 0) return;
+    state.todaySuggestionIds.splice(idx, 1);
+    state.todaySuggestionIds.splice(idx - 1, 0, id);
+    saveState();
+    renderTodayList();
+    renderFocusList();
+  }
+
+  function moveTodayDown(id) {
+    const idx = state.todaySuggestionIds.indexOf(id);
+    if (idx < 0 || idx >= state.todaySuggestionIds.length - 1) return;
+    state.todaySuggestionIds.splice(idx, 1);
+    state.todaySuggestionIds.splice(idx + 1, 0, id);
+    saveState();
+    renderTodayList();
+    renderFocusList();
+  }
+
   function renderTodayList() {
     const list = document.getElementById('today-list');
     if (!list) return;
     const ids = state.todaySuggestionIds;
     const items = ids.map(id => state.items.find(i => i.id === id)).filter(Boolean);
 
-    list.innerHTML = items.map(item => {
+    list.innerHTML = items.map((item, idx) => {
       const accent = getColumnColor(item.category);
+      const canUp = idx > 0;
+      const canDown = idx < items.length - 1;
       return `<div class="today-item today-item-accent" data-id="${item.id}" style="--today-accent: ${accent}">
+        <div class="today-item-order">
+          <button type="button" class="btn-order" data-action="up" ${!canUp ? 'disabled' : ''} title="Move up">↑</button>
+          <button type="button" class="btn-order" data-action="down" ${!canDown ? 'disabled' : ''} title="Move down">↓</button>
+        </div>
         <span class="task-text">${escapeHtml(item.text)}</span>
         <button class="btn-done" title="Done">Done</button>
         <button class="btn-remove" title="Remove from suggestions">Remove</button>
@@ -433,6 +554,13 @@
     list.querySelectorAll('.btn-remove').forEach(btn => {
       btn.addEventListener('click', () => removeFromSuggestions(btn.closest('.today-item').dataset.id));
     });
+    list.querySelectorAll('.btn-order').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const id = e.target.closest('.today-item').dataset.id;
+        if (e.target.dataset.action === 'up') moveTodayUp(id);
+        else moveTodayDown(id);
+      });
+    });
   }
 
   function renderFocusList() {
@@ -442,9 +570,15 @@
       .map(id => state.items.find(i => i.id === id))
       .filter(Boolean);
 
-    list.innerHTML = items.map(item => {
+    list.innerHTML = items.map((item, idx) => {
       const accent = getColumnColor(item.category);
+      const canUp = idx > 0;
+      const canDown = idx < items.length - 1;
       return `<div class="today-item today-item-accent task-card" data-id="${item.id}" style="--today-accent: ${accent}">
+        <div class="today-item-order">
+          <button type="button" class="btn-order" data-action="up" ${!canUp ? 'disabled' : ''}>↑</button>
+          <button type="button" class="btn-order" data-action="down" ${!canDown ? 'disabled' : ''}>↓</button>
+        </div>
         <span class="task-text">${escapeHtml(item.text)}</span>
         <button class="btn-done">Done</button>
         <button class="btn-remove">Remove from suggestions</button>
@@ -456,6 +590,13 @@
     });
     list.querySelectorAll('.btn-remove').forEach(btn => {
       btn.addEventListener('click', () => removeFromSuggestions(btn.closest('.today-item').dataset.id));
+    });
+    list.querySelectorAll('.btn-order').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const id = e.target.closest('.today-item').dataset.id;
+        if (e.target.dataset.action === 'up') moveTodayUp(id);
+        else moveTodayDown(id);
+      });
     });
   }
 
@@ -499,18 +640,58 @@
     renderColumns();
   }
 
+  function respawnRecurring(item) {
+    const now = new Date();
+    let nextDeadline = null;
+    if (item.recurrence === 'daily') {
+      const d = new Date(now);
+      d.setDate(d.getDate() + 1);
+      nextDeadline = d.toISOString().slice(0, 10);
+    } else if (item.recurrence === 'weekly') {
+      const d = new Date(now);
+      d.setDate(d.getDate() + 7);
+      nextDeadline = d.toISOString().slice(0, 10);
+    } else if (item.recurrence === 'monthly') {
+      const d = new Date(now);
+      d.setMonth(d.getMonth() + 1);
+      nextDeadline = d.toISOString().slice(0, 10);
+    }
+    const newItem = createItem(item.text, item.category, nextDeadline, item.priority, item.recurrence);
+    state.items.push(newItem);
+    return newItem.id;
+  }
+
   function markDone(id) {
     const item = state.items.find(i => i.id === id);
     if (!item) return;
+    const wasInSuggestions = state.todaySuggestionIds.includes(id);
+    const prevArchived = item.archived;
+    const prevArchivedAt = item.archivedAt;
     item.archived = true;
     item.archivedAt = item.archivedAt || Date.now();
     state.todaySuggestionIds = state.todaySuggestionIds.filter(x => x !== id);
     state.completedTodayCount++;
+    const respawnedId = item.recurrence ? respawnRecurring(item) : null;
     saveState();
     updateTally();
     renderTodayList();
     renderFocusList();
     renderColumns();
+
+    showToast('Done', () => {
+      item.archived = prevArchived;
+      item.archivedAt = prevArchivedAt;
+      if (wasInSuggestions) state.todaySuggestionIds.push(id);
+      state.completedTodayCount = Math.max(0, state.completedTodayCount - 1);
+      if (respawnedId) state.items = state.items.filter(i => i.id !== respawnedId);
+      saveState();
+      updateTally();
+      renderTodayList();
+      renderFocusList();
+      renderColumns();
+    });
+    if (state.undoDoneTimeout) clearTimeout(state.undoDoneTimeout);
+    state.undoDoneTimeout = setTimeout(() => { /* toast hides */ }, 5000);
   }
 
   function deleteItem(id, showUndo = true) {
@@ -591,6 +772,8 @@
     if (quickInput) quickInput.value = '';
     const deadlineInput = document.getElementById('deadline-input');
     if (deadlineInput) deadlineInput.value = '';
+    const recurrenceSelect = document.getElementById('recurrence-select');
+    if (recurrenceSelect) recurrenceSelect.value = '';
     const prioritySelect = document.getElementById('priority-select');
     if (prioritySelect) prioritySelect.value = 'medium';
     const categorySelect = document.getElementById('category-select');
@@ -827,8 +1010,10 @@
     const category = document.getElementById('category-select').value;
     const deadline = document.getElementById('deadline-input').value || null;
     const priority = document.getElementById('priority-select').value;
+    const recurrenceEl = document.getElementById('recurrence-select');
+    const recurrence = (recurrenceEl && recurrenceEl.value) ? recurrenceEl.value : null;
     state.lastCategory = category;
-    const item = createItem(text, category, deadline, priority);
+    const item = createItem(text, category, deadline, priority, recurrence);
     state.items.push(item);
     saveState();
     closeAddModal();
@@ -857,6 +1042,8 @@
     item.text = document.getElementById('edit-text').value.trim();
     item.category = document.getElementById('edit-category').value;
     item.deadline = document.getElementById('edit-deadline').value || null;
+    const editRecurrence = document.getElementById('edit-recurrence');
+    item.recurrence = (editRecurrence && editRecurrence.value) ? editRecurrence.value : null;
     item.priority = document.getElementById('edit-priority').value;
     state.editingId = null;
     document.getElementById('edit-modal').style.display = 'none';
@@ -1006,6 +1193,7 @@
     renderColumns();
     renderTodayList();
     renderTalkAbout();
+    renderEmailTriage();
     updateTally();
     updateAddToSuggestionsBtn();
     if (window.talkAbout && state.pairId) {
@@ -1018,9 +1206,119 @@
       state.talkAboutUnsubscribe();
       state.talkAboutUnsubscribe = null;
     }
+    const triagePairId = state.pairId || 'solo_default';
+    if (window.talkAbout) {
+      window.talkAbout.getLastAgentRun(triagePairId).then(run => {
+        state.lastAgentRun = run;
+        renderEmailTriage();
+      });
+      if (state.emailTriageUnsubscribe) state.emailTriageUnsubscribe();
+      state.emailTriageUnsubscribe = window.talkAbout.subscribeEmailTasks(triagePairId, items => {
+        state.emailTriageItems = items;
+        renderEmailTriage();
+      });
+    }
+  }
+
+  function renderEmailTriage() {
+    const section = document.getElementById('email-triage-section');
+    const list = document.getElementById('email-triage-list');
+    const statusEl = document.getElementById('email-triage-status');
+    const emptyEl = document.getElementById('email-triage-empty');
+    if (!section || !list) return;
+    if (!window.talkAbout || typeof SUPABASE_URL === 'undefined') {
+      section.style.display = 'none';
+      return;
+    }
+    section.style.display = 'block';
+    const items = state.emailTriageItems || [];
+    if (statusEl) {
+      const run = state.lastAgentRun;
+      if (run) {
+        const d = run.run_at ? new Date(run.run_at) : null;
+        const ago = d ? (Math.round((Date.now() - d) / 60000) + ' min ago') : '';
+        const status = run.status === 'failed' ? 'Last triage failed' : (run.status === 'partial' ? 'Last triage partial' : 'Last triage');
+        statusEl.textContent = status + (ago ? ': ' + ago : '') + (run.error_message ? ' — ' + run.error_message : '');
+      } else {
+        statusEl.textContent = 'Last triage: —';
+      }
+    }
+    if (items.length === 0) {
+      list.innerHTML = '';
+      if (emptyEl) emptyEl.style.display = 'block';
+      return;
+    }
+    if (emptyEl) emptyEl.style.display = 'none';
+    list.innerHTML = items.map(t => {
+      const gmailUrl = t.thread_id
+        ? 'https://mail.google.com/mail/u/0/#inbox/' + encodeURIComponent(t.thread_id)
+        : 'https://mail.google.com/mail/u/0/#inbox';
+      const subj = escapeHtml((t.subject || '').slice(0, 60));
+      const text = escapeHtml((t.text || '').slice(0, 120));
+      const draft = t.draft_reply ? '<details class="email-triage-draft"><summary>Draft reply</summary><pre>' + escapeHtml(t.draft_reply.slice(0, 500)) + '</pre></details>' : '';
+      return `<div class="email-triage-card" data-id="${t.id}">
+        <div class="email-triage-card-main">
+          <strong>${subj}</strong>
+          <p class="email-triage-text">${text}</p>
+          ${draft}
+          <div class="email-triage-actions">
+            <select class="email-triage-category" data-id="${t.id}">${getCategories().map(c => `<option value="${c.id}" ${c.id === t.category ? 'selected' : ''}>${escapeHtml(getCategoryLabel(c.id))}</option>`).join('')}</select>
+            <button class="btn-primary btn-sm email-triage-add" data-id="${t.id}">Add to column</button>
+            <button class="btn-secondary btn-sm email-triage-dismiss" data-id="${t.id}">Dismiss</button>
+            <a href="${gmailUrl}" target="_blank" rel="noopener" class="email-triage-link">Open in Gmail</a>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+    list.querySelectorAll('.email-triage-add').forEach(btn => {
+      btn.addEventListener('click', () => addEmailTaskToParkingLot(btn.dataset.id));
+    });
+    list.querySelectorAll('.email-triage-dismiss').forEach(btn => {
+      btn.addEventListener('click', () => dismissEmailTask(btn.dataset.id));
+    });
+  }
+
+  function addEmailTaskToParkingLot(id) {
+    const t = state.emailTriageItems.find(x => x.id === id);
+    if (!t || !window.talkAbout) return;
+    const cat = document.querySelector(`.email-triage-category[data-id="${id}"]`)?.value || t.category;
+    const item = createItem(t.text, cat, t.deadline, t.priority || 'medium');
+    state.items.push(item);
+    state.lastCategory = cat;
+    saveState();
+    window.talkAbout.approveEmailTask(id).then(({ error }) => {
+      if (error) showToast('Failed to approve');
+      else {
+        state.emailTriageItems = state.emailTriageItems.filter(x => x.id !== id);
+        renderEmailTriage();
+        renderColumns();
+        showToast('Added to ' + getCategoryLabel(cat));
+      }
+    });
+  }
+
+  function dismissEmailTask(id) {
+    if (!window.talkAbout) return;
+    window.talkAbout.deleteEmailTask(id).then(({ error }) => {
+      if (error) showToast('Failed to dismiss');
+      else {
+        state.emailTriageItems = state.emailTriageItems.filter(x => x.id !== id);
+        renderEmailTriage();
+        showToast('Dismissed');
+      }
+    });
   }
 
   function bindEvents() {
+    const searchInput = document.getElementById('search-input');
+    if (searchInput) {
+      searchInput.value = state.searchQuery || '';
+      searchInput.addEventListener('input', () => {
+        state.searchQuery = searchInput.value;
+        renderColumns();
+      });
+    }
+
     const backBtn = document.getElementById('back-btn');
     if (backBtn) backBtn.addEventListener('click', () => {
       state.drillDownCategory = null;
@@ -1069,6 +1367,55 @@
 
     const addBtn = document.getElementById('add-btn');
     if (addBtn) addBtn.addEventListener('click', openAddModal);
+
+    const shortcutsOverlay = document.getElementById('shortcuts-overlay');
+    const closeShortcutsBtn = document.getElementById('close-shortcuts');
+    function openShortcutsOverlay() {
+      if (shortcutsOverlay) { shortcutsOverlay.style.display = 'flex'; shortcutsOverlay.setAttribute('aria-hidden', 'false'); }
+    }
+    function closeShortcutsOverlay() {
+      if (shortcutsOverlay) { shortcutsOverlay.style.display = 'none'; shortcutsOverlay.setAttribute('aria-hidden', 'true'); }
+    }
+    if (closeShortcutsBtn) closeShortcutsBtn.addEventListener('click', closeShortcutsOverlay);
+    if (shortcutsOverlay) shortcutsOverlay.addEventListener('click', (e) => { if (e.target === shortcutsOverlay) closeShortcutsOverlay(); });
+
+    document.addEventListener('keydown', (e) => {
+      const mainApp = document.getElementById('main-app');
+      if (!mainApp || mainApp.style.display === 'none') return;
+      if (e.target.matches('input, textarea, select')) return;
+      if (e.key === 'n' || e.key === 'N') {
+        e.preventDefault();
+        openAddModal();
+      } else if (e.key === 'Escape') {
+        if (shortcutsOverlay && shortcutsOverlay.style.display === 'flex') {
+          closeShortcutsOverlay();
+        } else if (document.body.classList.contains('sidebar-open')) {
+          closeSidebar();
+        } else {
+          const modals = ['add-modal', 'edit-modal', 'archive-modal', 'settings-modal', 'link-partner-modal'];
+          const panels = ['analytics-panel'];
+          for (const id of modals) {
+            const m = document.getElementById(id);
+            if (m && m.style.display === 'flex') {
+              if (id === 'add-modal') closeAddModal();
+              else if (id === 'edit-modal') { m.style.display = 'none'; state.editingId = null; }
+              else if (id === 'archive-modal') m.style.display = 'none';
+              else if (id === 'settings-modal') closeSettingsModal();
+              else if (id === 'link-partner-modal') closeLinkPartnerModal();
+              return;
+            }
+          }
+          for (const id of panels) {
+            const p = document.getElementById(id);
+            if (p && p.style.display === 'block') { p.style.display = 'none'; return; }
+          }
+        }
+      } else if (e.key === '?' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        if (shortcutsOverlay && shortcutsOverlay.style.display === 'flex') closeShortcutsOverlay();
+        else openShortcutsOverlay();
+      }
+    });
 
     const focusBtn = document.getElementById('focus-btn');
     if (focusBtn) focusBtn.addEventListener('click', toggleFocusMode);
@@ -1366,6 +1713,9 @@
   }
 
   function init() {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    }
     loadPairState();
     if (state.pairId) {
       document.getElementById('entry-screen').style.display = 'none';

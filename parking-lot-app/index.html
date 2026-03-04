@@ -3,8 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#e07a5f">
   <title>Parking Lot</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🅿</text></svg>">
+  <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -61,6 +63,13 @@
         <div id="overview" class="overview">
           <div class="columns-header">
             <button id="back-btn" class="btn-back" style="display:none">← Overview</button>
+            <input id="search-input" type="text" placeholder="Search..." class="search-input" autocomplete="off">
+          </div>
+          <div id="email-triage-section" class="email-triage-section">
+            <h3 class="email-triage-header">Email Triage</h3>
+            <p id="email-triage-status" class="email-triage-status"></p>
+            <div id="email-triage-list" class="email-triage-list"></div>
+            <p id="email-triage-empty" class="email-triage-empty" style="display:none">No new tasks — you're caught up!</p>
           </div>
           <div id="columns" class="columns"></div>
           <div id="talk-about-section" class="talk-about-section" style="display:none">
@@ -114,6 +123,13 @@
             <select id="category-select"></select>
             <label>Deadline (optional)</label>
             <input id="deadline-input" type="date">
+            <label>Recurrence</label>
+            <select id="recurrence-select">
+              <option value="">None</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+            </select>
             <label>Priority <span class="hint-link" id="priority-hint" title="How to decide?">?</span></label>
             <select id="priority-select">
               <option value="critical">Critical</option>
@@ -148,6 +164,13 @@
         <input id="edit-text" type="text">
         <select id="edit-category"></select>
         <input id="edit-deadline" type="date">
+        <label>Recurrence</label>
+        <select id="edit-recurrence">
+          <option value="">None</option>
+          <option value="daily">Daily</option>
+          <option value="weekly">Weekly</option>
+          <option value="monthly">Monthly</option>
+        </select>
         <select id="edit-priority"></select>
         <button id="save-edit" class="btn-primary">Save</button>
       </div>
@@ -268,7 +291,20 @@
 
   <div id="toast" class="toast"></div>
 
+  <div id="shortcuts-overlay" class="shortcuts-overlay" style="display:none" aria-hidden="true">
+    <div class="shortcuts-content">
+      <h3>Keyboard shortcuts</h3>
+      <dl class="shortcuts-list">
+        <dt>N</dt><dd>Add new task</dd>
+        <dt>Esc</dt><dd>Close modal</dd>
+        <dt>?</dt><dd>Show this help</dd>
+      </dl>
+      <button id="close-shortcuts" class="btn-secondary">Close</button>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://unpkg.com/chrono-node@2.5.0/dist/bundle.js"></script>
   <script src="config.js"></script>
   <script src="supabase.js"></script>
   <script src="app.js"></script>

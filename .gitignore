@@ -18,3 +18,7 @@ venv/
 dist/
 build/
 *.log
+
+# Email triage agent
+email-management/agent/.env
+email-management/agent/credentials.json

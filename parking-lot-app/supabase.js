@@ -93,6 +93,68 @@
           talkAboutSubscription = null;
         }
       };
+    },
+
+    async getEmailTasks(pairId) {
+      const client = getClient();
+      if (!client) return { data: [], error: 'Supabase not configured' };
+      const { data, error } = await client.from('email_tasks')
+        .select('*')
+        .eq('pair_id', pairId)
+        .eq('approved', false)
+        .order('added_at', { ascending: false });
+      return { data: error ? [] : (data || []), error };
+    },
+
+    async approveEmailTask(id) {
+      const client = getClient();
+      if (!client) return { error: 'Supabase not configured' };
+      const { error } = await client.from('email_tasks').update({ approved: true }).eq('id', id);
+      return { error };
+    },
+
+    async deleteEmailTask(id) {
+      const client = getClient();
+      if (!client) return { error: 'Supabase not configured' };
+      const { error } = await client.from('email_tasks').delete().eq('id', id);
+      return { error };
+    },
+
+    async getLastAgentRun(pairId) {
+      const client = getClient();
+      if (!client) return null;
+      const { data, error } = await client.from('agent_runs')
+        .select('run_at, status, emails_processed, tasks_created, error_message')
+        .eq('pair_id', pairId)
+        .order('run_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return error ? null : data;
+    },
+
+    subscribeEmailTasks(pairId, callback) {
+      const client = getClient();
+      if (!client) {
+        callback([]);
+        return () => {};
+      }
+      const fetchAndCallback = async () => {
+        try {
+          const { data } = await client.from('email_tasks')
+            .select('*')
+            .eq('pair_id', pairId)
+            .eq('approved', false)
+            .order('added_at', { ascending: false });
+          callback(data || []);
+        } catch (e) {
+          callback([]);
+        }
+      };
+      fetchAndCallback();
+      const channel = client.channel('email_tasks_' + pairId)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'email_tasks', filter: 'pair_id=eq.' + pairId }, fetchAndCallback)
+        .subscribe();
+      return () => client.removeChannel(channel);
     }
   };
 })();
