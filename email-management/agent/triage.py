@@ -220,12 +220,15 @@ def main(dry_run=False):
 
     triaged_id = get_or_create_triaged_label(service) if not dry_run else None
 
-    # Unread inbox only (exclude Triaged), newest first, cap
-    q = "is:unread -label:Triaged in:inbox"
+    # Unread Primary tab only (exclude Triaged, Updates, Social, Promotions), newest first, cap
+    q = "is:unread -label:Triaged category:primary"
     results = service.users().messages().list(userId='me', q=q, maxResults=MAX_EMAILS_PER_RUN).execute()
     msg_ids = results.get('messages', [])
+    total_est = results.get('resultSizeEstimate', len(msg_ids))
     if not msg_ids:
         print("No unread emails to triage.")
+        if total_est and total_est > 0:
+            print("(Gmail reports unread — they may all have the Triaged label. Remove it to reprocess.)")
         return
 
     # Group by thread, take latest per thread
@@ -251,13 +254,16 @@ def main(dry_run=False):
         })
 
     if not to_process:
-        print("No emails to process after filtering.")
+        print("No emails to process after filtering (newsletters, no-reply, receipts are skipped).")
+        print(f"  Fetched {len(msg_ids)} unread, all filtered out.")
         return
 
     if dry_run:
-        print(f"DRY RUN: Would process {len(to_process)} emails")
+        print(f"DRY RUN: Would process {len(to_process)} emails (of {len(msg_ids)} unread, {len(msg_ids) - len(to_process)} filtered)")
         for e in to_process[:5]:
             print(f"  - {e['subject'][:60]}...")
+        if len(to_process) > 5:
+            print(f"  ... and {len(to_process) - 5} more")
         return
 
     from supabase import create_client
@@ -296,7 +302,11 @@ def main(dry_run=False):
             needs_reply = res.get('needsReply', False)
             draft_reply = res.get('draftReply', '')
 
-            if is_actionable and tasks:
+            # Ensure reply-needed emails get a task even if Gemini didn't mark them actionable
+            if needs_reply and draft_reply and not (is_actionable and tasks):
+                tasks = [{'text': f"Reply to: {email_info['subject'][:80]}", 'category': 'life', 'deadline': None, 'priority': 'medium'}]
+
+            if tasks:
                 for t in tasks:
                     cat = validate_category(t.get('category', 'other'), category_preset)
                     supabase.table('email_tasks').insert({

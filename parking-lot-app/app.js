@@ -102,6 +102,7 @@
         state.buttonColor = parsed.buttonColor || null;
         state.textColor = parsed.textColor || null;
         state.displayName = parsed.displayName || '';
+        if (parsed.columnColors && Object.keys(parsed.columnColors).length) state.columnColors = parsed.columnColors;
       }
       const tally = localStorage.getItem(STORAGE_PREFIX + 'tally');
       if (tally) {
@@ -126,7 +127,8 @@
         categoryPreset: state.categoryPreset || 'generic',
         buttonColor: state.buttonColor,
         textColor: state.textColor,
-        displayName: state.displayName || ''
+        displayName: state.displayName || '',
+        columnColors: state.columnColors || {}
       }));
       localStorage.setItem(STORAGE_PREFIX + 'tally', JSON.stringify({
         count: state.completedTodayCount,
@@ -1188,10 +1190,8 @@
   }
 
   function openEmailTriage() {
-    renderEmailTriage();
     if (window.talkAbout && typeof SUPABASE_URL !== 'undefined') {
-      const section = document.getElementById('email-triage-section');
-      if (section) section.style.display = 'block';
+      renderEmailTriage(true);
     } else {
       showToast('Email triage unavailable — connect Supabase first');
     }
@@ -1259,7 +1259,7 @@
     renderColumns();
     renderTodayList();
     renderTalkAbout();
-    renderEmailTriage();
+    renderEmailTriage(false);
     updateTally();
     updateAddToSuggestionsBtn();
     if (window.talkAbout && state.pairId) {
@@ -1277,17 +1277,17 @@
     if (window.talkAbout) {
       window.talkAbout.getLastAgentRun(triagePairId, triageAddedBy).then(run => {
         state.lastAgentRun = run;
-        renderEmailTriage();
+        renderEmailTriage(false);
       });
       if (state.emailTriageUnsubscribe) state.emailTriageUnsubscribe();
       state.emailTriageUnsubscribe = window.talkAbout.subscribeEmailTasks(triagePairId, triageAddedBy, items => {
         state.emailTriageItems = items;
-        renderEmailTriage();
+        renderEmailTriage(false);
       });
     }
   }
 
-  function renderEmailTriage() {
+  function renderEmailTriage(showPanel = false) {
     const section = document.getElementById('email-triage-section');
     const list = document.getElementById('email-triage-list');
     const statusEl = document.getElementById('email-triage-status');
@@ -1297,7 +1297,7 @@
       section.style.display = 'none';
       return;
     }
-    section.style.display = 'block';
+    if (showPanel) section.style.display = 'block';
     const items = state.emailTriageItems || [];
     if (statusEl) {
       const run = state.lastAgentRun;
@@ -1312,7 +1312,20 @@
     }
     if (items.length === 0) {
       list.innerHTML = '';
-      if (emptyEl) emptyEl.style.display = 'block';
+      if (emptyEl) {
+        emptyEl.style.display = 'block';
+        const run = state.lastAgentRun;
+        if (!run) {
+          emptyEl.textContent = 'Run the triage agent to extract tasks from your inbox. See email-management/README.md';
+        } else {
+          const d = run.run_at ? new Date(run.run_at) : null;
+          const hoursAgo = d ? Math.round((Date.now() - d) / 3600000) : null;
+          const hint = hoursAgo !== null && hoursAgo >= 24
+            ? ` Last run was ${hoursAgo}h ago — run the agent to scan for new emails.`
+            : ' Run the triage agent to scan your inbox.';
+          emptyEl.textContent = 'No tasks from last run.' + hint;
+        }
+      }
       return;
     }
     if (emptyEl) emptyEl.style.display = 'none';

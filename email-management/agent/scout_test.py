@@ -64,7 +64,11 @@ def check_gmail():
         creds.refresh(Request())
         service = build('gmail', 'v1', credentials=creds)
         profile = service.users().getProfile(userId='me').execute()
-        print(f"Gmail: OK (connected as {profile.get('emailAddress', '?')})")
+        # Count unread (same query as triage)
+        q = "is:unread -label:Triaged category:primary"
+        r = service.users().messages().list(userId='me', q=q, maxResults=1).execute()
+        total = r.get('resultSizeEstimate', 0)
+        print(f"Gmail: OK (connected as {profile.get('emailAddress', '?')}) — {total} unread in Primary tab (excl. Triaged)")
         return True
     except Exception as e:
         print(f"Gmail: FAIL — {e}")
