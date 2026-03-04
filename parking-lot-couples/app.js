@@ -27,7 +27,8 @@
     pairId: null,
     addedBy: null,
     talkAboutItems: [],
-    talkAboutUnsubscribe: null
+    talkAboutUnsubscribe: null,
+    customLabels: {}
   };
 
   function loadPairState() {
@@ -48,6 +49,7 @@
         state.items = parsed.items || [];
         state.todaySuggestionIds = parsed.todaySuggestionIds || [];
         state.lastCategory = parsed.lastCategory || 'life';
+        state.customLabels = parsed.customLabels || {};
       }
       const tally = localStorage.getItem(STORAGE_PREFIX + 'tally');
       if (tally) {
@@ -66,7 +68,8 @@
       localStorage.setItem(STORAGE_PREFIX + 'data', JSON.stringify({
         items: state.items,
         todaySuggestionIds: state.todaySuggestionIds,
-        lastCategory: state.lastCategory
+        lastCategory: state.lastCategory,
+        customLabels: state.customLabels
       }));
       localStorage.setItem(STORAGE_PREFIX + 'tally', JSON.stringify({
         count: state.completedTodayCount,
@@ -181,6 +184,12 @@
     return getActiveItems().filter(i => i.category === cat);
   }
 
+  function getCategoryLabel(catId) {
+    if (state.customLabels[catId]) return state.customLabels[catId];
+    const cat = CATEGORIES.find(c => c.id === catId);
+    return cat ? cat.label : catId;
+  }
+
   function escapeHtml(s) {
     const div = document.createElement('div');
     div.textContent = s;
@@ -194,9 +203,8 @@
     container.classList.toggle('single-column', !!state.drillDownCategory);
 
     container.innerHTML = cats.map(catId => {
-      const cat = CATEGORIES.find(c => c.id === catId);
       const items = sortItems(getItemsByCategory(catId));
-      const label = cat ? cat.label : catId;
+      const label = getCategoryLabel(catId);
 
       return `
         <div class="column" data-category="${catId}">
@@ -452,9 +460,18 @@
     setTimeout(() => toast.classList.remove('visible'), 5000);
   }
 
+  function updateCategorySelectOptions() {
+    const sel = document.getElementById('category-select');
+    if (!sel) return;
+    sel.innerHTML = CATEGORIES.map(c =>
+      `<option value="${c.id}">${escapeHtml(getCategoryLabel(c.id))}</option>`
+    ).join('');
+  }
+
   function openAddModal() {
     const modal = document.getElementById('add-modal');
     if (modal) modal.style.display = 'flex';
+    updateCategorySelectOptions();
     const taskInput = document.getElementById('task-input');
     if (taskInput) {
       taskInput.value = '';
@@ -468,6 +485,34 @@
   function closeAddModal() {
     const modal = document.getElementById('add-modal');
     if (modal) modal.style.display = 'none';
+  }
+
+  function openSettingsModal() {
+    const container = document.getElementById('settings-column-inputs');
+    if (!container) return;
+    container.innerHTML = CATEGORIES.map(c => {
+      const val = (state.customLabels[c.id] || c.label);
+      return `<label>${escapeHtml(c.label)}<input type="text" data-cat="${c.id}" value="${escapeHtml(val)}" placeholder="${escapeHtml(c.label)}"></label>`;
+    }).join('');
+    document.getElementById('settings-modal').style.display = 'flex';
+  }
+
+  function closeSettingsModal() {
+    document.getElementById('settings-modal').style.display = 'none';
+  }
+
+  function saveSettingsAndClose() {
+    const inputs = document.querySelectorAll('#settings-column-inputs input[data-cat]');
+    inputs.forEach(inp => {
+      const val = inp.value.trim();
+      if (val) state.customLabels[inp.dataset.cat] = val;
+      else delete state.customLabels[inp.dataset.cat];
+    });
+    saveState();
+    updateCategorySelectOptions();
+    renderColumns();
+    closeSettingsModal();
+    showToast('Settings saved');
   }
 
   function applySmartFields() {
@@ -502,7 +547,7 @@
     state.editingId = id;
     document.getElementById('edit-text').value = item.text;
     document.getElementById('edit-category').innerHTML = CATEGORIES.map(c =>
-      `<option value="${c.id}" ${c.id === item.category ? 'selected' : ''}>${c.label}</option>`
+      `<option value="${c.id}" ${c.id === item.category ? 'selected' : ''}>${escapeHtml(getCategoryLabel(c.id))}</option>`
     ).join('');
     document.getElementById('edit-deadline').value = item.deadline || '';
     document.getElementById('edit-priority').innerHTML = PRIORITIES.map(p =>
@@ -585,7 +630,7 @@
     list.innerHTML = archived.length ? archived.map(item => {
       const date = item.archivedAt ? new Date(item.archivedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
       const cat = CATEGORIES.find(c => c.id === item.category);
-      return `<div class="archive-item">${escapeHtml(item.text)} <span class="archive-date">${cat ? cat.label : ''} — ${date}</span></div>`;
+      return `<div class="archive-item">${escapeHtml(item.text)} <span class="archive-date">${getCategoryLabel(item.category)} — ${date}</span></div>`;
     }).join('') : '<div class="empty-state">No completed items yet</div>';
     document.getElementById('archive-modal').style.display = 'flex';
   }
@@ -600,8 +645,7 @@
       byCat[i.category] = (byCat[i.category] || 0) + 1;
     });
     const catStr = Object.entries(byCat).map(([k, v]) => {
-      const c = CATEGORIES.find(x => x.id === k);
-      return `${c ? c.label : k}: ${v}`;
+      return `${getCategoryLabel(k)}: ${v}`;
     }).join(', ');
     return `Parked this week: ${parked}\nCompleted from Today's Suggestions: ${completed}${catStr ? '\nBy category: ' + catStr : ''}`;
   }
@@ -642,6 +686,7 @@
     const badge = document.getElementById('pair-badge');
     if (badge) badge.textContent = state.pairId + ' · ' + state.addedBy;
     loadState();
+    updateCategorySelectOptions();
     renderColumns();
     renderTodayList();
     renderTalkAbout();
@@ -716,6 +761,20 @@
 
     const saveEdit = document.getElementById('save-edit');
     if (saveEdit) saveEdit.addEventListener('click', saveEdit);
+
+    const settingsBtn = document.getElementById('settings-btn');
+    if (settingsBtn) settingsBtn.addEventListener('click', openSettingsModal);
+
+    const closeSettings = document.getElementById('close-settings');
+    if (closeSettings) closeSettings.addEventListener('click', closeSettingsModal);
+
+    const settingsModal = document.getElementById('settings-modal');
+    if (settingsModal) settingsModal.addEventListener('click', (e) => {
+      if (e.target.id === 'settings-modal') closeSettingsModal();
+    });
+
+    const saveSettings = document.getElementById('save-settings');
+    if (saveSettings) saveSettings.addEventListener('click', saveSettingsAndClose);
 
     const archiveBtn = document.getElementById('archive-btn');
     if (archiveBtn) archiveBtn.addEventListener('click', openArchiveModal);

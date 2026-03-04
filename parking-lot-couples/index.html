@@ -41,6 +41,7 @@
           <span id="completed-tally" class="tally">Completed today: 0</span>
           <span id="pair-badge" class="pair-badge"></span>
           <button id="clear-suggestions" class="btn-secondary">Clear suggestions</button>
+          <button id="settings-btn" class="btn-secondary" title="Settings">⚙</button>
           <button id="archive-btn" class="btn-secondary">View archive</button>
           <button id="analytics-btn" class="btn-secondary">Analytics</button>
           <button id="export-btn" class="btn-secondary">Export backup</button>
@@ -99,12 +100,7 @@
           </div>
           <div class="add-options">
             <label>Category</label>
-            <select id="category-select">
-              <option value="work">Work</option>
-              <option value="hobbies">Hobbies</option>
-              <option value="life">Life</option>
-              <option value="other">Other</option>
-            </select>
+            <select id="category-select"></select>
             <label>Deadline (optional)</label>
             <input id="deadline-input" type="date">
             <label>Priority <span class="hint-link" id="priority-hint" title="How to decide?">?</span></label>
@@ -145,6 +141,21 @@
       </div>
       <div class="modal-body">
         <div id="archive-list" class="archive-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="settings-modal" class="modal" style="display:none">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Settings</h3>
+        <button id="close-settings" class="btn-close">×</button>
+      </div>
+      <div class="modal-body">
+        <h4 class="settings-section-title">Column names</h4>
+        <p class="settings-hint">Customize what each column is called.</p>
+        <div id="settings-column-inputs" class="settings-column-inputs"></div>
+        <button id="save-settings" class="btn-primary">Save</button>
       </div>
     </div>
   </div>
