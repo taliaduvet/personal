@@ -10,6 +10,9 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <div id="offline-banner" class="offline-banner" style="display:none" role="status" aria-live="polite">
+    You're offline — tasks save locally. Sync will resume when you're back online.
+  </div>
   <div id="app">
     <!-- Entry screen (first-time: choose solo or couple) -->
     <div id="entry-screen" class="entry-screen" style="display:none">
@@ -55,7 +58,7 @@
           </div>
           <span id="completed-tally" class="tally">Completed today: 0</span>
           <div class="today-header-actions">
-            <button id="menu-btn" class="btn-icon btn-hamburger" title="Menu" aria-label="Open menu"><span class="hamburger-line"></span><span class="hamburger-line"></span><span class="hamburger-line"></span></button>
+            <button id="menu-btn" class="btn-icon btn-hamburger" title="Menu" aria-label="Open menu" aria-expanded="false" aria-controls="sidebar"><span class="hamburger-line"></span><span class="hamburger-line"></span><span class="hamburger-line"></span></button>
             <button id="email-triage-btn" class="btn-secondary btn-sm btn-email-triage" title="Email triage">Email triage</button>
             <div id="email-triage-section" class="email-triage-dropdown" style="display:none">
               <div class="email-triage-dropdown-content">
@@ -107,10 +110,10 @@
     <button id="add-btn" class="fab fab-primary" title="Add task">+</button>
   </div>
 
-  <div id="add-modal" class="modal" style="display:none">
+  <div id="add-modal" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="add-modal-title">
     <div class="modal-content">
       <div class="modal-header">
-        <h3>Add to parking lot</h3>
+        <h3 id="add-modal-title">Add to parking lot</h3>
         <button id="close-add" class="btn-close">×</button>
       </div>
       <div class="modal-body">
@@ -160,10 +163,10 @@
     </div>
   </div>
 
-  <div id="edit-modal" class="modal" style="display:none">
+  <div id="edit-modal" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="edit-modal-title">
     <div class="modal-content">
       <div class="modal-header">
-        <h3>Edit</h3>
+        <h3 id="edit-modal-title">Edit</h3>
         <button id="close-edit" class="btn-close">×</button>
       </div>
       <div class="modal-body">
@@ -183,10 +186,10 @@
     </div>
   </div>
 
-  <div id="archive-modal" class="modal" style="display:none">
+  <div id="archive-modal" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="archive-modal-title">
     <div class="modal-content modal-wide">
       <div class="modal-header">
-        <h3>Archive — Completed items</h3>
+        <h3 id="archive-modal-title">Archive — Completed items</h3>
         <button id="close-archive" class="btn-close">×</button>
       </div>
       <div class="modal-body">
@@ -195,10 +198,10 @@
     </div>
   </div>
 
-  <div id="settings-modal" class="modal" style="display:none">
+  <div id="settings-modal" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="settings-modal-title">
     <div class="modal-content">
       <div class="modal-header">
-        <h3>Settings</h3>
+        <h3 id="settings-modal-title">Settings</h3>
         <button id="close-settings" class="btn-close">×</button>
       </div>
       <div class="modal-body">
@@ -240,10 +243,10 @@
     </div>
   </div>
 
-  <div id="link-partner-modal" class="modal" style="display:none">
+  <div id="link-partner-modal" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="link-partner-modal-title">
     <div class="modal-content">
       <div class="modal-header">
-        <h3>Link partner</h3>
+        <h3 id="link-partner-modal-title">Link partner</h3>
         <button id="close-link-partner" class="btn-close">×</button>
       </div>
       <div class="modal-body">
@@ -295,7 +298,7 @@
     </nav>
   </aside>
 
-  <div id="toast" class="toast"></div>
+  <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
   <div id="shortcuts-overlay" class="shortcuts-overlay" style="display:none" aria-hidden="true">
     <div class="shortcuts-content">

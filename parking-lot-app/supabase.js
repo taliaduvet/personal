@@ -46,14 +46,14 @@
 
     async getUserPreferences(pairId, addedBy) {
       const client = getClient();
-      if (!client) return {};
+      if (!client) return { error: 'Supabase not configured' };
       const { data, error } = await client.from('user_preferences')
         .select('column_colors')
         .eq('pair_id', pairId)
         .eq('added_by', addedBy)
         .maybeSingle();
-      if (error || !data) return {};
-      return data.column_colors || {};
+      if (error) return { error: error.message };
+      return data?.column_colors || {};
     },
 
     async saveUserPreferences(pairId, addedBy, columnColors) {
@@ -95,14 +95,15 @@
       };
     },
 
-    async getEmailTasks(pairId) {
+    async getEmailTasks(pairId, addedBy) {
       const client = getClient();
       if (!client) return { data: [], error: 'Supabase not configured' };
-      const { data, error } = await client.from('email_tasks')
+      let q = client.from('email_tasks')
         .select('*')
         .eq('pair_id', pairId)
-        .eq('approved', false)
-        .order('added_at', { ascending: false });
+        .eq('approved', false);
+      if (addedBy) q = q.eq('added_by', addedBy);
+      const { data, error } = await q.order('added_at', { ascending: false });
       return { data: error ? [] : (data || []), error };
     },
 
@@ -120,19 +121,20 @@
       return { error };
     },
 
-    async getLastAgentRun(pairId) {
+    async getLastAgentRun(pairId, addedBy) {
       const client = getClient();
       if (!client) return null;
-      const { data, error } = await client.from('agent_runs')
+      let q = client.from('agent_runs')
         .select('run_at, status, emails_processed, tasks_created, error_message')
-        .eq('pair_id', pairId)
-        .order('run_at', { ascending: false })
+        .eq('pair_id', pairId);
+      if (addedBy) q = q.eq('added_by', addedBy);
+      const { data, error } = await q.order('run_at', { ascending: false })
         .limit(1)
         .maybeSingle();
       return error ? null : data;
     },
 
-    subscribeEmailTasks(pairId, callback) {
+    subscribeEmailTasks(pairId, addedBy, callback) {
       const client = getClient();
       if (!client) {
         callback([]);
@@ -140,18 +142,19 @@
       }
       const fetchAndCallback = async () => {
         try {
-          const { data } = await client.from('email_tasks')
+          let q = client.from('email_tasks')
             .select('*')
             .eq('pair_id', pairId)
-            .eq('approved', false)
-            .order('added_at', { ascending: false });
-          callback(data || []);
+            .eq('approved', false);
+          if (addedBy) q = q.eq('added_by', addedBy);
+          const { data, error } = await q.order('added_at', { ascending: false });
+          callback(error ? [] : (data || []));
         } catch (e) {
           callback([]);
         }
       };
       fetchAndCallback();
-      const channel = client.channel('email_tasks_' + pairId)
+      const channel = client.channel('email_tasks_' + pairId + '_' + (addedBy || 'all'))
         .on('postgres_changes', { event: '*', schema: 'public', table: 'email_tasks', filter: 'pair_id=eq.' + pairId }, fetchAndCallback)
         .subscribe();
       return () => client.removeChannel(channel);

@@ -211,6 +211,7 @@ def validate_category(cat, preset):
 
 def main(dry_run=False):
     pair_id = os.getenv('PARKING_LOT_PAIR_ID', 'solo_default')
+    added_by = os.getenv('PARKING_LOT_ADDED_BY', 'Talia')
     category_preset = os.getenv('PARKING_LOT_CATEGORY_PRESET', 'generic')
 
     creds = get_gmail_creds()
@@ -300,6 +301,7 @@ def main(dry_run=False):
                     cat = validate_category(t.get('category', 'other'), category_preset)
                     supabase.table('email_tasks').insert({
                         'pair_id': pair_id,
+                        'added_by': added_by,
                         'thread_id': email_info['thread_id'],
                         'email_id': eid,
                         'subject': email_info['subject'],
@@ -354,6 +356,7 @@ def main(dry_run=False):
     try:
         supabase.table('agent_runs').insert({
             'pair_id': pair_id,
+            'added_by': added_by,
             'status': status,
             'emails_processed': emails_processed,
             'tasks_created': tasks_created,

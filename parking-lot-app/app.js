@@ -66,7 +66,9 @@
     displayName: '',
     emailTriageItems: [],
     lastAgentRun: null,
-    emailTriageUnsubscribe: null
+    emailTriageUnsubscribe: null,
+    savePrefsTimeout: null,
+    processingIds: new Set()
   };
 
   function loadPairState() {
@@ -110,6 +112,7 @@
       }
     } catch (e) {
       console.warn('Load failed', e);
+      showToast('Could not load saved data — starting fresh');
     }
   }
 
@@ -131,6 +134,7 @@
       }));
     } catch (e) {
       console.warn('Save failed', e);
+      showToast('Could not save — check storage or try again');
     }
   }
 
@@ -344,8 +348,9 @@
   }
 
   function escapeHtml(s) {
+    if (s == null) return '';
     const div = document.createElement('div');
-    div.textContent = s;
+    div.textContent = String(s);
     return div.innerHTML;
   }
 
@@ -363,7 +368,7 @@
       return `
         <div class="column column-accent" data-category="${catId}" style="--column-accent: ${color}">
           <div class="column-header" data-category="${catId}">
-            ${label} <span class="count">(${items.length})</span>
+            ${escapeHtml(label)} <span class="count">(${items.length})</span>
           </div>
           <div class="column-items">
             ${items.length ? items.map(item => renderTaskCard(item)).join('') : `
@@ -662,8 +667,10 @@
   }
 
   function markDone(id) {
+    if (state.processingIds.has(id)) return;
     const item = state.items.find(i => i.id === id);
     if (!item) return;
+    state.processingIds.add(id);
     const wasInSuggestions = state.todaySuggestionIds.includes(id);
     const prevArchived = item.archived;
     const prevArchivedAt = item.archivedAt;
@@ -678,6 +685,7 @@
     renderFocusList();
     renderColumns();
 
+    state.processingIds.delete(id);
     showToast('Done', () => {
       item.archived = prevArchived;
       item.archivedAt = prevArchivedAt;
@@ -695,8 +703,10 @@
   }
 
   function deleteItem(id, showUndo = true) {
+    if (state.processingIds.has(id)) return;
     const idx = state.items.findIndex(i => i.id === id);
     if (idx < 0) return;
+    state.processingIds.add(id);
     const item = state.items[idx];
     state.items.splice(idx, 1);
     state.todaySuggestionIds = state.todaySuggestionIds.filter(x => x !== id);
@@ -706,6 +716,7 @@
     renderFocusList();
     renderColumns();
 
+    state.processingIds.delete(id);
     if (showUndo) {
       state.undoItem = item;
       showToast('Removed', () => {
@@ -787,9 +798,12 @@
   }
 
   function addQuick() {
+    const submitBtn = document.getElementById('submit-quick');
+    if (submitBtn?.disabled) return;
     const el = document.getElementById('quick-input');
     const lines = (el && el.value) ? el.value.split(/[\n,]+/).map(s => s.trim()).filter(Boolean) : [];
     if (!lines.length) return;
+    if (submitBtn) submitBtn.disabled = true;
     lines.forEach(line => {
       const cat = detectCategory(line) || state.lastCategory;
       state.lastCategory = cat;
@@ -801,14 +815,18 @@
     closeAddModal();
     renderColumns();
     showToast('Added ' + lines.length + ' items');
+    if (submitBtn) submitBtn.disabled = false;
   }
 
   function addVoiceMultiple() {
+    const submitBtn = document.getElementById('submit-voice');
+    if (submitBtn?.disabled) return;
     const transcriptEl = document.getElementById('voice-transcript');
     let transcript = (transcriptEl && transcriptEl.textContent) ? transcriptEl.textContent.trim() : '';
     transcript = transcript.replace(/\s+comma\s+/gi, ',');
     const lines = transcript.split(/,\s*|\s+next\s+/i).map(s => s.trim()).filter(Boolean);
     if (!lines.length) return;
+    if (submitBtn) submitBtn.disabled = true;
     lines.forEach(line => {
       const cat = detectCategory(line) || state.lastCategory;
       state.lastCategory = cat;
@@ -818,11 +836,10 @@
     });
     saveState();
     if (transcriptEl) transcriptEl.textContent = '';
-    const submitBtn = document.getElementById('submit-voice');
-    if (submitBtn) submitBtn.disabled = true;
     closeAddModal();
     renderColumns();
     showToast('Added ' + lines.length + ' items');
+    if (submitBtn) submitBtn.disabled = false;
   }
 
   function initVoiceMulti() {
@@ -937,9 +954,18 @@
     return prefs;
   }
 
-  async function saveColumnColorsToSupabase() {
+  function saveColumnColorsToSupabase() {
     if (!window.talkAbout || !state.pairId) return;
-    await window.talkAbout.saveUserPreferences(state.pairId, state.addedBy, getPreferencesForSupabase());
+    if (state.savePrefsTimeout) clearTimeout(state.savePrefsTimeout);
+    state.savePrefsTimeout = setTimeout(async () => {
+      state.savePrefsTimeout = null;
+      try {
+        const { error } = await window.talkAbout.saveUserPreferences(state.pairId, state.addedBy, getPreferencesForSupabase());
+        if (error) showToast('Could not sync preferences — will retry when online');
+      } catch (e) {
+        showToast('Could not sync preferences — will retry when online');
+      }
+    }, 500);
   }
 
   function closeSettingsModal() {
@@ -1003,6 +1029,8 @@
   }
 
   function addSingle() {
+    const submitBtn = document.getElementById('submit-single');
+    if (submitBtn?.disabled) return;
     const textEl = document.getElementById('task-input');
     if (!textEl) return;
     const text = textEl.value.trim();
@@ -1012,12 +1040,14 @@
     const priority = document.getElementById('priority-select').value;
     const recurrenceEl = document.getElementById('recurrence-select');
     const recurrence = (recurrenceEl && recurrenceEl.value) ? recurrenceEl.value : null;
+    if (submitBtn) submitBtn.disabled = true;
     state.lastCategory = category;
     const item = createItem(text, category, deadline, priority, recurrence);
     state.items.push(item);
     saveState();
     closeAddModal();
     renderColumns();
+    if (submitBtn) submitBtn.disabled = false;
   }
 
   function openEditModal(id) {
@@ -1085,20 +1115,39 @@
     URL.revokeObjectURL(a.href);
   }
 
+  function isValidBackupItem(item) {
+    return item && typeof item === 'object' && typeof (item.text ?? item.id) === 'string';
+  }
+
   function importBackup(file) {
     const reader = new FileReader();
     reader.onload = () => {
       try {
         const data = JSON.parse(reader.result);
-        if (data.items) state.items = data.items;
-        if (data.todaySuggestionIds) state.todaySuggestionIds = data.todaySuggestionIds;
+        if (!data || typeof data !== 'object') throw new Error('Invalid backup format');
+        if (data.items) {
+          if (!Array.isArray(data.items)) throw new Error('Items must be an array');
+          state.items = data.items.filter(isValidBackupItem).map((item, idx) => ({
+            ...item,
+            id: item.id || 'id_' + Date.now() + '_' + idx + '_' + Math.random().toString(36).slice(2),
+            text: (item.text || '').trim() || 'Untitled',
+            category: item.category || 'life',
+            archived: !!item.archived,
+            parkedAt: item.parkedAt || Date.now()
+          }));
+        }
+        if (data.todaySuggestionIds) {
+          if (!Array.isArray(data.todaySuggestionIds)) throw new Error('todaySuggestionIds must be an array');
+          const validIds = new Set(state.items.map(i => i.id));
+          state.todaySuggestionIds = data.todaySuggestionIds.filter(id => typeof id === 'string' && validIds.has(id));
+        }
         saveState();
         renderTodayList();
         renderFocusList();
         renderColumns();
         showToast('Import complete');
       } catch (e) {
-        showToast('Import failed: invalid file');
+        showToast(e instanceof SyntaxError ? 'Import failed: invalid JSON' : (e.message || 'Import failed'));
       }
     };
     reader.readAsText(file);
@@ -1111,7 +1160,7 @@
     list.innerHTML = archived.length ? archived.map(item => {
       const date = item.archivedAt ? new Date(item.archivedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
       const cat = getCategories().find(c => c.id === item.category);
-      return `<div class="archive-item">${escapeHtml(item.text)} <span class="archive-date">${getCategoryLabel(item.category)} — ${date}</span></div>`;
+      return `<div class="archive-item">${escapeHtml(item.text)} <span class="archive-date">${escapeHtml(getCategoryLabel(item.category))} — ${escapeHtml(date)}</span></div>`;
     }).join('') : '<div class="empty-state">No completed items yet</div>';
     document.getElementById('archive-modal').style.display = 'flex';
   }
@@ -1192,7 +1241,9 @@
     loadState();
     if (window.talkAbout && state.pairId) {
       const prefs = await window.talkAbout.getUserPreferences(state.pairId, state.addedBy);
-      if (prefs && typeof prefs === 'object') {
+      if (prefs?.error) {
+        showToast('Could not load preferences — using local settings');
+      } else if (prefs && typeof prefs === 'object') {
         if (prefs.__button) { state.buttonColor = prefs.__button; delete prefs.__button; }
         if (prefs.__text) { state.textColor = prefs.__text; delete prefs.__text; }
         if (Object.keys(prefs).length) state.columnColors = prefs;
@@ -1217,13 +1268,14 @@
       state.talkAboutUnsubscribe = null;
     }
     const triagePairId = state.pairId || 'solo_default';
+    const triageAddedBy = state.addedBy;
     if (window.talkAbout) {
-      window.talkAbout.getLastAgentRun(triagePairId).then(run => {
+      window.talkAbout.getLastAgentRun(triagePairId, triageAddedBy).then(run => {
         state.lastAgentRun = run;
         renderEmailTriage();
       });
       if (state.emailTriageUnsubscribe) state.emailTriageUnsubscribe();
-      state.emailTriageUnsubscribe = window.talkAbout.subscribeEmailTasks(triagePairId, items => {
+      state.emailTriageUnsubscribe = window.talkAbout.subscribeEmailTasks(triagePairId, triageAddedBy, items => {
         state.emailTriageItems = items;
         renderEmailTriage();
       });
@@ -1356,11 +1408,13 @@
       if (sidebar) sidebar.classList.add('open');
       if (sidebarOverlay) sidebarOverlay.style.display = 'block';
       document.body.classList.add('sidebar-open');
+      if (menuBtn) menuBtn.setAttribute('aria-expanded', 'true');
     }
     function closeSidebar() {
       if (sidebar) sidebar.classList.remove('open');
       if (sidebarOverlay) sidebarOverlay.style.display = 'none';
       document.body.classList.remove('sidebar-open');
+      if (menuBtn) menuBtn.setAttribute('aria-expanded', 'false');
     }
     if (menuBtn) menuBtn.addEventListener('click', openSidebar);
     if (closeSidebarBtn) closeSidebarBtn.addEventListener('click', closeSidebar);
@@ -1731,9 +1785,26 @@
     });
   }
 
+  function updateOfflineBanner() {
+    const banner = document.getElementById('offline-banner');
+    if (!banner) return;
+    banner.style.display = navigator.onLine ? 'none' : 'block';
+  }
+
   function init() {
+    window.addEventListener('online', () => {
+      updateOfflineBanner();
+      showToast('Back online — sync resumed');
+      if (window.talkAbout && state.pairId) saveColumnColorsToSupabase();
+    });
+    window.addEventListener('offline', updateOfflineBanner);
+    updateOfflineBanner();
+
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('./sw.js').catch(() => {});
+      navigator.serviceWorker.register('./sw.js').catch((err) => {
+        console.warn('Service worker registration failed', err);
+        showToast('Offline mode limited — refresh when online');
+      });
     }
     loadPairState();
     if (state.pairId) {

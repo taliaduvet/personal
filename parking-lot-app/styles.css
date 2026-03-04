@@ -1079,6 +1079,19 @@ body.sidebar-open .sidebar-overlay {
 }
 
 /* Toast */
+.offline-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 999;
+  padding: 0.5rem 1rem;
+  background: var(--accent-amber);
+  color: var(--bg);
+  text-align: center;
+  font-size: 0.9rem;
+}
+
 .toast {
   position: fixed;
   bottom: 6rem;
