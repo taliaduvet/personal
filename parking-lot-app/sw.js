@@ -1,11 +1,10 @@
-const CACHE_NAME = 'parking-lot-v4';
+const CACHE_NAME = 'parking-lot-v5';
 const STATIC_ASSETS = [
   './',
   './index.html',
   './app.js',
   './styles.css',
   './manifest.json',
-  './config.js',
   './supabase.js'
 ];
 
@@ -29,6 +28,10 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
   if (url.origin !== self.location.origin) return;
   if (url.pathname.includes('supabase') || url.hostname.includes('supabase')) return;
+  if (url.pathname.endsWith('config.js')) {
+    e.respondWith(fetch(e.request));
+    return;
+  }
   e.respondWith(
     caches.match(e.request).then((cached) => cached || fetch(e.request))
   );
