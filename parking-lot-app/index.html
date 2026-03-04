@@ -21,6 +21,15 @@
       <div class="entry-actions">
         <button id="entry-solo-btn" class="btn-primary btn-entry">Use on my own</button>
         <button id="entry-couple-btn" class="btn-primary btn-entry">Use with my partner</button>
+        <button id="entry-link-btn" class="btn-secondary btn-entry">Link a device (sync settings)</button>
+      </div>
+      <div id="entry-link-form" class="entry-link-form" style="display:none">
+        <p class="entry-hint">Enter the sync code from your other device (laptop, phone, etc.).</p>
+        <input id="entry-link-code" type="text" placeholder="e.g. abc12345" maxlength="12" autocomplete="off">
+        <div class="entry-link-actions">
+          <button id="entry-link-submit" class="btn-primary">Link</button>
+          <button id="entry-link-cancel" class="btn-secondary">Cancel</button>
+        </div>
       </div>
     </div>
 
@@ -205,6 +214,11 @@
         <button id="close-settings" class="btn-close">×</button>
       </div>
       <div class="modal-body">
+        <div id="settings-sync-code" class="settings-sync-code" style="display:none">
+          <h4 class="settings-section-title">Sync code</h4>
+          <p class="settings-hint">Enter this on your other devices (Link a device on the welcome screen) to sync settings.</p>
+          <p id="settings-sync-code-display" class="settings-sync-code-display"></p>
+        </div>
         <h4 class="settings-section-title">Your name</h4>
         <p class="settings-hint">Shown next to the pair code in the menu.</p>
         <input id="settings-display-name" type="text" placeholder="e.g. Talia" class="settings-name-input" value="">

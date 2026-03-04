@@ -69,6 +69,29 @@
       return { error };
     },
 
+    subscribeUserPreferences(pairId, addedBy, callback) {
+      const client = getClient();
+      if (!client) return () => {};
+      const channel = client.channel('user_prefs_' + pairId + '_' + (addedBy || 'all'))
+        .on('postgres_changes', {
+          event: '*',
+          schema: 'public',
+          table: 'user_preferences',
+          filter: 'pair_id=eq.' + pairId
+        }, async () => {
+          const prefs = await client.from('user_preferences')
+            .select('column_colors')
+            .eq('pair_id', pairId)
+            .eq('added_by', addedBy)
+            .maybeSingle();
+          if (prefs?.data?.column_colors && typeof callback === 'function') {
+            callback(prefs.data.column_colors);
+          }
+        })
+        .subscribe();
+      return () => client.removeChannel(channel);
+    },
+
     subscribeTalkAbout(pairId, callback) {
       const client = getClient();
       if (!client) {

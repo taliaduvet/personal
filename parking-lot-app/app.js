@@ -58,6 +58,7 @@
     addedBy: null,
     talkAboutItems: [],
     talkAboutUnsubscribe: null,
+    prefsUnsubscribe: null,
     customLabels: {},
     columnColors: {},
     categoryPreset: 'generic',
@@ -933,6 +934,16 @@
     if (textColorEl) textColorEl.value = state.textColor || defaultText;
     if (textHexEl) textHexEl.value = state.textColor || defaultText;
 
+    const syncCodeEl = document.getElementById('settings-sync-code');
+    const syncCodeDisplay = document.getElementById('settings-sync-code-display');
+    if (syncCodeEl && syncCodeDisplay) {
+      if (state.pairId) {
+        syncCodeEl.style.display = 'block';
+        syncCodeDisplay.textContent = state.pairId;
+      } else {
+        syncCodeEl.style.display = 'none';
+      }
+    }
     document.getElementById('settings-modal').style.display = 'flex';
   }
 
@@ -1322,9 +1333,26 @@
         state.talkAboutItems = items;
         renderTalkAbout();
       });
-    } else if (state.talkAboutUnsubscribe) {
-      state.talkAboutUnsubscribe();
-      state.talkAboutUnsubscribe = null;
+      if (state.prefsUnsubscribe) state.prefsUnsubscribe();
+      state.prefsUnsubscribe = window.talkAbout.subscribeUserPreferences(state.pairId, state.addedBy, (prefs) => {
+        if (prefs && typeof prefs === 'object') {
+          if (prefs.__button) { state.buttonColor = prefs.__button; delete prefs.__button; }
+          if (prefs.__text) { state.textColor = prefs.__text; delete prefs.__text; }
+          if (Object.keys(prefs).length) state.columnColors = prefs;
+          applyThemeColors();
+          updateCategorySelectOptions();
+          renderColumns();
+        }
+      });
+    } else {
+      if (state.talkAboutUnsubscribe) {
+        state.talkAboutUnsubscribe();
+        state.talkAboutUnsubscribe = null;
+      }
+      if (state.prefsUnsubscribe) {
+        state.prefsUnsubscribe();
+        state.prefsUnsubscribe = null;
+      }
     }
     const triagePairId = state.pairId || 'solo_default';
     const triageAddedBy = state.addedBy;
@@ -1913,6 +1941,11 @@
       showMainApp();
       bindEvents();
     } else if (hasChosenSolo()) {
+      if (!state.pairId) {
+        state.pairId = window.talkAbout ? window.talkAbout.generatePairId() : 'solo' + Date.now().toString(36).slice(-6);
+        state.addedBy = 'Talia';
+        savePairState();
+      }
       document.getElementById('entry-screen').style.display = 'none';
       document.getElementById('pair-setup').style.display = 'none';
       showMainApp();
@@ -1929,8 +1962,42 @@
   function bindEntryScreen() {
     const soloBtn = document.getElementById('entry-solo-btn');
     const coupleBtn = document.getElementById('entry-couple-btn');
+    const linkBtn = document.getElementById('entry-link-btn');
+    const linkForm = document.getElementById('entry-link-form');
+    const linkCode = document.getElementById('entry-link-code');
+    const linkSubmit = document.getElementById('entry-link-submit');
+    const linkCancel = document.getElementById('entry-link-cancel');
+    if (linkBtn) linkBtn.addEventListener('click', () => {
+      if (linkForm) linkForm.style.display = 'block';
+      if (linkCode) { linkCode.value = ''; linkCode.focus(); }
+    });
+    if (linkCancel) linkCancel.addEventListener('click', () => {
+      if (linkForm) linkForm.style.display = 'none';
+    });
+    if (linkSubmit) linkSubmit.addEventListener('click', () => {
+      const code = (linkCode && linkCode.value) ? linkCode.value.trim().toLowerCase().replace(/\s/g, '') : '';
+      if (!code || code.length < 6) {
+        showToast('Enter a valid sync code (from your other device)');
+        return;
+      }
+      state.pairId = code;
+      state.addedBy = 'Talia';
+      savePairState();
+      if (linkForm) linkForm.style.display = 'none';
+      document.getElementById('entry-screen').style.display = 'none';
+      showMainApp();
+      bindEvents();
+    });
+    if (linkCode) linkCode.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') document.getElementById('entry-link-submit').click();
+    });
     if (soloBtn) soloBtn.addEventListener('click', () => {
       setChosenSolo();
+      if (!state.pairId) {
+        state.pairId = window.talkAbout ? window.talkAbout.generatePairId() : 'solo' + Date.now().toString(36).slice(-6);
+        state.addedBy = 'Talia';
+        savePairState();
+      }
       document.getElementById('entry-screen').style.display = 'none';
       showMainApp();
       bindEvents();

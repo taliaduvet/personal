@@ -33,6 +33,7 @@ create table if not exists user_preferences (
 alter table user_preferences enable row level security;
 drop policy if exists "Allow all for anon" on user_preferences;
 create policy "Allow all for anon" on user_preferences for all using (true) with check (true);
+alter publication supabase_realtime add table user_preferences;
 
 -- Email triage agent tables (added_by scopes each person's triage separately)
 create table if not exists email_tasks (
