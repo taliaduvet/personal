@@ -810,8 +810,9 @@
         showToast('Enter a pair code');
         return;
       }
+      const asYou = document.getElementById('join-as-you');
       state.pairId = code;
-      state.addedBy = 'him';
+      state.addedBy = (asYou && asYou.checked) ? 'you' : 'him';
       savePairState();
       document.getElementById('pair-setup').style.display = 'none';
       showMainApp();

@@ -62,12 +62,13 @@ body {
   font-size: 0.9rem;
 }
 
-.join-row {
+.join-section {
   display: flex;
-  gap: 0.5rem;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 
-.join-row input {
+.join-section input[type="text"] {
   flex: 1;
   padding: 0.6rem 0.75rem;
   background: var(--bg);
@@ -77,9 +78,33 @@ body {
   font-size: 1rem;
 }
 
-.join-row input:focus {
+.join-section input[type="text"]:focus {
   outline: none;
   border-color: var(--accent-coral);
+}
+
+.join-who {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.join-who-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.join-who-btns label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+
+.join-who-btns input[type="radio"] {
+  cursor: pointer;
 }
 
 .pair-created {

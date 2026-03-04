@@ -16,8 +16,13 @@
       <div class="pair-actions">
         <button id="create-pair-btn" class="btn-primary">Create pair</button>
         <div class="pair-divider">or</div>
-        <div class="join-row">
+        <div class="join-section">
           <input id="join-code-input" type="text" placeholder="Enter pair code" maxlength="12" autocomplete="off">
+          <p class="join-who">Who are you?</p>
+          <div class="join-who-btns">
+            <label><input type="radio" name="join-as" value="you" id="join-as-you"> I created the pair</label>
+            <label><input type="radio" name="join-as" value="him" id="join-as-him" checked> I'm the partner</label>
+          </div>
           <button id="join-pair-btn" class="btn-primary">Join</button>
         </div>
       </div>
