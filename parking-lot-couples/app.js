@@ -13,6 +13,15 @@
 
   const STORAGE_PREFIX = 'parkingLotCouples_';
 
+  const DEFAULT_COLUMN_COLORS = {
+    work: '#e07a5f',
+    hobbies: '#81b29a',
+    life: '#f2cc8f',
+    other: '#9ca3af'
+  };
+
+  const PRESET_COLORS = ['#e07a5f', '#81b29a', '#f2cc8f', '#f4a261', '#3b82f6', '#8b5cf6', '#22c55e', '#6b7280'];
+
   let state = {
     items: [],
     todaySuggestionIds: [],
@@ -28,7 +37,8 @@
     addedBy: null,
     talkAboutItems: [],
     talkAboutUnsubscribe: null,
-    customLabels: {}
+    customLabels: {},
+    columnColors: {}
   };
 
   function loadPairState() {
@@ -190,6 +200,10 @@
     return cat ? cat.label : catId;
   }
 
+  function getColumnColor(catId) {
+    return state.columnColors[catId] || DEFAULT_COLUMN_COLORS[catId] || '#6b7280';
+  }
+
   function escapeHtml(s) {
     const div = document.createElement('div');
     div.textContent = s;
@@ -205,9 +219,10 @@
     container.innerHTML = cats.map(catId => {
       const items = sortItems(getItemsByCategory(catId));
       const label = getCategoryLabel(catId);
+      const color = getColumnColor(catId);
 
       return `
-        <div class="column" data-category="${catId}">
+        <div class="column column-accent" data-category="${catId}" style="--column-accent: ${color}">
           <div class="column-header" data-category="${catId}">
             ${label} <span class="count">(${items.length})</span>
           </div>
@@ -494,20 +509,63 @@
       const val = (state.customLabels[c.id] || c.label);
       return `<label>${escapeHtml(c.label)}<input type="text" data-cat="${c.id}" value="${escapeHtml(val)}" placeholder="${escapeHtml(c.label)}"></label>`;
     }).join('');
+
+    const colorsContainer = document.getElementById('settings-column-colors');
+    if (colorsContainer) {
+      colorsContainer.innerHTML = CATEGORIES.map(c => {
+        const current = getColumnColor(c.id);
+        const swatches = PRESET_COLORS.map(hex => `<button type="button" class="color-swatch" data-cat="${c.id}" data-color="${hex}" style="background:${hex}" title="${hex}"></button>`).join('');
+        return `
+          <div class="settings-color-row">
+            <label>${escapeHtml(getCategoryLabel(c.id))}</label>
+            <div class="color-picker-row">
+              <input type="color" data-cat="${c.id}" value="${current}" class="color-input">
+              <div class="color-swatches">${swatches}</div>
+            </div>
+          </div>`;
+      }).join('');
+
+      colorsContainer.querySelectorAll('.color-input').forEach(inp => {
+        inp.addEventListener('input', (e) => {
+          state.columnColors[e.target.dataset.cat] = e.target.value;
+          saveColumnColorsToSupabase();
+          renderColumns();
+        });
+      });
+      colorsContainer.querySelectorAll('.color-swatch').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const cat = e.target.dataset.cat;
+          const color = e.target.dataset.color;
+          state.columnColors[cat] = color;
+          const colorInput = colorsContainer.querySelector(`.color-input[data-cat="${cat}"]`);
+          if (colorInput) colorInput.value = color;
+          saveColumnColorsToSupabase();
+          renderColumns();
+        });
+      });
+    }
     document.getElementById('settings-modal').style.display = 'flex';
+  }
+
+  async function saveColumnColorsToSupabase() {
+    if (!window.talkAbout || !state.pairId) return;
+    await window.talkAbout.saveUserPreferences(state.pairId, state.addedBy, state.columnColors);
   }
 
   function closeSettingsModal() {
     document.getElementById('settings-modal').style.display = 'none';
   }
 
-  function saveSettingsAndClose() {
+  async function saveSettingsAndClose() {
     const inputs = document.querySelectorAll('#settings-column-inputs input[data-cat]');
     inputs.forEach(inp => {
       const val = inp.value.trim();
       if (val) state.customLabels[inp.dataset.cat] = val;
       else delete state.customLabels[inp.dataset.cat];
     });
+    if (window.talkAbout && state.pairId) {
+      await window.talkAbout.saveUserPreferences(state.pairId, state.addedBy, state.columnColors);
+    }
     saveState();
     updateCategorySelectOptions();
     renderColumns();
@@ -679,13 +737,17 @@
     });
   }
 
-  function showMainApp() {
+  async function showMainApp() {
     document.getElementById('pair-setup').style.display = 'none';
     document.getElementById('main-app').style.display = 'block';
     document.getElementById('floating-buttons').style.display = 'flex';
     const badge = document.getElementById('pair-badge');
     if (badge) badge.textContent = state.pairId + ' · ' + state.addedBy;
     loadState();
+    if (window.talkAbout && state.pairId) {
+      const prefs = await window.talkAbout.getUserPreferences(state.pairId, state.addedBy);
+      if (prefs && Object.keys(prefs).length) state.columnColors = prefs;
+    }
     updateCategorySelectOptions();
     renderColumns();
     renderTodayList();

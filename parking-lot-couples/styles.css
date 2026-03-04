@@ -358,6 +358,10 @@ body {
   min-height: 200px;
 }
 
+.column-accent {
+  border-left: 4px solid var(--column-accent, var(--border));
+}
+
 .column-header {
   font-weight: 600;
   font-size: 0.95rem;
@@ -762,6 +766,56 @@ body {
 .settings-column-inputs input:focus {
   outline: none;
   border-color: var(--accent-coral);
+}
+
+.settings-column-colors {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.settings-color-row label {
+  display: block;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin-bottom: 0.25rem;
+}
+
+.color-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.color-input {
+  width: 48px;
+  height: 36px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  cursor: pointer;
+}
+
+.color-swatches {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.color-swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+}
+
+.color-swatch:hover {
+  border-color: var(--text);
+  transform: scale(1.05);
 }
 
 /* Analytics panel */

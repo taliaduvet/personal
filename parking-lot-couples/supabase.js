@@ -44,6 +44,29 @@
       return { error };
     },
 
+    async getUserPreferences(pairId, addedBy) {
+      const client = getClient();
+      if (!client) return {};
+      const { data, error } = await client.from('user_preferences')
+        .select('column_colors')
+        .eq('pair_id', pairId)
+        .eq('added_by', addedBy)
+        .maybeSingle();
+      if (error || !data) return {};
+      return data.column_colors || {};
+    },
+
+    async saveUserPreferences(pairId, addedBy, columnColors) {
+      const client = getClient();
+      if (!client) return { error: 'Supabase not configured' };
+      const { error } = await client.from('user_preferences').upsert({
+        pair_id: pairId,
+        added_by: addedBy,
+        column_colors: columnColors
+      }, { onConflict: 'pair_id,added_by' });
+      return { error };
+    },
+
     subscribeTalkAbout(pairId, callback) {
       const client = getClient();
       if (!client) {

@@ -11,9 +11,14 @@ Your anti-timeblindness system. Park tasks, see how long they've been waiting, a
 ## New powers
 
 - **4 columns** (Misfit, Stop 2030 Barclay, Cycles, Life)—see everything at a glance
-- **Smart add:** Type "misfit invoice due march 15" and it auto-categorizes + sets the deadline
+- **Smart add:** Type "misfit invoice due march 15" and it auto-categorizes + sets the deadline (keywords removed from title)
 - **Today's Suggestions:** Select items from any column, add up to 5 for your 4-hour block
 - **Focus mode:** Click the ◎ button to hide the columns and see only your suggestions
+- **View archive:** See all completed items
+- **Analytics:** This week's parked vs completed, by category
+- **Voice (multiple):** Add tab → Voice → say "misfit invoice, life dentist, cycles report" (comma or "next" as separator)
+- **Copy for Sheets:** One-click copy to paste into Google Sheets
+- **Responsive:** Columns stack on mobile/small screens
 
 ## Voice input not working?
 

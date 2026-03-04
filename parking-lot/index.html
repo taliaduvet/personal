@@ -15,6 +15,9 @@
         <h2>Today's Suggestions</h2>
         <span id="completed-tally" class="tally">Completed today: 0</span>
         <button id="clear-suggestions" class="btn-secondary">Clear suggestions</button>
+        <button id="archive-btn" class="btn-secondary">View archive</button>
+        <button id="analytics-btn" class="btn-secondary">Analytics</button>
+        <button id="sheets-btn" class="btn-secondary">Copy for Sheets</button>
         <button id="export-btn" class="btn-secondary">Export backup</button>
         <input type="file" id="import-input" accept=".json" style="display:none">
         <button id="import-btn" class="btn-secondary">Import</button>
@@ -63,6 +66,7 @@
         <div class="add-mode-tabs">
           <button id="tab-single" class="tab active">Single</button>
           <button id="tab-quick" class="tab">Quick add</button>
+          <button id="tab-voice" class="tab">Voice</button>
         </div>
         <div id="single-add" class="add-form">
           <div class="input-row">
@@ -93,6 +97,12 @@
           <textarea id="quick-input" placeholder="One task per line&#10;misfit invoice&#10;life dentist 3/20&#10;cycles grant report" rows="6"></textarea>
           <button id="submit-quick" class="btn-primary">Add all</button>
         </div>
+        <div id="voice-add" class="add-form" style="display:none">
+          <p class="voice-hint">Say several tasks, separated by "comma" or "next". Example: "misfit invoice, life dentist, cycles report"</p>
+          <button id="voice-multi-btn" class="btn-primary btn-voice">Start speaking</button>
+          <div id="voice-transcript" class="voice-transcript"></div>
+          <button id="submit-voice" class="btn-primary" disabled>Add all</button>
+        </div>
       </div>
     </div>
   </div>
@@ -111,6 +121,28 @@
         <select id="edit-priority"></select>
         <button id="save-edit" class="btn-primary">Save</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Archive modal -->
+  <div id="archive-modal" class="modal" style="display:none">
+    <div class="modal-content modal-wide">
+      <div class="modal-header">
+        <h3>Archive — Completed items</h3>
+        <button id="close-archive" class="btn-close">×</button>
+      </div>
+      <div class="modal-body">
+        <div id="archive-list" class="archive-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Analytics panel -->
+  <div id="analytics-panel" class="analytics-panel" style="display:none">
+    <div class="analytics-content">
+      <h3>This week</h3>
+      <p id="analytics-text"></p>
+      <button id="close-analytics" class="btn-secondary">Close</button>
     </div>
   </div>
 
