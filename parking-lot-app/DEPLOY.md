@@ -28,11 +28,12 @@ Push to `main` (or run the workflow manually: **Actions** → **Deploy Couples P
 
 ---
 
-## Your live URL
+## Your live URLs
 
 After the first successful deploy:
 
-**`https://taliaduvet.github.io/personal/`**
+- **Landing page:** `https://taliaduvet.github.io/personal/`
+- **Parking Lot app:** `https://taliaduvet.github.io/personal/parking-lot-app/`
 
 (Replace `taliaduvet` and `personal` with your GitHub username and repo name.)
 

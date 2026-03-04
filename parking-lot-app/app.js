@@ -1239,15 +1239,20 @@
       if (linkPartnerBtn) linkPartnerBtn.style.display = 'block';
     }
     loadState();
-    if (window.talkAbout && state.pairId) {
-      const prefs = await window.talkAbout.getUserPreferences(state.pairId, state.addedBy);
-      if (prefs?.error) {
-        showToast('Could not load preferences — using local settings');
-      } else if (prefs && typeof prefs === 'object') {
-        if (prefs.__button) { state.buttonColor = prefs.__button; delete prefs.__button; }
-        if (prefs.__text) { state.textColor = prefs.__text; delete prefs.__text; }
-        if (Object.keys(prefs).length) state.columnColors = prefs;
+    try {
+      if (window.talkAbout && state.pairId) {
+        const prefs = await window.talkAbout.getUserPreferences(state.pairId, state.addedBy);
+        if (prefs?.error) {
+          showToast('Could not load preferences — using local settings');
+        } else if (prefs && typeof prefs === 'object') {
+          if (prefs.__button) { state.buttonColor = prefs.__button; delete prefs.__button; }
+          if (prefs.__text) { state.textColor = prefs.__text; delete prefs.__text; }
+          if (Object.keys(prefs).length) state.columnColors = prefs;
+        }
       }
+    } catch (e) {
+      console.warn('Preferences fetch failed', e);
+      showToast('Using local settings');
     }
     applyThemeColors();
     updateCategorySelectOptions();

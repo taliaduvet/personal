@@ -1,4 +1,4 @@
-name: Deploy Couples Parking Lot to GitHub Pages
+name: Deploy Personal to GitHub Pages
 
 on:
   push:
@@ -20,10 +20,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Create config.js for deployment
+      - name: Prepare build output
         run: |
-          mkdir -p parking-lot-app
-          echo "const SUPABASE_URL='${{ secrets.SUPABASE_URL }}'; const SUPABASE_ANON_KEY='${{ secrets.SUPABASE_KEY }}';" > parking-lot-app/config.js
+          mkdir -p deploy
+          cp index.html deploy/
+          cp -r parking-lot-app deploy/
+          echo "const SUPABASE_URL='${{ secrets.SUPABASE_URL }}'; const SUPABASE_ANON_KEY='${{ secrets.SUPABASE_KEY }}';" > deploy/parking-lot-app/config.js
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
@@ -31,7 +33,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: parking-lot-app
+          path: deploy
 
   deploy:
     runs-on: ubuntu-latest
