@@ -65,12 +65,6 @@
             <button id="back-btn" class="btn-back" style="display:none">← Overview</button>
             <input id="search-input" type="text" placeholder="Search..." class="search-input" autocomplete="off">
           </div>
-          <div id="email-triage-section" class="email-triage-section">
-            <h3 class="email-triage-header">Email Triage</h3>
-            <p id="email-triage-status" class="email-triage-status"></p>
-            <div id="email-triage-list" class="email-triage-list"></div>
-            <p id="email-triage-empty" class="email-triage-empty" style="display:none">No new tasks — you're caught up!</p>
-          </div>
           <div id="columns" class="columns"></div>
           <div id="talk-about-section" class="talk-about-section" style="display:none">
             <h3 class="talk-about-header">Talk about</h3>
@@ -272,6 +266,16 @@
     </div>
   </div>
 
+  <div id="email-triage-section" class="analytics-panel email-triage-panel" style="display:none">
+    <div class="analytics-content">
+      <h3 class="email-triage-header">Email Triage</h3>
+      <p id="email-triage-status" class="email-triage-status"></p>
+      <div id="email-triage-list" class="email-triage-list"></div>
+      <p id="email-triage-empty" class="email-triage-empty" style="display:none">No new tasks — you're caught up!</p>
+      <button id="close-email-triage" class="btn-secondary">Close</button>
+    </div>
+  </div>
+
   <div id="sidebar-overlay" class="sidebar-overlay" style="display:none" aria-hidden="true"></div>
   <aside id="sidebar" class="sidebar">
     <div class="sidebar-header">
@@ -281,6 +285,7 @@
     <nav class="sidebar-nav">
       <button id="link-partner-btn" class="sidebar-item sidebar-link-partner" style="display:none">Link partner</button>
       <button id="settings-btn" class="sidebar-item" data-action="settings">Settings</button>
+      <button id="email-triage-btn" class="sidebar-item" data-action="email-triage">Email triage</button>
       <button id="archive-btn" class="sidebar-item" data-action="archive">View archive</button>
       <button id="analytics-btn" class="sidebar-item" data-action="analytics">Analytics</button>
       <button id="export-btn" class="sidebar-item" data-action="export">Export backup</button>

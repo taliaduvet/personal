@@ -1138,6 +1138,16 @@
     if (panel) panel.style.display = 'block';
   }
 
+  function openEmailTriage() {
+    renderEmailTriage();
+    if (window.talkAbout && typeof SUPABASE_URL !== 'undefined') {
+      const section = document.getElementById('email-triage-section');
+      if (section) section.style.display = 'block';
+    } else {
+      showToast('Email triage unavailable — connect Supabase first');
+    }
+  }
+
   function addTalkAbout() {
     const input = document.getElementById('talk-about-input');
     if (!input) return;
@@ -1393,7 +1403,7 @@
           closeSidebar();
         } else {
           const modals = ['add-modal', 'edit-modal', 'archive-modal', 'settings-modal', 'link-partner-modal'];
-          const panels = ['analytics-panel'];
+          const panels = ['analytics-panel', 'email-triage-section'];
           for (const id of modals) {
             const m = document.getElementById(id);
             if (m && m.style.display === 'flex') {
@@ -1560,6 +1570,15 @@
 
     const analyticsBtn = document.getElementById('analytics-btn');
     if (analyticsBtn) analyticsBtn.addEventListener('click', openAnalytics);
+
+    const emailTriageBtn = document.getElementById('email-triage-btn');
+    if (emailTriageBtn) emailTriageBtn.addEventListener('click', openEmailTriage);
+
+    const closeEmailTriage = document.getElementById('close-email-triage');
+    if (closeEmailTriage) closeEmailTriage.addEventListener('click', () => {
+      const s = document.getElementById('email-triage-section');
+      if (s) s.style.display = 'none';
+    });
 
     const closeAnalytics = document.getElementById('close-analytics');
     if (closeAnalytics) closeAnalytics.addEventListener('click', () => {
