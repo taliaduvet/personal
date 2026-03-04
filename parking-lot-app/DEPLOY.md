@@ -13,12 +13,14 @@ Add these two secrets:
 | `SUPABASE_URL` | Your Supabase project URL (e.g. `https://xxx.supabase.co`) |
 | `SUPABASE_KEY` | Your full anon key (the long `eyJ...` string) |
 
-### 2. Enable GitHub Pages
+### 2. Enable GitHub Pages (required before first deploy)
 
-1. Go to **Settings** → **Pages**
+1. Go to **Settings** → **Pages** (under "Code and automation")
 2. Under **Build and deployment**:
    - **Source:** GitHub Actions
-3. Save
+3. Click **Save**
+
+If you skip this step, the workflow will fail with "Get Pages site failed."
 
 ### 3. Push to trigger deploy
 
