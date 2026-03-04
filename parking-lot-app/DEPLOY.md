@@ -10,7 +10,7 @@ Add these two secrets:
 
 | Secret name | Value |
 |-------------|-------|
-| `SUPABASE_URL` | `https://csvumbaxopiolwvyevum.supabase.co` |
+| `SUPABASE_URL` | Your Supabase project URL (e.g. `https://xxx.supabase.co`) |
 | `SUPABASE_KEY` | Your full anon key (the long `eyJ...` string) |
 
 ### 2. Enable GitHub Pages

@@ -1,5 +1,4 @@
 -- Email triage agent tables — run in Supabase Dashboard → SQL Editor
--- https://supabase.com/dashboard/project/csvumbaxopiolwvyevum/sql/new
 
 create table if not exists email_tasks (
   id uuid default gen_random_uuid() primary key,

@@ -22,3 +22,7 @@ build/
 # Email triage agent
 email-management/agent/.env
 email-management/agent/credentials.json
+email-management/credentials.json
+
+# Parking lot (also in parking-lot-app/.gitignore)
+parking-lot-app/config.js
