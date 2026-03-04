@@ -1022,12 +1022,6 @@
       }
 
       applyThemeColors();
-      if (window.talkAbout && state.pairId) {
-        const { error } = await window.talkAbout.saveUserPreferences(state.pairId, state.addedBy, getPreferencesForSupabase());
-        if (error) {
-          showToast('Could not sync preferences — ' + (error || 'unknown error'));
-        }
-      }
       saveState();
       updateCategorySelectOptions();
       renderColumns();
@@ -1037,7 +1031,16 @@
         else badge.textContent = (state.displayName || '').trim() || 'Solo';
       }
       closeSettingsModal();
-      showToast('Settings saved');
+      if (window.talkAbout && state.pairId) {
+        const { error } = await window.talkAbout.saveUserPreferences(state.pairId, state.addedBy, getPreferencesForSupabase());
+        if (error) {
+          showToast('Settings saved locally. Could not sync to cloud — ' + (error || 'Supabase not configured'));
+        } else {
+          showToast('Settings saved');
+        }
+      } else {
+        showToast('Settings saved');
+      }
     } catch (e) {
       console.warn('Save settings failed', e);
       showToast('Could not save settings — ' + (e.message || 'try again'));

@@ -7,7 +7,9 @@
 
   function getClient() {
     if (supabase) return supabase;
-    if (typeof SUPABASE_URL === 'undefined' || typeof SUPABASE_ANON_KEY === 'undefined') {
+    const url = typeof SUPABASE_URL !== 'undefined' ? SUPABASE_URL : '';
+    const key = typeof SUPABASE_ANON_KEY !== 'undefined' ? SUPABASE_ANON_KEY : '';
+    if (!url || !key || url === 'your-project-id.supabase.co' || key === 'your-anon-key-here') {
       console.warn('Supabase config missing. Add URL and anon key to config.js');
       return null;
     }
