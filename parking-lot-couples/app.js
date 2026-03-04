@@ -720,6 +720,21 @@
       renderColumns();
     });
 
+    const moreBtn = document.getElementById('more-btn');
+    const moreMenu = document.getElementById('more-menu');
+    if (moreBtn && moreMenu) {
+      moreBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        moreMenu.classList.toggle('open');
+      });
+      moreMenu.querySelectorAll('.more-menu-item').forEach(item => {
+        item.addEventListener('click', () => moreMenu.classList.remove('open'));
+      });
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('.more-menu-wrap')) moreMenu.classList.remove('open');
+      });
+    }
+
     const addBtn = document.getElementById('add-btn');
     if (addBtn) addBtn.addEventListener('click', openAddModal);
 
@@ -759,8 +774,8 @@
       }
     });
 
-    const saveEdit = document.getElementById('save-edit');
-    if (saveEdit) saveEdit.addEventListener('click', saveEdit);
+    const saveEditBtn = document.getElementById('save-edit');
+    if (saveEditBtn) saveEditBtn.addEventListener('click', saveEdit);
 
     const settingsBtn = document.getElementById('settings-btn');
     if (settingsBtn) settingsBtn.addEventListener('click', openSettingsModal);

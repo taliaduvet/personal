@@ -41,12 +41,17 @@
           <span id="completed-tally" class="tally">Completed today: 0</span>
           <span id="pair-badge" class="pair-badge"></span>
           <button id="clear-suggestions" class="btn-secondary">Clear suggestions</button>
-          <button id="settings-btn" class="btn-secondary" title="Settings">⚙</button>
-          <button id="archive-btn" class="btn-secondary">View archive</button>
-          <button id="analytics-btn" class="btn-secondary">Analytics</button>
-          <button id="export-btn" class="btn-secondary">Export backup</button>
-          <input type="file" id="import-input" accept=".json" style="display:none">
-          <button id="import-btn" class="btn-secondary">Import</button>
+          <div class="more-menu-wrap">
+            <button id="more-btn" class="btn-secondary">More</button>
+            <div id="more-menu" class="more-menu">
+              <button id="settings-btn" class="more-menu-item" data-action="settings">Settings</button>
+              <button id="archive-btn" class="more-menu-item" data-action="archive">View archive</button>
+              <button id="analytics-btn" class="more-menu-item" data-action="analytics">Analytics</button>
+              <button id="export-btn" class="more-menu-item" data-action="export">Export backup</button>
+              <input type="file" id="import-input" accept=".json" style="display:none">
+              <button id="import-btn" class="more-menu-item" data-action="import">Import</button>
+            </div>
+          </div>
         </div>
         <div id="today-list" class="today-list"></div>
       </header>

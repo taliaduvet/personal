@@ -230,6 +230,47 @@ body {
   font-weight: 600;
 }
 
+.more-menu-wrap {
+  position: relative;
+}
+
+.more-menu {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 0.25rem;
+  min-width: 160px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  z-index: 50;
+  padding: 0.25rem;
+  flex-direction: column;
+}
+
+.more-menu.open {
+  display: flex;
+}
+
+.more-menu-item {
+  display: block;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.more-menu-item:hover {
+  background: var(--bg-soft);
+}
+
 .tally {
   color: var(--accent-sage);
   font-size: 0.9rem;
