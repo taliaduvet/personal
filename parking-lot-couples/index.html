@@ -3,15 +3,25 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Couples Parking Lot</title>
+  <title>Parking Lot</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🅿</text></svg>">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <div id="app">
-    <!-- Pair setup (shown when no pair_id) -->
-    <div id="pair-setup" class="pair-setup">
-      <h1>Couples Parking Lot</h1>
+    <!-- Entry screen (first-time: choose solo or couple) -->
+    <div id="entry-screen" class="entry-screen" style="display:none">
+      <h1>Parking Lot</h1>
+      <p class="entry-hint">How would you like to use this?</p>
+      <div class="entry-actions">
+        <button id="entry-solo-btn" class="btn-primary btn-entry">Use on my own</button>
+        <button id="entry-couple-btn" class="btn-primary btn-entry">Use with my partner</button>
+      </div>
+    </div>
+
+    <!-- Pair setup (shown when choosing couple, no pair_id yet) -->
+    <div id="pair-setup" class="pair-setup" style="display:none">
+      <h1>Parking Lot</h1>
       <p class="pair-hint">Create a pair to get started, or join with a code from your partner.</p>
       <div class="pair-actions">
         <button id="create-pair-btn" class="btn-primary">Create pair</button>
@@ -20,8 +30,8 @@
           <input id="join-code-input" type="text" placeholder="Enter pair code" maxlength="12" autocomplete="off">
           <p class="join-who">Who are you?</p>
           <div class="join-who-btns">
-            <label><input type="radio" name="join-as" value="you" id="join-as-you"> I created the pair</label>
-            <label><input type="radio" name="join-as" value="him" id="join-as-him" checked> I'm the partner</label>
+            <label><input type="radio" name="join-as" value="Talia" id="join-as-talia"> I created the pair</label>
+            <label><input type="radio" name="join-as" value="Garren" id="join-as-garren" checked> I'm the partner</label>
           </div>
           <button id="join-pair-btn" class="btn-primary">Join</button>
         </div>
@@ -53,7 +63,7 @@
             <button id="back-btn" class="btn-back" style="display:none">← Overview</button>
           </div>
           <div id="columns" class="columns"></div>
-          <div id="talk-about-section" class="talk-about-section">
+          <div id="talk-about-section" class="talk-about-section" style="display:none">
             <h3 class="talk-about-header">Talk about</h3>
             <div id="talk-about-list" class="talk-about-list"></div>
             <div class="talk-about-add">
@@ -89,6 +99,11 @@
         <button id="close-add" class="btn-close">×</button>
       </div>
       <div class="modal-body">
+        <div class="add-mode-tabs">
+          <button id="tab-single" class="tab active">Single</button>
+          <button id="tab-quick" class="tab">Quick add</button>
+          <button id="tab-voice" class="tab">Voice</button>
+        </div>
         <div id="single-add" class="add-form">
           <div class="input-row">
             <input id="task-input" type="text" placeholder="e.g. work project due march 15" autocomplete="off">
@@ -108,6 +123,16 @@
             </select>
           </div>
           <button id="submit-single" class="btn-primary">Add</button>
+        </div>
+        <div id="quick-add" class="add-form" style="display:none">
+          <textarea id="quick-input" placeholder="One task per line&#10;work invoice&#10;life dentist 3/20&#10;cycles grant report" rows="6"></textarea>
+          <button id="submit-quick" class="btn-primary">Add all</button>
+        </div>
+        <div id="voice-add" class="add-form" style="display:none">
+          <p class="voice-hint">Say several tasks, separated by "comma" or "next". Example: "work invoice, life dentist, cycles report"</p>
+          <button id="voice-multi-btn" class="btn-primary btn-voice">Start speaking</button>
+          <div id="voice-transcript" class="voice-transcript"></div>
+          <button id="submit-voice" class="btn-primary" disabled>Add all</button>
         </div>
       </div>
     </div>
@@ -148,6 +173,12 @@
         <button id="close-settings" class="btn-close">×</button>
       </div>
       <div class="modal-body">
+        <h4 class="settings-section-title">Category preset</h4>
+        <p class="settings-hint">Choose your column structure. You can rename columns below.</p>
+        <div class="settings-preset-btns">
+          <label class="preset-option"><input type="radio" name="category-preset" value="generic"> Generic (Work, Hobbies, Life, Other)</label>
+          <label class="preset-option"><input type="radio" name="category-preset" value="creative"> Creative (Misfit, Stop 2030 Barclay, Cycles, Life)</label>
+        </div>
         <h4 class="settings-section-title">Column names</h4>
         <p class="settings-hint">Customize what each column is called.</p>
         <div id="settings-column-inputs" class="settings-column-inputs"></div>
@@ -155,6 +186,36 @@
         <p class="settings-hint">Pick a color for each column. Syncs across your devices.</p>
         <div id="settings-column-colors" class="settings-column-colors"></div>
         <button id="save-settings" class="btn-primary">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="link-partner-modal" class="modal" style="display:none">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Link partner</h3>
+        <button id="close-link-partner" class="btn-close">×</button>
+      </div>
+      <div class="modal-body">
+        <p class="link-partner-hint">Create a pair and share the code, or enter a code from your partner.</p>
+        <div class="link-partner-actions">
+          <button id="link-create-btn" class="btn-primary">Create pair</button>
+          <div class="pair-divider">or</div>
+          <div class="link-join-section">
+            <input id="link-join-input" type="text" placeholder="Enter pair code" maxlength="12" autocomplete="off">
+            <p class="join-who">Who are you?</p>
+            <div class="join-who-btns">
+              <label><input type="radio" name="link-join-as" value="Talia" id="link-join-talia"> I created the pair</label>
+              <label><input type="radio" name="link-join-as" value="Garren" id="link-join-garren" checked> I'm the partner</label>
+            </div>
+            <button id="link-join-btn" class="btn-primary">Join</button>
+          </div>
+        </div>
+        <div id="link-pair-created" class="pair-created" style="display:none">
+          <p>Share this code with your partner:</p>
+          <p id="link-pair-code" class="pair-code"></p>
+          <button id="link-continue-btn" class="btn-primary">Done</button>
+        </div>
       </div>
     </div>
   </div>
@@ -174,6 +235,7 @@
       <button id="close-sidebar" class="btn-close" aria-label="Close menu">×</button>
     </div>
     <nav class="sidebar-nav">
+      <button id="link-partner-btn" class="sidebar-item sidebar-link-partner" style="display:none">Link partner</button>
       <button id="settings-btn" class="sidebar-item" data-action="settings">Settings</button>
       <button id="archive-btn" class="sidebar-item" data-action="archive">View archive</button>
       <button id="analytics-btn" class="sidebar-item" data-action="analytics">Analytics</button>

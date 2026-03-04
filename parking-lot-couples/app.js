@@ -1,23 +1,45 @@
 (function() {
   'use strict';
 
-  const CATEGORIES = [
-    { id: 'work', label: 'Work' },
-    { id: 'hobbies', label: 'Hobbies' },
-    { id: 'life', label: 'Life' },
-    { id: 'other', label: 'Other' }
-  ];
+  const CATEGORY_PRESETS = {
+    generic: [
+      { id: 'work', label: 'Work' },
+      { id: 'hobbies', label: 'Hobbies' },
+      { id: 'life', label: 'Life' },
+      { id: 'other', label: 'Other' }
+    ],
+    creative: [
+      { id: 'misfit', label: 'Misfit' },
+      { id: 'stop2030barclay', label: 'Stop 2030 Barclay' },
+      { id: 'cycles', label: 'Cycles' },
+      { id: 'life', label: 'Life' }
+    ]
+  };
+
+  function getCategories() {
+    const preset = state.categoryPreset || 'generic';
+    return CATEGORY_PRESETS[preset] || CATEGORY_PRESETS.generic;
+  }
+
+  const PRESET_MIGRATION = {
+    generic_to_creative: { work: 'misfit', hobbies: 'stop2030barclay', life: 'life', other: 'cycles' },
+    creative_to_generic: { misfit: 'work', stop2030barclay: 'hobbies', life: 'life', cycles: 'other' }
+  };
 
   const PRIORITIES = ['critical', 'high', 'medium', 'low'];
   const MONTHS = { jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12 };
 
   const STORAGE_PREFIX = 'parkingLotCouples_';
+  const HAS_CHOSEN_SOLO_KEY = STORAGE_PREFIX + 'hasChosenSolo';
 
   const DEFAULT_COLUMN_COLORS = {
     work: '#e07a5f',
     hobbies: '#81b29a',
     life: '#f2cc8f',
-    other: '#9ca3af'
+    other: '#9ca3af',
+    misfit: '#e07a5f',
+    stop2030barclay: '#81b29a',
+    cycles: '#f2cc8f'
   };
 
   const PRESET_COLORS = ['#e07a5f', '#81b29a', '#f2cc8f', '#f4a261', '#3b82f6', '#8b5cf6', '#22c55e', '#6b7280'];
@@ -38,12 +60,21 @@
     talkAboutItems: [],
     talkAboutUnsubscribe: null,
     customLabels: {},
-    columnColors: {}
+    columnColors: {},
+    categoryPreset: 'generic'
   };
 
   function loadPairState() {
     state.pairId = localStorage.getItem(STORAGE_PREFIX + 'pairId');
-    state.addedBy = localStorage.getItem(STORAGE_PREFIX + 'addedBy') || 'you';
+    state.addedBy = localStorage.getItem(STORAGE_PREFIX + 'addedBy') || 'Talia';
+  }
+
+  function hasChosenSolo() {
+    return localStorage.getItem(HAS_CHOSEN_SOLO_KEY) === 'true';
+  }
+
+  function setChosenSolo() {
+    localStorage.setItem(HAS_CHOSEN_SOLO_KEY, 'true');
   }
 
   function savePairState() {
@@ -60,6 +91,7 @@
         state.todaySuggestionIds = parsed.todaySuggestionIds || [];
         state.lastCategory = parsed.lastCategory || 'life';
         state.customLabels = parsed.customLabels || {};
+        state.categoryPreset = parsed.categoryPreset || 'generic';
       }
       const tally = localStorage.getItem(STORAGE_PREFIX + 'tally');
       if (tally) {
@@ -79,7 +111,8 @@
         items: state.items,
         todaySuggestionIds: state.todaySuggestionIds,
         lastCategory: state.lastCategory,
-        customLabels: state.customLabels
+        customLabels: state.customLabels,
+        categoryPreset: state.categoryPreset || 'generic'
       }));
       localStorage.setItem(STORAGE_PREFIX + 'tally', JSON.stringify({
         count: state.completedTodayCount,
@@ -92,9 +125,17 @@
 
   function detectCategory(text) {
     const t = (text || '').toLowerCase();
-    if (t.includes('work')) return 'work';
-    if (t.includes('hobbi') || t.includes('hobby')) return 'hobbies';
-    if (t.includes('life')) return 'life';
+    const preset = state.categoryPreset || 'generic';
+    if (preset === 'creative') {
+      if (t.includes('misfit')) return 'misfit';
+      if (t.includes('barclay') || t.includes('stop 2030') || t.includes('stop2030')) return 'stop2030barclay';
+      if (t.includes('cycles')) return 'cycles';
+      if (t.includes('life')) return 'life';
+    } else {
+      if (t.includes('work')) return 'work';
+      if (t.includes('hobbi') || t.includes('hobby')) return 'hobbies';
+      if (t.includes('life')) return 'life';
+    }
     return null;
   }
 
@@ -131,6 +172,9 @@
       if (category === 'work') result = result.replace(/\bwork\b/gi, '');
       if (category === 'hobbies') result = result.replace(/\bhobbies?\b/gi, '');
       if (category === 'life') result = result.replace(/\blife\b/gi, '');
+      if (category === 'misfit') result = result.replace(/\bmisfit\b/gi, '');
+      if (category === 'stop2030barclay') result = result.replace(/\b(barclay|stop\s*2030|stop2030)\b/gi, '');
+      if (category === 'cycles') result = result.replace(/\bcycles\b/gi, '');
     }
     return result.replace(/\s+/g, ' ').trim();
   }
@@ -196,7 +240,7 @@
 
   function getCategoryLabel(catId) {
     if (state.customLabels[catId]) return state.customLabels[catId];
-    const cat = CATEGORIES.find(c => c.id === catId);
+    const cat = getCategories().find(c => c.id === catId);
     return cat ? cat.label : catId;
   }
 
@@ -213,7 +257,7 @@
   function renderColumns() {
     const container = document.getElementById('columns');
     if (!container) return;
-    const cats = state.drillDownCategory ? [state.drillDownCategory] : CATEGORIES.map(c => c.id);
+    const cats = state.drillDownCategory ? [state.drillDownCategory] : getCategories().map(c => c.id);
     container.classList.toggle('single-column', !!state.drillDownCategory);
 
     container.innerHTML = cats.map(catId => {
@@ -478,7 +522,7 @@
   function updateCategorySelectOptions() {
     const sel = document.getElementById('category-select');
     if (!sel) return;
-    sel.innerHTML = CATEGORIES.map(c =>
+    sel.innerHTML = getCategories().map(c =>
       `<option value="${c.id}">${escapeHtml(getCategoryLabel(c.id))}</option>`
     ).join('');
   }
@@ -487,14 +531,35 @@
     const modal = document.getElementById('add-modal');
     if (modal) modal.style.display = 'flex';
     updateCategorySelectOptions();
+    const tabSingle = document.getElementById('tab-single');
+    const tabQuick = document.getElementById('tab-quick');
+    const tabVoice = document.getElementById('tab-voice');
+    const singleAdd = document.getElementById('single-add');
+    const quickAdd = document.getElementById('quick-add');
+    const voiceAdd = document.getElementById('voice-add');
+    if (tabSingle) tabSingle.classList.add('active');
+    if (tabQuick) tabQuick.classList.remove('active');
+    if (tabVoice) tabVoice.classList.remove('active');
+    if (singleAdd) singleAdd.style.display = 'block';
+    if (quickAdd) quickAdd.style.display = 'none';
+    if (voiceAdd) voiceAdd.style.display = 'none';
+    const transcriptEl = document.getElementById('voice-transcript');
+    if (transcriptEl) transcriptEl.textContent = '';
+    const submitVoice = document.getElementById('submit-voice');
+    if (submitVoice) submitVoice.disabled = true;
     const taskInput = document.getElementById('task-input');
     if (taskInput) {
       taskInput.value = '';
       taskInput.focus();
     }
-    document.getElementById('deadline-input').value = '';
-    document.getElementById('priority-select').value = 'medium';
-    document.getElementById('category-select').value = state.lastCategory;
+    const quickInput = document.getElementById('quick-input');
+    if (quickInput) quickInput.value = '';
+    const deadlineInput = document.getElementById('deadline-input');
+    if (deadlineInput) deadlineInput.value = '';
+    const prioritySelect = document.getElementById('priority-select');
+    if (prioritySelect) prioritySelect.value = 'medium';
+    const categorySelect = document.getElementById('category-select');
+    if (categorySelect) categorySelect.value = state.lastCategory;
   }
 
   function closeAddModal() {
@@ -502,17 +567,97 @@
     if (modal) modal.style.display = 'none';
   }
 
+  function addQuick() {
+    const el = document.getElementById('quick-input');
+    const lines = (el && el.value) ? el.value.split(/[\n,]+/).map(s => s.trim()).filter(Boolean) : [];
+    if (!lines.length) return;
+    lines.forEach(line => {
+      const cat = detectCategory(line) || state.lastCategory;
+      state.lastCategory = cat;
+      const deadline = extractDeadline(line);
+      const item = createItem(line, cat, deadline, 'medium');
+      state.items.push(item);
+    });
+    saveState();
+    closeAddModal();
+    renderColumns();
+    showToast('Added ' + lines.length + ' items');
+  }
+
+  function addVoiceMultiple() {
+    const transcriptEl = document.getElementById('voice-transcript');
+    let transcript = (transcriptEl && transcriptEl.textContent) ? transcriptEl.textContent.trim() : '';
+    transcript = transcript.replace(/\s+comma\s+/gi, ',');
+    const lines = transcript.split(/,\s*|\s+next\s+/i).map(s => s.trim()).filter(Boolean);
+    if (!lines.length) return;
+    lines.forEach(line => {
+      const cat = detectCategory(line) || state.lastCategory;
+      state.lastCategory = cat;
+      const deadline = extractDeadline(line);
+      const item = createItem(line, cat, deadline, 'medium');
+      state.items.push(item);
+    });
+    saveState();
+    if (transcriptEl) transcriptEl.textContent = '';
+    const submitBtn = document.getElementById('submit-voice');
+    if (submitBtn) submitBtn.disabled = true;
+    closeAddModal();
+    renderColumns();
+    showToast('Added ' + lines.length + ' items');
+  }
+
+  function initVoiceMulti() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const btn = document.getElementById('voice-multi-btn');
+    const transcriptEl = document.getElementById('voice-transcript');
+    const submitBtn = document.getElementById('submit-voice');
+    if (!SpeechRecognition || !btn) {
+      const tabVoice = document.getElementById('tab-voice');
+      if (tabVoice) tabVoice.style.display = 'none';
+      return;
+    }
+    let recognition = null;
+    btn.addEventListener('click', () => {
+      if (recognition) {
+        recognition.stop();
+        return;
+      }
+      recognition = new SpeechRecognition();
+      recognition.continuous = true;
+      recognition.interimResults = false;
+      recognition.lang = 'en-US';
+      recognition.onresult = (e) => {
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          if (e.results[i].isFinal) {
+            const t = (transcriptEl.textContent || '') + (transcriptEl.textContent ? ' ' : '') + e.results[i][0].transcript;
+            transcriptEl.textContent = t.trim();
+          }
+        }
+        if (submitBtn) submitBtn.disabled = !(transcriptEl.textContent || '').trim();
+      };
+      recognition.onend = () => { recognition = null; btn.textContent = 'Start speaking'; };
+      recognition.onerror = () => { recognition = null; btn.textContent = 'Start speaking'; };
+      recognition.start();
+      btn.textContent = 'Stop';
+    });
+    if (submitBtn) submitBtn.addEventListener('click', addVoiceMultiple);
+  }
+
   function openSettingsModal() {
+    const presetRadios = document.querySelectorAll('input[name="category-preset"]');
+    presetRadios.forEach(r => {
+      r.checked = (r.value === (state.categoryPreset || 'generic'));
+    });
     const container = document.getElementById('settings-column-inputs');
     if (!container) return;
-    container.innerHTML = CATEGORIES.map(c => {
+    container.innerHTML = getCategories().map(c => {
       const val = (state.customLabels[c.id] || c.label);
       return `<label>${escapeHtml(c.label)}<input type="text" data-cat="${c.id}" value="${escapeHtml(val)}" placeholder="${escapeHtml(c.label)}"></label>`;
     }).join('');
 
     const colorsContainer = document.getElementById('settings-column-colors');
     if (colorsContainer) {
-      colorsContainer.innerHTML = CATEGORIES.map(c => {
+      colorsContainer.innerHTML = getCategories().map(c => {
         const current = getColumnColor(c.id);
         const swatches = PRESET_COLORS.map(hex => `<button type="button" class="color-swatch" data-cat="${c.id}" data-color="${hex}" style="background:${hex}" title="${hex}"></button>`).join('');
         return `
@@ -557,6 +702,21 @@
   }
 
   async function saveSettingsAndClose() {
+    const newPreset = (document.querySelector('input[name="category-preset"]:checked') || {}).value || 'generic';
+    const oldPreset = state.categoryPreset || 'generic';
+    if (newPreset !== oldPreset) {
+      const mapKey = oldPreset + '_to_' + newPreset;
+      const map = PRESET_MIGRATION[mapKey];
+      if (map) {
+        state.items.forEach(item => {
+          if (map[item.category]) item.category = map[item.category];
+        });
+        state.categoryPreset = newPreset;
+        state.customLabels = {};
+        const newCats = CATEGORY_PRESETS[newPreset];
+        state.lastCategory = (newCats && newCats[0]) ? newCats[0].id : 'life';
+      }
+    }
     const inputs = document.querySelectorAll('#settings-column-inputs input[data-cat]');
     inputs.forEach(inp => {
       const val = inp.value.trim();
@@ -604,7 +764,7 @@
     if (!item) return;
     state.editingId = id;
     document.getElementById('edit-text').value = item.text;
-    document.getElementById('edit-category').innerHTML = CATEGORIES.map(c =>
+    document.getElementById('edit-category').innerHTML = getCategories().map(c =>
       `<option value="${c.id}" ${c.id === item.category ? 'selected' : ''}>${escapeHtml(getCategoryLabel(c.id))}</option>`
     ).join('');
     document.getElementById('edit-deadline').value = item.deadline || '';
@@ -687,7 +847,7 @@
     if (!list) return;
     list.innerHTML = archived.length ? archived.map(item => {
       const date = item.archivedAt ? new Date(item.archivedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
-      const cat = CATEGORIES.find(c => c.id === item.category);
+      const cat = getCategories().find(c => c.id === item.category);
       return `<div class="archive-item">${escapeHtml(item.text)} <span class="archive-date">${getCategoryLabel(item.category)} — ${date}</span></div>`;
     }).join('') : '<div class="empty-state">No completed items yet</div>';
     document.getElementById('archive-modal').style.display = 'flex';
@@ -738,11 +898,22 @@
   }
 
   async function showMainApp() {
+    document.getElementById('entry-screen').style.display = 'none';
     document.getElementById('pair-setup').style.display = 'none';
     document.getElementById('main-app').style.display = 'block';
     document.getElementById('floating-buttons').style.display = 'flex';
     const badge = document.getElementById('pair-badge');
-    if (badge) badge.textContent = state.pairId + ' · ' + state.addedBy;
+    const talkSection = document.getElementById('talk-about-section');
+    const linkPartnerBtn = document.getElementById('link-partner-btn');
+    if (state.pairId) {
+      if (badge) badge.textContent = state.pairId + ' · ' + state.addedBy;
+      if (talkSection) talkSection.style.display = 'block';
+      if (linkPartnerBtn) linkPartnerBtn.style.display = 'none';
+    } else {
+      if (badge) badge.textContent = 'Solo';
+      if (talkSection) talkSection.style.display = 'none';
+      if (linkPartnerBtn) linkPartnerBtn.style.display = 'block';
+    }
     loadState();
     if (window.talkAbout && state.pairId) {
       const prefs = await window.talkAbout.getUserPreferences(state.pairId, state.addedBy);
@@ -755,10 +926,14 @@
     updateTally();
     updateAddToSuggestionsBtn();
     if (window.talkAbout && state.pairId) {
+      if (state.talkAboutUnsubscribe) state.talkAboutUnsubscribe();
       state.talkAboutUnsubscribe = window.talkAbout.subscribeTalkAbout(state.pairId, (items) => {
         state.talkAboutItems = items;
         renderTalkAbout();
       });
+    } else if (state.talkAboutUnsubscribe) {
+      state.talkAboutUnsubscribe();
+      state.talkAboutUnsubscribe = null;
     }
   }
 
@@ -803,6 +978,12 @@
       item.addEventListener('click', closeSidebar);
     });
 
+    const linkPartnerBtn = document.getElementById('link-partner-btn');
+    if (linkPartnerBtn) linkPartnerBtn.addEventListener('click', () => {
+      closeSidebar();
+      openLinkPartnerModal();
+    });
+
     const addBtn = document.getElementById('add-btn');
     if (addBtn) addBtn.addEventListener('click', openAddModal);
 
@@ -827,6 +1008,45 @@
 
     const submitSingle = document.getElementById('submit-single');
     if (submitSingle) submitSingle.addEventListener('click', addSingle);
+    const submitQuick = document.getElementById('submit-quick');
+    if (submitQuick) submitQuick.addEventListener('click', addQuick);
+    const tabSingle = document.getElementById('tab-single');
+    const tabQuick = document.getElementById('tab-quick');
+    const tabVoice = document.getElementById('tab-voice');
+    if (tabSingle) tabSingle.addEventListener('click', () => {
+      tabSingle.classList.add('active');
+      if (tabQuick) tabQuick.classList.remove('active');
+      if (tabVoice) tabVoice.classList.remove('active');
+      const singleAdd = document.getElementById('single-add');
+      const quickAdd = document.getElementById('quick-add');
+      const voiceAdd = document.getElementById('voice-add');
+      if (singleAdd) singleAdd.style.display = 'block';
+      if (quickAdd) quickAdd.style.display = 'none';
+      if (voiceAdd) voiceAdd.style.display = 'none';
+    });
+    if (tabQuick) tabQuick.addEventListener('click', () => {
+      if (tabSingle) tabSingle.classList.remove('active');
+      tabQuick.classList.add('active');
+      if (tabVoice) tabVoice.classList.remove('active');
+      const singleAdd = document.getElementById('single-add');
+      const quickAdd = document.getElementById('quick-add');
+      const voiceAdd = document.getElementById('voice-add');
+      if (singleAdd) singleAdd.style.display = 'none';
+      if (quickAdd) quickAdd.style.display = 'block';
+      if (voiceAdd) voiceAdd.style.display = 'none';
+    });
+    if (tabVoice) tabVoice.addEventListener('click', () => {
+      if (tabSingle) tabSingle.classList.remove('active');
+      if (tabQuick) tabQuick.classList.remove('active');
+      tabVoice.classList.add('active');
+      const singleAdd = document.getElementById('single-add');
+      const quickAdd = document.getElementById('quick-add');
+      const voiceAdd = document.getElementById('voice-add');
+      if (singleAdd) singleAdd.style.display = 'none';
+      if (quickAdd) quickAdd.style.display = 'none';
+      if (voiceAdd) voiceAdd.style.display = 'block';
+    });
+    initVoiceMulti();
 
     const closeEdit = document.getElementById('close-edit');
     if (closeEdit) closeEdit.addEventListener('click', () => {
@@ -926,11 +1146,71 @@
     }
   }
 
+  function openLinkPartnerModal() {
+    const modal = document.getElementById('link-partner-modal');
+    const actions = document.querySelector('.link-partner-actions');
+    const created = document.getElementById('link-pair-created');
+    if (modal) modal.style.display = 'flex';
+    if (actions) actions.style.display = 'flex';
+    if (created) created.style.display = 'none';
+  }
+
+  function closeLinkPartnerModal() {
+    const modal = document.getElementById('link-partner-modal');
+    if (modal) modal.style.display = 'none';
+  }
+
+  function bindLinkPartnerModal() {
+    const modal = document.getElementById('link-partner-modal');
+    const closeBtn = document.getElementById('close-link-partner');
+    const createBtn = document.getElementById('link-create-btn');
+    const joinBtn = document.getElementById('link-join-btn');
+    const continueBtn = document.getElementById('link-continue-btn');
+    const actions = document.querySelector('.link-partner-actions');
+    const created = document.getElementById('link-pair-created');
+    const codeEl = document.getElementById('link-pair-code');
+    const joinInput = document.getElementById('link-join-input');
+
+    if (closeBtn) closeBtn.addEventListener('click', closeLinkPartnerModal);
+    if (modal) modal.addEventListener('click', (e) => {
+      if (e.target.id === 'link-partner-modal') closeLinkPartnerModal();
+    });
+
+    if (createBtn) createBtn.addEventListener('click', () => {
+      state.pairId = window.talkAbout ? window.talkAbout.generatePairId() : 'demo' + Date.now().toString(36).slice(-6);
+      state.addedBy = 'Talia';
+      savePairState();
+      if (actions) actions.style.display = 'none';
+      if (created) created.style.display = 'block';
+      if (codeEl) codeEl.textContent = state.pairId;
+    });
+
+    if (continueBtn) continueBtn.addEventListener('click', () => {
+      closeLinkPartnerModal();
+      showMainApp();
+    });
+
+    if (joinBtn) joinBtn.addEventListener('click', () => {
+      const code = (joinInput && joinInput.value) ? joinInput.value.trim().toLowerCase() : '';
+      if (!code) { showToast('Enter a pair code'); return; }
+      const asTalia = document.getElementById('link-join-talia');
+      state.pairId = code;
+      state.addedBy = (asTalia && asTalia.checked) ? 'Talia' : 'Garren';
+      savePairState();
+      closeLinkPartnerModal();
+      showMainApp();
+    });
+
+    if (joinInput) joinInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') document.getElementById('link-join-btn').click();
+    });
+  }
+
   function bindPairSetup() {
     const createBtn = document.getElementById('create-pair-btn');
     if (createBtn) createBtn.addEventListener('click', () => {
       state.pairId = window.talkAbout ? window.talkAbout.generatePairId() : 'demo' + Date.now().toString(36).slice(-6);
-      state.addedBy = 'you';
+      state.addedBy = 'Talia';
       savePairState();
       document.getElementById('pair-created').style.display = 'block';
       document.querySelector('.pair-actions').style.display = 'none';
@@ -952,9 +1232,9 @@
         showToast('Enter a pair code');
         return;
       }
-      const asYou = document.getElementById('join-as-you');
+      const asTalia = document.getElementById('join-as-talia');
       state.pairId = code;
-      state.addedBy = (asYou && asYou.checked) ? 'you' : 'him';
+      state.addedBy = (asTalia && asTalia.checked) ? 'Talia' : 'Garren';
       savePairState();
       document.getElementById('pair-setup').style.display = 'none';
       showMainApp();
@@ -970,12 +1250,41 @@
   function init() {
     loadPairState();
     if (state.pairId) {
+      document.getElementById('entry-screen').style.display = 'none';
+      document.getElementById('pair-setup').style.display = 'none';
+      showMainApp();
+      bindEvents();
+    } else if (hasChosenSolo()) {
+      document.getElementById('entry-screen').style.display = 'none';
+      document.getElementById('pair-setup').style.display = 'none';
       showMainApp();
       bindEvents();
     } else {
-      bindPairSetup();
+      document.getElementById('entry-screen').style.display = 'block';
+      document.getElementById('pair-setup').style.display = 'none';
+      document.getElementById('main-app').style.display = 'none';
+      document.getElementById('floating-buttons').style.display = 'none';
+      bindEntryScreen();
     }
   }
+
+  function bindEntryScreen() {
+    const soloBtn = document.getElementById('entry-solo-btn');
+    const coupleBtn = document.getElementById('entry-couple-btn');
+    if (soloBtn) soloBtn.addEventListener('click', () => {
+      setChosenSolo();
+      document.getElementById('entry-screen').style.display = 'none';
+      showMainApp();
+      bindEvents();
+    });
+    if (coupleBtn) coupleBtn.addEventListener('click', () => {
+      document.getElementById('entry-screen').style.display = 'none';
+      document.getElementById('pair-setup').style.display = 'block';
+      bindPairSetup();
+    });
+  }
+
+  bindLinkPartnerModal();
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
