@@ -173,6 +173,9 @@
         <button id="close-settings" class="btn-close">×</button>
       </div>
       <div class="modal-body">
+        <h4 class="settings-section-title">Your name</h4>
+        <p class="settings-hint">Shown next to the pair code in the menu.</p>
+        <input id="settings-display-name" type="text" placeholder="e.g. Talia" class="settings-name-input" value="">
         <h4 class="settings-section-title">Category preset</h4>
         <p class="settings-hint">Choose your column structure. You can rename columns below.</p>
         <div class="settings-preset-btns">
@@ -183,8 +186,26 @@
         <p class="settings-hint">Customize what each column is called.</p>
         <div id="settings-column-inputs" class="settings-column-inputs"></div>
         <h4 class="settings-section-title">Column colors</h4>
-        <p class="settings-hint">Pick a color for each column. Syncs across your devices.</p>
+        <p class="settings-hint">Pick a color for each column (color wheel or hex). Syncs across your devices.</p>
         <div id="settings-column-colors" class="settings-column-colors"></div>
+        <h4 class="settings-section-title">Theme colors</h4>
+        <p class="settings-hint">Button and text accent colors.</p>
+        <div class="settings-theme-colors">
+          <div class="settings-color-row">
+            <label>Button color</label>
+            <div class="color-picker-row">
+              <input type="color" id="settings-button-color" class="color-input" value="#e07a5f">
+              <input type="text" id="settings-button-hex" class="color-hex-input" placeholder="#e07a5f" maxlength="7">
+            </div>
+          </div>
+          <div class="settings-color-row">
+            <label>Text color</label>
+            <div class="color-picker-row">
+              <input type="color" id="settings-text-color" class="color-input" value="#e8e6e3">
+              <input type="text" id="settings-text-hex" class="color-hex-input" placeholder="#e8e6e3" maxlength="7">
+            </div>
+          </div>
+        </div>
         <button id="save-settings" class="btn-primary">Save</button>
       </div>
     </div>

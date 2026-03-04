@@ -42,8 +42,6 @@
     cycles: '#f2cc8f'
   };
 
-  const PRESET_COLORS = ['#e07a5f', '#81b29a', '#f2cc8f', '#f4a261', '#3b82f6', '#8b5cf6', '#22c55e', '#6b7280'];
-
   let state = {
     items: [],
     todaySuggestionIds: [],
@@ -61,7 +59,10 @@
     talkAboutUnsubscribe: null,
     customLabels: {},
     columnColors: {},
-    categoryPreset: 'generic'
+    categoryPreset: 'generic',
+    buttonColor: null,
+    textColor: null,
+    displayName: ''
   };
 
   function loadPairState() {
@@ -92,6 +93,9 @@
         state.lastCategory = parsed.lastCategory || 'life';
         state.customLabels = parsed.customLabels || {};
         state.categoryPreset = parsed.categoryPreset || 'generic';
+        state.buttonColor = parsed.buttonColor || null;
+        state.textColor = parsed.textColor || null;
+        state.displayName = parsed.displayName || '';
       }
       const tally = localStorage.getItem(STORAGE_PREFIX + 'tally');
       if (tally) {
@@ -112,7 +116,10 @@
         todaySuggestionIds: state.todaySuggestionIds,
         lastCategory: state.lastCategory,
         customLabels: state.customLabels,
-        categoryPreset: state.categoryPreset || 'generic'
+        categoryPreset: state.categoryPreset || 'generic',
+        buttonColor: state.buttonColor,
+        textColor: state.textColor,
+        displayName: state.displayName || ''
       }));
       localStorage.setItem(STORAGE_PREFIX + 'tally', JSON.stringify({
         count: state.completedTodayCount,
@@ -245,7 +252,24 @@
   }
 
   function getColumnColor(catId) {
+    if (catId === '__button' || catId === '__text') return null;
     return state.columnColors[catId] || DEFAULT_COLUMN_COLORS[catId] || '#6b7280';
+  }
+
+  function getActiveColumnColors() {
+    const out = {};
+    Object.keys(state.columnColors || {}).forEach(k => {
+      if (k !== '__button' && k !== '__text') out[k] = state.columnColors[k];
+    });
+    return out;
+  }
+
+  function applyThemeColors() {
+    const root = document.documentElement;
+    if (state.buttonColor) root.style.setProperty('--accent-button', state.buttonColor);
+    else root.style.removeProperty('--accent-button');
+    if (state.textColor) root.style.setProperty('--accent-text', state.textColor);
+    else root.style.removeProperty('--accent-text');
   }
 
   function escapeHtml(s) {
@@ -272,9 +296,10 @@
           </div>
           <div class="column-items">
             ${items.length ? items.map(item => renderTaskCard(item)).join('') : `
-              <div class="empty-state">Nothing here yet—add something when you're ready</div>
+              <div class="empty-state column-add-hint" data-category="${catId}">Nothing here yet—click to add</div>
             `}
           </div>
+          <button type="button" class="column-add-btn" data-category="${catId}" title="Add task">+ Add</button>
         </div>
       `;
     }).join('');
@@ -323,6 +348,14 @@
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         deleteItem(btn.dataset.id, true);
+      });
+    });
+
+    container.querySelectorAll('.column-add-btn, .column-add-hint').forEach(el => {
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const cat = el.dataset.category;
+        if (cat) openAddModal(cat);
       });
     });
   }
@@ -385,13 +418,14 @@
     const ids = state.todaySuggestionIds;
     const items = ids.map(id => state.items.find(i => i.id === id)).filter(Boolean);
 
-    list.innerHTML = items.map(item => `
-      <div class="today-item" data-id="${item.id}">
+    list.innerHTML = items.map(item => {
+      const accent = getColumnColor(item.category);
+      return `<div class="today-item today-item-accent" data-id="${item.id}" style="--today-accent: ${accent}">
         <span class="task-text">${escapeHtml(item.text)}</span>
         <button class="btn-done" title="Done">Done</button>
         <button class="btn-remove" title="Remove from suggestions">Remove</button>
-      </div>
-    `).join('') || '<div class="empty-state">Pick items from the columns below, then click "Add selected to Today\'s Suggestions"</div>';
+      </div>`;
+    }).join('') || '<div class="empty-state">Pick items from the columns below, then click "Add selected to Today\'s Suggestions"</div>';
 
     list.querySelectorAll('.btn-done').forEach(btn => {
       btn.addEventListener('click', () => markDone(btn.closest('.today-item').dataset.id));
@@ -408,13 +442,14 @@
       .map(id => state.items.find(i => i.id === id))
       .filter(Boolean);
 
-    list.innerHTML = items.map(item => `
-      <div class="today-item task-card" data-id="${item.id}">
+    list.innerHTML = items.map(item => {
+      const accent = getColumnColor(item.category);
+      return `<div class="today-item today-item-accent task-card" data-id="${item.id}" style="--today-accent: ${accent}">
         <span class="task-text">${escapeHtml(item.text)}</span>
         <button class="btn-done">Done</button>
         <button class="btn-remove">Remove from suggestions</button>
-      </div>
-    `).join('') || '<div class="empty-state">Add items from the overview to get started</div>';
+      </div>`;
+    }).join('') || '<div class="empty-state">Add items from the overview to get started</div>';
 
     list.querySelectorAll('.btn-done').forEach(btn => {
       btn.addEventListener('click', () => markDone(btn.closest('.today-item').dataset.id));
@@ -527,7 +562,7 @@
     ).join('');
   }
 
-  function openAddModal() {
+  function openAddModal(presetCategory) {
     const modal = document.getElementById('add-modal');
     if (modal) modal.style.display = 'flex';
     updateCategorySelectOptions();
@@ -559,7 +594,8 @@
     const prioritySelect = document.getElementById('priority-select');
     if (prioritySelect) prioritySelect.value = 'medium';
     const categorySelect = document.getElementById('category-select');
-    if (categorySelect) categorySelect.value = state.lastCategory;
+    if (categorySelect) categorySelect.value = presetCategory || state.lastCategory;
+    if (presetCategory) state.lastCategory = presetCategory;
   }
 
   function closeAddModal() {
@@ -644,6 +680,9 @@
   }
 
   function openSettingsModal() {
+    const displayNameEl = document.getElementById('settings-display-name');
+    if (displayNameEl) displayNameEl.value = state.displayName || '';
+
     const presetRadios = document.querySelectorAll('input[name="category-preset"]');
     presetRadios.forEach(r => {
       r.checked = (r.value === (state.categoryPreset || 'generic'));
@@ -659,42 +698,65 @@
     if (colorsContainer) {
       colorsContainer.innerHTML = getCategories().map(c => {
         const current = getColumnColor(c.id);
-        const swatches = PRESET_COLORS.map(hex => `<button type="button" class="color-swatch" data-cat="${c.id}" data-color="${hex}" style="background:${hex}" title="${hex}"></button>`).join('');
         return `
           <div class="settings-color-row">
             <label>${escapeHtml(getCategoryLabel(c.id))}</label>
             <div class="color-picker-row">
               <input type="color" data-cat="${c.id}" value="${current}" class="color-input">
-              <div class="color-swatches">${swatches}</div>
+              <input type="text" data-cat="${c.id}" class="color-hex-input" value="${current}" placeholder="#000000" maxlength="7">
             </div>
           </div>`;
       }).join('');
 
       colorsContainer.querySelectorAll('.color-input').forEach(inp => {
         inp.addEventListener('input', (e) => {
-          state.columnColors[e.target.dataset.cat] = e.target.value;
+          const cat = e.target.dataset.cat;
+          state.columnColors[cat] = e.target.value;
+          const hexInp = colorsContainer.querySelector(`.color-hex-input[data-cat="${cat}"]`);
+          if (hexInp) hexInp.value = e.target.value;
           saveColumnColorsToSupabase();
           renderColumns();
         });
       });
-      colorsContainer.querySelectorAll('.color-swatch').forEach(btn => {
-        btn.addEventListener('click', (e) => {
+      colorsContainer.querySelectorAll('.color-hex-input').forEach(inp => {
+        inp.addEventListener('input', (e) => {
           const cat = e.target.dataset.cat;
-          const color = e.target.dataset.color;
-          state.columnColors[cat] = color;
-          const colorInput = colorsContainer.querySelector(`.color-input[data-cat="${cat}"]`);
-          if (colorInput) colorInput.value = color;
-          saveColumnColorsToSupabase();
-          renderColumns();
+          const val = e.target.value.trim();
+          if (/^#[0-9a-fA-F]{6}$/.test(val)) {
+            state.columnColors[cat] = val;
+            const colorInp = colorsContainer.querySelector(`.color-input[data-cat="${cat}"]`);
+            if (colorInp) colorInp.value = val;
+            saveColumnColorsToSupabase();
+            renderColumns();
+          }
         });
       });
     }
+
+    const btnColorEl = document.getElementById('settings-button-color');
+    const btnHexEl = document.getElementById('settings-button-hex');
+    const textColorEl = document.getElementById('settings-text-color');
+    const textHexEl = document.getElementById('settings-text-hex');
+    const defaultBtn = '#e07a5f';
+    const defaultText = '#e8e6e3';
+    if (btnColorEl) btnColorEl.value = state.buttonColor || defaultBtn;
+    if (btnHexEl) btnHexEl.value = state.buttonColor || defaultBtn;
+    if (textColorEl) textColorEl.value = state.textColor || defaultText;
+    if (textHexEl) textHexEl.value = state.textColor || defaultText;
+
     document.getElementById('settings-modal').style.display = 'flex';
+  }
+
+  function getPreferencesForSupabase() {
+    const prefs = { ...getActiveColumnColors() };
+    if (state.buttonColor) prefs.__button = state.buttonColor;
+    if (state.textColor) prefs.__text = state.textColor;
+    return prefs;
   }
 
   async function saveColumnColorsToSupabase() {
     if (!window.talkAbout || !state.pairId) return;
-    await window.talkAbout.saveUserPreferences(state.pairId, state.addedBy, state.columnColors);
+    await window.talkAbout.saveUserPreferences(state.pairId, state.addedBy, getPreferencesForSupabase());
   }
 
   function closeSettingsModal() {
@@ -717,18 +779,32 @@
         state.lastCategory = (newCats && newCats[0]) ? newCats[0].id : 'life';
       }
     }
+    const displayNameInp = document.getElementById('settings-display-name');
+    if (displayNameInp) state.displayName = displayNameInp.value.trim();
+
+    const btnColorInp = document.getElementById('settings-button-color');
+    const textColorInp = document.getElementById('settings-text-color');
+    if (btnColorInp && btnColorInp.value) state.buttonColor = btnColorInp.value;
+    if (textColorInp && textColorInp.value) state.textColor = textColorInp.value;
+
     const inputs = document.querySelectorAll('#settings-column-inputs input[data-cat]');
     inputs.forEach(inp => {
       const val = inp.value.trim();
       if (val) state.customLabels[inp.dataset.cat] = val;
       else delete state.customLabels[inp.dataset.cat];
     });
+    applyThemeColors();
     if (window.talkAbout && state.pairId) {
-      await window.talkAbout.saveUserPreferences(state.pairId, state.addedBy, state.columnColors);
+      await window.talkAbout.saveUserPreferences(state.pairId, state.addedBy, getPreferencesForSupabase());
     }
     saveState();
     updateCategorySelectOptions();
     renderColumns();
+    const badge = document.getElementById('pair-badge');
+    if (badge) {
+      if (state.pairId) badge.textContent = state.pairId + ' · ' + ((state.displayName || '').trim() || state.addedBy);
+      else badge.textContent = (state.displayName || '').trim() || 'Solo';
+    }
     closeSettingsModal();
     showToast('Settings saved');
   }
@@ -906,19 +982,26 @@
     const talkSection = document.getElementById('talk-about-section');
     const linkPartnerBtn = document.getElementById('link-partner-btn');
     if (state.pairId) {
-      if (badge) badge.textContent = state.pairId + ' · ' + state.addedBy;
+      const name = (state.displayName || '').trim() || state.addedBy;
+      if (badge) badge.textContent = state.pairId + ' · ' + name;
       if (talkSection) talkSection.style.display = 'block';
       if (linkPartnerBtn) linkPartnerBtn.style.display = 'none';
     } else {
-      if (badge) badge.textContent = 'Solo';
+      const name = (state.displayName || '').trim() || 'Solo';
+      if (badge) badge.textContent = name;
       if (talkSection) talkSection.style.display = 'none';
       if (linkPartnerBtn) linkPartnerBtn.style.display = 'block';
     }
     loadState();
     if (window.talkAbout && state.pairId) {
       const prefs = await window.talkAbout.getUserPreferences(state.pairId, state.addedBy);
-      if (prefs && Object.keys(prefs).length) state.columnColors = prefs;
+      if (prefs && typeof prefs === 'object') {
+        if (prefs.__button) { state.buttonColor = prefs.__button; delete prefs.__button; }
+        if (prefs.__text) { state.textColor = prefs.__text; delete prefs.__text; }
+        if (Object.keys(prefs).length) state.columnColors = prefs;
+      }
     }
+    applyThemeColors();
     updateCategorySelectOptions();
     renderColumns();
     renderTodayList();
@@ -1078,6 +1161,41 @@
 
     const saveSettings = document.getElementById('save-settings');
     if (saveSettings) saveSettings.addEventListener('click', saveSettingsAndClose);
+
+    const btnColorEl = document.getElementById('settings-button-color');
+    const btnHexEl = document.getElementById('settings-button-hex');
+    const textColorEl = document.getElementById('settings-text-color');
+    const textHexEl = document.getElementById('settings-text-hex');
+    if (btnColorEl) btnColorEl.addEventListener('input', (e) => {
+      state.buttonColor = e.target.value;
+      if (btnHexEl) btnHexEl.value = e.target.value;
+      applyThemeColors();
+      saveColumnColorsToSupabase();
+    });
+    if (btnHexEl) btnHexEl.addEventListener('input', (e) => {
+      const val = e.target.value.trim();
+      if (/^#[0-9a-fA-F]{6}$/.test(val)) {
+        state.buttonColor = val;
+        if (btnColorEl) btnColorEl.value = val;
+        applyThemeColors();
+        saveColumnColorsToSupabase();
+      }
+    });
+    if (textColorEl) textColorEl.addEventListener('input', (e) => {
+      state.textColor = e.target.value;
+      if (textHexEl) textHexEl.value = e.target.value;
+      applyThemeColors();
+      saveColumnColorsToSupabase();
+    });
+    if (textHexEl) textHexEl.addEventListener('input', (e) => {
+      const val = e.target.value.trim();
+      if (/^#[0-9a-fA-F]{6}$/.test(val)) {
+        state.textColor = val;
+        if (textColorEl) textColorEl.value = val;
+        applyThemeColors();
+        saveColumnColorsToSupabase();
+      }
+    });
 
     const archiveBtn = document.getElementById('archive-btn');
     if (archiveBtn) archiveBtn.addEventListener('click', openArchiveModal);

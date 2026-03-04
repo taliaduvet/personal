@@ -22,7 +22,7 @@ body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, sans-serif;
   background: var(--bg);
-  color: var(--text);
+  color: var(--accent-text, var(--text));
   line-height: 1.6;
   min-height: 100vh;
 }
@@ -421,6 +421,10 @@ body.sidebar-open .sidebar-overlay {
   margin-top: 0.75rem;
 }
 
+.today-item-accent {
+  border-left: 4px solid var(--today-accent, var(--border));
+}
+
 .today-item {
   display: flex;
   align-items: center;
@@ -498,6 +502,25 @@ body.sidebar-open .sidebar-overlay {
 
 .column-accent {
   border-left: 4px solid var(--column-accent, var(--border));
+}
+
+.column-add-btn {
+  display: block;
+  width: 100%;
+  margin-top: 0.5rem;
+  padding: 0.4rem 0.75rem;
+  background: var(--bg-soft);
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.column-add-btn:hover {
+  background: var(--bg-card);
+  color: var(--text);
+  border-color: var(--text-muted);
 }
 
 .column-header {
@@ -595,7 +618,7 @@ body.sidebar-open .sidebar-overlay {
 }
 
 .btn-primary {
-  background: var(--accent-coral);
+  background: var(--accent-button, var(--accent-coral));
   color: white;
   border: none;
   padding: 0.6rem 1.2rem;
@@ -1012,6 +1035,42 @@ body.sidebar-open .sidebar-overlay {
   border-radius: 8px;
   background: var(--bg);
   cursor: pointer;
+}
+
+.color-hex-input {
+  width: 80px;
+  padding: 0.4rem 0.5rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 0.85rem;
+  font-family: monospace;
+}
+
+.color-hex-input:focus {
+  outline: none;
+  border-color: var(--accent-coral);
+}
+
+.settings-name-input {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.settings-name-input:focus {
+  outline: none;
+  border-color: var(--accent-coral);
+}
+
+.settings-theme-colors {
+  margin-bottom: 1.5rem;
 }
 
 .color-swatches {
