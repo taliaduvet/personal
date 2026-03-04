@@ -25,8 +25,8 @@ jobs:
 
       - name: Create config.js for deployment
         run: |
-          mkdir -p parking-lot-couples
-          echo "const SUPABASE_URL='${{ secrets.SUPABASE_URL }}'; const SUPABASE_ANON_KEY='${{ secrets.SUPABASE_KEY }}';" > parking-lot-couples/config.js
+          mkdir -p parking-lot-app
+          echo "const SUPABASE_URL='${{ secrets.SUPABASE_URL }}'; const SUPABASE_ANON_KEY='${{ secrets.SUPABASE_KEY }}';" > parking-lot-app/config.js
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
@@ -34,7 +34,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@3
         with:
-          path: parking-lot-couples
+          path: parking-lot-app
 
       - name: Deploy to GitHub Pages
         id: deployment

@@ -817,7 +817,7 @@
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'parking-lot-couples-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+    a.download = 'parking-lot-backup-' + new Date().toISOString().slice(0, 10) + '.json';
     a.click();
     URL.revokeObjectURL(a.href);
   }

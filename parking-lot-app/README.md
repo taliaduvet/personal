@@ -23,7 +23,7 @@ A shared task manager for two people, with a real-time "Talk about" section that
 ## Setup (Person 2 — Your Boyfriend)
 
 1. **Get the app folder** — Either:
-   - Clone/copy the whole `parking-lot-couples` folder to his computer, or
+   - Clone/copy the whole `parking-lot-app` folder to his computer, or
    - Host it somewhere (e.g. GitHub Pages, Netlify) and send him the URL.
 
 2. **He needs the same `config.js`** — The app must have your Supabase URL and anon key to sync. Options:
