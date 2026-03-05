@@ -203,6 +203,61 @@
       return error ? null : data;
     },
 
+    async requestTriageRun(pairId, addedBy) {
+      const client = getClient();
+      if (!client) return { error: 'Supabase not configured' };
+      const { error } = await client.from('triage_run_requests').insert({
+        pair_id: pairId,
+        added_by: addedBy || null
+      });
+      return { error };
+    },
+
+    async savePushSubscription(deviceSyncId, subscription) {
+      const client = getClient();
+      if (!client) return { error: 'Supabase not configured' };
+      const sub = subscription.toJSON ? subscription.toJSON() : subscription;
+      const { error } = await client.from('push_subscriptions').upsert({
+        device_sync_id: deviceSyncId,
+        endpoint: sub.endpoint,
+        p256dh: sub.keys?.p256dh,
+        auth: sub.keys?.auth
+      }, { onConflict: 'device_sync_id,endpoint' });
+      return { error };
+    },
+
+    async deletePushSubscription(deviceSyncId, endpoint) {
+      const client = getClient();
+      if (!client) return { error: 'Supabase not configured' };
+      const { error } = await client.from('push_subscriptions')
+        .delete()
+        .eq('device_sync_id', deviceSyncId)
+        .eq('endpoint', endpoint);
+      return { error };
+    },
+
+    async addReminder(deviceSyncId, itemId, itemText, remindAt) {
+      const client = getClient();
+      if (!client) return { error: 'Supabase not configured' };
+      const { error } = await client.from('reminders').insert({
+        device_sync_id: deviceSyncId,
+        item_id: itemId,
+        item_text: (itemText || '').slice(0, 500),
+        remind_at: new Date(remindAt).toISOString()
+      });
+      return { error };
+    },
+
+    async removeReminder(deviceSyncId, itemId) {
+      const client = getClient();
+      if (!client) return { error: 'Supabase not configured' };
+      const { error } = await client.from('reminders')
+        .delete()
+        .eq('device_sync_id', deviceSyncId)
+        .eq('item_id', itemId);
+      return { error };
+    },
+
     subscribeEmailTasks(pairId, addedBy, callback) {
       const client = getClient();
       if (!client) {

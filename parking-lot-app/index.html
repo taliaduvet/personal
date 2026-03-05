@@ -72,6 +72,9 @@
             <div id="email-triage-section" class="email-triage-dropdown" style="display:none">
               <div class="email-triage-dropdown-content">
                 <h3 class="email-triage-header">Email Triage <button type="button" class="btn-icon close-email-triage-btn" title="Close" aria-label="Close">×</button></h3>
+                <div class="email-triage-header-actions">
+                  <button type="button" id="email-triage-run-btn" class="btn-primary btn-sm">Run triage</button>
+                </div>
                 <p id="email-triage-status" class="email-triage-status"></p>
                 <div id="email-triage-list" class="email-triage-list"></div>
                 <p id="email-triage-empty" class="email-triage-empty" style="display:none"></p>
@@ -95,7 +98,7 @@
             <div id="talk-about-list" class="talk-about-list"></div>
             <div class="talk-about-add">
               <input id="talk-about-input" type="text" placeholder="Something to discuss..." autocomplete="off">
-              <button id="talk-about-add-btn" class="btn-primary">Add</button>
+              <button id="talk-about-add-btn" type="button" class="btn-primary">Add</button>
             </div>
           </div>
         </div>
@@ -113,6 +116,7 @@
 
   <div id="add-to-suggestions-float" class="add-to-suggestions-float" aria-live="polite">
     <button id="add-to-suggestions-btn" type="button" class="btn-primary">Add to Today</button>
+    <button id="add-to-suggestions-clear" type="button" class="btn-secondary btn-sm" title="Clear selection">Clear</button>
   </div>
   <div class="floating-buttons" id="floating-buttons" style="display:none">
     <button id="focus-btn" class="fab" title="Focus mode">◎</button>
@@ -196,6 +200,9 @@
           </select>
           <label>Priority</label>
           <select id="edit-priority"></select>
+          <label>Remind me at</label>
+          <input id="edit-reminder" type="datetime-local">
+          <p class="settings-hint" style="margin-top:-0.5rem">Get a push notification at this time (requires notifications enabled in Settings)</p>
         </div>
         <button id="save-edit" class="btn-primary">Save</button>
       </div>
@@ -221,6 +228,12 @@
         <button id="close-settings" class="btn-close">×</button>
       </div>
       <div class="modal-body">
+        <div id="settings-push-notifications" class="settings-sync-code">
+          <h4 class="settings-section-title">Push notifications</h4>
+          <p class="settings-hint">Enable to get reminders on your phone and laptop when tasks are due.</p>
+          <button id="settings-push-enable-btn" type="button" class="btn-secondary btn-sm">Enable push notifications</button>
+          <p id="settings-push-notifications-status" class="settings-push-status" aria-live="polite"></p>
+        </div>
         <div id="settings-sync-code" class="settings-sync-code" style="display:none">
           <h4 class="settings-section-title">Device sync code</h4>
           <p class="settings-hint">Enter this on your other devices (Link a device on the welcome screen) to sync settings. Never share with your partner.</p>

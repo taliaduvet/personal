@@ -21,6 +21,16 @@
     return CATEGORY_PRESETS[preset] || CATEGORY_PRESETS.generic;
   }
 
+  function getOrderedCategoryIds() {
+    const baseIds = getCategories().map(c => c.id);
+    if (state.columnOrder && state.columnOrder.length) {
+      const order = state.columnOrder.filter(id => baseIds.includes(id));
+      const rest = baseIds.filter(id => !order.includes(id));
+      return [...order, ...rest];
+    }
+    return baseIds;
+  }
+
   const PRESET_MIGRATION = {
     generic_to_creative: { work: 'misfit', hobbies: 'stop2030barclay', life: 'life', other: 'cycles' },
     creative_to_generic: { misfit: 'work', stop2030barclay: 'hobbies', life: 'life', cycles: 'other' }
@@ -62,6 +72,7 @@
     prefsUnsubscribe: null,
     customLabels: {},
     columnColors: {},
+    columnOrder: null,
     categoryPreset: 'generic',
     buttonColor: null,
     textColor: null,
@@ -113,6 +124,7 @@
         state.textColor = parsed.textColor || null;
         state.displayName = parsed.displayName || '';
         if (parsed.columnColors && Object.keys(parsed.columnColors).length) state.columnColors = parsed.columnColors;
+        if (Array.isArray(parsed.columnOrder) && parsed.columnOrder.length) state.columnOrder = parsed.columnOrder;
       }
       const tally = localStorage.getItem(STORAGE_PREFIX + 'tally');
       if (tally) {
@@ -138,7 +150,8 @@
         buttonColor: state.buttonColor,
         textColor: state.textColor,
         displayName: state.displayName || '',
-        columnColors: state.columnColors || {}
+        columnColors: state.columnColors || {},
+        columnOrder: state.columnOrder || null
       }));
       const tallyDate = useRemoteTallyDate && state.lastCompletedDate ? state.lastCompletedDate : new Date().toDateString();
       localStorage.setItem(STORAGE_PREFIX + 'tally', JSON.stringify({
@@ -287,7 +300,7 @@
     return result.replace(/\s+/g, ' ').trim();
   }
 
-  function createItem(text, category, deadline, priority, recurrence) {
+  function createItem(text, category, deadline, priority, recurrence, reminderAt) {
     const cleanText = stripAutoExtractedFromText(text, category, deadline, priority) || text.trim();
     return {
       id: 'id_' + Date.now() + '_' + Math.random().toString(36).slice(2),
@@ -297,6 +310,7 @@
       deadline: deadline || null,
       priority: priority || 'medium',
       recurrence: recurrence || null,
+      reminderAt: reminderAt || null,
       archived: false
     };
   }
@@ -394,9 +408,10 @@
   function renderColumns() {
     const container = document.getElementById('columns');
     if (!container) return;
-    const cats = state.drillDownCategory ? [state.drillDownCategory] : getCategories().map(c => c.id);
+    const cats = state.drillDownCategory ? [state.drillDownCategory] : getOrderedCategoryIds();
     container.classList.toggle('single-column', !!state.drillDownCategory);
 
+    const canReorder = !state.drillDownCategory && cats.length > 1;
     container.innerHTML = cats.map(catId => {
       const items = sortItems(getItemsByCategory(catId));
       const label = getCategoryLabel(catId);
@@ -404,7 +419,7 @@
 
       return `
         <div class="column column-accent" data-category="${catId}" style="--column-accent: ${color}">
-          <div class="column-header" data-category="${catId}">
+          <div class="column-header ${canReorder ? 'column-header-draggable' : ''}" data-category="${catId}" ${canReorder ? 'draggable="true"' : ''} role="${canReorder ? 'button' : 'none'}" title="${canReorder ? 'Drag to reorder columns' : ''}">
             ${escapeHtml(label)} <span class="count">(${items.length})</span>
           </div>
           <div class="column-items">
@@ -417,8 +432,10 @@
       `;
     }).join('');
 
+    let columnDragHappened = false;
     container.querySelectorAll('.column-header').forEach(el => {
       el.addEventListener('click', () => {
+        if (columnDragHappened) { columnDragHappened = false; return; }
         if (state.drillDownCategory) {
           state.drillDownCategory = null;
           document.getElementById('back-btn').style.display = 'none';
@@ -426,6 +443,37 @@
           state.drillDownCategory = el.dataset.category;
           document.getElementById('back-btn').style.display = 'inline-block';
         }
+        renderColumns();
+      });
+    });
+    container.querySelectorAll('.column-header-draggable').forEach(el => {
+      el.addEventListener('dragstart', (e) => {
+        columnDragHappened = true;
+        e.dataTransfer.setData('text/plain', el.dataset.category);
+        e.dataTransfer.effectAllowed = 'move';
+        el.classList.add('column-dragging');
+      });
+      el.addEventListener('dragend', () => {
+        el.classList.remove('column-dragging');
+      });
+      el.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+      });
+      el.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const dragCat = e.dataTransfer.getData('text/plain');
+        const dropCat = el.dataset.category;
+        if (!dragCat || !dropCat || dragCat === dropCat) return;
+        const order = state.columnOrder && state.columnOrder.length ? [...state.columnOrder] : getOrderedCategoryIds();
+        const baseIds = getCategories().map(c => c.id);
+        const fromIdx = order.indexOf(dragCat);
+        const toIdx = order.indexOf(dropCat);
+        if (fromIdx === -1 || toIdx === -1) return;
+        order.splice(fromIdx, 1);
+        order.splice(order.indexOf(dropCat), 0, dragCat);
+        state.columnOrder = order.filter(id => baseIds.includes(id));
+        saveState();
         renderColumns();
       });
     });
@@ -660,6 +708,12 @@
     renderTodayList();
     renderColumns();
     updateAddToSuggestionsBtn();
+  }
+
+  function clearAddToSuggestionsSelection() {
+    state.selectedIds.clear();
+    updateAddToSuggestionsBtn();
+    renderColumns();
   }
 
   function removeFromSuggestions(id) {
@@ -1005,6 +1059,7 @@
     prefs.__items = state.items;
     prefs.__todaySuggestionIds = state.todaySuggestionIds;
     prefs.__completedTodayCount = state.completedTodayCount;
+    if (Array.isArray(state.columnOrder) && state.columnOrder.length) prefs.__columnOrder = state.columnOrder;
     const tally = JSON.parse(localStorage.getItem(STORAGE_PREFIX + 'tally') || '{}');
     prefs.__lastCompletedDate = tally.date || new Date().toDateString();
     return prefs;
@@ -1020,6 +1075,7 @@
     if (Array.isArray(prefs.__todaySuggestionIds)) { state.todaySuggestionIds = prefs.__todaySuggestionIds; delete prefs.__todaySuggestionIds; }
     if (typeof prefs.__completedTodayCount === 'number') { state.completedTodayCount = prefs.__completedTodayCount; delete prefs.__completedTodayCount; }
     if (prefs.__lastCompletedDate) { state.lastCompletedDate = prefs.__lastCompletedDate; delete prefs.__lastCompletedDate; }
+    if (Array.isArray(prefs.__columnOrder)) { state.columnOrder = prefs.__columnOrder; delete prefs.__columnOrder; }
     if (Object.keys(prefs).length) state.columnColors = prefs;
     saveState(true, true);
   }
@@ -1076,7 +1132,7 @@
 
   async function forcePushToCloud() {
     const btn = document.getElementById('settings-push-now-btn');
-    const statusEl = document.getElementById('settings-push-status');
+    const statusEl = document.getElementById('settings-push-notifications-status');
     const origText = btn ? btn.textContent : '';
     const setStatus = (msg) => {
       if (statusEl) { statusEl.textContent = msg; statusEl.className = 'settings-push-status' + (msg && !msg.startsWith('✓') ? ' settings-push-error' : ''); }
@@ -1697,6 +1753,8 @@
 
     const addToSuggestionsBtn = document.getElementById('add-to-suggestions-btn');
     if (addToSuggestionsBtn) addToSuggestionsBtn.addEventListener('click', addToSuggestions);
+    const addToSuggestionsClear = document.getElementById('add-to-suggestions-clear');
+    if (addToSuggestionsClear) addToSuggestionsClear.addEventListener('click', clearAddToSuggestionsSelection);
 
     const clearBtn = document.getElementById('clear-suggestions');
     if (clearBtn) clearBtn.addEventListener('click', () => {
@@ -1992,6 +2050,16 @@
     const emailTriageBtn = document.getElementById('email-triage-btn');
     if (emailTriageBtn) emailTriageBtn.addEventListener('click', openEmailTriage);
 
+    const emailTriageRunBtn = document.getElementById('email-triage-run-btn');
+    if (emailTriageRunBtn) emailTriageRunBtn.addEventListener('click', () => {
+      if (!window.talkAbout) { showToast('Supabase not configured'); return; }
+      const pairId = state.pairId || 'solo_default';
+      window.talkAbout.requestTriageRun(pairId, state.addedBy).then(({ error }) => {
+        if (error) showToast(error === 'Supabase not configured' ? error : 'Request failed');
+        else showToast('Triage run requested — agent will process when it runs.');
+      });
+    });
+
     document.querySelectorAll('.close-email-triage-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const s = document.getElementById('email-triage-section');
@@ -2020,7 +2088,7 @@
 
     const talkInput = document.getElementById('talk-about-input');
     if (talkInput) talkInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') addTalkAbout();
+      if (e.key === 'Enter') { e.preventDefault(); addTalkAbout(); }
     });
 
     const talkAddBtn = document.getElementById('talk-about-add-btn');

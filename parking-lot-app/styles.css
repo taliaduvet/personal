@@ -380,6 +380,12 @@ body {
   line-height: 1;
 }
 
+.email-triage-header-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
 .email-triage-status {
   margin: 0 0 0.75rem 0;
   font-size: 0.85rem;
@@ -786,6 +792,18 @@ body.sidebar-open .sidebar-overlay {
   font-size: 0.85rem;
 }
 
+.column-header-draggable {
+  cursor: grab;
+}
+
+.column-header-draggable:active {
+  cursor: grabbing;
+}
+
+.column-dragging {
+  opacity: 0.7;
+}
+
 .column-items {
   display: flex;
   flex-direction: column;
@@ -883,6 +901,9 @@ body.sidebar-open .sidebar-overlay {
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.2s, transform 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .add-to-suggestions-float.visible {
@@ -1244,7 +1265,8 @@ body.sidebar-open .sidebar-overlay {
 }
 
 .edit-options select,
-.edit-options input[type="date"] {
+.edit-options input[type="date"],
+.edit-options input[type="datetime-local"] {
   padding: 0.5rem 0.75rem;
   background: var(--bg);
   border: 1px solid var(--border);
@@ -1254,7 +1276,8 @@ body.sidebar-open .sidebar-overlay {
 }
 
 .edit-options select:focus,
-.edit-options input[type="date"]:focus {
+.edit-options input[type="date"]:focus,
+.edit-options input[type="datetime-local"]:focus {
   outline: none;
   border-color: var(--accent-coral);
 }
