@@ -104,6 +104,17 @@ body {
   margin-top: 0.25rem;
 }
 
+.settings-push-status {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--accent-sage);
+  min-height: 1.4em;
+}
+
+.settings-push-status.settings-push-error {
+  color: var(--accent-coral);
+}
+
 .settings-link-row {
   display: flex;
   gap: 0.5rem;
@@ -1191,7 +1202,7 @@ body.sidebar-open .sidebar-overlay {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
-  z-index: 300;
+  z-index: 9999;
   opacity: 0;
   transition: transform 0.3s, opacity 0.3s;
 }

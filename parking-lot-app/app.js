@@ -888,6 +888,8 @@
   }
 
   function openSettingsModal() {
+    const pushStatus = document.getElementById('settings-push-status');
+    if (pushStatus) pushStatus.textContent = '';
     const displayNameEl = document.getElementById('settings-display-name');
     if (displayNameEl) displayNameEl.value = state.displayName || '';
 
@@ -1054,16 +1056,43 @@
   }
 
   async function forcePushToCloud() {
+    const btn = document.getElementById('settings-push-now-btn');
+    const statusEl = document.getElementById('settings-push-status');
+    const origText = btn ? btn.textContent : '';
+    const setStatus = (msg) => {
+      if (statusEl) { statusEl.textContent = msg; statusEl.className = 'settings-push-status' + (msg && !msg.startsWith('✓') ? ' settings-push-error' : ''); }
+    };
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Pushing…';
+    }
+    setStatus('');
     if (!window.talkAbout || !state.deviceSyncId) {
+      setStatus('No sync code yet — use the app first');
       showToast('No sync code yet — use the app first');
+      if (btn) { btn.disabled = false; btn.textContent = origText; }
       return;
     }
     try {
       const { error } = await window.talkAbout.saveDevicePreferences(state.deviceSyncId, getPreferencesForDevice());
-      if (error) showToast('Could not push — ' + (error || 'check connection'));
-      else showToast('Pushed ' + state.items.length + ' tasks to cloud');
+      if (error) {
+        const msg = 'Could not push — ' + (error || 'check connection');
+        setStatus(msg);
+        showToast(msg);
+      } else {
+        const msg = '✓ Pushed ' + state.items.length + ' tasks to cloud';
+        setStatus(msg);
+        showToast(msg);
+      }
     } catch (e) {
-      showToast('Could not push — check connection');
+      const msg = 'Could not push — check connection';
+      setStatus(msg);
+      showToast(msg);
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = origText;
+      }
     }
   }
 
