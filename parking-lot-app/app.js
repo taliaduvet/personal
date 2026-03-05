@@ -559,7 +559,7 @@
         <button class="btn-done" title="Done">Done</button>
         <button class="btn-remove" title="Remove from suggestions">Remove</button>
       </div>`;
-    }).join('') || '<div class="empty-state">Pick items from the columns below, then click "Add selected to Today\'s Suggestions"</div>';
+    }).join('') || '<div class="empty-state">Select tasks below and click Add to Today, or drag tasks here</div>';
 
     list.querySelectorAll('.btn-done').forEach(btn => {
       btn.addEventListener('click', () => markDone(btn.closest('.today-item').dataset.id));
@@ -623,13 +623,14 @@
 
   function updateAddToSuggestionsBtn() {
     const btn = document.getElementById('add-to-suggestions-btn');
+    const float = document.getElementById('add-to-suggestions-float');
     if (!btn) return;
     const count = state.selectedIds.size;
     const remaining = 5 - state.todaySuggestionIds.length;
-    btn.disabled = count === 0 || remaining <= 0;
-    btn.textContent = count && remaining > 0
-      ? `Add ${Math.min(count, remaining)} to Today's Suggestions`
-      : 'Add selected to Today\'s Suggestions';
+    const show = count > 0 && remaining > 0;
+    if (float) float.classList.toggle('visible', show);
+    btn.disabled = !show;
+    btn.textContent = show ? `Add ${Math.min(count, remaining)} to Today` : 'Add to Today';
   }
 
   function addToSuggestions() {
@@ -1634,6 +1635,34 @@
           saveState();
           renderColumns();
         }
+      });
+    }
+
+    const todayListEl = document.getElementById('today-list');
+    if (todayListEl) {
+      todayListEl.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+        todayListEl.classList.add('drag-over');
+      });
+      todayListEl.addEventListener('dragleave', (e) => {
+        if (!todayListEl.contains(e.relatedTarget)) todayListEl.classList.remove('drag-over');
+      });
+      todayListEl.addEventListener('drop', (e) => {
+        e.preventDefault();
+        todayListEl.classList.remove('drag-over');
+        const id = e.dataTransfer.getData('text/plain');
+        const item = state.items.find(i => i.id === id);
+        if (!item || item.archived) return;
+        if (state.todaySuggestionIds.includes(id)) return;
+        const remaining = 5 - state.todaySuggestionIds.length;
+        if (remaining <= 0) return;
+        state.todaySuggestionIds.push(id);
+        saveState();
+        renderTodayList();
+        renderFocusList();
+        renderColumns();
+        updateAddToSuggestionsBtn();
       });
     }
 

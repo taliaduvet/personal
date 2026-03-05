@@ -630,6 +630,14 @@ body.sidebar-open .sidebar-overlay {
   flex-wrap: wrap;
   gap: 0.5rem;
   margin-top: 0.75rem;
+  min-height: 2.5rem;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.today-list.drag-over {
+  background: rgba(129, 178, 154, 0.15);
+  border-radius: var(--radius);
+  border: 2px dashed var(--accent-sage);
 }
 
 .today-item-accent {
@@ -866,8 +874,27 @@ body.sidebar-open .sidebar-overlay {
   color: var(--accent-coral);
 }
 
-.add-to-suggestions {
-  margin-top: 1rem;
+.add-to-suggestions-float {
+  position: fixed;
+  bottom: 5.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.add-to-suggestions-float.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.add-to-suggestions-float .btn-primary {
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  box-shadow: var(--shadow);
+  white-space: nowrap;
 }
 
 .btn-primary {
@@ -1508,10 +1535,9 @@ body.sidebar-open .sidebar-overlay {
     width: 100%;
   }
 
-  .add-to-suggestions .btn-primary {
-    width: 100%;
+  .add-to-suggestions-float .btn-primary {
     font-size: 0.9rem;
-    padding: 0.75rem;
+    padding: 0.6rem 1rem;
   }
 
   .floating-buttons {
