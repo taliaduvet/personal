@@ -357,10 +357,10 @@
     const root = document.documentElement;
     if (state.buttonColor) {
       root.style.setProperty('--accent-button', state.buttonColor);
-      root.style.setProperty('--header-bg', state.buttonColor);
+      root.style.setProperty('--header-accent', state.buttonColor);
     } else {
       root.style.removeProperty('--accent-button');
-      root.style.removeProperty('--header-bg');
+      root.style.removeProperty('--header-accent');
     }
     if (state.textColor) root.style.setProperty('--accent-text', state.textColor);
     else root.style.removeProperty('--accent-text');
@@ -1778,6 +1778,57 @@
 
     const saveSettings = document.getElementById('save-settings');
     if (saveSettings) saveSettings.addEventListener('click', saveSettingsAndClose);
+
+    const settingsLinkBtn = document.getElementById('settings-link-btn');
+    const settingsLinkCode = document.getElementById('settings-link-code');
+    if (settingsLinkBtn && settingsLinkCode) {
+      settingsLinkBtn.addEventListener('click', async () => {
+        const code = (settingsLinkCode.value || '').trim().toLowerCase().replace(/\s/g, '');
+        if (!code || code.length < 6) {
+          showToast('Enter a valid sync code (6+ chars from your other device)');
+          return;
+        }
+        state.deviceSyncId = code;
+        saveDeviceSyncState();
+        try {
+          if (window.talkAbout) {
+            const prefs = await window.talkAbout.getDevicePreferences(state.deviceSyncId);
+            if (!prefs?.error) {
+              const hadData = Array.isArray(prefs.__items) || Object.keys(prefs).length > 0;
+              applyDevicePreferencesToState(prefs);
+              if (state.prefsUnsubscribe) state.prefsUnsubscribe();
+              state.prefsUnsubscribe = window.talkAbout.subscribeDevicePreferences(state.deviceSyncId, (p) => {
+                applyDevicePreferencesToState(p);
+                applyThemeColors();
+                updateCategorySelectOptions();
+                renderColumns();
+                renderTodayList();
+                updateTally();
+                updateAddToSuggestionsBtn();
+              });
+              applyThemeColors();
+              updateCategorySelectOptions();
+              renderColumns();
+              renderTodayList();
+              updateTally();
+              updateAddToSuggestionsBtn();
+              const syncDisplay = document.getElementById('settings-sync-code-display');
+              if (syncDisplay) syncDisplay.textContent = state.deviceSyncId;
+              const syncEl = document.getElementById('settings-sync-code');
+              if (syncEl) syncEl.style.display = 'block';
+              showToast(hadData ? 'Device linked — tasks and settings synced' : 'Device linked. Add a task on your other device and it will sync.');
+            } else {
+              showToast('Device linked. Could not fetch data — check connection.');
+            }
+          } else {
+            showToast('Device linked. Supabase not configured.');
+          }
+        } catch (e) {
+          showToast('Could not fetch — check code and connection');
+        }
+        settingsLinkCode.value = '';
+      });
+    }
 
     const btnColorEl = document.getElementById('settings-button-color');
     const btnHexEl = document.getElementById('settings-button-hex');
