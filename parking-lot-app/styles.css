@@ -96,6 +96,14 @@ body {
   margin: 0.25rem 0 1rem 0;
 }
 
+.settings-sync-actions {
+  margin-bottom: 1rem;
+}
+
+.settings-sync-actions .btn-sm {
+  margin-top: 0.25rem;
+}
+
 .settings-link-row {
   display: flex;
   gap: 0.5rem;

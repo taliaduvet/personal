@@ -1009,8 +1009,11 @@
     if (state.pairId) {
       state.deviceSyncId = state.pairId + '_' + (state.addedBy || 'Talia');
       try {
+        const payload = getPreferencesForDevice();
         const oldPrefs = await window.talkAbout.getUserPreferences(state.pairId, state.addedBy);
-        const payload = (oldPrefs && !oldPrefs.error && typeof oldPrefs === 'object') ? oldPrefs : getPreferencesForDevice();
+        if (oldPrefs && !oldPrefs.error && typeof oldPrefs === 'object' && Object.keys(oldPrefs).length > 0) {
+          Object.assign(payload, oldPrefs);
+        }
         const { error } = await window.talkAbout.saveDevicePreferences(state.deviceSyncId, payload);
         if (error) console.warn('Migration save failed', error);
       } catch (e) {
@@ -1048,6 +1051,20 @@
         showToast('Could not sync preferences — will retry when online');
       }
     }, 500);
+  }
+
+  async function forcePushToCloud() {
+    if (!window.talkAbout || !state.deviceSyncId) {
+      showToast('No sync code yet — use the app first');
+      return;
+    }
+    try {
+      const { error } = await window.talkAbout.saveDevicePreferences(state.deviceSyncId, getPreferencesForDevice());
+      if (error) showToast('Could not push — ' + (error || 'check connection'));
+      else showToast('Pushed ' + state.items.length + ' tasks to cloud');
+    } catch (e) {
+      showToast('Could not push — check connection');
+    }
   }
 
   function closeSettingsModal() {
@@ -1778,6 +1795,9 @@
 
     const saveSettings = document.getElementById('save-settings');
     if (saveSettings) saveSettings.addEventListener('click', saveSettingsAndClose);
+
+    const pushNowBtn = document.getElementById('settings-push-now-btn');
+    if (pushNowBtn) pushNowBtn.addEventListener('click', () => forcePushToCloud());
 
     const settingsLinkBtn = document.getElementById('settings-link-btn');
     const settingsLinkCode = document.getElementById('settings-link-code');
