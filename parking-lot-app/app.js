@@ -127,7 +127,7 @@
     }
   }
 
-  function saveState() {
+  function saveState(skipCloudSync, useRemoteTallyDate) {
     try {
       localStorage.setItem(STORAGE_PREFIX + 'data', JSON.stringify({
         items: state.items,
@@ -140,10 +140,12 @@
         displayName: state.displayName || '',
         columnColors: state.columnColors || {}
       }));
+      const tallyDate = useRemoteTallyDate && state.lastCompletedDate ? state.lastCompletedDate : new Date().toDateString();
       localStorage.setItem(STORAGE_PREFIX + 'tally', JSON.stringify({
         count: state.completedTodayCount,
-        date: new Date().toDateString()
+        date: tallyDate
       }));
+      if (!skipCloudSync && window.talkAbout && state.deviceSyncId) saveDevicePreferencesToSupabase();
     } catch (e) {
       console.warn('Save failed', e);
       showToast('Could not save — check storage or try again');
@@ -353,10 +355,17 @@
 
   function applyThemeColors() {
     const root = document.documentElement;
-    if (state.buttonColor) root.style.setProperty('--accent-button', state.buttonColor);
-    else root.style.removeProperty('--accent-button');
+    if (state.buttonColor) {
+      root.style.setProperty('--accent-button', state.buttonColor);
+      root.style.setProperty('--header-bg', state.buttonColor);
+    } else {
+      root.style.removeProperty('--accent-button');
+      root.style.removeProperty('--header-bg');
+    }
     if (state.textColor) root.style.setProperty('--accent-text', state.textColor);
     else root.style.removeProperty('--accent-text');
+    const metaTheme = document.querySelector('meta[name="theme-color"]');
+    if (metaTheme) metaTheme.setAttribute('content', state.buttonColor || '#e07a5f');
   }
 
   function escapeHtml(s) {
@@ -972,6 +981,11 @@
     if (state.textColor) prefs.__text = state.textColor;
     prefs.custom_labels = { ...(state.customLabels || {}) };
     prefs.category_preset = state.categoryPreset || 'generic';
+    prefs.__items = state.items;
+    prefs.__todaySuggestionIds = state.todaySuggestionIds;
+    prefs.__completedTodayCount = state.completedTodayCount;
+    const tally = JSON.parse(localStorage.getItem(STORAGE_PREFIX + 'tally') || '{}');
+    prefs.__lastCompletedDate = tally.date || new Date().toDateString();
     return prefs;
   }
 
@@ -981,7 +995,12 @@
     if (prefs.__text) { state.textColor = prefs.__text; delete prefs.__text; }
     if (prefs.custom_labels) { state.customLabels = prefs.custom_labels; delete prefs.custom_labels; }
     if (prefs.category_preset) { state.categoryPreset = prefs.category_preset; delete prefs.category_preset; }
+    if (Array.isArray(prefs.__items)) { state.items = prefs.__items; delete prefs.__items; }
+    if (Array.isArray(prefs.__todaySuggestionIds)) { state.todaySuggestionIds = prefs.__todaySuggestionIds; delete prefs.__todaySuggestionIds; }
+    if (typeof prefs.__completedTodayCount === 'number') { state.completedTodayCount = prefs.__completedTodayCount; delete prefs.__completedTodayCount; }
+    if (prefs.__lastCompletedDate) { state.lastCompletedDate = prefs.__lastCompletedDate; delete prefs.__lastCompletedDate; }
     if (Object.keys(prefs).length) state.columnColors = prefs;
+    saveState(true, true);
   }
 
   async function runDeviceSyncMigration() {
@@ -1406,6 +1425,9 @@
         applyThemeColors();
         updateCategorySelectOptions();
         renderColumns();
+        renderTodayList();
+        updateTally();
+        updateAddToSuggestionsBtn();
       });
     } else if (state.prefsUnsubscribe) {
       state.prefsUnsubscribe();

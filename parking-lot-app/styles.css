@@ -437,7 +437,7 @@ body {
   position: sticky;
   top: 0;
   z-index: 10;
-  background: var(--bg-soft);
+  background: var(--header-bg, var(--bg-soft));
   border-bottom: 1px solid var(--border);
   padding: 1rem 1.5rem;
 }
