@@ -2006,9 +2006,19 @@
     updateOfflineBanner();
 
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('./sw.js').catch((err) => {
-        console.warn('Service worker registration failed', err);
-        showToast('Offline mode limited — refresh when online');
+      navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })
+        .then((reg) => {
+          reg.update();
+          navigator.serviceWorker.addEventListener('controllerchange', () => window.location.reload());
+        })
+        .catch((err) => {
+          console.warn('Service worker registration failed', err);
+          showToast('Offline mode limited — refresh when online');
+        });
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && navigator.serviceWorker.controller) {
+          navigator.serviceWorker.ready.then((reg) => reg.update());
+        }
       });
     }
     loadPairState();
