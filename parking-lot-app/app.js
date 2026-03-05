@@ -247,7 +247,16 @@
     return null;
   }
 
-  function stripAutoExtractedFromText(text, category, deadline) {
+  function extractPriority(text) {
+    const t = (text || '').toLowerCase();
+    if (/\b(critical|urgent|asap|as\s+ap|emergency|rush|top\s+priority)\b/.test(t)) return 'critical';
+    if (/\b(high\s+priority|high\s+prio|important|must\s+do|must\s+be)\b/.test(t)) return 'high';
+    if (/\b(low\s+priority|low\s+prio|whenever|nice\s+to\s+have|optional|backlog)\b/.test(t)) return 'low';
+    if (/\b(medium|normal|regular)\b/.test(t)) return 'medium';
+    return null;
+  }
+
+  function stripAutoExtractedFromText(text, category, deadline, priority) {
     let result = (text || '').trim();
     if (!result) return result;
     if (deadline) {
@@ -268,11 +277,18 @@
       if (category === 'stop2030barclay') result = result.replace(/\b(barclay|stop\s*2030|stop2030)\b/gi, '');
       if (category === 'cycles') result = result.replace(/\bcycles\b/gi, '');
     }
+    if (priority === 'critical') {
+      result = result.replace(/\b(critical|urgent|asap|as\s+ap|emergency|rush|top\s+priority)\b/gi, '');
+    } else if (priority === 'high') {
+      result = result.replace(/\b(high\s+priority|high\s+prio|important|must\s+do|must\s+be)\b/gi, '');
+    } else if (priority === 'low') {
+      result = result.replace(/\b(low\s+priority|low\s+prio|whenever|nice\s+to\s+have|optional|backlog)\b/gi, '');
+    }
     return result.replace(/\s+/g, ' ').trim();
   }
 
   function createItem(text, category, deadline, priority, recurrence) {
-    const cleanText = stripAutoExtractedFromText(text, category, deadline) || text.trim();
+    const cleanText = stripAutoExtractedFromText(text, category, deadline, priority) || text.trim();
     return {
       id: 'id_' + Date.now() + '_' + Math.random().toString(36).slice(2),
       text: cleanText || text.trim(),
@@ -817,7 +833,8 @@
       const cat = detectCategory(line) || state.lastCategory;
       state.lastCategory = cat;
       const deadline = extractDeadline(line);
-      const item = createItem(line, cat, deadline, 'medium');
+      const priority = extractPriority(line) || 'medium';
+      const item = createItem(line, cat, deadline, priority);
       state.items.push(item);
     });
     saveState();
@@ -840,7 +857,8 @@
       const cat = detectCategory(line) || state.lastCategory;
       state.lastCategory = cat;
       const deadline = extractDeadline(line);
-      const item = createItem(line, cat, deadline, 'medium');
+      const priority = extractPriority(line) || 'medium';
+      const item = createItem(line, cat, deadline, priority);
       state.items.push(item);
     });
     saveState();
@@ -1182,6 +1200,11 @@
     if (cat) document.getElementById('category-select').value = cat;
     const deadline = extractDeadline(text);
     if (deadline) document.getElementById('deadline-input').value = deadline;
+    const priority = extractPriority(text);
+    if (priority) {
+      const sel = document.getElementById('priority-select');
+      if (sel && sel.querySelector(`option[value="${priority}"]`)) sel.value = priority;
+    }
   }
 
   function applySmartFieldsToEdit() {
@@ -1197,6 +1220,11 @@
     if (deadline) {
       const inp = document.getElementById('edit-deadline');
       if (inp) inp.value = deadline;
+    }
+    const priority = extractPriority(text);
+    if (priority) {
+      const sel = document.getElementById('edit-priority');
+      if (sel && sel.querySelector(`option[value="${priority}"]`)) sel.value = priority;
     }
   }
 
@@ -1573,7 +1601,8 @@
     const text = input?.value?.trim() || t.text;
     const cat = detectCategory(text) || document.querySelector(`.email-triage-category[data-id="${id}"]`)?.value || t.category;
     const deadline = extractDeadline(text) || t.deadline;
-    const item = createItem(text, cat, deadline, t.priority || 'medium');
+    const priority = extractPriority(text) || t.priority || 'medium';
+    const item = createItem(text, cat, deadline, priority);
     state.items.push(item);
     state.lastCategory = cat;
     saveState();
