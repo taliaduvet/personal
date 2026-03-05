@@ -1,4 +1,4 @@
-const CACHE_NAME = 'parking-lot-v8';
+const CACHE_NAME = 'parking-lot-v9';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -24,12 +24,28 @@ self.addEventListener('activate', (e) => {
   self.clients.claim();
 });
 
+function isNetworkFirst(pathname) {
+  return pathname.endsWith('/') || pathname.endsWith('index.html') || pathname.endsWith('app.js') || pathname.endsWith('styles.css');
+}
+
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
   if (url.origin !== self.location.origin) return;
   if (url.pathname.includes('supabase') || url.hostname.includes('supabase')) return;
-  if (url.pathname.endsWith('config.js')) {
+  if (url.pathname.endsWith('config.js') || url.pathname.endsWith('sw.js')) {
     e.respondWith(fetch(e.request));
+    return;
+  }
+  if (isNetworkFirst(url.pathname)) {
+    e.respondWith(
+      fetch(e.request)
+        .then((res) => {
+          const clone = res.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(e.request, clone));
+          return res;
+        })
+        .catch(() => caches.match(e.request))
+    );
     return;
   }
   e.respondWith(
