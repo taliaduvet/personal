@@ -178,18 +178,25 @@
         <h3 id="edit-modal-title">Edit</h3>
         <button id="close-edit" class="btn-close">×</button>
       </div>
-      <div class="modal-body">
-        <input id="edit-text" type="text">
-        <select id="edit-category"></select>
-        <input id="edit-deadline" type="date">
-        <label>Recurrence</label>
-        <select id="edit-recurrence">
-          <option value="">None</option>
-          <option value="daily">Daily</option>
-          <option value="weekly">Weekly</option>
-          <option value="monthly">Monthly</option>
-        </select>
-        <select id="edit-priority"></select>
+      <div class="modal-body edit-form">
+        <div class="edit-input-row">
+          <input id="edit-text" type="text" placeholder="Task description" autocomplete="off">
+        </div>
+        <div class="edit-options">
+          <label>Category</label>
+          <select id="edit-category"></select>
+          <label>Deadline</label>
+          <input id="edit-deadline" type="date">
+          <label>Recurrence</label>
+          <select id="edit-recurrence">
+            <option value="">None</option>
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+          </select>
+          <label>Priority</label>
+          <select id="edit-priority"></select>
+        </div>
         <button id="save-edit" class="btn-primary">Save</button>
       </div>
     </div>

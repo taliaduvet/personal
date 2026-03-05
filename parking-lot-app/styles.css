@@ -1205,6 +1205,64 @@ body.sidebar-open .sidebar-overlay {
   color: var(--text);
 }
 
+/* Edit modal — match add form styling */
+.edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.edit-input-row {
+  margin-bottom: 1rem;
+}
+
+.edit-input-row input {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 1rem;
+  box-sizing: border-box;
+}
+
+.edit-input-row input:focus {
+  outline: none;
+  border-color: var(--accent-coral);
+}
+
+.edit-options {
+  display: grid;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.edit-options label {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.edit-options select,
+.edit-options input[type="date"] {
+  padding: 0.5rem 0.75rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.edit-options select:focus,
+.edit-options input[type="date"]:focus {
+  outline: none;
+  border-color: var(--accent-coral);
+}
+
+.edit-form .btn-primary {
+  margin-top: 0.25rem;
+}
+
 /* Toast */
 .offline-banner {
   position: fixed;
