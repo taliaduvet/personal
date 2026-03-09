@@ -822,8 +822,8 @@ body.sidebar-open .sidebar-overlay {
 }
 
 .task-card.selected {
-  border-left-color: var(--accent-coral);
-  background: rgba(224, 122, 95, 0.1);
+  border-left-color: var(--header-accent, var(--accent-button, var(--accent-coral)));
+  background: color-mix(in srgb, var(--header-accent, var(--accent-button, #e07a5f)) 12%, transparent);
 }
 
 .task-card.overdue {
@@ -874,6 +874,54 @@ body.sidebar-open .sidebar-overlay {
   font-size: 0.9em;
 }
 
+.task-meta-clickable {
+  cursor: pointer;
+}
+.task-meta-clickable:hover {
+  color: var(--text);
+}
+.task-meta .priority-badge,
+.task-meta .doing-badge {
+  font-size: 0.7rem;
+  opacity: 0.9;
+}
+.task-meta-edit {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+  margin-top: 0.25rem;
+}
+.task-meta-edit select.meta-priority {
+  font-size: 0.75rem;
+  padding: 0.15rem 0.25rem;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg-soft);
+  color: var(--text);
+}
+.task-meta-edit input[type="date"] {
+  font-size: 0.75rem;
+  padding: 0.15rem 0.25rem;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg-soft);
+  color: var(--text);
+}
+.task-meta-edit .btn-meta-done {
+  padding: 0.15rem 0.35rem;
+  font-size: 0.85rem;
+}
+
+.add-from-talk-preview {
+  margin-bottom: 0.75rem;
+  padding: 0.5rem;
+  background: var(--bg-soft);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
 .task-actions {
   display: flex;
   gap: 0.25rem;
@@ -890,6 +938,14 @@ body.sidebar-open .sidebar-overlay {
 
 .task-actions button:hover {
   color: var(--accent-coral);
+}
+
+.task-actions .btn-done-card {
+  color: var(--accent-sage);
+}
+.task-actions .btn-done-card:hover {
+  color: var(--accent-sage);
+  opacity: 1;
 }
 
 .add-to-suggestions-float {

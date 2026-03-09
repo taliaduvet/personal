@@ -145,6 +145,8 @@
             <select id="category-select"></select>
             <label>Deadline (optional)</label>
             <input id="deadline-input" type="date">
+            <label>Doing date (optional)</label>
+            <input id="doing-date-input" type="date" title="Plan to do on this day; task is auto-removed after">
             <label>Recurrence</label>
             <select id="recurrence-select">
               <option value="">None</option>
@@ -191,6 +193,8 @@
           <select id="edit-category"></select>
           <label>Deadline</label>
           <input id="edit-deadline" type="date">
+          <label>Doing date (optional)</label>
+          <input id="edit-doing-date" type="date" title="Plan to do on this day; task is auto-removed after">
           <label>Recurrence</label>
           <select id="edit-recurrence">
             <option value="">None</option>
@@ -205,6 +209,34 @@
           <p class="settings-hint" style="margin-top:-0.5rem">Get a push notification at this time (requires notifications enabled in Settings)</p>
         </div>
         <button id="save-edit" class="btn-primary">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="add-from-talk-modal" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="add-from-talk-modal-title">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="add-from-talk-modal-title">Add to parking lot</h3>
+        <button id="close-add-from-talk" class="btn-close">×</button>
+      </div>
+      <div class="modal-body">
+        <p id="add-from-talk-text" class="add-from-talk-preview"></p>
+        <div class="edit-options">
+          <label>Category</label>
+          <select id="add-from-talk-category"></select>
+          <label>Doing date (optional)</label>
+          <input id="add-from-talk-doing-date" type="date">
+          <label>Deadline (optional)</label>
+          <input id="add-from-talk-deadline" type="date">
+          <label>Priority</label>
+          <select id="add-from-talk-priority">
+            <option value="critical">Critical</option>
+            <option value="high">High</option>
+            <option value="medium" selected>Medium</option>
+            <option value="low">Low</option>
+          </select>
+        </div>
+        <button id="submit-add-from-talk" class="btn-primary">Add to lot</button>
       </div>
     </div>
   </div>

@@ -81,7 +81,9 @@
     lastAgentRun: null,
     emailTriageUnsubscribe: null,
     savePrefsTimeout: null,
-    processingIds: new Set()
+    processingIds: new Set(),
+    expandingMetaCardId: null,
+    addFromTalkItem: null
   };
 
   function loadPairState() {
@@ -115,7 +117,7 @@
       const stored = localStorage.getItem(STORAGE_PREFIX + 'data');
       if (stored) {
         const parsed = JSON.parse(stored);
-        state.items = parsed.items || [];
+        state.items = (parsed.items || []).map(i => ({ ...i, doingDate: i.doingDate || null }));
         state.todaySuggestionIds = parsed.todaySuggestionIds || [];
         state.lastCategory = parsed.lastCategory || 'life';
         state.customLabels = parsed.customLabels || {};
@@ -300,7 +302,7 @@
     return result.replace(/\s+/g, ' ').trim();
   }
 
-  function createItem(text, category, deadline, priority, recurrence, reminderAt) {
+  function createItem(text, category, deadline, priority, recurrence, reminderAt, doingDate) {
     const cleanText = stripAutoExtractedFromText(text, category, deadline, priority) || text.trim();
     return {
       id: 'id_' + Date.now() + '_' + Math.random().toString(36).slice(2),
@@ -308,6 +310,7 @@
       category: category || state.lastCategory,
       parkedAt: Date.now(),
       deadline: deadline || null,
+      doingDate: doingDate || null,
       priority: priority || 'medium',
       recurrence: recurrence || null,
       reminderAt: reminderAt || null,
@@ -351,6 +354,21 @@
       if (pOrder[a.priority] !== pOrder[b.priority]) return pOrder[a.priority] - pOrder[b.priority];
       return a.parkedAt - b.parkedAt;
     });
+  }
+
+  function archivePastDoingDatesIfNeeded() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    let changed = false;
+    state.items.forEach(i => {
+      if (!i.archived && i.doingDate && new Date(i.doingDate) < today) {
+        i.archived = true;
+        i.archivedAt = i.archivedAt || Date.now();
+        changed = true;
+      }
+    });
+    if (changed) saveState();
+    return changed;
   }
 
   function getActiveItems() {
@@ -406,6 +424,7 @@
   }
 
   function renderColumns() {
+    archivePastDoingDatesIfNeeded();
     const container = document.getElementById('columns');
     if (!container) return;
     const cats = state.drillDownCategory ? [state.drillDownCategory] : getOrderedCategoryIds();
@@ -478,23 +497,12 @@
       });
     });
 
-    container.querySelectorAll('.task-card input[type="checkbox"]').forEach(cb => {
-      cb.addEventListener('change', (e) => {
-        const id = e.target.closest('.task-card').dataset.id;
-        if (e.target.checked) state.selectedIds.add(id);
-        else state.selectedIds.delete(id);
-        updateAddToSuggestionsBtn();
-      });
-    });
-
     container.querySelectorAll('.task-card').forEach(card => {
       card.addEventListener('click', (e) => {
-        if (e.target.closest('.task-actions') || e.target.type === 'checkbox') return;
+        if (e.target.closest('.task-actions') || e.target.closest('.task-meta-edit')) return;
         const id = card.dataset.id;
         state.selectedIds.has(id) ? state.selectedIds.delete(id) : state.selectedIds.add(id);
         card.classList.toggle('selected', state.selectedIds.has(id));
-        const cb = card.querySelector('input[type="checkbox"]');
-        if (cb) cb.checked = state.selectedIds.has(id);
         updateAddToSuggestionsBtn();
       });
       card.addEventListener('dragstart', (e) => {
@@ -517,6 +525,60 @@
         deleteItem(btn.dataset.id, true);
       });
     });
+    container.querySelectorAll('.btn-done-card').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        markDone(btn.dataset.id);
+      });
+    });
+
+    container.querySelectorAll('.task-meta-clickable').forEach(el => {
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        state.expandingMetaCardId = el.dataset.id;
+        renderColumns();
+      });
+    });
+    container.querySelectorAll('.meta-priority').forEach(sel => {
+      sel.addEventListener('change', (e) => {
+        const id = e.target.dataset.id;
+        const item = state.items.find(i => i.id === id);
+        if (item) {
+          item.priority = e.target.value;
+          saveState();
+          renderColumns();
+        }
+      });
+    });
+    container.querySelectorAll('.meta-doing-date').forEach(inp => {
+      inp.addEventListener('change', (e) => {
+        const id = e.target.dataset.id;
+        const item = state.items.find(i => i.id === id);
+        if (item) {
+          item.doingDate = e.target.value || null;
+          saveState();
+          renderColumns();
+        }
+      });
+    });
+    container.querySelectorAll('.meta-deadline').forEach(inp => {
+      inp.addEventListener('change', (e) => {
+        const id = e.target.dataset.id;
+        const item = state.items.find(i => i.id === id);
+        if (item) {
+          item.deadline = e.target.value || null;
+          saveState();
+          renderColumns();
+        }
+      });
+    });
+    container.querySelectorAll('.meta-done-edit').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        state.expandingMetaCardId = null;
+        renderColumns();
+      });
+    });
 
     container.querySelectorAll('.column-add-btn, .column-add-hint').forEach(el => {
       el.addEventListener('click', (e) => {
@@ -527,28 +589,57 @@
     });
   }
 
+  function formatDoingDate(iso) {
+    if (!iso) return null;
+    const d = new Date(iso);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    d.setHours(0, 0, 0, 0);
+    const diff = (d - today) / 86400000;
+    if (diff < 0) return { text: 'Doing past', overdue: true };
+    if (diff === 0) return { text: 'Doing today', overdue: false };
+    if (diff <= 7) return { text: 'Doing in ' + Math.floor(diff) + 'd', overdue: false };
+    return { text: 'Doing ' + d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), overdue: false };
+  }
+
   function renderTaskCard(item) {
     const fd = formatDeadline(item.deadline);
+    const doingFd = formatDoingDate(item.doingDate);
     const duration = formatDuration(Date.now() - item.parkedAt);
     const checked = state.selectedIds.has(item.id);
     const overdue = fd && fd.overdue;
+    const metaExpanded = state.expandingMetaCardId === item.id;
 
     const daysParked = Math.floor((Date.now() - item.parkedAt) / 86400000);
     const staleNudge = daysParked >= 30 ? ` title="Parked ${daysParked} days — consider doing it or dropping it"` : '';
 
+    const priorityLabel = (item.priority || 'medium').charAt(0).toUpperCase() + (item.priority || 'medium').slice(1);
+    const metaRow = metaExpanded
+      ? `<div class="task-meta-edit" data-id="${item.id}">
+          <select class="meta-priority" data-id="${item.id}" title="Priority">
+            ${PRIORITIES.map(p => `<option value="${p}" ${p === (item.priority || 'medium') ? 'selected' : ''}>${p}</option>`).join('')}
+          </select>
+          <input type="date" class="meta-doing-date" data-id="${item.id}" value="${item.doingDate || ''}" title="Doing date">
+          <input type="date" class="meta-deadline" data-id="${item.id}" value="${item.deadline || ''}" title="Do date">
+          <button type="button" class="meta-done-edit btn-meta-done" data-id="${item.id}" title="Done editing">✓</button>
+        </div>`
+      : `<div class="task-meta task-meta-clickable" data-id="${item.id}" title="Click to edit priority and dates">
+          <span>Parked ${duration}</span>
+          <span class="priority-badge">${escapeHtml(priorityLabel)}</span>
+          ${item.doingDate ? `<span class="doing-badge">${escapeHtml((doingFd && doingFd.text) || item.doingDate)}</span>` : ''}
+          ${fd ? `<span class="${overdue ? 'overdue-badge' : ''}">${escapeHtml(fd.text)}</span>` : ''}
+          ${daysParked >= 30 ? `<span class="stale-badge" title="Parked ${daysParked} days">${daysParked}d</span>` : ''}
+          ${item.recurrence ? `<span class="recurrence-badge" title="Recurs ${item.recurrence}">↻</span>` : ''}
+        </div>`;
+
     return `
       <div class="task-card ${overdue ? 'overdue' : ''} ${checked ? 'selected' : ''} ${daysParked >= 30 ? 'stale-nudge' : ''}" data-id="${item.id}" draggable="true"${staleNudge}>
-        <input type="checkbox" ${checked ? 'checked' : ''}>
         <div class="task-content">
           <div class="task-text">${escapeHtml(item.text)}</div>
-          <div class="task-meta">
-            <span>Parked ${duration}</span>
-            ${fd ? `<span class="${overdue ? 'overdue-badge' : ''}">${escapeHtml(fd.text)}</span>` : ''}
-            ${daysParked >= 30 ? `<span class="stale-badge" title="Parked ${daysParked} days">${daysParked}d</span>` : ''}
-            ${item.recurrence ? `<span class="recurrence-badge" title="Recurs ${item.recurrence}">↻</span>` : ''}
-          </div>
+          ${metaRow}
         </div>
         <div class="task-actions">
+          <button class="btn-done-card" data-id="${item.id}" title="Done">✓</button>
           <button class="btn-edit" data-id="${item.id}" title="Edit">✎</button>
           <button class="btn-drop" data-id="${item.id}" title="Drop">×</button>
         </div>
@@ -564,6 +655,7 @@
       <div class="talk-about-item" data-id="${item.id}">
         <span class="task-text">${escapeHtml(item.text)}</span>
         <span class="added-by">(${escapeHtml(item.added_by)})</span>
+        <button class="btn-add-to-lot-talk" data-id="${item.id}" title="Add as task to parking lot">Add to lot</button>
         <button class="btn-resolve-talk" data-id="${item.id}" title="Mark discussed">✓</button>
       </div>
     `).join('') : '<div class="empty-state">Nothing to discuss yet—add something above</div>';
@@ -574,6 +666,59 @@
         resolveTalkAbout(btn.dataset.id);
       });
     });
+    list.querySelectorAll('.btn-add-to-lot-talk').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const item = items.find(i => i.id === btn.dataset.id);
+        if (!item) return;
+        openAddFromTalkModal(item);
+      });
+    });
+  }
+
+  function openAddFromTalkModal(talkItem) {
+    state.addFromTalkItem = { id: talkItem.id, text: talkItem.text };
+    const textEl = document.getElementById('add-from-talk-text');
+    if (textEl) textEl.textContent = talkItem.text;
+    const catSel = document.getElementById('add-from-talk-category');
+    if (catSel) {
+      catSel.innerHTML = getCategories().map(c =>
+        `<option value="${c.id}">${escapeHtml(getCategoryLabel(c.id))}</option>`
+      ).join('');
+      catSel.value = state.lastCategory || 'life';
+    }
+    const doingEl = document.getElementById('add-from-talk-doing-date');
+    if (doingEl) doingEl.value = '';
+    const deadlineEl = document.getElementById('add-from-talk-deadline');
+    if (deadlineEl) deadlineEl.value = '';
+    const prioritySel = document.getElementById('add-from-talk-priority');
+    if (prioritySel) prioritySel.value = 'medium';
+    const modal = document.getElementById('add-from-talk-modal');
+    if (modal) modal.style.display = 'flex';
+  }
+
+  function closeAddFromTalkModal() {
+    state.addFromTalkItem = null;
+    const modal = document.getElementById('add-from-talk-modal');
+    if (modal) modal.style.display = 'none';
+  }
+
+  function submitAddFromTalk() {
+    if (!state.addFromTalkItem) return;
+    const text = state.addFromTalkItem.text;
+    const category = document.getElementById('add-from-talk-category')?.value || state.lastCategory;
+    const doingDateEl = document.getElementById('add-from-talk-doing-date');
+    const doingDate = (doingDateEl && doingDateEl.value) ? doingDateEl.value : null;
+    const deadlineEl = document.getElementById('add-from-talk-deadline');
+    const deadline = (deadlineEl && deadlineEl.value) ? deadlineEl.value : null;
+    const priority = document.getElementById('add-from-talk-priority')?.value || 'medium';
+    const item = createItem(text, category, deadline, priority, null, null, doingDate);
+    state.items.push(item);
+    state.lastCategory = category;
+    saveState();
+    closeAddFromTalkModal();
+    renderColumns();
+    showToast('Added to parking lot');
   }
 
   async function resolveTalkAbout(id) {
@@ -620,7 +765,7 @@
           <button type="button" class="btn-order" data-action="down" ${!canDown ? 'disabled' : ''} title="Move down">↓</button>
         </div>
         <span class="task-text">${escapeHtml(item.text)}</span>
-        <button class="btn-done" title="Done">Done</button>
+        <button class="btn-done btn-done-check" title="Done">✓</button>
         <button class="btn-remove" title="Remove from suggestions">Remove</button>
       </div>`;
     }).join('') || '<div class="empty-state">Select tasks below and click Add to Today, or drag tasks here</div>';
@@ -657,7 +802,7 @@
           <button type="button" class="btn-order" data-action="down" ${!canDown ? 'disabled' : ''}>↓</button>
         </div>
         <span class="task-text">${escapeHtml(item.text)}</span>
-        <button class="btn-done">Done</button>
+        <button class="btn-done btn-done-check" title="Done">✓</button>
         <button class="btn-remove">Remove from suggestions</button>
       </div>`;
     }).join('') || '<div class="empty-state">Add items from the overview to get started</div>';
@@ -740,7 +885,7 @@
       d.setMonth(d.getMonth() + 1);
       nextDeadline = d.toISOString().slice(0, 10);
     }
-    const newItem = createItem(item.text, item.category, nextDeadline, item.priority, item.recurrence);
+    const newItem = createItem(item.text, item.category, nextDeadline, item.priority, item.recurrence, null, item.doingDate);
     state.items.push(newItem);
     return newItem.id;
   }
@@ -862,6 +1007,8 @@
     if (quickInput) quickInput.value = '';
     const deadlineInput = document.getElementById('deadline-input');
     if (deadlineInput) deadlineInput.value = '';
+    const doingDateInput = document.getElementById('doing-date-input');
+    if (doingDateInput) doingDateInput.value = '';
     const recurrenceSelect = document.getElementById('recurrence-select');
     if (recurrenceSelect) recurrenceSelect.value = '';
     const prioritySelect = document.getElementById('priority-select');
@@ -1293,12 +1440,14 @@
     if (!text) return;
     const category = document.getElementById('category-select').value;
     const deadline = document.getElementById('deadline-input').value || null;
+    const doingDateEl = document.getElementById('doing-date-input');
+    const doingDate = (doingDateEl && doingDateEl.value) ? doingDateEl.value : null;
     const priority = document.getElementById('priority-select').value;
     const recurrenceEl = document.getElementById('recurrence-select');
     const recurrence = (recurrenceEl && recurrenceEl.value) ? recurrenceEl.value : null;
     if (submitBtn) submitBtn.disabled = true;
     state.lastCategory = category;
-    const item = createItem(text, category, deadline, priority, recurrence);
+    const item = createItem(text, category, deadline, priority, recurrence, null, doingDate);
     state.items.push(item);
     saveState();
     closeAddModal();
@@ -1315,6 +1464,8 @@
       `<option value="${c.id}" ${c.id === item.category ? 'selected' : ''}>${escapeHtml(getCategoryLabel(c.id))}</option>`
     ).join('');
     document.getElementById('edit-deadline').value = item.deadline || '';
+    const editDoingEl = document.getElementById('edit-doing-date');
+    if (editDoingEl) editDoingEl.value = item.doingDate || '';
     document.getElementById('edit-priority').innerHTML = PRIORITIES.map(p =>
       `<option value="${p}" ${p === item.priority ? 'selected' : ''}>${p}</option>`
     ).join('');
@@ -1328,6 +1479,8 @@
     item.text = document.getElementById('edit-text').value.trim();
     item.category = document.getElementById('edit-category').value;
     item.deadline = document.getElementById('edit-deadline').value || null;
+    const editDoingEl = document.getElementById('edit-doing-date');
+    item.doingDate = (editDoingEl && editDoingEl.value) ? editDoingEl.value : null;
     const editRecurrence = document.getElementById('edit-recurrence');
     item.recurrence = (editRecurrence && editRecurrence.value) ? editRecurrence.value : null;
     item.priority = document.getElementById('edit-priority').value;
@@ -1821,13 +1974,14 @@
         } else if (document.body.classList.contains('sidebar-open')) {
           closeSidebar();
         } else {
-          const modals = ['add-modal', 'edit-modal', 'archive-modal', 'settings-modal', 'link-partner-modal'];
+          const modals = ['add-modal', 'edit-modal', 'add-from-talk-modal', 'archive-modal', 'settings-modal', 'link-partner-modal'];
           const panels = ['analytics-panel', 'email-triage-section'];
           for (const id of modals) {
             const m = document.getElementById(id);
             if (m && m.style.display === 'flex') {
               if (id === 'add-modal') closeAddModal();
               else if (id === 'edit-modal') { m.style.display = 'none'; state.editingId = null; }
+              else if (id === 'add-from-talk-modal') closeAddFromTalkModal();
               else if (id === 'archive-modal') m.style.display = 'none';
               else if (id === 'settings-modal') closeSettingsModal();
               else if (id === 'link-partner-modal') closeLinkPartnerModal();
@@ -1923,6 +2077,15 @@
 
     const saveEditBtn = document.getElementById('save-edit');
     if (saveEditBtn) saveEditBtn.addEventListener('click', saveEdit);
+
+    const closeAddFromTalk = document.getElementById('close-add-from-talk');
+    if (closeAddFromTalk) closeAddFromTalk.addEventListener('click', closeAddFromTalkModal);
+    const addFromTalkModal = document.getElementById('add-from-talk-modal');
+    if (addFromTalkModal) addFromTalkModal.addEventListener('click', (e) => {
+      if (e.target.id === 'add-from-talk-modal') closeAddFromTalkModal();
+    });
+    const submitAddFromTalk = document.getElementById('submit-add-from-talk');
+    if (submitAddFromTalk) submitAddFromTalk.addEventListener('click', submitAddFromTalk);
 
     const editTextEl = document.getElementById('edit-text');
     if (editTextEl) editTextEl.addEventListener('input', applySmartFieldsToEdit);
