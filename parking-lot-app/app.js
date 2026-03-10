@@ -1253,7 +1253,15 @@
     if (prefs.category_preset) { state.categoryPreset = prefs.category_preset; delete prefs.category_preset; }
     if (Array.isArray(prefs.__items)) { state.items = prefs.__items; delete prefs.__items; }
     if (Array.isArray(prefs.__todaySuggestionIds)) { state.todaySuggestionIds = prefs.__todaySuggestionIds; delete prefs.__todaySuggestionIds; }
-    if (typeof prefs.__completedTodayCount === 'number') { state.completedTodayCount = prefs.__completedTodayCount; delete prefs.__completedTodayCount; }
+    const remoteTallyDate = prefs.__lastCompletedDate || null;
+    if (typeof prefs.__completedTodayCount === 'number') {
+      if (remoteTallyDate === getTallyDate()) {
+        state.completedTodayCount = prefs.__completedTodayCount;
+      } else {
+        state.completedTodayCount = 0;
+      }
+      delete prefs.__completedTodayCount;
+    }
     if (prefs.__lastCompletedDate) { state.lastCompletedDate = prefs.__lastCompletedDate; delete prefs.__lastCompletedDate; }
     if (Array.isArray(prefs.__columnOrder)) { state.columnOrder = prefs.__columnOrder; delete prefs.__columnOrder; }
     if (typeof prefs.__tallyResetHour === 'number' && prefs.__tallyResetHour >= 0 && prefs.__tallyResetHour <= 23) { state.tallyResetHour = prefs.__tallyResetHour; delete prefs.__tallyResetHour; }
