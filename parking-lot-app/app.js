@@ -121,6 +121,17 @@
     return n.toDateString();
   }
 
+  function countCompletedInTallyDay() {
+    const hour = (state.tallyResetHour != null && state.tallyResetHour >= 0 && state.tallyResetHour <= 23)
+      ? state.tallyResetHour : 3;
+    const now = new Date();
+    const start = new Date(now);
+    start.setHours(hour, 0, 0, 0);
+    if (now.getHours() < hour) start.setDate(start.getDate() - 1);
+    const startMs = start.getTime();
+    return state.items.filter(i => i.archived && i.archivedAt && i.archivedAt >= startMs).length;
+  }
+
   function loadState() {
     try {
       const stored = localStorage.getItem(STORAGE_PREFIX + 'data');
@@ -138,13 +149,7 @@
         if (Array.isArray(parsed.columnOrder) && parsed.columnOrder.length) state.columnOrder = parsed.columnOrder;
         if (typeof parsed.tallyResetHour === 'number' && parsed.tallyResetHour >= 0 && parsed.tallyResetHour <= 23) state.tallyResetHour = parsed.tallyResetHour;
       }
-      const tally = localStorage.getItem(STORAGE_PREFIX + 'tally');
-      if (tally) {
-        const { count, date } = JSON.parse(tally);
-        const tallyToday = getTallyDate();
-        if (date === tallyToday) state.completedTodayCount = count;
-        else state.completedTodayCount = 0;
-      }
+      state.completedTodayCount = countCompletedInTallyDay();
     } catch (e) {
       console.warn('Load failed', e);
       showToast('Could not load saved data — starting fresh');
@@ -844,14 +849,8 @@
   }
 
   function updateTally() {
-    const tallyToday = getTallyDate();
-    try {
-      const tally = JSON.parse(localStorage.getItem(STORAGE_PREFIX + 'tally') || '{}');
-      if (tally.date && tally.date !== tallyToday) {
-        state.completedTodayCount = 0;
-        saveState(true);
-      }
-    } catch (e) { /* ignore */ }
+    state.completedTodayCount = countCompletedInTallyDay();
+    saveState(true);
     const str = 'Completed today: ' + state.completedTodayCount;
     const tallyEl = document.getElementById('completed-tally');
     if (tallyEl) tallyEl.textContent = str;
@@ -930,7 +929,6 @@
     item.archived = true;
     item.archivedAt = item.archivedAt || Date.now();
     state.todaySuggestionIds = state.todaySuggestionIds.filter(x => x !== id);
-    state.completedTodayCount++;
     const respawnedId = item.recurrence ? respawnRecurring(item) : null;
     saveState();
     updateTally();
@@ -943,7 +941,6 @@
       item.archived = prevArchived;
       item.archivedAt = prevArchivedAt;
       if (wasInSuggestions) state.todaySuggestionIds.push(id);
-      state.completedTodayCount = Math.max(0, state.completedTodayCount - 1);
       if (respawnedId) state.items = state.items.filter(i => i.id !== respawnedId);
       saveState();
       updateTally();
@@ -1237,11 +1234,8 @@
     prefs.category_preset = state.categoryPreset || 'generic';
     prefs.__items = state.items;
     prefs.__todaySuggestionIds = state.todaySuggestionIds;
-    prefs.__completedTodayCount = state.completedTodayCount;
     if (Array.isArray(state.columnOrder) && state.columnOrder.length) prefs.__columnOrder = state.columnOrder;
     prefs.__tallyResetHour = state.tallyResetHour != null ? state.tallyResetHour : 3;
-    const tally = JSON.parse(localStorage.getItem(STORAGE_PREFIX + 'tally') || '{}');
-    prefs.__lastCompletedDate = tally.date || getTallyDate();
     return prefs;
   }
 
@@ -1253,16 +1247,8 @@
     if (prefs.category_preset) { state.categoryPreset = prefs.category_preset; delete prefs.category_preset; }
     if (Array.isArray(prefs.__items)) { state.items = prefs.__items; delete prefs.__items; }
     if (Array.isArray(prefs.__todaySuggestionIds)) { state.todaySuggestionIds = prefs.__todaySuggestionIds; delete prefs.__todaySuggestionIds; }
-    const remoteTallyDate = prefs.__lastCompletedDate || null;
-    if (typeof prefs.__completedTodayCount === 'number') {
-      if (remoteTallyDate === getTallyDate()) {
-        state.completedTodayCount = prefs.__completedTodayCount;
-      } else {
-        state.completedTodayCount = 0;
-      }
-      delete prefs.__completedTodayCount;
-    }
-    if (prefs.__lastCompletedDate) { state.lastCompletedDate = prefs.__lastCompletedDate; delete prefs.__lastCompletedDate; }
+    if (typeof prefs.__completedTodayCount === 'number') delete prefs.__completedTodayCount;
+    if (prefs.__lastCompletedDate) delete prefs.__lastCompletedDate;
     if (Array.isArray(prefs.__columnOrder)) { state.columnOrder = prefs.__columnOrder; delete prefs.__columnOrder; }
     if (typeof prefs.__tallyResetHour === 'number' && prefs.__tallyResetHour >= 0 && prefs.__tallyResetHour <= 23) { state.tallyResetHour = prefs.__tallyResetHour; delete prefs.__tallyResetHour; }
     if (Object.keys(prefs).length) state.columnColors = prefs;
