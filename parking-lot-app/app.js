@@ -639,10 +639,8 @@
           <select class="meta-priority" data-id="${item.id}" title="Priority">
             ${PRIORITIES.map(p => `<option value="${p}" ${p === (item.priority || 'medium') ? 'selected' : ''}>${p}</option>`).join('')}
           </select>
-          <label class="meta-date-label">Doing by</label>
-          <input type="date" class="meta-doing-date" data-id="${item.id}" value="${item.doingDate || ''}" title="Doing by">
-          <label class="meta-date-label">Due date</label>
-          <input type="date" class="meta-deadline" data-id="${item.id}" value="${item.deadline || ''}" title="Due date">
+          <span class="meta-date-group"><label class="meta-date-label">Doing by</label><input type="date" class="meta-doing-date" data-id="${item.id}" value="${item.doingDate || ''}" title="Doing by"></span>
+          <span class="meta-date-group"><label class="meta-date-label">Due date</label><input type="date" class="meta-deadline" data-id="${item.id}" value="${item.deadline || ''}" title="Due date"></span>
           <button type="button" class="meta-done-edit btn-meta-done" data-id="${item.id}" title="Done editing">✓</button>
         </div>`
       : `<div class="task-meta task-meta-clickable" data-id="${item.id}" title="Click to edit priority and dates">
