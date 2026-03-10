@@ -129,7 +129,7 @@
     start.setHours(hour, 0, 0, 0);
     if (now.getHours() < hour) start.setDate(start.getDate() - 1);
     const startMs = start.getTime();
-    return state.items.filter(i => i.archived && i.archivedAt && i.archivedAt >= startMs).length;
+    return state.items.filter(i => i.completedAt && i.completedAt >= startMs).length;
   }
 
   function loadState() {
@@ -926,8 +926,10 @@
     const wasInSuggestions = state.todaySuggestionIds.includes(id);
     const prevArchived = item.archived;
     const prevArchivedAt = item.archivedAt;
+    const prevCompletedAt = item.completedAt;
     item.archived = true;
     item.archivedAt = item.archivedAt || Date.now();
+    item.completedAt = Date.now();
     state.todaySuggestionIds = state.todaySuggestionIds.filter(x => x !== id);
     const respawnedId = item.recurrence ? respawnRecurring(item) : null;
     saveState();
@@ -940,6 +942,7 @@
     showToast('Done', () => {
       item.archived = prevArchived;
       item.archivedAt = prevArchivedAt;
+      item.completedAt = prevCompletedAt;
       if (wasInSuggestions) state.todaySuggestionIds.push(id);
       if (respawnedId) state.items = state.items.filter(i => i.id !== respawnedId);
       saveState();
