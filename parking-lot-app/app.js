@@ -83,7 +83,8 @@
     savePrefsTimeout: null,
     processingIds: new Set(),
     expandingMetaCardId: null,
-    addFromTalkItem: null
+    addFromTalkItem: null,
+    tallyResetHour: 3
   };
 
   function loadPairState() {
@@ -112,6 +113,14 @@
     if (state.deviceSyncId) localStorage.setItem(STORAGE_PREFIX + 'deviceSyncId', state.deviceSyncId);
   }
 
+  function getTallyDate() {
+    const n = new Date();
+    const hour = (state.tallyResetHour != null && state.tallyResetHour >= 0 && state.tallyResetHour <= 23)
+      ? state.tallyResetHour : 3;
+    if (n.getHours() < hour) n.setDate(n.getDate() - 1);
+    return n.toDateString();
+  }
+
   function loadState() {
     try {
       const stored = localStorage.getItem(STORAGE_PREFIX + 'data');
@@ -127,12 +136,13 @@
         state.displayName = parsed.displayName || '';
         if (parsed.columnColors && Object.keys(parsed.columnColors).length) state.columnColors = parsed.columnColors;
         if (Array.isArray(parsed.columnOrder) && parsed.columnOrder.length) state.columnOrder = parsed.columnOrder;
+        if (typeof parsed.tallyResetHour === 'number' && parsed.tallyResetHour >= 0 && parsed.tallyResetHour <= 23) state.tallyResetHour = parsed.tallyResetHour;
       }
       const tally = localStorage.getItem(STORAGE_PREFIX + 'tally');
       if (tally) {
         const { count, date } = JSON.parse(tally);
-        const today = new Date().toDateString();
-        if (date === today) state.completedTodayCount = count;
+        const tallyToday = getTallyDate();
+        if (date === tallyToday) state.completedTodayCount = count;
         else state.completedTodayCount = 0;
       }
     } catch (e) {
@@ -153,9 +163,10 @@
         textColor: state.textColor,
         displayName: state.displayName || '',
         columnColors: state.columnColors || {},
-        columnOrder: state.columnOrder || null
+        columnOrder: state.columnOrder || null,
+        tallyResetHour: state.tallyResetHour != null ? state.tallyResetHour : 3
       }));
-      const tallyDate = useRemoteTallyDate && state.lastCompletedDate ? state.lastCompletedDate : new Date().toDateString();
+      const tallyDate = useRemoteTallyDate && state.lastCompletedDate ? state.lastCompletedDate : getTallyDate();
       localStorage.setItem(STORAGE_PREFIX + 'tally', JSON.stringify({
         count: state.completedTodayCount,
         date: tallyDate
@@ -499,18 +510,24 @@
 
     container.querySelectorAll('.task-card').forEach(card => {
       card.addEventListener('click', (e) => {
-        if (e.target.closest('.task-actions') || e.target.closest('.task-meta-edit')) return;
+        if (e.target.closest('.task-actions') || e.target.closest('.task-meta-edit') || e.target.closest('.task-drag-handle')) return;
         const id = card.dataset.id;
         state.selectedIds.has(id) ? state.selectedIds.delete(id) : state.selectedIds.add(id);
         card.classList.toggle('selected', state.selectedIds.has(id));
         updateAddToSuggestionsBtn();
       });
-      card.addEventListener('dragstart', (e) => {
-        e.dataTransfer.setData('text/plain', card.dataset.id);
+    });
+    container.querySelectorAll('.task-drag-handle').forEach(handle => {
+      handle.addEventListener('dragstart', (e) => {
+        e.dataTransfer.setData('text/plain', handle.dataset.id);
         e.dataTransfer.effectAllowed = 'move';
-        card.classList.add('dragging');
+        const card = handle.closest('.task-card');
+        if (card) card.classList.add('dragging');
       });
-      card.addEventListener('dragend', () => card.classList.remove('dragging'));
+      handle.addEventListener('dragend', () => {
+        const card = handle.closest('.task-card');
+        if (card) card.classList.remove('dragging');
+      });
     });
 
     container.querySelectorAll('.btn-edit').forEach(btn => {
@@ -597,9 +614,12 @@
     d.setHours(0, 0, 0, 0);
     const diff = (d - today) / 86400000;
     if (diff < 0) return { text: 'Doing past', overdue: true };
-    if (diff === 0) return { text: 'Doing today', overdue: false };
-    if (diff <= 7) return { text: 'Doing in ' + Math.floor(diff) + 'd', overdue: false };
-    return { text: 'Doing ' + d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), overdue: false };
+    if (diff === 0) return { text: 'Aiming to complete today', overdue: false };
+    if (diff <= 7) {
+      const dayName = d.toLocaleDateString('en-US', { weekday: 'long' });
+      return { text: 'Aiming to complete by ' + dayName, overdue: false };
+    }
+    return { text: 'Aiming to complete in ' + Math.floor(diff) + 'd', overdue: false };
   }
 
   function renderTaskCard(item) {
@@ -619,8 +639,10 @@
           <select class="meta-priority" data-id="${item.id}" title="Priority">
             ${PRIORITIES.map(p => `<option value="${p}" ${p === (item.priority || 'medium') ? 'selected' : ''}>${p}</option>`).join('')}
           </select>
-          <input type="date" class="meta-doing-date" data-id="${item.id}" value="${item.doingDate || ''}" title="Doing date">
-          <input type="date" class="meta-deadline" data-id="${item.id}" value="${item.deadline || ''}" title="Do date">
+          <label class="meta-date-label">Doing by</label>
+          <input type="date" class="meta-doing-date" data-id="${item.id}" value="${item.doingDate || ''}" title="Doing by">
+          <label class="meta-date-label">Due date</label>
+          <input type="date" class="meta-deadline" data-id="${item.id}" value="${item.deadline || ''}" title="Due date">
           <button type="button" class="meta-done-edit btn-meta-done" data-id="${item.id}" title="Done editing">✓</button>
         </div>`
       : `<div class="task-meta task-meta-clickable" data-id="${item.id}" title="Click to edit priority and dates">
@@ -633,7 +655,8 @@
         </div>`;
 
     return `
-      <div class="task-card ${overdue ? 'overdue' : ''} ${checked ? 'selected' : ''} ${daysParked >= 30 ? 'stale-nudge' : ''}" data-id="${item.id}" draggable="true"${staleNudge}>
+      <div class="task-card ${overdue ? 'overdue' : ''} ${checked ? 'selected' : ''} ${daysParked >= 30 ? 'stale-nudge' : ''}" data-id="${item.id}"${staleNudge}>
+        <span class="task-drag-handle" draggable="true" data-id="${item.id}" title="Drag to move or add to Today" aria-label="Drag task">⋮⋮</span>
         <div class="task-content">
           <div class="task-text">${escapeHtml(item.text)}</div>
           ${metaRow}
@@ -823,6 +846,14 @@
   }
 
   function updateTally() {
+    const tallyToday = getTallyDate();
+    try {
+      const tally = JSON.parse(localStorage.getItem(STORAGE_PREFIX + 'tally') || '{}');
+      if (tally.date && tally.date !== tallyToday) {
+        state.completedTodayCount = 0;
+        saveState(true);
+      }
+    } catch (e) { /* ignore */ }
     const str = 'Completed today: ' + state.completedTodayCount;
     const tallyEl = document.getElementById('completed-tally');
     if (tallyEl) tallyEl.textContent = str;
@@ -1113,6 +1144,9 @@
     const displayNameEl = document.getElementById('settings-display-name');
     if (displayNameEl) displayNameEl.value = state.displayName || '';
 
+    const tallyResetEl = document.getElementById('settings-tally-reset-hour');
+    if (tallyResetEl) tallyResetEl.value = String(state.tallyResetHour != null ? state.tallyResetHour : 3);
+
     const presetRadios = document.querySelectorAll('input[name="category-preset"]');
     presetRadios.forEach(r => {
       r.checked = (r.value === (state.categoryPreset || 'generic'));
@@ -1207,8 +1241,9 @@
     prefs.__todaySuggestionIds = state.todaySuggestionIds;
     prefs.__completedTodayCount = state.completedTodayCount;
     if (Array.isArray(state.columnOrder) && state.columnOrder.length) prefs.__columnOrder = state.columnOrder;
+    prefs.__tallyResetHour = state.tallyResetHour != null ? state.tallyResetHour : 3;
     const tally = JSON.parse(localStorage.getItem(STORAGE_PREFIX + 'tally') || '{}');
-    prefs.__lastCompletedDate = tally.date || new Date().toDateString();
+    prefs.__lastCompletedDate = tally.date || getTallyDate();
     return prefs;
   }
 
@@ -1223,6 +1258,7 @@
     if (typeof prefs.__completedTodayCount === 'number') { state.completedTodayCount = prefs.__completedTodayCount; delete prefs.__completedTodayCount; }
     if (prefs.__lastCompletedDate) { state.lastCompletedDate = prefs.__lastCompletedDate; delete prefs.__lastCompletedDate; }
     if (Array.isArray(prefs.__columnOrder)) { state.columnOrder = prefs.__columnOrder; delete prefs.__columnOrder; }
+    if (typeof prefs.__tallyResetHour === 'number' && prefs.__tallyResetHour >= 0 && prefs.__tallyResetHour <= 23) { state.tallyResetHour = prefs.__tallyResetHour; delete prefs.__tallyResetHour; }
     if (Object.keys(prefs).length) state.columnColors = prefs;
     saveState(true, true);
   }
@@ -1341,6 +1377,12 @@
       }
       const displayNameInp = document.getElementById('settings-display-name');
       if (displayNameInp) state.displayName = displayNameInp.value.trim();
+
+      const tallyResetInp = document.getElementById('settings-tally-reset-hour');
+      if (tallyResetInp) {
+        const h = parseInt(tallyResetInp.value, 10);
+        if (!isNaN(h) && h >= 0 && h <= 23) state.tallyResetHour = h;
+      }
 
       const btnColorInp = document.getElementById('settings-button-color');
       const textColorInp = document.getElementById('settings-text-color');

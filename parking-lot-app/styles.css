@@ -834,12 +834,23 @@ body.sidebar-open .sidebar-overlay {
   opacity: 0.6;
 }
 
-.task-card[draggable="true"] {
+.task-drag-handle {
   cursor: grab;
+  padding: 0.25rem;
+  margin: -0.25rem 0 -0.25rem -0.25rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1;
+  flex-shrink: 0;
+  user-select: none;
 }
 
-.task-card[draggable="true"]:active {
+.task-drag-handle:active {
   cursor: grabbing;
+}
+
+.task-drag-handle:hover {
+  color: var(--text);
 }
 
 .task-card input[type="checkbox"] {
@@ -891,6 +902,12 @@ body.sidebar-open .sidebar-overlay {
   gap: 0.35rem;
   align-items: center;
   margin-top: 0.25rem;
+}
+
+.task-meta-edit .meta-date-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-right: -0.2rem;
 }
 .task-meta-edit select.meta-priority {
   font-size: 0.75rem;
@@ -1535,6 +1552,23 @@ body.sidebar-open .sidebar-overlay {
 }
 
 .settings-name-input:focus {
+  outline: none;
+  border-color: var(--accent-coral);
+}
+
+.settings-select {
+  width: 100%;
+  max-width: 14rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.settings-select:focus {
   outline: none;
   border-color: var(--accent-coral);
 }
