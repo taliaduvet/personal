@@ -728,14 +728,31 @@
           if (!ta) return;
           const start = ta.selectionStart;
           const end = ta.selectionEnd;
-          const selected = (start < end ? ta.value.slice(start, end) : ta.value).trim();
-          if (!selected) return;
+          if (!(start < end)) {
+            showToast('Select note text first');
+            return;
+          }
+          const raw = ta.value.slice(start, end);
+          const selected = raw.trim();
+          if (!selected) {
+            showToast('Select note text first');
+            return;
+          }
           const item = createItem(selected, catId, null, 'medium', null, null, null, null, null);
           state.items.push(item);
           state.lastCategory = catId;
+
+          const before = ta.value.slice(0, start);
+          const after = ta.value.slice(end);
+          const nextValue = (before + after).replace(/\n{3,}/g, '\n\n').trim();
+          ta.value = nextValue;
+          if (!state.columnNotes) state.columnNotes = {};
+          state.columnNotes[catId] = nextValue;
+
           saveState();
+          if (window.talkAbout && state.deviceSyncId) saveDevicePreferencesToSupabase();
           renderColumns();
-          showToast('Task created');
+          showToast('Task created from note');
         });
       });
     }
@@ -980,7 +997,7 @@
       <div class="talk-about-item" data-id="${item.id}">
         <span class="task-text">${escapeHtml(item.text)}</span>
         <span class="added-by">(${escapeHtml(item.added_by)})</span>
-        <button class="btn-add-to-lot-talk" data-id="${item.id}" title="Add as task to parking lot">Add to lot</button>
+        <button class="btn-secondary btn-sm btn-add-to-lot-talk" data-id="${item.id}" title="Add as task to parking lot">Add to parking lot</button>
         <button class="btn-resolve-talk" data-id="${item.id}" title="Mark discussed">✓</button>
       </div>
     `).join('') : '<div class="empty-state">Nothing to discuss yet—add something above</div>';
@@ -1003,8 +1020,8 @@
 
   function openAddFromTalkModal(talkItem) {
     state.addFromTalkItem = { id: talkItem.id, text: talkItem.text };
-    const textEl = document.getElementById('add-from-talk-text');
-    if (textEl) textEl.textContent = talkItem.text;
+    const textInput = document.getElementById('add-from-talk-text-input');
+    if (textInput) textInput.value = talkItem.text || '';
     const catSel = document.getElementById('add-from-talk-category');
     if (catSel) {
       catSel.innerHTML = getCategories().map(c =>
@@ -1035,7 +1052,12 @@
 
   function submitAddFromTalk() {
     if (!state.addFromTalkItem) return;
-    const text = state.addFromTalkItem.text;
+    const textInput = document.getElementById('add-from-talk-text-input');
+    const text = (textInput && textInput.value ? textInput.value.trim() : state.addFromTalkItem.text || '').trim();
+    if (!text) {
+      showToast('Task name cannot be empty');
+      return;
+    }
     const category = document.getElementById('add-from-talk-category')?.value || state.lastCategory;
     const pileEl = document.getElementById('add-from-talk-pile');
     const pileId = (pileEl && pileEl.value) ? pileEl.value : null;
@@ -2361,6 +2383,7 @@
     }
     applyThemeColors();
     updateCategorySelectOptions();
+    ensureViewToggle();
     renderColumns();
     renderTodayList();
     renderTalkAbout();
@@ -2513,7 +2536,26 @@
     });
   }
 
+  function ensureViewToggle() {
+    const header = document.querySelector('.columns-header');
+    if (!header) return;
+    let toggle = header.querySelector('.view-toggle');
+    if (toggle) return;
+    toggle = document.createElement('div');
+    toggle.className = 'view-toggle';
+    toggle.setAttribute('role', 'tablist');
+    toggle.setAttribute('aria-label', 'View mode');
+    toggle.innerHTML = `
+      <button type="button" id="view-columns-btn" class="view-toggle-btn" data-view="columns" aria-selected="false">Columns</button>
+      <button type="button" id="view-piles-btn" class="view-toggle-btn" data-view="piles" aria-selected="false">Piles</button>
+    `;
+    const search = header.querySelector('#search-input');
+    if (search && search.parentNode == header) header.insertBefore(toggle, search);
+    else header.appendChild(toggle);
+  }
+
   function bindEvents() {
+    ensureViewToggle();
     const searchInput = document.getElementById('search-input');
     if (searchInput) {
       searchInput.value = state.searchQuery || '';
@@ -2791,8 +2833,8 @@
     if (addFromTalkModal) addFromTalkModal.addEventListener('click', (e) => {
       if (e.target.id === 'add-from-talk-modal') closeAddFromTalkModal();
     });
-    const submitAddFromTalk = document.getElementById('submit-add-from-talk');
-    if (submitAddFromTalk) submitAddFromTalk.addEventListener('click', submitAddFromTalk);
+    const submitAddFromTalkBtn = document.getElementById('submit-add-from-talk');
+    if (submitAddFromTalkBtn) submitAddFromTalkBtn.addEventListener('click', submitAddFromTalk);
 
     const editTextEl = document.getElementById('edit-text');
     if (editTextEl) editTextEl.addEventListener('input', applySmartFieldsToEdit);
