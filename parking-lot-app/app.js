@@ -417,6 +417,7 @@
 
   const PEOPLE_GROUPS = [
     { id: 'family', label: 'Family' },
+    { id: 'romantic', label: 'Romantic' },
     { id: 'close_friends', label: 'Close friends' },
     { id: 'friends', label: 'Friends' },
     { id: 'acquaintances', label: 'Acquaintances' },
@@ -2285,12 +2286,12 @@
     state.journalFocusMode = !!on;
     const panel = document.getElementById('journal-panel');
     const header = document.getElementById('journal-panel-header');
-    const tabsRow = document.getElementById('journal-tabs-row');
+    const nav = document.getElementById('journal-nav');
     const exitWrap = document.getElementById('journal-exit-focus-wrap');
     const focusBtn = document.getElementById('journal-focus-btn');
     if (panel) panel.classList.toggle('journal-focus-mode', state.journalFocusMode);
     if (header) header.style.display = state.journalFocusMode ? 'none' : '';
-    if (tabsRow) tabsRow.style.display = state.journalFocusMode ? 'none' : '';
+    if (nav) nav.style.display = state.journalFocusMode ? 'none' : '';
     if (exitWrap) exitWrap.style.display = state.journalFocusMode ? 'block' : 'none';
     if (focusBtn) focusBtn.textContent = state.journalFocusMode ? 'Exit focus' : 'Focus writing';
     if (state.journalFocusMode) {
@@ -3537,15 +3538,18 @@
     const closeJournal = document.getElementById('close-journal');
     if (closeJournal) closeJournal.addEventListener('click', closeJournalPanel);
 
-    document.querySelectorAll('.journal-tab').forEach(function(btn) {
+    document.querySelectorAll('.journal-nav-item').forEach(function(btn) {
+      if (btn.id === 'journal-focus-btn') return;
       btn.addEventListener('click', function() {
         const tab = btn.dataset.tab;
         if (!tab) return;
         flushJournalDailySave();
         state.journalActiveTab = tab;
-        document.querySelectorAll('.journal-tab').forEach(function(b) {
-          b.classList.toggle('active', b.dataset.tab === tab);
-          b.setAttribute('aria-selected', b.dataset.tab === tab ? 'true' : 'false');
+        document.querySelectorAll('.journal-nav-item').forEach(function(b) {
+          if (b.dataset.tab) {
+            b.classList.toggle('active', b.dataset.tab === tab);
+            b.setAttribute('aria-selected', b.dataset.tab === tab ? 'true' : 'false');
+          }
         });
         renderJournalPanel();
       });
