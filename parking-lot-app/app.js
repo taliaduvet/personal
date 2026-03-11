@@ -84,7 +84,17 @@
     processingIds: new Set(),
     expandingMetaCardId: null,
     addFromTalkItem: null,
-    tallyResetHour: 3
+    tallyResetHour: 3,
+    piles: [],
+    viewMode: 'columns',
+    showSuggestNext: true,
+    suggestNextStripTimeout: null,
+    columnNotes: {},
+    openColumnNoteId: null,
+    columnNoteSaveTimeouts: {},
+    lastSeed: null,
+    habits: [],
+    habitCompletions: []
   };
 
   function loadPairState() {
@@ -148,7 +158,20 @@
         if (parsed.columnColors && Object.keys(parsed.columnColors).length) state.columnColors = parsed.columnColors;
         if (Array.isArray(parsed.columnOrder) && parsed.columnOrder.length) state.columnOrder = parsed.columnOrder;
         if (typeof parsed.tallyResetHour === 'number' && parsed.tallyResetHour >= 0 && parsed.tallyResetHour <= 23) state.tallyResetHour = parsed.tallyResetHour;
+        if (Array.isArray(parsed.piles)) state.piles = parsed.piles;
+        if (parsed.viewMode === 'piles' || parsed.viewMode === 'columns') state.viewMode = parsed.viewMode;
+        if (typeof parsed.showSuggestNext === 'boolean') state.showSuggestNext = parsed.showSuggestNext;
+        if (parsed.columnNotes && typeof parsed.columnNotes === 'object') state.columnNotes = parsed.columnNotes;
+        if (typeof parsed.lastSeed === 'string') state.lastSeed = parsed.lastSeed;
+        if (Array.isArray(parsed.habits)) state.habits = parsed.habits;
+        if (Array.isArray(parsed.habitCompletions)) state.habitCompletions = parsed.habitCompletions;
       }
+      state.items = (state.items || []).map(i => ({
+        ...i,
+        pileId: i.pileId != null ? i.pileId : null,
+        friction: i.friction && ['quick', 'medium', 'deep'].includes(i.friction) ? i.friction : null,
+        firstStep: typeof i.firstStep === 'string' ? i.firstStep : null
+      }));
       state.completedTodayCount = countCompletedInTallyDay();
     } catch (e) {
       console.warn('Load failed', e);
@@ -169,7 +192,14 @@
         displayName: state.displayName || '',
         columnColors: state.columnColors || {},
         columnOrder: state.columnOrder || null,
-        tallyResetHour: state.tallyResetHour != null ? state.tallyResetHour : 3
+        tallyResetHour: state.tallyResetHour != null ? state.tallyResetHour : 3,
+        piles: state.piles || [],
+        viewMode: state.viewMode || 'columns',
+        showSuggestNext: state.showSuggestNext !== false,
+        columnNotes: state.columnNotes || {},
+        lastSeed: state.lastSeed || null,
+        habits: state.habits || [],
+        habitCompletions: state.habitCompletions || []
       }));
       const tallyDate = useRemoteTallyDate && state.lastCompletedDate ? state.lastCompletedDate : getTallyDate();
       localStorage.setItem(STORAGE_PREFIX + 'tally', JSON.stringify({
@@ -318,7 +348,7 @@
     return result.replace(/\s+/g, ' ').trim();
   }
 
-  function createItem(text, category, deadline, priority, recurrence, reminderAt, doingDate) {
+  function createItem(text, category, deadline, priority, recurrence, reminderAt, doingDate, pileId, friction) {
     const cleanText = stripAutoExtractedFromText(text, category, deadline, priority) || text.trim();
     return {
       id: 'id_' + Date.now() + '_' + Math.random().toString(36).slice(2),
@@ -330,8 +360,51 @@
       priority: priority || 'medium',
       recurrence: recurrence || null,
       reminderAt: reminderAt || null,
-      archived: false
+      archived: false,
+      pileId: pileId != null ? pileId : null,
+      friction: friction && ['quick', 'medium', 'deep'].includes(friction) ? friction : null,
+      firstStep: null
     };
+  }
+
+  function getPiles() {
+    return (state.piles || []).slice();
+  }
+
+  function getPileName(pileId) {
+    if (!pileId) return null;
+    const p = (state.piles || []).find(pi => pi.id === pileId);
+    return p ? p.name : pileId;
+  }
+
+  function addPile(name) {
+    const trimmed = (name || '').trim();
+    if (!trimmed) return null;
+    const id = 'pile_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+    const list = state.piles || [];
+    list.push({ id, name: trimmed });
+    state.piles = list;
+    saveState();
+    return id;
+  }
+
+  function updatePile(id, name) {
+    const trimmed = (name || '').trim();
+    if (!trimmed) return;
+    const p = (state.piles || []).find(pi => pi.id === id);
+    if (p) {
+      p.name = trimmed;
+      saveState();
+    }
+  }
+
+  function deletePile(id) {
+    const list = (state.piles || []).filter(pi => pi.id !== id);
+    const count = (state.items || []).filter(i => i.pileId === id).length;
+    state.items.forEach(i => { if (i.pileId === id) i.pileId = null; });
+    state.piles = list;
+    saveState();
+    return count;
   }
 
   function formatDuration(ms) {
@@ -357,19 +430,141 @@
     return { text: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), overdue: false };
   }
 
-  function sortItems(items) {
-    return [...items].sort((a, b) => {
-      const aOverdue = a.deadline && new Date(a.deadline) < new Date();
-      const bOverdue = b.deadline && new Date(b.deadline) < new Date();
-      if (aOverdue && !bOverdue) return -1;
-      if (!aOverdue && bOverdue) return 1;
-      if (a.deadline && b.deadline) return new Date(a.deadline) - new Date(b.deadline);
-      if (a.deadline) return -1;
-      if (b.deadline) return 1;
-      const pOrder = { critical: 0, high: 1, medium: 2, low: 3 };
-      if (pOrder[a.priority] !== pOrder[b.priority]) return pOrder[a.priority] - pOrder[b.priority];
-      return a.parkedAt - b.parkedAt;
+  const FRICTION_ORDER = { quick: 0, medium: 1, deep: 2 };
+
+  function getTodayLocalYYYYMMDD() {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return y + '-' + m + '-' + day;
+  }
+
+  function getHabits() {
+    return (state.habits || []).slice();
+  }
+
+  function getCompletionsForDate(date) {
+    return (state.habitCompletions || []).filter(c => c.date === date);
+  }
+
+  function recordCompletion(habitId, date, source, taskId) {
+    if (!state.habitCompletions) state.habitCompletions = [];
+    state.habitCompletions.push({ habitId, date, source, taskId: taskId || undefined });
+  }
+
+  function removeCompletionsForTask(taskId, date) {
+    if (!state.habitCompletions) return;
+    state.habitCompletions = state.habitCompletions.filter(c => !(c.date === date && c.taskId === taskId));
+  }
+
+  function isHabitDoneOnDate(habitId, date) {
+    return (state.habitCompletions || []).some(c => c.habitId === habitId && c.date === date);
+  }
+
+  function computeWeightedPct(date) {
+    const habits = getHabits();
+    if (habits.length === 0) return 0;
+    const totalWeight = habits.reduce((s, h) => s + (h.weight || 1), 0);
+    const doneWeight = habits.filter(h => isHabitDoneOnDate(h.id, date)).reduce((s, h) => s + (h.weight || 1), 0);
+    return totalWeight ? Math.round((doneWeight / totalWeight) * 100) : 0;
+  }
+
+  function compute7DayRolling() {
+    const today = getTodayLocalYYYYMMDD();
+    let sum = 0;
+    let count = 0;
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const dateStr = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      sum += computeWeightedPct(dateStr);
+      count++;
+    }
+    return count ? Math.round(sum / count) : 0;
+  }
+
+  function getZoneLabel(pct) {
+    if (pct >= 70 && pct <= 85) return 'Strong';
+    if (pct >= 50 && pct < 70) return 'Unstable but recoverable';
+    if (pct < 50) return 'Reduce volume';
+    if (pct > 85) return 'Check minimums';
+    return '—';
+  }
+
+  function addHabit(name, weight, linkedCategoryId, linkedPileId) {
+    const id = 'habit_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+    (state.habits || []).push({
+      id,
+      name: (name || '').trim() || 'Habit',
+      weight: Math.max(1, Math.min(5, parseInt(weight, 10) || 3)),
+      linkedCategoryId: linkedCategoryId || null,
+      linkedPileId: linkedPileId || null
     });
+    saveState();
+    return id;
+  }
+
+  function updateHabit(id, name, weight, linkedCategoryId, linkedPileId) {
+    const h = (state.habits || []).find(x => x.id === id);
+    if (!h) return;
+    if (name != null) h.name = (name || '').trim() || h.name;
+    if (weight != null) h.weight = Math.max(1, Math.min(5, parseInt(weight, 10) || 3));
+    if (linkedCategoryId !== undefined) h.linkedCategoryId = linkedCategoryId || null;
+    if (linkedPileId !== undefined) h.linkedPileId = linkedPileId || null;
+    saveState();
+  }
+
+  function deleteHabit(id) {
+    state.habits = (state.habits || []).filter(h => h.id !== id);
+    state.habitCompletions = (state.habitCompletions || []).filter(c => c.habitId !== id);
+    saveState();
+  }
+
+  function toggleHabitManual(habitId, date) {
+    if (isHabitDoneOnDate(habitId, date)) {
+      const list = state.habitCompletions || [];
+      const idx = list.findIndex(c => c.habitId === habitId && c.date === date && c.source === 'manual');
+      if (idx !== -1) {
+        list.splice(idx, 1);
+        state.habitCompletions = list;
+      }
+    } else {
+      recordCompletion(habitId, date, 'manual');
+    }
+    saveState();
+  }
+
+  function getTimeBand(item) {
+    const d = item.deadline ? new Date(item.deadline) : null;
+    if (!d || isNaN(d.getTime())) return 4;
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const todayEnd = new Date(now);
+    todayEnd.setDate(todayEnd.getDate() + 1);
+    const weekEnd = new Date(now);
+    weekEnd.setDate(weekEnd.getDate() + 8);
+    if (d < now) return 0;
+    if (d < todayEnd) return 1;
+    if (d < weekEnd) return 2;
+    return 3;
+  }
+
+  function sortByTimeBandsAndFriction(items) {
+    return [...items].sort((a, b) => {
+      const bandA = getTimeBand(a);
+      const bandB = getTimeBand(b);
+      if (bandA !== bandB) return bandA - bandB;
+      const frictionA = FRICTION_ORDER[a.friction] ?? 1;
+      const frictionB = FRICTION_ORDER[b.friction] ?? 1;
+      if (frictionA !== frictionB) return frictionA - frictionB;
+      if (a.deadline && b.deadline) return new Date(a.deadline) - new Date(b.deadline);
+      return (a.parkedAt || 0) - (b.parkedAt || 0);
+    });
+  }
+
+  function sortItems(items) {
+    return sortByTimeBandsAndFriction(items);
   }
 
   function archivePastDoingDatesIfNeeded() {
@@ -443,29 +638,107 @@
     archivePastDoingDatesIfNeeded();
     const container = document.getElementById('columns');
     if (!container) return;
+
+    const isPilesView = state.viewMode === 'piles';
     const cats = state.drillDownCategory ? [state.drillDownCategory] : getOrderedCategoryIds();
     container.classList.toggle('single-column', !!state.drillDownCategory);
+    container.classList.toggle('piles-view', isPilesView);
 
-    const canReorder = !state.drillDownCategory && cats.length > 1;
-    container.innerHTML = cats.map(catId => {
-      const items = sortItems(getItemsByCategory(catId));
-      const label = getCategoryLabel(catId);
-      const color = getColumnColor(catId);
+    if (isPilesView) {
+      const piles = getPiles();
+      const pileColumns = piles.map(p => ({ id: p.id, label: p.name, pileId: p.id }));
+      pileColumns.push({ id: '__uncategorized', label: 'Uncategorized', pileId: null });
+      const canReorder = false;
+      container.innerHTML = pileColumns.map(col => {
+        const items = getActiveItems().filter(i => (i.pileId || null) === (col.pileId || null));
+        const q = (state.searchQuery || '').trim().toLowerCase();
+        const filtered = q ? items.filter(i => (i.text || '').toLowerCase().includes(q)) : items;
+        const sorted = sortByTimeBandsAndFriction(filtered);
+        const pileIdAttr = col.pileId != null ? ` data-pile-id="${col.pileId}"` : ' data-uncategorized="true"';
+        return `
+          <div class="column column-accent" data-category="${col.id}"${pileIdAttr} style="--column-accent: #6b7280">
+            <div class="column-header" data-category="${col.id}"${pileIdAttr} role="none">
+              ${escapeHtml(col.label)} <span class="count">(${sorted.length})</span>
+            </div>
+            <div class="column-items">
+              ${sorted.length ? sorted.map(item => renderTaskCard(item, { showLifeAreaAsTag: true })).join('') : `
+                <div class="empty-state column-add-hint" data-category="${col.id}"${pileIdAttr}>No tasks in this pile</div>
+              `}
+            </div>
+            <button type="button" class="column-add-btn" data-category="${col.id}"${pileIdAttr} title="Add task">+ Add</button>
+          </div>
+        `;
+      }).join('');
+    } else {
+      const canReorder = !state.drillDownCategory && cats.length > 1;
+      container.innerHTML = cats.map(catId => {
+        const items = sortItems(getItemsByCategory(catId));
+        const label = getCategoryLabel(catId);
+        const color = getColumnColor(catId);
+        const noteContent = (state.columnNotes && state.columnNotes[catId]) || '';
+        const noteOpen = state.openColumnNoteId === catId;
 
-      return `
-        <div class="column column-accent" data-category="${catId}" style="--column-accent: ${color}">
-          <div class="column-header ${canReorder ? 'column-header-draggable' : ''}" data-category="${catId}" ${canReorder ? 'draggable="true"' : ''} role="${canReorder ? 'button' : 'none'}" title="${canReorder ? 'Drag to reorder columns' : ''}">
-            ${escapeHtml(label)} <span class="count">(${items.length})</span>
+        return `
+          <div class="column column-accent" data-category="${catId}" style="--column-accent: ${color}">
+            <div class="column-header ${canReorder ? 'column-header-draggable' : ''}" data-category="${catId}" ${canReorder ? 'draggable="true"' : ''} role="${canReorder ? 'button' : 'none'}" title="${canReorder ? 'Drag to reorder columns' : ''}">
+              ${escapeHtml(label)} <span class="count">(${items.length})</span>
+              <button type="button" class="column-note-btn" data-category="${catId}" title="Column note" aria-label="Open note">${noteContent.length ? '📝' : '✎'}</button>
+            </div>
+            <div class="column-note-panel ${noteOpen ? 'open' : ''}" data-category="${catId}" style="display:${noteOpen ? 'block' : 'none'}">
+              <textarea class="column-note-textarea" data-category="${catId}" placeholder="Notes for this area..." rows="3">${escapeHtml(noteContent)}</textarea>
+              <div class="column-note-actions">
+                <button type="button" class="btn-secondary btn-sm column-turn-into-task" data-category="${catId}" title="Create task from selected text">Turn into task</button>
+              </div>
+            </div>
+            <div class="column-items">
+              ${items.length ? items.map(item => renderTaskCard(item)).join('') : `
+                <div class="empty-state column-add-hint" data-category="${catId}">Nothing here yet—click to add</div>
+              `}
+            </div>
+            <button type="button" class="column-add-btn" data-category="${catId}" title="Add task">+ Add</button>
           </div>
-          <div class="column-items">
-            ${items.length ? items.map(item => renderTaskCard(item)).join('') : `
-              <div class="empty-state column-add-hint" data-category="${catId}">Nothing here yet—click to add</div>
-            `}
-          </div>
-          <button type="button" class="column-add-btn" data-category="${catId}" title="Add task">+ Add</button>
-        </div>
-      `;
-    }).join('');
+        `;
+      }).join('');
+
+      container.querySelectorAll('.column-note-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const catId = btn.dataset.category;
+          state.openColumnNoteId = state.openColumnNoteId === catId ? null : catId;
+          renderColumns();
+        });
+      });
+      container.querySelectorAll('.column-note-textarea').forEach(ta => {
+        ta.addEventListener('input', () => {
+          const catId = ta.dataset.category;
+          if (state.columnNoteSaveTimeouts[catId]) clearTimeout(state.columnNoteSaveTimeouts[catId]);
+          state.columnNoteSaveTimeouts[catId] = setTimeout(() => {
+            if (!state.columnNotes) state.columnNotes = {};
+            state.columnNotes[catId] = ta.value;
+            delete state.columnNoteSaveTimeouts[catId];
+            saveState();
+            if (window.talkAbout && state.deviceSyncId) saveDevicePreferencesToSupabase();
+          }, 400);
+        });
+      });
+      container.querySelectorAll('.column-turn-into-task').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const catId = btn.dataset.category;
+          const ta = container.querySelector('.column-note-textarea[data-category="' + catId + '"]');
+          if (!ta) return;
+          const start = ta.selectionStart;
+          const end = ta.selectionEnd;
+          const selected = (start < end ? ta.value.slice(start, end) : ta.value).trim();
+          if (!selected) return;
+          const item = createItem(selected, catId, null, 'medium', null, null, null, null, null);
+          state.items.push(item);
+          state.lastCategory = catId;
+          saveState();
+          renderColumns();
+          showToast('Task created');
+        });
+      });
+    }
 
     let columnDragHappened = false;
     container.querySelectorAll('.column-header').forEach(el => {
@@ -605,10 +878,26 @@
     container.querySelectorAll('.column-add-btn, .column-add-hint').forEach(el => {
       el.addEventListener('click', (e) => {
         e.stopPropagation();
-        const cat = el.dataset.category;
-        if (cat) openAddModal(cat);
+        if (state.viewMode === 'piles') {
+          const pileId = el.dataset.pileId != null ? el.dataset.pileId : null;
+          openAddModal(state.lastCategory || getOrderedCategoryIds()[0], pileId);
+        } else {
+          const cat = el.dataset.category;
+          if (cat) openAddModal(cat);
+        }
       });
     });
+
+    const viewColumnsBtn = document.getElementById('view-columns-btn');
+    const viewPilesBtn = document.getElementById('view-piles-btn');
+    if (viewColumnsBtn) {
+      viewColumnsBtn.classList.toggle('active', state.viewMode === 'columns');
+      viewColumnsBtn.setAttribute('aria-selected', state.viewMode === 'columns' ? 'true' : 'false');
+    }
+    if (viewPilesBtn) {
+      viewPilesBtn.classList.toggle('active', state.viewMode === 'piles');
+      viewPilesBtn.setAttribute('aria-selected', state.viewMode === 'piles' ? 'true' : 'false');
+    }
   }
 
   function formatDoingDate(iso) {
@@ -627,7 +916,9 @@
     return { text: 'Aiming to complete in ' + Math.floor(diff) + 'd', overdue: false };
   }
 
-  function renderTaskCard(item) {
+  function renderTaskCard(item, opts) {
+    opts = opts || {};
+    const showLifeAreaAsTag = opts.showLifeAreaAsTag === true;
     const fd = formatDeadline(item.deadline);
     const doingFd = formatDoingDate(item.doingDate);
     const duration = formatDuration(Date.now() - item.parkedAt);
@@ -639,6 +930,9 @@
     const staleNudge = daysParked >= 30 ? ` title="Parked ${daysParked} days — consider doing it or dropping it"` : '';
 
     const priorityLabel = (item.priority || 'medium').charAt(0).toUpperCase() + (item.priority || 'medium').slice(1);
+    const pileName = showLifeAreaAsTag ? null : getPileName(item.pileId);
+    const lifeAreaTag = showLifeAreaAsTag ? getCategoryLabel(item.category) : null;
+    const frictionLabel = item.friction ? (item.friction.charAt(0).toUpperCase() + item.friction.slice(1)) : null;
     const metaRow = metaExpanded
       ? `<div class="task-meta-edit" data-id="${item.id}">
           <select class="meta-priority" data-id="${item.id}" title="Priority">
@@ -650,6 +944,9 @@
         </div>`
       : `<div class="task-meta task-meta-clickable" data-id="${item.id}" title="Click to edit priority and dates">
           <span>Parked ${duration}</span>
+          ${lifeAreaTag ? `<span class="life-area-tag" title="Life area">${escapeHtml(lifeAreaTag)}</span>` : ''}
+          ${pileName ? `<span class="pile-tag" title="Pile: ${escapeHtml(pileName)}">${escapeHtml(pileName)}</span>` : ''}
+          ${frictionLabel ? `<span class="friction-badge" title="Friction: ${escapeHtml(frictionLabel)}">${escapeHtml(frictionLabel)}</span>` : ''}
           <span class="priority-badge">${escapeHtml(priorityLabel)}</span>
           ${item.doingDate ? `<span class="doing-badge">${escapeHtml((doingFd && doingFd.text) || item.doingDate)}</span>` : ''}
           ${fd ? `<span class="${overdue ? 'overdue-badge' : ''}">${escapeHtml(fd.text)}</span>` : ''}
@@ -657,11 +954,13 @@
           ${item.recurrence ? `<span class="recurrence-badge" title="Recurs ${item.recurrence}">↻</span>` : ''}
         </div>`;
 
+    const firstStepHtml = item.firstStep ? `<div class="task-first-step">Start by: ${escapeHtml(item.firstStep)}</div>` : '';
     return `
       <div class="task-card ${overdue ? 'overdue' : ''} ${checked ? 'selected' : ''} ${daysParked >= 30 ? 'stale-nudge' : ''}" data-id="${item.id}"${staleNudge}>
         <span class="task-drag-handle" draggable="true" data-id="${item.id}" title="Drag to move or add to Today" aria-label="Drag task">⋮⋮</span>
         <div class="task-content">
           <div class="task-text">${escapeHtml(item.text)}</div>
+          ${firstStepHtml}
           ${metaRow}
         </div>
         <div class="task-actions">
@@ -713,6 +1012,11 @@
       ).join('');
       catSel.value = state.lastCategory || 'life';
     }
+    updatePileSelectOptions('add-from-talk-pile', '');
+    const addFromTalkFriction = document.getElementById('add-from-talk-friction');
+    if (addFromTalkFriction) addFromTalkFriction.value = '';
+    const addFromTalkFirstStep = document.getElementById('add-from-talk-first-step');
+    if (addFromTalkFirstStep) addFromTalkFirstStep.value = '';
     const doingEl = document.getElementById('add-from-talk-doing-date');
     if (doingEl) doingEl.value = '';
     const deadlineEl = document.getElementById('add-from-talk-deadline');
@@ -733,12 +1037,19 @@
     if (!state.addFromTalkItem) return;
     const text = state.addFromTalkItem.text;
     const category = document.getElementById('add-from-talk-category')?.value || state.lastCategory;
+    const pileEl = document.getElementById('add-from-talk-pile');
+    const pileId = (pileEl && pileEl.value) ? pileEl.value : null;
+    const frictionEl = document.getElementById('add-from-talk-friction');
+    const friction = (frictionEl && frictionEl.value) ? frictionEl.value : null;
     const doingDateEl = document.getElementById('add-from-talk-doing-date');
     const doingDate = (doingDateEl && doingDateEl.value) ? doingDateEl.value : null;
     const deadlineEl = document.getElementById('add-from-talk-deadline');
     const deadline = (deadlineEl && deadlineEl.value) ? deadlineEl.value : null;
     const priority = document.getElementById('add-from-talk-priority')?.value || 'medium';
-    const item = createItem(text, category, deadline, priority, null, null, doingDate);
+    const addFromTalkFirstStepEl = document.getElementById('add-from-talk-first-step');
+    const firstStep = (addFromTalkFirstStepEl && addFromTalkFirstStepEl.value.trim()) ? addFromTalkFirstStepEl.value.trim() : null;
+    const item = createItem(text, category, deadline, priority, null, null, doingDate, pileId, friction);
+    if (firstStep) item.firstStep = firstStep;
     state.items.push(item);
     state.lastCategory = category;
     saveState();
@@ -809,6 +1120,38 @@
         else moveTodayDown(id);
       });
     });
+    renderConsistencySmall();
+  }
+
+  function renderConsistencySmall() {
+    const block = document.getElementById('consistency-small');
+    const metricsEl = block?.querySelector('.consistency-small-metrics');
+    const habitsEl = document.getElementById('consistency-small-habits');
+    if (!block) return;
+    const habits = getHabits();
+    if (habits.length === 0) {
+      block.style.display = 'none';
+      return;
+    }
+    block.style.display = 'block';
+    const todayStr = getTodayLocalYYYYMMDD();
+    const pct = computeWeightedPct(todayStr);
+    const rolling = compute7DayRolling();
+    const zone = getZoneLabel(pct);
+    if (metricsEl) metricsEl.textContent = 'Weighted: ' + pct + '% · 7-day: ' + rolling + '% · ' + zone;
+    if (habitsEl) {
+      habitsEl.innerHTML = habits.map(h => {
+        const done = isHabitDoneOnDate(h.id, todayStr);
+        return `<label class="consistency-small-habit"><input type="checkbox" data-habit-id="${h.id}" ${done ? 'checked' : ''}> ${escapeHtml(h.name)}</label>`;
+      }).join('');
+      habitsEl.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+        cb.addEventListener('change', () => {
+          toggleHabitManual(cb.dataset.habitId, todayStr);
+          renderConsistencySmall();
+          if (window.talkAbout && state.deviceSyncId) saveDevicePreferencesToSupabase();
+        });
+      });
+    }
   }
 
   function renderFocusList() {
@@ -918,6 +1261,58 @@
     return newItem.id;
   }
 
+  function suggestNext(completedItem) {
+    const active = getActiveItems();
+    const pileId = completedItem && (completedItem.pileId != null) ? completedItem.pileId : null;
+    let candidates = pileId != null ? active.filter(i => (i.pileId || null) === pileId) : active;
+    candidates = sortByTimeBandsAndFriction(candidates);
+    if (candidates.length === 0 && pileId != null) {
+      candidates = sortByTimeBandsAndFriction(active);
+    }
+    return candidates.length > 0 ? candidates[0] : null;
+  }
+
+  function showSuggestNextStrip(nextTask, completedItem) {
+    const strip = document.getElementById('suggest-next-strip');
+    if (!strip || !nextTask) return;
+    const pileName = completedItem && completedItem.pileId ? getPileName(completedItem.pileId) : null;
+    const label = pileName ? 'Next in ' + pileName + ': ' + nextTask.text : 'Next: ' + nextTask.text;
+    const firstStepHtml = nextTask.firstStep ? `<p class="suggest-next-first-step">Start by: ${escapeHtml(nextTask.firstStep)}</p>` : '';
+    strip.innerHTML = `
+      <div class="suggest-next-content">
+        <p class="suggest-next-label">${escapeHtml(label)}</p>
+        ${firstStepHtml}
+        <div class="suggest-next-actions">
+          <button type="button" class="btn-primary btn-sm suggest-next-add-today" data-id="${nextTask.id}">Add to Today</button>
+          <button type="button" class="btn-secondary btn-sm suggest-next-dismiss">Go</button>
+        </div>
+      </div>
+    `;
+    strip.classList.add('visible');
+    strip.querySelector('.suggest-next-add-today')?.addEventListener('click', () => {
+      if (!state.todaySuggestionIds.includes(nextTask.id) && state.todaySuggestionIds.length < 5) {
+        state.todaySuggestionIds.push(nextTask.id);
+        saveState();
+        renderTodayList();
+        renderFocusList();
+        renderColumns();
+      }
+      hideSuggestNextStrip();
+    });
+    strip.querySelector('.suggest-next-dismiss')?.addEventListener('click', hideSuggestNextStrip);
+    if (state.suggestNextStripTimeout) clearTimeout(state.suggestNextStripTimeout);
+    state.suggestNextStripTimeout = setTimeout(hideSuggestNextStrip, 8000);
+  }
+
+  function hideSuggestNextStrip() {
+    const strip = document.getElementById('suggest-next-strip');
+    if (strip) strip.classList.remove('visible');
+    if (state.suggestNextStripTimeout) {
+      clearTimeout(state.suggestNextStripTimeout);
+      state.suggestNextStripTimeout = null;
+    }
+  }
+
   function markDone(id) {
     if (state.processingIds.has(id)) return;
     const item = state.items.find(i => i.id === id);
@@ -932,6 +1327,10 @@
     item.completedAt = Date.now();
     state.todaySuggestionIds = state.todaySuggestionIds.filter(x => x !== id);
     const respawnedId = item.recurrence ? respawnRecurring(item) : null;
+    const todayStr = getTodayLocalYYYYMMDD();
+    (state.habits || []).forEach(h => {
+      if (h.linkedCategoryId === item.category || h.linkedPileId === item.pileId) recordCompletion(h.id, todayStr, 'task', item.id);
+    });
     saveState();
     updateTally();
     renderTodayList();
@@ -945,6 +1344,7 @@
       item.completedAt = prevCompletedAt;
       if (wasInSuggestions) state.todaySuggestionIds.push(id);
       if (respawnedId) state.items = state.items.filter(i => i.id !== respawnedId);
+      removeCompletionsForTask(id, todayStr);
       saveState();
       updateTally();
       renderTodayList();
@@ -953,6 +1353,12 @@
     });
     if (state.undoDoneTimeout) clearTimeout(state.undoDoneTimeout);
     state.undoDoneTimeout = setTimeout(() => { /* toast hides */ }, 5000);
+
+    if (state.showSuggestNext !== false) {
+      const nextTask = suggestNext(item);
+      if (nextTask) showSuggestNextStrip(nextTask, item);
+    }
+    renderConsistencySmall();
   }
 
   function deleteItem(id, showUndo = true) {
@@ -1007,10 +1413,20 @@
     ).join('');
   }
 
-  function openAddModal(presetCategory) {
+  function updatePileSelectOptions(selectIdOrEl, selectedPileId) {
+    const el = typeof selectIdOrEl === 'string' ? document.getElementById(selectIdOrEl) : selectIdOrEl;
+    if (!el) return;
+    const piles = getPiles();
+    el.innerHTML = '<option value="">None</option>' + piles.map(p =>
+      `<option value="${p.id}" ${p.id === selectedPileId ? 'selected' : ''}>${escapeHtml(p.name)}</option>`
+    ).join('');
+  }
+
+  function openAddModal(presetCategory, presetPileId) {
     const modal = document.getElementById('add-modal');
     if (modal) modal.style.display = 'flex';
     updateCategorySelectOptions();
+    updatePileSelectOptions('pile-select', presetPileId != null ? presetPileId : '');
     const tabSingle = document.getElementById('tab-single');
     const tabQuick = document.getElementById('tab-quick');
     const tabVoice = document.getElementById('tab-voice');
@@ -1045,6 +1461,11 @@
     const categorySelect = document.getElementById('category-select');
     if (categorySelect) categorySelect.value = presetCategory || state.lastCategory;
     if (presetCategory) state.lastCategory = presetCategory;
+    if (presetPileId == null) updatePileSelectOptions('pile-select', '');
+    const frictionSelect = document.getElementById('friction-select');
+    if (frictionSelect) frictionSelect.value = '';
+    const firstStepInput = document.getElementById('first-step-input');
+    if (firstStepInput) firstStepInput.value = '';
   }
 
   function closeAddModal() {
@@ -1064,7 +1485,7 @@
       state.lastCategory = cat;
       const deadline = extractDeadline(line);
       const priority = extractPriority(line) || 'medium';
-      const item = createItem(line, cat, deadline, priority);
+      const item = createItem(line, cat, deadline, priority, null, null, null, null, null);
       state.items.push(item);
     });
     saveState();
@@ -1088,7 +1509,7 @@
       state.lastCategory = cat;
       const deadline = extractDeadline(line);
       const priority = extractPriority(line) || 'medium';
-      const item = createItem(line, cat, deadline, priority);
+      const item = createItem(line, cat, deadline, priority, null, null, null, null, null);
       state.items.push(item);
     });
     saveState();
@@ -1144,6 +1565,9 @@
 
     const tallyResetEl = document.getElementById('settings-tally-reset-hour');
     if (tallyResetEl) tallyResetEl.value = String(state.tallyResetHour != null ? state.tallyResetHour : 3);
+
+    const showSuggestNextEl = document.getElementById('settings-show-suggest-next');
+    if (showSuggestNextEl) showSuggestNextEl.checked = state.showSuggestNext !== false;
 
     const presetRadios = document.querySelectorAll('input[name="category-preset"]');
     presetRadios.forEach(r => {
@@ -1226,7 +1650,66 @@
         pairCodeEl.style.display = 'none';
       }
     }
+
+    renderSettingsPilesList();
+    const pileNameInput = document.getElementById('settings-pile-name');
+    const pileAddBtn = document.getElementById('settings-pile-add-btn');
+    if (pileAddBtn && pileNameInput) {
+      pileAddBtn.replaceWith(pileAddBtn.cloneNode(true));
+      document.getElementById('settings-pile-add-btn').addEventListener('click', () => {
+        const name = pileNameInput.value.trim();
+        if (!name) return;
+        addPile(name);
+        pileNameInput.value = '';
+        renderSettingsPilesList();
+        showToast('Pile added');
+      });
+    }
+
     document.getElementById('settings-modal').style.display = 'flex';
+  }
+
+  function renderSettingsPilesList() {
+    const container = document.getElementById('settings-piles-list');
+    if (!container) return;
+    const piles = getPiles();
+    container.innerHTML = piles.length ? piles.map(p => {
+      const count = (state.items || []).filter(i => i.pileId === p.id).length;
+      return `<div class="settings-pile-row" data-pile-id="${p.id}">
+        <span class="settings-pile-name">${escapeHtml(p.name)}</span>
+        <span class="settings-pile-meta">${count} task${count !== 1 ? 's' : ''}</span>
+        <button type="button" class="btn-secondary btn-sm settings-pile-rename" data-pile-id="${p.id}">Rename</button>
+        <button type="button" class="btn-secondary btn-sm settings-pile-delete" data-pile-id="${p.id}" data-count="${count}">Delete</button>
+      </div>`;
+    }).join('') : '<p class="settings-hint">No piles yet. Add one below.</p>';
+
+    container.querySelectorAll('.settings-pile-rename').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.pileId;
+        const current = getPileName(id) || '';
+        const name = window.prompt('Rename pile:', current);
+        if (name != null && name.trim()) {
+          updatePile(id, name.trim());
+          renderSettingsPilesList();
+          showToast('Pile renamed');
+        }
+      });
+    });
+    container.querySelectorAll('.settings-pile-delete').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.pileId;
+        const count = parseInt(btn.dataset.count, 10) || 0;
+        const msg = count > 0
+          ? count + ' task' + (count !== 1 ? 's' : '') + ' will become uncategorized. Delete this pile?'
+          : 'Delete this pile?';
+        if (window.confirm(msg)) {
+          deletePile(id);
+          renderSettingsPilesList();
+          renderColumns();
+          showToast('Pile deleted');
+        }
+      });
+    });
   }
 
   function getPreferencesForDevice() {
@@ -1239,6 +1722,13 @@
     prefs.__todaySuggestionIds = state.todaySuggestionIds;
     if (Array.isArray(state.columnOrder) && state.columnOrder.length) prefs.__columnOrder = state.columnOrder;
     prefs.__tallyResetHour = state.tallyResetHour != null ? state.tallyResetHour : 3;
+    if (Array.isArray(state.piles) && state.piles.length) prefs.__piles = state.piles;
+    if (state.viewMode) prefs.__viewMode = state.viewMode;
+    if (typeof state.showSuggestNext === 'boolean') prefs.__showSuggestNext = state.showSuggestNext;
+    if (state.columnNotes && Object.keys(state.columnNotes).length) prefs.__columnNotes = state.columnNotes;
+    if (state.lastSeed) prefs.__lastSeed = state.lastSeed;
+    if (Array.isArray(state.habits) && state.habits.length) prefs.__habits = state.habits;
+    if (Array.isArray(state.habitCompletions) && state.habitCompletions.length) prefs.__habitCompletions = state.habitCompletions;
     return prefs;
   }
 
@@ -1254,6 +1744,13 @@
     if (prefs.__lastCompletedDate) delete prefs.__lastCompletedDate;
     if (Array.isArray(prefs.__columnOrder)) { state.columnOrder = prefs.__columnOrder; delete prefs.__columnOrder; }
     if (typeof prefs.__tallyResetHour === 'number' && prefs.__tallyResetHour >= 0 && prefs.__tallyResetHour <= 23) { state.tallyResetHour = prefs.__tallyResetHour; delete prefs.__tallyResetHour; }
+    if (Array.isArray(prefs.__piles)) { state.piles = prefs.__piles; delete prefs.__piles; }
+    if (prefs.__viewMode === 'piles' || prefs.__viewMode === 'columns') { state.viewMode = prefs.__viewMode; delete prefs.__viewMode; }
+    if (typeof prefs.__showSuggestNext === 'boolean') { state.showSuggestNext = prefs.__showSuggestNext; delete prefs.__showSuggestNext; }
+    if (prefs.__columnNotes && typeof prefs.__columnNotes === 'object') { state.columnNotes = prefs.__columnNotes; delete prefs.__columnNotes; }
+    if (typeof prefs.__lastSeed === 'string') { state.lastSeed = prefs.__lastSeed; delete prefs.__lastSeed; }
+    if (Array.isArray(prefs.__habits)) { state.habits = prefs.__habits; delete prefs.__habits; }
+    if (Array.isArray(prefs.__habitCompletions)) { state.habitCompletions = prefs.__habitCompletions; delete prefs.__habitCompletions; }
     if (Object.keys(prefs).length) state.columnColors = prefs;
     saveState(true, true);
   }
@@ -1353,6 +1850,113 @@
     document.getElementById('settings-modal').style.display = 'none';
   }
 
+  function openSeedRenderModal() {
+    const modal = document.getElementById('seed-render-modal');
+    const taskSelect = document.getElementById('seed-render-task-select');
+    const questionInput = document.getElementById('seed-render-question');
+    const resultDiv = document.getElementById('seed-render-result');
+    const actionsDiv = document.getElementById('seed-render-actions');
+    if (!modal || !taskSelect) return;
+    const active = sortByTimeBandsAndFriction(getActiveItems());
+    taskSelect.innerHTML = '<option value="">— None —</option>' + active.map(i =>
+      `<option value="${escapeHtml(i.id)}">${escapeHtml((i.text || '').slice(0, 60))}${(i.text || '').length > 60 ? '…' : ''}</option>`
+    ).join('');
+    if (questionInput) questionInput.value = '';
+    if (resultDiv) resultDiv.style.display = 'none';
+    if (actionsDiv) actionsDiv.style.display = 'block';
+    modal.style.display = 'flex';
+  }
+
+  function closeSeedRenderModal() {
+    const modal = document.getElementById('seed-render-modal');
+    if (modal) modal.style.display = 'none';
+  }
+
+  function openConsistencyPanel() {
+    const panel = document.getElementById('consistency-panel');
+    if (!panel) return;
+    panel.style.display = 'block';
+    renderConsistencyPanel();
+  }
+
+  function closeConsistencyPanel() {
+    const panel = document.getElementById('consistency-panel');
+    if (panel) panel.style.display = 'none';
+  }
+
+  function renderConsistencyPanel() {
+    const todayStr = getTodayLocalYYYYMMDD();
+    const pct = computeWeightedPct(todayStr);
+    const rolling = compute7DayRolling();
+    const zone = getZoneLabel(pct);
+    const metricsEl = document.getElementById('consistency-metrics');
+    const zoneEl = document.getElementById('consistency-zone');
+    const trendEl = document.getElementById('consistency-trend');
+    const monthEl = document.getElementById('consistency-month');
+    const habitsListEl = document.getElementById('consistency-habits-list');
+    if (metricsEl) metricsEl.innerHTML = '<p>Weighted today: <strong>' + pct + '%</strong></p><p>7-day rolling: <strong>' + rolling + '%</strong></p>';
+    if (zoneEl) zoneEl.textContent = 'Zone: ' + zone;
+    const trendDays = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(todayStr);
+      d.setDate(d.getDate() - i);
+      const dateStr = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      trendDays.push({ date: dateStr, pct: computeWeightedPct(dateStr) });
+    }
+    if (trendEl) trendEl.innerHTML = '<p>Last 7 days</p><p>' + trendDays.map(x => x.date + ': ' + x.pct + '%').join(' · ') + '</p>';
+    if (monthEl) monthEl.innerHTML = '<p>Month view (read-only)</p><p class="consistency-month-hint">Days × habits grid would go here.</p>';
+    const habits = getHabits();
+    const columnSelect = document.getElementById('consistency-habit-column');
+    const pileSelect = document.getElementById('consistency-habit-pile');
+    if (columnSelect) {
+      columnSelect.innerHTML = '<option value="">None</option>' + getCategories().map(c =>
+        '<option value="' + c.id + '">' + escapeHtml(getCategoryLabel(c.id)) + '</option>'
+      ).join('');
+    }
+    if (pileSelect) {
+      pileSelect.innerHTML = '<option value="">None</option>' + getPiles().map(p =>
+        '<option value="' + p.id + '">' + escapeHtml(p.name) + '</option>'
+      ).join('');
+    }
+    if (habitsListEl) {
+      habitsListEl.innerHTML = habits.length ? habits.map(h => {
+        const linkDesc = [h.linkedCategoryId ? getCategoryLabel(h.linkedCategoryId) : null, h.linkedPileId ? getPileName(h.linkedPileId) : null].filter(Boolean);
+        const linkText = linkDesc.length === 2 ? 'Both' : linkDesc.length === 1 ? linkDesc[0] : 'Manual only';
+        return `<div class="consistency-habit-row" data-habit-id="${h.id}">
+          <span class="consistency-habit-name">${escapeHtml(h.name)}</span>
+          <span class="consistency-habit-meta">weight ${h.weight || 1} · ${escapeHtml(linkText)}</span>
+          <button type="button" class="btn-secondary btn-sm consistency-habit-delete" data-habit-id="${h.id}">Delete</button>
+        </div>`;
+      }).join('') : '<p class="settings-hint">No habits yet. Add one below.</p>';
+      habitsListEl.querySelectorAll('.consistency-habit-delete').forEach(btn => {
+        btn.addEventListener('click', () => {
+          if (window.confirm('Delete this habit?')) {
+            deleteHabit(btn.dataset.habitId);
+            renderConsistencyPanel();
+            renderConsistencySmall();
+          }
+        });
+      });
+    }
+    const addBtn = document.getElementById('consistency-habit-add');
+    if (addBtn) {
+      addBtn.replaceWith(addBtn.cloneNode(true));
+      document.getElementById('consistency-habit-add').addEventListener('click', () => {
+        const nameEl = document.getElementById('consistency-habit-name');
+        const weightEl = document.getElementById('consistency-habit-weight');
+        const colEl = document.getElementById('consistency-habit-column');
+        const pileEl = document.getElementById('consistency-habit-pile');
+        const name = nameEl?.value?.trim();
+        if (!name) return;
+        addHabit(name, weightEl?.value || 3, colEl?.value || null, pileEl?.value || null);
+        if (nameEl) nameEl.value = '';
+        renderConsistencyPanel();
+        renderConsistencySmall();
+        showToast('Habit added');
+      });
+    }
+  }
+
   async function saveSettingsAndClose() {
     try {
       const newPreset = (document.querySelector('input[name="category-preset"]:checked') || {}).value || 'generic';
@@ -1364,6 +1968,19 @@
           state.items.forEach(item => {
             if (map[item.category]) item.category = map[item.category];
           });
+          if (state.columnNotes && typeof state.columnNotes === 'object') {
+            const migrated = {};
+            Object.keys(state.columnNotes).forEach(k => {
+              const newKey = map[k];
+              migrated[newKey != null ? newKey : k] = state.columnNotes[k];
+            });
+            state.columnNotes = migrated;
+          }
+          if (Array.isArray(state.habits)) {
+            state.habits.forEach(h => {
+              if (h.linkedCategoryId && map[h.linkedCategoryId]) h.linkedCategoryId = map[h.linkedCategoryId];
+            });
+          }
           state.categoryPreset = newPreset;
           state.customLabels = {};
           const newCats = CATEGORY_PRESETS[newPreset];
@@ -1378,6 +1995,9 @@
         const h = parseInt(tallyResetInp.value, 10);
         if (!isNaN(h) && h >= 0 && h <= 23) state.tallyResetHour = h;
       }
+
+      const showSuggestNextInp = document.getElementById('settings-show-suggest-next');
+      if (showSuggestNextInp) state.showSuggestNext = showSuggestNextInp.checked;
 
       const btnColorInp = document.getElementById('settings-button-color');
       const textColorInp = document.getElementById('settings-text-color');
@@ -1482,9 +2102,16 @@
     const priority = document.getElementById('priority-select').value;
     const recurrenceEl = document.getElementById('recurrence-select');
     const recurrence = (recurrenceEl && recurrenceEl.value) ? recurrenceEl.value : null;
+    const pileEl = document.getElementById('pile-select');
+    const pileId = (pileEl && pileEl.value) ? pileEl.value : null;
+    const frictionEl = document.getElementById('friction-select');
+    const friction = (frictionEl && frictionEl.value) ? frictionEl.value : null;
+    const firstStepEl = document.getElementById('first-step-input');
+    const firstStep = (firstStepEl && firstStepEl.value) ? firstStepEl.value.trim() : null;
     if (submitBtn) submitBtn.disabled = true;
     state.lastCategory = category;
-    const item = createItem(text, category, deadline, priority, recurrence, null, doingDate);
+    const item = createItem(text, category, deadline, priority, recurrence, null, doingDate, pileId, friction);
+    if (firstStep) item.firstStep = firstStep;
     state.items.push(item);
     saveState();
     closeAddModal();
@@ -1500,6 +2127,11 @@
     document.getElementById('edit-category').innerHTML = getCategories().map(c =>
       `<option value="${c.id}" ${c.id === item.category ? 'selected' : ''}>${escapeHtml(getCategoryLabel(c.id))}</option>`
     ).join('');
+    updatePileSelectOptions('edit-pile', item.pileId || '');
+    const editFriction = document.getElementById('edit-friction');
+    if (editFriction) editFriction.value = item.friction || '';
+    const editFirstStep = document.getElementById('edit-first-step');
+    if (editFirstStep) editFirstStep.value = item.firstStep || '';
     document.getElementById('edit-deadline').value = item.deadline || '';
     const editDoingEl = document.getElementById('edit-doing-date');
     if (editDoingEl) editDoingEl.value = item.doingDate || '';
@@ -1515,6 +2147,12 @@
     if (!item) return;
     item.text = document.getElementById('edit-text').value.trim();
     item.category = document.getElementById('edit-category').value;
+    const editPileEl = document.getElementById('edit-pile');
+    item.pileId = (editPileEl && editPileEl.value) ? editPileEl.value : null;
+    const editFrictionEl = document.getElementById('edit-friction');
+    item.friction = (editFrictionEl && editFrictionEl.value) ? editFrictionEl.value : null;
+    const editFirstStepEl = document.getElementById('edit-first-step');
+    item.firstStep = (editFirstStepEl && editFirstStepEl.value.trim()) ? editFirstStepEl.value.trim() : null;
     item.deadline = document.getElementById('edit-deadline').value || null;
     const editDoingEl = document.getElementById('edit-doing-date');
     item.doingDate = (editDoingEl && editDoingEl.value) ? editDoingEl.value : null;
@@ -1892,6 +2530,22 @@
       renderColumns();
     });
 
+    const viewColumnsBtn = document.getElementById('view-columns-btn');
+    const viewPilesBtn = document.getElementById('view-piles-btn');
+    if (viewColumnsBtn) viewColumnsBtn.addEventListener('click', () => {
+      state.viewMode = 'columns';
+      saveState();
+      if (window.talkAbout && state.deviceSyncId) saveDevicePreferencesToSupabase();
+      renderColumns();
+    });
+    if (viewPilesBtn) viewPilesBtn.addEventListener('click', () => {
+      state.viewMode = 'piles';
+      state.openColumnNoteId = null;
+      saveState();
+      if (window.talkAbout && state.deviceSyncId) saveDevicePreferencesToSupabase();
+      renderColumns();
+    });
+
     const columnsEl = document.getElementById('columns');
     if (columnsEl) {
       columnsEl.addEventListener('dragover', (e) => {
@@ -1903,12 +2557,22 @@
         const column = e.target.closest('.column');
         if (!column) return;
         const id = e.dataTransfer.getData('text/plain');
-        const newCat = column.dataset.category;
         const item = state.items.find(i => i.id === id);
-        if (item && newCat && item.category !== newCat) {
-          item.category = newCat;
-          saveState();
-          renderColumns();
+        if (!item) return;
+        if (state.viewMode === 'piles') {
+          const newPileId = column.dataset.uncategorized === 'true' ? null : (column.dataset.pileId || null);
+          if (item.pileId !== newPileId) {
+            item.pileId = newPileId;
+            saveState();
+            renderColumns();
+          }
+        } else {
+          const newCat = column.dataset.category;
+          if (newCat && item.category !== newCat) {
+            item.category = newCat;
+            saveState();
+            renderColumns();
+          }
         }
       });
     }
@@ -2011,7 +2675,7 @@
         } else if (document.body.classList.contains('sidebar-open')) {
           closeSidebar();
         } else {
-          const modals = ['add-modal', 'edit-modal', 'add-from-talk-modal', 'archive-modal', 'settings-modal', 'link-partner-modal'];
+          const modals = ['add-modal', 'edit-modal', 'add-from-talk-modal', 'archive-modal', 'settings-modal', 'link-partner-modal', 'seed-render-modal'];
           const panels = ['analytics-panel', 'email-triage-section'];
           for (const id of modals) {
             const m = document.getElementById(id);
@@ -2022,12 +2686,18 @@
               else if (id === 'archive-modal') m.style.display = 'none';
               else if (id === 'settings-modal') closeSettingsModal();
               else if (id === 'link-partner-modal') closeLinkPartnerModal();
+              else if (id === 'seed-render-modal') closeSeedRenderModal();
               return;
             }
           }
           for (const id of panels) {
             const p = document.getElementById(id);
             if (p && p.style.display === 'block') { p.style.display = 'none'; return; }
+          }
+          const consistencyPanel = document.getElementById('consistency-panel');
+          if (consistencyPanel && consistencyPanel.style.display === 'block') {
+            closeConsistencyPanel();
+            return;
           }
         }
       } else if (e.key === '?' && !e.ctrlKey && !e.metaKey && !e.altKey) {
@@ -2230,8 +2900,46 @@
       }
     });
 
+    const seedRenderBtn = document.getElementById('seed-render-btn');
+    if (seedRenderBtn) seedRenderBtn.addEventListener('click', openSeedRenderModal);
+
     const archiveBtn = document.getElementById('archive-btn');
     if (archiveBtn) archiveBtn.addEventListener('click', openArchiveModal);
+
+    const closeSeedRender = document.getElementById('close-seed-render');
+    if (closeSeedRender) closeSeedRender.addEventListener('click', closeSeedRenderModal);
+    const seedRenderModal = document.getElementById('seed-render-modal');
+    if (seedRenderModal) seedRenderModal.addEventListener('click', (e) => {
+      if (e.target.id === 'seed-render-modal') closeSeedRenderModal();
+    });
+    const seedRenderSet = document.getElementById('seed-render-set');
+    if (seedRenderSet) seedRenderSet.addEventListener('click', () => {
+      const taskSelect = document.getElementById('seed-render-task-select');
+      const questionInput = document.getElementById('seed-render-question');
+      const resultDiv = document.getElementById('seed-render-result');
+      const actionsDiv = document.getElementById('seed-render-actions');
+      const confirmText = document.getElementById('seed-render-confirm-text');
+      const taskId = taskSelect && taskSelect.value ? taskSelect.value : '';
+      const question = questionInput && questionInput.value ? questionInput.value.trim() : '';
+      let seed = '';
+      if (taskId) {
+        const item = state.items.find(i => i.id === taskId);
+        seed = item ? (item.text || '').trim() : '';
+      }
+      if (!seed) seed = question;
+      if (!seed) {
+        showToast('Pick a task or type a question');
+        return;
+      }
+      state.lastSeed = seed;
+      saveState();
+      if (window.talkAbout && state.deviceSyncId) saveDevicePreferencesToSupabase();
+      if (confirmText) confirmText.textContent = seed.length > 80 ? seed.slice(0, 80) + '…' : seed;
+      if (resultDiv) resultDiv.style.display = 'block';
+      if (actionsDiv) actionsDiv.style.display = 'none';
+    });
+    const seedRenderDone = document.getElementById('seed-render-done');
+    if (seedRenderDone) seedRenderDone.addEventListener('click', closeSeedRenderModal);
 
     const closeArchive = document.getElementById('close-archive');
     if (closeArchive) closeArchive.addEventListener('click', () => {
@@ -2243,6 +2951,16 @@
     if (archiveModal) archiveModal.addEventListener('click', (e) => {
       if (e.target.id === 'archive-modal') archiveModal.style.display = 'none';
     });
+
+    const consistencyOpenFull = document.getElementById('consistency-open-full');
+    if (consistencyOpenFull) consistencyOpenFull.addEventListener('click', () => {
+      closeSidebar();
+      openConsistencyPanel();
+    });
+    const consistencyBtn = document.getElementById('consistency-btn');
+    if (consistencyBtn) consistencyBtn.addEventListener('click', openConsistencyPanel);
+    const closeConsistency = document.getElementById('close-consistency');
+    if (closeConsistency) closeConsistency.addEventListener('click', closeConsistencyPanel);
 
     const analyticsBtn = document.getElementById('analytics-btn');
     if (analyticsBtn) analyticsBtn.addEventListener('click', openAnalytics);
