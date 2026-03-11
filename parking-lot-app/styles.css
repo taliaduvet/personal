@@ -1921,6 +1921,8 @@ body.sidebar-open .sidebar-overlay {
   resize: none;
   background: transparent;
   border: none;
+  outline: none;
+  box-shadow: none;
   font: inherit;
   font-size: 1.05rem;
   line-height: 1.7;
@@ -1928,8 +1930,22 @@ body.sidebar-open .sidebar-overlay {
   caret-color: var(--text);
   z-index: 1;
 }
+.journal-daily-input:focus,
+.journal-daily-input:focus-visible {
+  outline: none;
+  border: none;
+  box-shadow: none;
+}
 .journal-daily-input::placeholder {
   color: var(--text-muted);
+}
+/* No box around the writing area — one continuous page */
+.journal-daily-wrap {
+  outline: none;
+}
+.journal-daily-wrap:focus-within {
+  outline: none;
+  box-shadow: none;
 }
 .journal-daily-block {
   min-height: 1.7em;
