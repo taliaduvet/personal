@@ -84,12 +84,24 @@
           </div>
         </div>
         <div id="today-list" class="today-list"></div>
+        <div id="suggest-next-strip" class="suggest-next-strip" aria-live="polite"></div>
+        <div id="consistency-small" class="consistency-small" style="display:none">
+          <div class="consistency-small-header">
+            <span class="consistency-small-metrics"></span>
+            <button type="button" id="consistency-open-full" class="btn-secondary btn-sm">View full dashboard</button>
+          </div>
+          <div id="consistency-small-habits" class="consistency-small-habits"></div>
+        </div>
       </header>
 
       <main id="main-content">
         <div id="overview" class="overview">
           <div class="columns-header">
             <button id="back-btn" class="btn-back" style="display:none">← Overview</button>
+            <div class="view-toggle" role="tablist" aria-label="View mode">
+              <button type="button" id="view-columns-btn" class="view-toggle-btn active" data-view="columns" aria-selected="true">Columns</button>
+              <button type="button" id="view-piles-btn" class="view-toggle-btn" data-view="piles" aria-selected="false">Piles</button>
+            </div>
             <input id="search-input" type="text" placeholder="Search..." class="search-input" autocomplete="off">
           </div>
           <div id="columns" class="columns"></div>
@@ -154,6 +166,20 @@
               <option value="weekly">Weekly</option>
               <option value="monthly">Monthly</option>
             </select>
+            <label>First step (optional)</label>
+            <input id="first-step-input" type="text" placeholder="e.g. Open the file and add the title" maxlength="200" title="What's the one tiny thing that would get you started?">
+            <p class="settings-hint" style="margin-top:-0.25rem">Tip: For big tasks, set the deadline for the first small step.</p>
+            <label>Pile (optional)</label>
+            <select id="pile-select">
+              <option value="">None</option>
+            </select>
+            <label>Friction (optional)</label>
+            <select id="friction-select">
+              <option value="">None</option>
+              <option value="quick">Quick</option>
+              <option value="medium">Medium</option>
+              <option value="deep">Deep</option>
+            </select>
             <label>Priority <span class="hint-link" id="priority-hint" title="How to decide?">?</span></label>
             <select id="priority-select">
               <option value="critical">Critical</option>
@@ -191,6 +217,19 @@
         <div class="edit-options">
           <label>Category</label>
           <select id="edit-category"></select>
+          <label>First step (optional)</label>
+          <input id="edit-first-step" type="text" placeholder="e.g. Open the file and add the title" maxlength="200" title="What's the one tiny thing that would get you started?">
+          <label>Pile (optional)</label>
+          <select id="edit-pile">
+            <option value="">None</option>
+          </select>
+          <label>Friction (optional)</label>
+          <select id="edit-friction">
+            <option value="">None</option>
+            <option value="quick">Quick</option>
+            <option value="medium">Medium</option>
+            <option value="deep">Deep</option>
+          </select>
           <label>Deadline</label>
           <input id="edit-deadline" type="date">
           <label>Doing date (optional)</label>
@@ -224,6 +263,19 @@
         <div class="edit-options">
           <label>Category</label>
           <select id="add-from-talk-category"></select>
+          <label>First step (optional)</label>
+          <input id="add-from-talk-first-step" type="text" placeholder="e.g. Open the file and add the title" maxlength="200">
+          <label>Pile (optional)</label>
+          <select id="add-from-talk-pile">
+            <option value="">None</option>
+          </select>
+          <label>Friction (optional)</label>
+          <select id="add-from-talk-friction">
+            <option value="">None</option>
+            <option value="quick">Quick</option>
+            <option value="medium">Medium</option>
+            <option value="deep">Deep</option>
+          </select>
           <label>Doing date (optional)</label>
           <input id="add-from-talk-doing-date" type="date">
           <label>Deadline (optional)</label>
@@ -293,6 +345,12 @@
         <h4 class="settings-section-title">Your name</h4>
         <p class="settings-hint">Shown next to the pair code in the menu.</p>
         <input id="settings-display-name" type="text" placeholder="e.g. Talia" class="settings-name-input" value="">
+        <h4 class="settings-section-title">Suggest next</h4>
+        <p class="settings-hint">After marking a task done, show a strip suggesting the next task (same pile or list).</p>
+        <label class="settings-checkbox-row">
+          <input type="checkbox" id="settings-show-suggest-next" checked>
+          <span>Show suggest next after completing a task</span>
+        </label>
         <h4 class="settings-section-title">Day resets at</h4>
         <p class="settings-hint">"Completed today" resets at this time (local time). Default 3am.</p>
         <select id="settings-tally-reset-hour" class="settings-select" aria-label="Time when your day resets">
@@ -333,6 +391,13 @@
         <h4 class="settings-section-title">Column colors</h4>
         <p class="settings-hint">Pick a color for each column (color wheel or hex). Syncs across your devices.</p>
         <div id="settings-column-colors" class="settings-column-colors"></div>
+        <h4 class="settings-section-title">Manage piles</h4>
+        <p class="settings-hint">Piles are tags for type of work (e.g. Admin, Creative). Tasks can be assigned to a pile in Add/Edit.</p>
+        <div id="settings-piles-list" class="settings-piles-list"></div>
+        <div class="settings-piles-add">
+          <input id="settings-pile-name" type="text" placeholder="New pile name" class="settings-name-input" maxlength="80">
+          <button id="settings-pile-add-btn" type="button" class="btn-secondary btn-sm">Add pile</button>
+        </div>
         <h4 class="settings-section-title">Theme colors</h4>
         <p class="settings-hint">Button and text accent colors.</p>
         <div class="settings-theme-colors">
@@ -386,6 +451,66 @@
     </div>
   </div>
 
+  <div id="seed-render-modal" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="seed-render-title">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="seed-render-title">Seed my render</h3>
+        <button id="close-seed-render" class="btn-close">×</button>
+      </div>
+      <div class="modal-body">
+        <p class="seed-render-hint">What's one thing to sit with? Pick a task or type a question for your brain to work on during rest.</p>
+        <label>Pick a task (optional)</label>
+        <select id="seed-render-task-select" class="seed-render-select">
+          <option value="">— None —</option>
+        </select>
+        <label>Or type a question</label>
+        <input id="seed-render-question" type="text" placeholder="e.g. What's the most important truth about this grant?" class="seed-render-input" autocomplete="off">
+        <div id="seed-render-result" class="seed-render-result" style="display:none">
+          <p class="seed-render-confirm">Let your brain work on: <strong id="seed-render-confirm-text"></strong></p>
+          <button id="seed-render-done" type="button" class="btn-primary">Done</button>
+        </div>
+        <div id="seed-render-actions" class="seed-render-actions">
+          <button id="seed-render-set" type="button" class="btn-primary">Set seed</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="consistency-panel" class="consistency-panel" style="display:none">
+    <div class="consistency-panel-content">
+      <div class="consistency-panel-header">
+        <h3>Consistency</h3>
+        <button id="close-consistency" class="btn-close" aria-label="Close">×</button>
+      </div>
+      <div id="consistency-metrics" class="consistency-metrics"></div>
+      <div id="consistency-zone" class="consistency-zone"></div>
+      <div id="consistency-trend" class="consistency-trend"></div>
+      <div id="consistency-month" class="consistency-month"></div>
+      <h4 class="consistency-habits-title">Manage habits</h4>
+      <div id="consistency-habits-list" class="consistency-habits-list"></div>
+      <div class="consistency-add-habit">
+        <input id="consistency-habit-name" type="text" placeholder="Habit name" class="settings-name-input" maxlength="80">
+        <label>Weight (1–5)</label>
+        <select id="consistency-habit-weight">
+          <option value="1">1</option>
+          <option value="2">2</option>
+          <option value="3" selected>3</option>
+          <option value="4">4</option>
+          <option value="5">5</option>
+        </select>
+        <label>Link to column</label>
+        <select id="consistency-habit-column">
+          <option value="">None</option>
+        </select>
+        <label>Link to pile</label>
+        <select id="consistency-habit-pile">
+          <option value="">None</option>
+        </select>
+        <button id="consistency-habit-add" type="button" class="btn-primary btn-sm">Add habit</button>
+      </div>
+    </div>
+  </div>
+
   <div id="analytics-panel" class="analytics-panel" style="display:none">
     <div class="analytics-content">
       <h3>This week</h3>
@@ -402,7 +527,9 @@
     </div>
     <nav class="sidebar-nav">
       <button id="link-partner-btn" class="sidebar-item sidebar-link-partner" style="display:none">Link partner</button>
+      <button id="seed-render-btn" class="sidebar-item" data-action="seed-render">Seed my render</button>
       <button id="settings-btn" class="sidebar-item" data-action="settings">Settings</button>
+      <button id="consistency-btn" class="sidebar-item" data-action="consistency">Consistency</button>
       <button id="archive-btn" class="sidebar-item" data-action="archive">View archive</button>
       <button id="analytics-btn" class="sidebar-item" data-action="analytics">Analytics</button>
       <button id="export-btn" class="sidebar-item" data-action="export">Export backup</button>

@@ -40,6 +40,7 @@ References: [ADD Resource Center – Next Step Ready](https://www.addrc.org/mast
 ## A2. Columns view vs Piles view (toggle)
 
 - **Toggle** above columns: "Columns | Piles" (or similar). `state.viewMode = 'columns' | 'piles'`.
+- **Today's Suggestions**: Stay visible at the top in **both** views; tasks can appear in both Today and their pile column (no deduplication).
 - **Columns view**: Columns = life areas (categories). Cards show pile tag if set.
 - **Piles view**: Columns = piles (+ Uncategorized). Each pile column shows all tasks with that `pileId`; card shows **life area** (original category) as tag. Empty piles show as column with "No tasks in this pile."
 - **Column notes**: Note icon exists only in Columns view. When switching to Piles view, collapse/close any open note.
@@ -51,9 +52,10 @@ References: [ADD Resource Center – Next Step Ready](https://www.addrc.org/mast
 
 ## A4. Prioritization logic: time bands then friction
 
-- **Sort order** (Piles view, suggest-next list, optionally Columns view):
+- **Sort order** (Columns view, Piles view, and suggest-next list):
   1. **Time bands**: Overdue → Due today → Due this week (7 days) → Due later → No deadline.
   2. **Within each band**: Friction quick → medium → deep (null = medium).
+- **Columns view** and **Piles view** both use this auto-sort within each column. Drag-reorder **within** a column is removed; drag **between** columns (change category) and drag to Today still work.
 - **Today's Suggestions**: Remain **user-ordered** (no auto re-sort). Suggest-next is the bridge.
 - **Suggest next**: Same pile as completed task; apply above sort; suggest **first** task in list that isn’t the one just completed. If no other task in same pile, **fallback**: suggest first task from **all tasks** (same sort). Optionally show "Due today" / "Overdue" on suggestion. Optional setting: "Show suggest next after completing a task: on / off."
 
@@ -80,6 +82,7 @@ References: [ADD Resource Center – Next Step Ready](https://www.addrc.org/mast
 
 ## B3. Seed the render (before rest)
 
+- **Data**: `state.lastSeed: string | null` — last seed text shown on return. Persist and per-user sync (`__lastSeed`).
 - **Trigger**: Sidebar or footer — "Seed my render" / "Taking a break?". Explicit; not automatic.
 - **Flow**: Prompt "What's one thing to sit with?" Options: (1) Pick an open task from a dropdown (sort by time bands + friction). (2) Type one question (e.g. "What's the most important truth about this grant?"). Show "Let your brain work on: [task or question]." Optional: save last seed, show on return ("You left with: [seed]").
 
@@ -123,7 +126,8 @@ References: [ADD Resource Center – Next Step Ready](https://www.addrc.org/mast
 
 ## C7. Persistence and sync
 
-- `state.habits`, `state.habitCompletions`. Persist in main blob (loadState/saveState). Device sync: `__habits`, `__habitCompletions` in getPreferencesForDevice/applyDevicePreferencesToState.
+- `state.habits`, `state.habitCompletions`. Persist in main blob (loadState/saveState).
+- **Per-user sync**: Piles, columnNotes, habits, habitCompletions, and lastSeed are **per-user** (not shared between couple-sync partners). Sync keys must be namespaced per user (e.g. `__piles_[userId]` or stored in a user-specific channel) so each partner has their own piles, habits, notes, and consistency data. Shared data (items, todaySuggestionIds, etc.) remains in the existing pairId-based sync.
 
 ## C8. Helpers (reference)
 
@@ -144,7 +148,7 @@ References: [ADD Resource Center – Next Step Ready](https://www.addrc.org/mast
 | **Piles** | app.js, index.html | state.piles; load/save/sync; Manage piles UI; default or seed piles. |
 | **Task pile + friction** | app.js, index.html | task.pileId, task.friction; Add/Edit; pile tag and friction badge on cards. Migration: existing tasks pileId/friction null. |
 | **View toggle + Piles view** | index.html, app.js, styles.css | Toggle; viewMode; Piles view columns = piles + Uncategorized; card shows life-area tag; sort time bands + friction. |
-| **Sort (time bands + friction)** | app.js | Single sort function for Piles view and suggest-next; optionally Columns view. Today's Suggestions stay user-ordered. |
+| **Sort (time bands + friction)** | app.js | Single sort function used in Columns view, Piles view, and suggest-next. Today's Suggestions stay user-ordered. |
 | **Suggest next** | app.js, index.html, styles.css | suggestNext(); call after markDone; strip/toast with next task + first step if set; fallback to all tasks; optional setting. |
 | **First step** | app.js, index.html | task.firstStep; Add/Edit + prompt; card "Start by: …"; suggest-next shows first step. |
 | **Column notes** | app.js, index.html, styles.css | state.columnNotes; note icon per column; textarea/contenteditable; debounce save; selection → "Turn into task"; createItem with column categoryId; migrate notes on preset change. |
@@ -172,6 +176,7 @@ References: [ADD Resource Center – Next Step Ready](https://www.addrc.org/mast
 # Plan audit: gaps, edge cases, improvements
 
 - **Uncategorized column**: Piles view includes column for tasks with pileId === null.
+- **habitCompletions data growth**: Array grows indefinitely (one entry per habit per day). Future cleanup: optionally prune or archive completions older than 90 days; not required for v1.
 - **Suggest next fallback**: If no other task in same pile, suggest first from all tasks (same sort).
 - **Pile delete**: Set tasks' pileId to null; confirm "X tasks will become uncategorized."
 - **Note close on view switch**: When switching to Piles view, collapse/close open note.
