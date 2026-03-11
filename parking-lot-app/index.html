@@ -183,6 +183,10 @@
             <select id="pile-select">
               <option value="">None</option>
             </select>
+            <label>Person (optional)</label>
+            <select id="person-select">
+              <option value="">None</option>
+            </select>
             <label>Friction (optional)</label>
             <select id="friction-select">
               <option value="">None</option>
@@ -231,6 +235,10 @@
           <input id="edit-first-step" type="text" placeholder="e.g. Open the file and add the title" maxlength="200" title="What's the one tiny thing that would get you started?">
           <label>Pile (optional)</label>
           <select id="edit-pile">
+            <option value="">None</option>
+          </select>
+          <label>Person (optional)</label>
+          <select id="edit-person">
             <option value="">None</option>
           </select>
           <label>Friction (optional)</label>
@@ -542,6 +550,88 @@
     </div>
   </div>
 
+  <div id="journal-panel" class="journal-panel" style="display:none">
+    <div class="journal-panel-content">
+      <div id="journal-panel-header" class="journal-panel-header">
+        <h3>Journal</h3>
+        <button id="close-journal" class="btn-close" aria-label="Close">×</button>
+      </div>
+      <div id="journal-tabs-row" class="journal-tabs-row" role="tablist">
+        <button type="button" id="journal-tab-daily" class="journal-tab active" role="tab" aria-selected="true" data-tab="daily">Daily</button>
+        <button type="button" id="journal-tab-reflections" class="journal-tab" role="tab" aria-selected="false" data-tab="reflections">Reflections</button>
+        <button type="button" id="journal-tab-calendar" class="journal-tab" role="tab" aria-selected="false" data-tab="calendar">Calendar</button>
+        <button type="button" id="journal-focus-btn" class="journal-focus-btn btn-secondary btn-sm" title="Focus writing">Focus writing</button>
+      </div>
+      <div id="journal-daily-view" class="journal-view" style="display:block">
+        <p id="journal-daily-date-label" class="journal-daily-date-label"></p>
+        <div id="journal-daily-wrap" class="journal-daily-wrap">
+          <div id="journal-daily-mirror" class="journal-daily-mirror" aria-hidden="true"></div>
+          <textarea id="journal-daily-input" class="journal-daily-input" placeholder="What's on your mind?" rows="12"></textarea>
+        </div>
+        <p id="journal-exit-focus-wrap" class="journal-exit-focus-wrap" style="display:none"><button type="button" id="journal-exit-focus" class="btn-secondary btn-sm">Exit focus</button></p>
+      </div>
+      <div id="journal-reflections-view" class="journal-view" style="display:none">
+        <button type="button" id="journal-add-reflection-btn" class="btn-primary btn-sm" style="margin-bottom:0.75rem">Add reflection</button>
+        <div id="journal-add-reflection-form" class="journal-add-reflection-form" style="display:none">
+          <textarea id="journal-add-reflection-input" class="journal-reflection-input" placeholder="What came to mind?" rows="3"></textarea>
+          <div class="journal-add-reflection-actions">
+            <button type="button" id="journal-add-reflection-save" class="btn-primary btn-sm">Save</button>
+            <button type="button" id="journal-add-reflection-cancel" class="btn-secondary btn-sm">Cancel</button>
+          </div>
+        </div>
+        <div id="journal-reflections-list" class="journal-reflections-list"></div>
+      </div>
+      <div id="journal-calendar-view" class="journal-view" style="display:none">
+        <label for="journal-calendar-picker">Pick a date</label>
+        <input type="date" id="journal-calendar-picker" class="journal-calendar-picker">
+        <div id="journal-calendar-result" class="journal-calendar-result"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="relationships-panel" class="relationships-panel" style="display:none">
+    <div class="relationships-panel-content">
+      <div id="relationships-header" class="relationships-panel-header">
+        <button type="button" id="relationships-back" class="btn-back" style="display:none">← Relationships</button>
+        <h3>Relationships</h3>
+        <button id="close-relationships" class="btn-close" aria-label="Close">×</button>
+      </div>
+      <div id="relationships-list-view" class="relationships-list-view">
+        <button type="button" id="relationships-add-person" class="btn-primary btn-sm" style="margin-bottom:0.75rem">Add person</button>
+        <div id="relationships-add-form" class="relationships-add-form" style="display:none">
+          <input id="relationships-add-name" type="text" placeholder="Name" class="settings-name-input" maxlength="120">
+          <label>Group</label>
+          <select id="relationships-add-group">
+            <option value="family">Family</option>
+            <option value="close_friends">Close friends</option>
+            <option value="friends" selected>Friends</option>
+            <option value="acquaintances">Acquaintances</option>
+            <option value="work">Work</option>
+          </select>
+          <label>Last connected (optional)</label>
+          <input type="date" id="relationships-add-last-connected">
+          <label>Reconnect (optional)</label>
+          <select id="relationships-add-reconnect">
+            <option value="">No reminder</option>
+            <option value="1w">Every week</option>
+            <option value="2w">Every 2 weeks</option>
+            <option value="1m">Every month</option>
+            <option value="3m">Every 3 months</option>
+          </select>
+          <textarea id="relationships-add-notes" placeholder="Notes (optional)" rows="2" class="settings-name-input"></textarea>
+          <div class="relationships-form-actions">
+            <button type="button" id="relationships-add-save" class="btn-primary btn-sm">Save</button>
+            <button type="button" id="relationships-add-cancel" class="btn-secondary btn-sm">Cancel</button>
+          </div>
+        </div>
+        <div id="relationships-group-list" class="relationships-group-list"></div>
+      </div>
+      <div id="relationships-detail-view" class="relationships-detail-view" style="display:none">
+        <div id="relationships-detail-content"></div>
+      </div>
+    </div>
+  </div>
+
   <div id="analytics-panel" class="analytics-panel" style="display:none">
     <div class="analytics-content">
       <h3>This week</h3>
@@ -560,6 +650,8 @@
       <button id="link-partner-btn" class="sidebar-item sidebar-link-partner" style="display:none">Link partner</button>
       <button id="settings-btn" class="sidebar-item" data-action="settings">Settings</button>
       <button id="consistency-btn" class="sidebar-item" data-action="consistency">Consistency</button>
+      <button id="journal-btn" class="sidebar-item" data-action="journal">Journal</button>
+      <button id="relationships-btn" class="sidebar-item" data-action="relationships">Relationships</button>
       <button id="archive-btn" class="sidebar-item" data-action="archive">View archive</button>
       <button id="analytics-btn" class="sidebar-item" data-action="analytics">Analytics</button>
       <button id="export-btn" class="sidebar-item" data-action="export">Export backup</button>

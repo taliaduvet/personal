@@ -98,7 +98,13 @@
     seedRenderState: null,
     seedReflections: [],
     habits: [],
-    habitCompletions: []
+    habitCompletions: [],
+    journalDaily: {},
+    journalActiveTab: 'daily',
+    journalFocusMode: false,
+    journalDailySaveTimeout: null,
+    people: [],
+    relationshipsDetailPersonId: null
   };
 
   function loadPairState() {
@@ -133,6 +139,17 @@
       ? state.tallyResetHour : 3;
     if (n.getHours() < hour) n.setDate(n.getDate() - 1);
     return n.toDateString();
+  }
+
+  function getTallyDateYYYYMMDD() {
+    const n = new Date();
+    const hour = (state.tallyResetHour != null && state.tallyResetHour >= 0 && state.tallyResetHour <= 23)
+      ? state.tallyResetHour : 3;
+    if (n.getHours() < hour) n.setDate(n.getDate() - 1);
+    const y = n.getFullYear();
+    const m = String(n.getMonth() + 1).padStart(2, '0');
+    const d = String(n.getDate()).padStart(2, '0');
+    return y + '-' + m + '-' + d;
   }
 
   function countCompletedInTallyDay() {
@@ -170,12 +187,24 @@
         if (Array.isArray(parsed.seedReflections)) state.seedReflections = parsed.seedReflections;
         if (Array.isArray(parsed.habits)) state.habits = parsed.habits;
         if (Array.isArray(parsed.habitCompletions)) state.habitCompletions = parsed.habitCompletions;
+        if (parsed.journalDaily && typeof parsed.journalDaily === 'object') {
+          state.journalDaily = {};
+          const keyRe = /^\d{4}-\d{2}-\d{2}$/;
+          Object.keys(parsed.journalDaily).forEach(function(k) {
+            if (keyRe.test(k)) state.journalDaily[k] = parsed.journalDaily[k];
+          });
+        }
+        if (Array.isArray(parsed.people)) state.people = parsed.people;
       }
+      if (!state.journalDaily || typeof state.journalDaily !== 'object') state.journalDaily = {};
+      if (!Array.isArray(state.people)) state.people = [];
+      var peopleIds = (state.people || []).map(function(p) { return p.id; });
       state.items = (state.items || []).map(i => ({
         ...i,
         pileId: i.pileId != null ? i.pileId : null,
         friction: i.friction && ['quick', 'medium', 'deep'].includes(i.friction) ? i.friction : null,
-        firstStep: typeof i.firstStep === 'string' ? i.firstStep : null
+        firstStep: typeof i.firstStep === 'string' ? i.firstStep : null,
+        personId: (i.personId && peopleIds.indexOf(i.personId) >= 0) ? i.personId : null
       }));
       state.completedTodayCount = countCompletedInTallyDay();
     } catch (e) {
@@ -205,7 +234,9 @@
         lastSeed: state.lastSeed || null,
         seedReflections: state.seedReflections || [],
         habits: state.habits || [],
-        habitCompletions: state.habitCompletions || []
+        habitCompletions: state.habitCompletions || [],
+        journalDaily: state.journalDaily || {},
+        people: state.people || []
       }));
       const tallyDate = useRemoteTallyDate && state.lastCompletedDate ? state.lastCompletedDate : getTallyDate();
       localStorage.setItem(STORAGE_PREFIX + 'tally', JSON.stringify({
@@ -354,7 +385,7 @@
     return result.replace(/\s+/g, ' ').trim();
   }
 
-  function createItem(text, category, deadline, priority, recurrence, reminderAt, doingDate, pileId, friction) {
+  function createItem(text, category, deadline, priority, recurrence, reminderAt, doingDate, pileId, friction, personId) {
     const cleanText = stripAutoExtractedFromText(text, category, deadline, priority) || text.trim();
     return {
       id: 'id_' + Date.now() + '_' + Math.random().toString(36).slice(2),
@@ -369,7 +400,8 @@
       archived: false,
       pileId: pileId != null ? pileId : null,
       friction: friction && ['quick', 'medium', 'deep'].includes(friction) ? friction : null,
-      firstStep: null
+      firstStep: null,
+      personId: personId != null ? personId : null
     };
   }
 
@@ -381,6 +413,88 @@
     if (!pileId) return null;
     const p = (state.piles || []).find(pi => pi.id === pileId);
     return p ? p.name : pileId;
+  }
+
+  const PEOPLE_GROUPS = [
+    { id: 'family', label: 'Family' },
+    { id: 'close_friends', label: 'Close friends' },
+    { id: 'friends', label: 'Friends' },
+    { id: 'acquaintances', label: 'Acquaintances' },
+    { id: 'work', label: 'Work' }
+  ];
+
+  function getPeople() {
+    return (state.people || []).slice();
+  }
+
+  function getPerson(id) {
+    if (!id) return null;
+    return (state.people || []).find(p => p.id === id) || null;
+  }
+
+  function getPersonName(id) {
+    const p = getPerson(id);
+    return p ? p.name : (id || null);
+  }
+
+  function addPerson(attrs) {
+    var name = (attrs && attrs.name != null) ? String(attrs.name).trim() : '';
+    if (!name) return null;
+    var group = (attrs && attrs.group && PEOPLE_GROUPS.some(function(g) { return g.id === attrs.group; })) ? attrs.group : 'friends';
+    var id = 'person_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+    var person = {
+      id: id,
+      name: name,
+      group: group,
+      lastConnected: attrs && attrs.lastConnected != null ? attrs.lastConnected : null,
+      reconnectRule: attrs && attrs.reconnectRule && { interval: attrs.reconnectRule.interval } ? attrs.reconnectRule : null,
+      notes: (attrs && attrs.notes != null) ? String(attrs.notes) : null
+    };
+    state.people = (state.people || []).concat(person);
+    saveState();
+    return id;
+  }
+
+  function updatePerson(id, updates) {
+    var p = getPerson(id);
+    if (!p) return;
+    if (updates && updates.name != null) {
+      var n = String(updates.name).trim();
+      if (n) p.name = n;
+    }
+    if (updates && updates.group != null && PEOPLE_GROUPS.some(function(g) { return g.id === updates.group; })) p.group = updates.group;
+    if (updates && updates.lastConnected !== undefined) p.lastConnected = updates.lastConnected;
+    if (updates && updates.reconnectRule !== undefined) p.reconnectRule = updates.reconnectRule;
+    if (updates && updates.notes !== undefined) p.notes = updates.notes;
+    saveState();
+  }
+
+  function deletePerson(id) {
+    state.items.forEach(function(item) {
+      if (item.personId === id) item.personId = null;
+    });
+    state.people = (state.people || []).filter(p => p.id !== id);
+    saveState();
+  }
+
+  function getReconnectIntervalMs(interval) {
+    if (interval === '1w') return 7 * 24 * 60 * 60 * 1000;
+    if (interval === '2w') return 14 * 24 * 60 * 60 * 1000;
+    if (interval === '1m') return 30 * 24 * 60 * 60 * 1000;
+    if (interval === '3m') return 90 * 24 * 60 * 60 * 1000;
+    return 0;
+  }
+
+  function isOverdueToReconnect(person) {
+    if (!person || person.lastConnected == null || !person.reconnectRule || !person.reconnectRule.interval) return false;
+    var lc = person.lastConnected;
+    if (typeof lc !== 'number' || isNaN(lc) || lc <= 0) return false;
+    var dueMs = lc + getReconnectIntervalMs(person.reconnectRule.interval);
+    var today = new Date();
+    var todayStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+    var dueDate = new Date(dueMs);
+    var dueStr = dueDate.getFullYear() + '-' + String(dueDate.getMonth() + 1).padStart(2, '0') + '-' + String(dueDate.getDate()).padStart(2, '0');
+    return todayStr >= dueStr;
   }
 
   function addPile(name) {
@@ -785,7 +899,7 @@
             showToast('Select note text first');
             return;
           }
-          const item = createItem(selected, catId, null, 'medium', null, null, null, null, null);
+          const item = createItem(selected, catId, null, 'medium', null, null, null, null, null, null);
           state.items.push(item);
           state.lastCategory = catId;
 
@@ -997,6 +1111,7 @@
 
     const priorityLabel = (item.priority || 'medium').charAt(0).toUpperCase() + (item.priority || 'medium').slice(1);
     const pileName = showLifeAreaAsTag ? null : getPileName(item.pileId);
+    const personName = getPersonName(item.personId);
     const lifeAreaTag = showLifeAreaAsTag ? getCategoryLabel(item.category) : null;
     const frictionLabel = item.friction ? (item.friction.charAt(0).toUpperCase() + item.friction.slice(1)) : null;
     const metaRow = metaExpanded
@@ -1012,6 +1127,7 @@
           <span>Parked ${duration}</span>
           ${lifeAreaTag ? `<span class="life-area-tag" title="Life area">${escapeHtml(lifeAreaTag)}</span>` : ''}
           ${pileName ? `<span class="pile-tag" title="Pile: ${escapeHtml(pileName)}">${escapeHtml(pileName)}</span>` : ''}
+          ${personName ? `<span class="person-tag" title="For: ${escapeHtml(personName)}">For ${escapeHtml(personName)}</span>` : ''}
           ${frictionLabel ? `<span class="friction-badge" title="Friction: ${escapeHtml(frictionLabel)}">${escapeHtml(frictionLabel)}</span>` : ''}
           <span class="priority-badge">${escapeHtml(priorityLabel)}</span>
           ${item.doingDate ? `<span class="doing-badge">${escapeHtml((doingFd && doingFd.text) || item.doingDate)}</span>` : ''}
@@ -1119,7 +1235,7 @@
     const priority = document.getElementById('add-from-talk-priority')?.value || 'medium';
     const addFromTalkFirstStepEl = document.getElementById('add-from-talk-first-step');
     const firstStep = (addFromTalkFirstStepEl && addFromTalkFirstStepEl.value.trim()) ? addFromTalkFirstStepEl.value.trim() : null;
-    const item = createItem(text, category, deadline, priority, null, null, doingDate, pileId, friction);
+    const item = createItem(text, category, deadline, priority, null, null, doingDate, pileId, friction, null);
     if (firstStep) item.firstStep = firstStep;
     state.items.push(item);
     state.lastCategory = category;
@@ -1327,7 +1443,7 @@
       d.setMonth(d.getMonth() + 1);
       nextDeadline = d.toISOString().slice(0, 10);
     }
-    const newItem = createItem(item.text, item.category, nextDeadline, item.priority, item.recurrence, null, item.doingDate);
+    const newItem = createItem(item.text, item.category, nextDeadline, item.priority, item.recurrence, null, item.doingDate, item.pileId, item.friction, item.personId || null);
     state.items.push(newItem);
     return newItem.id;
   }
@@ -1501,11 +1617,26 @@
     ).join('');
   }
 
+  function updatePersonSelectOptions(selectIdOrEl, selectedPersonId) {
+    const el = typeof selectIdOrEl === 'string' ? document.getElementById(selectIdOrEl) : selectIdOrEl;
+    if (!el) return;
+    const people = getPeople().slice().sort(function(a, b) {
+      var ai = PEOPLE_GROUPS.findIndex(function(g) { return g.id === a.group; });
+      var bi = PEOPLE_GROUPS.findIndex(function(g) { return g.id === b.group; });
+      if (ai !== bi) return ai - bi;
+      return (a.name || '').localeCompare(b.name || '');
+    });
+    el.innerHTML = '<option value="">None</option>' + people.map(function(p) {
+      return '<option value="' + p.id + '"' + (p.id === selectedPersonId ? ' selected' : '') + '>' + escapeHtml(p.name) + '</option>';
+    }).join('');
+  }
+
   function openAddModal(presetCategory, presetPileId) {
     const modal = document.getElementById('add-modal');
     if (modal) modal.style.display = 'flex';
     updateCategorySelectOptions();
     updatePileSelectOptions('pile-select', presetPileId != null ? presetPileId : '');
+    updatePersonSelectOptions('person-select', '');
     const tabSingle = document.getElementById('tab-single');
     const tabQuick = document.getElementById('tab-quick');
     const tabVoice = document.getElementById('tab-voice');
@@ -1564,7 +1695,7 @@
       state.lastCategory = cat;
       const deadline = extractDeadline(line);
       const priority = extractPriority(line) || 'medium';
-      const item = createItem(line, cat, deadline, priority, null, null, null, null, null);
+      const item = createItem(line, cat, deadline, priority, null, null, null, null, null, null);
       state.items.push(item);
     });
     saveState();
@@ -1588,7 +1719,7 @@
       state.lastCategory = cat;
       const deadline = extractDeadline(line);
       const priority = extractPriority(line) || 'medium';
-      const item = createItem(line, cat, deadline, priority, null, null, null, null, null);
+      const item = createItem(line, cat, deadline, priority, null, null, null, null, null, null);
       state.items.push(item);
     });
     saveState();
@@ -1869,6 +2000,7 @@
     if (state.lastSeed) prefs.__lastSeed = state.lastSeed;
     if (Array.isArray(state.habits) && state.habits.length) prefs.__habits = state.habits;
     if (Array.isArray(state.habitCompletions) && state.habitCompletions.length) prefs.__habitCompletions = state.habitCompletions;
+    prefs.__people = Array.isArray(state.people) ? state.people : [];
     return prefs;
   }
 
@@ -1891,6 +2023,7 @@
     if (typeof prefs.__lastSeed === 'string') { state.lastSeed = prefs.__lastSeed; delete prefs.__lastSeed; }
     if (Array.isArray(prefs.__habits)) { state.habits = prefs.__habits; delete prefs.__habits; }
     if (Array.isArray(prefs.__habitCompletions)) { state.habitCompletions = prefs.__habitCompletions; delete prefs.__habitCompletions; }
+    if (Array.isArray(prefs.__people)) { state.people = prefs.__people; delete prefs.__people; }
     if (Object.keys(prefs).length) state.columnColors = prefs;
     saveState(true, true);
   }
@@ -2118,6 +2251,201 @@
     }
   }
 
+  function flushJournalDailySave() {
+    if (state.journalDailySaveTimeout) {
+      clearTimeout(state.journalDailySaveTimeout);
+      state.journalDailySaveTimeout = null;
+    }
+    const input = document.getElementById('journal-daily-input');
+    if (!input) return;
+    const tallyStr = getTallyDateYYYYMMDD();
+    if (!state.journalDaily) state.journalDaily = {};
+    state.journalDaily[tallyStr] = input.value;
+    saveState();
+  }
+
+  function openJournalPanel() {
+    state.journalFocusMode = false;
+    const panel = document.getElementById('journal-panel');
+    if (!panel) return;
+    panel.style.display = 'block';
+    renderJournalPanel();
+    const dailyInput = document.getElementById('journal-daily-input');
+    if (dailyInput && state.journalActiveTab === 'daily') dailyInput.focus();
+  }
+
+  function closeJournalPanel() {
+    flushJournalDailySave();
+    state.journalFocusMode = false;
+    const panel = document.getElementById('journal-panel');
+    if (panel) panel.style.display = 'none';
+  }
+
+  function setJournalFocusMode(on) {
+    state.journalFocusMode = !!on;
+    const panel = document.getElementById('journal-panel');
+    const header = document.getElementById('journal-panel-header');
+    const tabsRow = document.getElementById('journal-tabs-row');
+    const exitWrap = document.getElementById('journal-exit-focus-wrap');
+    const focusBtn = document.getElementById('journal-focus-btn');
+    if (panel) panel.classList.toggle('journal-focus-mode', state.journalFocusMode);
+    if (header) header.style.display = state.journalFocusMode ? 'none' : '';
+    if (tabsRow) tabsRow.style.display = state.journalFocusMode ? 'none' : '';
+    if (exitWrap) exitWrap.style.display = state.journalFocusMode ? 'block' : 'none';
+    if (focusBtn) focusBtn.textContent = state.journalFocusMode ? 'Exit focus' : 'Focus writing';
+    if (state.journalFocusMode) {
+      const dailyInput = document.getElementById('journal-daily-input');
+      if (dailyInput) dailyInput.focus();
+    }
+  }
+
+  function getJournalDailyBlocks(text) {
+    if (!text || !text.length) return [''];
+    return text.split(/\n\n/);
+  }
+
+  function updateJournalDailyMirror() {
+    const input = document.getElementById('journal-daily-input');
+    const mirror = document.getElementById('journal-daily-mirror');
+    if (!input || !mirror) return;
+    const text = input.value;
+    const cursorPos = input.selectionStart;
+    const blocks = getJournalDailyBlocks(text);
+    let pos = 0;
+    let currentBlockIndex = 0;
+    for (let i = 0; i < blocks.length; i++) {
+      const blockLen = blocks[i].length + (i < blocks.length - 1 ? 2 : 0);
+      if (cursorPos >= pos && cursorPos <= pos + blockLen) {
+        currentBlockIndex = i;
+        break;
+      }
+      if (cursorPos <= pos + blockLen) {
+        currentBlockIndex = i;
+        break;
+      }
+      pos += blockLen;
+    }
+    if (blocks.length === 1) currentBlockIndex = 0;
+    mirror.innerHTML = blocks.map(function(block, i) {
+      const inactive = i !== currentBlockIndex;
+      const escaped = escapeHtml(block).replace(/\n/g, '<br>');
+      return '<div class="journal-daily-block' + (inactive ? ' journal-daily-block-inactive' : '') + '">' + escaped + (inactive && block ? '<br>' : '') + '</div>';
+    }).join('');
+  }
+
+  function renderJournalDaily() {
+    const tallyStr = getTallyDateYYYYMMDD();
+    const dateLabel = document.getElementById('journal-daily-date-label');
+    if (dateLabel) dateLabel.textContent = 'Today, ' + (getTallyDate() || '').replace(/\s+\d{4}$/, '');
+    const input = document.getElementById('journal-daily-input');
+    if (input) {
+      input.value = (state.journalDaily && state.journalDaily[tallyStr]) || '';
+      updateJournalDailyMirror();
+      input.oninput = function() {
+        if (state.journalDailySaveTimeout) clearTimeout(state.journalDailySaveTimeout);
+        state.journalDailySaveTimeout = setTimeout(function() {
+          state.journalDailySaveTimeout = null;
+          const v = input.value;
+          if (!state.journalDaily) state.journalDaily = {};
+          state.journalDaily[tallyStr] = v;
+          saveState();
+        }, 400);
+        updateJournalDailyMirror();
+      };
+      input.onblur = function() { flushJournalDailySave(); };
+      input.onclick = input.onkeyup = function() { updateJournalDailyMirror(); };
+      input.onscroll = function() {
+        var mirror = document.getElementById('journal-daily-mirror');
+        if (mirror) { mirror.scrollTop = input.scrollTop; mirror.scrollLeft = input.scrollLeft; }
+      };
+    }
+    var mirror = document.getElementById('journal-daily-mirror');
+    if (mirror && input) {
+      mirror.style.height = input.offsetHeight + 'px';
+      mirror.style.overflow = 'auto';
+    }
+    setJournalFocusMode(state.journalFocusMode);
+  }
+
+  function renderJournalReflections() {
+    const listEl = document.getElementById('journal-reflections-list');
+    if (!listEl) return;
+    const reflections = (state.seedReflections || []).slice().sort(function(a, b) {
+      const ta = (a.reflectedAt != null) ? a.reflectedAt : 0;
+      const tb = (b.reflectedAt != null) ? b.reflectedAt : 0;
+      return tb - ta;
+    });
+    listEl.innerHTML = reflections.length ? reflections.map(function(r) {
+      const d = r.reflectedAt != null ? new Date(r.reflectedAt) : new Date();
+      const dateStr = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      const seedPart = (r.seed && r.seed.trim()) ? ' “‘' + escapeHtml(r.seed.trim()) + '”' : '';
+      return '<div class="journal-reflection-item"><span class="journal-reflection-date">' + escapeHtml(dateStr) + '</span>' + seedPart + ' <span class="journal-reflection-text">' + escapeHtml((r.text || '').slice(0, 200)) + ((r.text || '').length > 200 ? '…' : '') + '</span></div>';
+    }).join('') : '<p class="empty-state">No reflections yet.</p>';
+  }
+
+  function renderJournalCalendar() {
+    const picker = document.getElementById('journal-calendar-picker');
+    const resultEl = document.getElementById('journal-calendar-result');
+    if (!resultEl) return;
+    function showResult() {
+      const dateStr = picker && picker.value ? picker.value : '';
+      if (!dateStr) {
+        resultEl.innerHTML = '<p class="empty-state">Pick a date to see journal and reflections.</p>';
+        return;
+      }
+      const journalText = (state.journalDaily && state.journalDaily[dateStr]) || '';
+      const reflections = (state.seedReflections || []).filter(function(r) {
+        if (r.reflectedAt == null) return false;
+        const d = new Date(r.reflectedAt);
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return (y + '-' + m + '-' + day) === dateStr;
+      });
+      let html = '<h4>Journal for ' + escapeHtml(dateStr) + '</h4>';
+      if (journalText.trim()) {
+        html += '<div class="journal-calendar-journal">' + escapeHtml(journalText).replace(/\n/g, '<br>') + '</div>';
+      } else {
+        html += '<p class="empty-state">No journal entry for this day.</p>';
+      }
+      html += '<h4>Reflections</h4>';
+      if (reflections.length) {
+        html += reflections.map(function(r) {
+          const seedPart = (r.seed && r.seed.trim()) ? ' “‘' + escapeHtml(r.seed.trim()) + '”' : '';
+          return '<div class="journal-reflection-item">' + seedPart + ' ' + escapeHtml((r.text || '').slice(0, 300)) + ((r.text || '').length > 300 ? '…' : '') + '</div>';
+        }).join('');
+      } else {
+        html += '<p class="empty-state">No reflections for this day.</p>';
+      }
+      resultEl.innerHTML = html;
+    }
+    if (picker) {
+      picker.onchange = showResult;
+      picker.value = getTallyDateYYYYMMDD();
+    }
+    showResult();
+  }
+
+  function renderJournalPanel() {
+    setJournalFocusMode(state.journalFocusMode);
+    const dailyView = document.getElementById('journal-daily-view');
+    const reflectionsView = document.getElementById('journal-reflections-view');
+    const calendarView = document.getElementById('journal-calendar-view');
+    [dailyView, reflectionsView, calendarView].forEach(function(el) {
+      if (el) el.style.display = 'none';
+    });
+    if (state.journalActiveTab === 'daily') {
+      if (dailyView) dailyView.style.display = 'block';
+      renderJournalDaily();
+    } else if (state.journalActiveTab === 'reflections') {
+      if (reflectionsView) reflectionsView.style.display = 'block';
+      renderJournalReflections();
+    } else {
+      if (calendarView) calendarView.style.display = 'block';
+      renderJournalCalendar();
+    }
+  }
+
   async function saveSettingsAndClose() {
     try {
       const newPreset = (document.querySelector('input[name="category-preset"]:checked') || {}).value || 'generic';
@@ -2271,7 +2599,9 @@
     const firstStep = (firstStepEl && firstStepEl.value) ? firstStepEl.value.trim() : null;
     if (submitBtn) submitBtn.disabled = true;
     state.lastCategory = category;
-    const item = createItem(text, category, deadline, priority, recurrence, null, doingDate, pileId, friction);
+    const personEl = document.getElementById('person-select');
+    const personId = (personEl && personEl.value) ? personEl.value : null;
+    const item = createItem(text, category, deadline, priority, recurrence, null, doingDate, pileId, friction, personId);
     if (firstStep) item.firstStep = firstStep;
     state.items.push(item);
     saveState();
@@ -2289,6 +2619,7 @@
       `<option value="${c.id}" ${c.id === item.category ? 'selected' : ''}>${escapeHtml(getCategoryLabel(c.id))}</option>`
     ).join('');
     updatePileSelectOptions('edit-pile', item.pileId || '');
+    updatePersonSelectOptions('edit-person', item.personId || '');
     const editFriction = document.getElementById('edit-friction');
     if (editFriction) editFriction.value = item.friction || '';
     const editFirstStep = document.getElementById('edit-first-step');
@@ -2310,6 +2641,8 @@
     item.category = document.getElementById('edit-category').value;
     const editPileEl = document.getElementById('edit-pile');
     item.pileId = (editPileEl && editPileEl.value) ? editPileEl.value : null;
+    const editPersonEl = document.getElementById('edit-person');
+    item.personId = (editPersonEl && editPersonEl.value) ? editPersonEl.value : null;
     const editFrictionEl = document.getElementById('edit-friction');
     item.friction = (editFrictionEl && editFrictionEl.value) ? editFrictionEl.value : null;
     const editFirstStepEl = document.getElementById('edit-first-step');
@@ -2648,7 +2981,7 @@
     const cat = detectCategory(text) || document.querySelector(`.email-triage-category[data-id="${id}"]`)?.value || t.category;
     const deadline = extractDeadline(text) || t.deadline;
     const priority = extractPriority(text) || t.priority || 'medium';
-    const item = createItem(text, cat, deadline, priority);
+    const item = createItem(text, cat, deadline, priority, null, null, null, null, null, null);
     state.items.push(item);
     state.lastCategory = cat;
     saveState();
@@ -2878,6 +3211,26 @@
           const consistencyPanel = document.getElementById('consistency-panel');
           if (consistencyPanel && consistencyPanel.style.display === 'block') {
             closeConsistencyPanel();
+            return;
+          }
+          const journalPanel = document.getElementById('journal-panel');
+          if (journalPanel && journalPanel.style.display === 'block') {
+            if (state.journalFocusMode) {
+              setJournalFocusMode(false);
+              if (document.getElementById('journal-focus-btn')) document.getElementById('journal-focus-btn').focus();
+            } else {
+              closeJournalPanel();
+            }
+            return;
+          }
+          const relationshipsPanel = document.getElementById('relationships-panel');
+          if (relationshipsPanel && relationshipsPanel.style.display === 'block') {
+            if (state.relationshipsDetailPersonId) {
+              state.relationshipsDetailPersonId = null;
+              renderRelationshipsPanel();
+            } else {
+              closeRelationshipsPanel();
+            }
             return;
           }
         }
@@ -3178,6 +3531,234 @@
     if (consistencyBtn) consistencyBtn.addEventListener('click', openConsistencyPanel);
     const closeConsistency = document.getElementById('close-consistency');
     if (closeConsistency) closeConsistency.addEventListener('click', closeConsistencyPanel);
+
+    const journalBtn = document.getElementById('journal-btn');
+    if (journalBtn) journalBtn.addEventListener('click', openJournalPanel);
+    const closeJournal = document.getElementById('close-journal');
+    if (closeJournal) closeJournal.addEventListener('click', closeJournalPanel);
+
+    document.querySelectorAll('.journal-tab').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        const tab = btn.dataset.tab;
+        if (!tab) return;
+        flushJournalDailySave();
+        state.journalActiveTab = tab;
+        document.querySelectorAll('.journal-tab').forEach(function(b) {
+          b.classList.toggle('active', b.dataset.tab === tab);
+          b.setAttribute('aria-selected', b.dataset.tab === tab ? 'true' : 'false');
+        });
+        renderJournalPanel();
+      });
+    });
+
+    const journalFocusBtn = document.getElementById('journal-focus-btn');
+    if (journalFocusBtn) journalFocusBtn.addEventListener('click', function() {
+      setJournalFocusMode(!state.journalFocusMode);
+    });
+    const journalExitFocus = document.getElementById('journal-exit-focus');
+    if (journalExitFocus) journalExitFocus.addEventListener('click', function() {
+      setJournalFocusMode(false);
+      document.getElementById('journal-focus-btn').focus();
+    });
+
+    const journalAddReflBtn = document.getElementById('journal-add-reflection-btn');
+    const journalAddReflForm = document.getElementById('journal-add-reflection-form');
+    const journalAddReflInput = document.getElementById('journal-add-reflection-input');
+    const journalAddReflSave = document.getElementById('journal-add-reflection-save');
+    const journalAddReflCancel = document.getElementById('journal-add-reflection-cancel');
+    if (journalAddReflBtn && journalAddReflForm) {
+      journalAddReflBtn.addEventListener('click', function() {
+        journalAddReflForm.style.display = 'block';
+        if (journalAddReflInput) { journalAddReflInput.value = ''; journalAddReflInput.focus(); }
+      });
+    }
+    if (journalAddReflCancel && journalAddReflForm) {
+      journalAddReflCancel.addEventListener('click', function() {
+        journalAddReflForm.style.display = 'none';
+      });
+    }
+    if (journalAddReflSave && journalAddReflInput) {
+      journalAddReflSave.addEventListener('click', function() {
+        const text = journalAddReflInput.value.trim();
+        if (!text) return;
+        if (!state.seedReflections) state.seedReflections = [];
+        state.seedReflections.push({ seed: '', reflectedAt: Date.now(), text: text });
+        saveState();
+        if (window.talkAbout && state.deviceSyncId) saveDevicePreferencesToSupabase();
+        journalAddReflInput.value = '';
+        if (journalAddReflForm) journalAddReflForm.style.display = 'none';
+        renderJournalReflections();
+        showToast('Reflection saved');
+      });
+    }
+
+    function openRelationshipsPanel() {
+      state.relationshipsDetailPersonId = null;
+      var panel = document.getElementById('relationships-panel');
+      if (!panel) return;
+      panel.style.display = 'block';
+      renderRelationshipsPanel();
+    }
+
+    function closeRelationshipsPanel() {
+      state.relationshipsDetailPersonId = null;
+      var panel = document.getElementById('relationships-panel');
+      if (panel) panel.style.display = 'none';
+    }
+
+    function renderRelationshipsPanel() {
+      var listView = document.getElementById('relationships-list-view');
+      var detailView = document.getElementById('relationships-detail-view');
+      var backBtn = document.getElementById('relationships-back');
+      var headerH3 = document.querySelector('#relationships-header h3');
+      if (state.relationshipsDetailPersonId) {
+        if (listView) listView.style.display = 'none';
+        if (detailView) detailView.style.display = 'block';
+        if (backBtn) backBtn.style.display = 'inline-block';
+        if (headerH3) headerH3.style.display = 'none';
+        renderRelationshipsDetail(state.relationshipsDetailPersonId);
+      } else {
+        if (listView) listView.style.display = 'block';
+        if (detailView) detailView.style.display = 'none';
+        if (backBtn) backBtn.style.display = 'none';
+        if (headerH3) headerH3.style.display = 'block';
+        renderRelationshipsList();
+      }
+    }
+
+    function renderRelationshipsList() {
+      var container = document.getElementById('relationships-group-list');
+      if (!container) return;
+      var people = getPeople();
+      var byGroup = {};
+      PEOPLE_GROUPS.forEach(function(g) {
+        byGroup[g.id] = people.filter(function(p) { return p.group === g.id; });
+      });
+      container.innerHTML = people.length === 0
+        ? '<p class="empty-state">No people yet. Add someone to stay in touch.</p>'
+        : PEOPLE_GROUPS.map(function(g) {
+            var list = byGroup[g.id] || [];
+            if (list.length === 0) return '';
+            return '<div class="relationships-group-section"><h4 class="relationships-group-title">' + escapeHtml(g.label) + ' (' + list.length + ')</h4><div class="relationships-person-list">' +
+              list.map(function(p) {
+                var lastStr = p.lastConnected == null ? 'Never' : (function() {
+                  var d = new Date(p.lastConnected);
+                  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+                })();
+                var due = isOverdueToReconnect(p);
+                return '<div class="relationships-person-row" data-person-id="' + escapeHtml(p.id) + '" role="button" tabindex="0">' +
+                  '<span class="relationships-person-name">' + escapeHtml(p.name) + '</span>' +
+                  '<span class="relationships-person-meta">Last connected: ' + escapeHtml(lastStr) + '</span>' +
+                  (due ? ' <span class="relationships-due-badge">Due to reconnect</span>' : '') +
+                  '</div>';
+              }).join('') +
+              '</div></div>';
+          }).join('');
+      container.querySelectorAll('.relationships-person-row').forEach(function(row) {
+        row.addEventListener('click', function() {
+          state.relationshipsDetailPersonId = row.dataset.personId;
+          renderRelationshipsPanel();
+        });
+      });
+    }
+
+    function renderRelationshipsDetail(personId) {
+      var content = document.getElementById('relationships-detail-content');
+      if (!content) return;
+      var person = getPerson(personId);
+      if (!person) {
+        state.relationshipsDetailPersonId = null;
+        renderRelationshipsPanel();
+        return;
+      }
+      var lastStr = person.lastConnected == null ? 'Never' : (function() {
+        var d = new Date(person.lastConnected);
+        return d.toLocaleDateString();
+      })();
+      var ruleStr = (person.reconnectRule && person.reconnectRule.interval) ? { '1w': 'Every week', '2w': 'Every 2 weeks', '1m': 'Every month', '3m': 'Every 3 months' }[person.reconnectRule.interval] || '—' : '—';
+      var linked = (state.items || []).filter(function(i) { return !i.archived && i.personId === personId; });
+      content.innerHTML = '<div class="relationships-detail-block">' +
+        '<p><strong>' + escapeHtml(person.name) + '</strong></p>' +
+        '<p>Group: ' + escapeHtml((PEOPLE_GROUPS.find(function(g) { return g.id === person.group; }) || {}).label || person.group) + '</p>' +
+        '<p>Last connected: ' + escapeHtml(lastStr) + '</p>' +
+        '<p>Reconnect: ' + escapeHtml(ruleStr) + '</p>' +
+        (person.notes ? '<p>Notes: ' + escapeHtml(person.notes) + '</p>' : '') +
+        '<button type="button" id="relationships-mark-connected" class="btn-primary btn-sm" data-person-id="' + escapeHtml(personId) + '">Mark connected</button>' +
+        '</div>' +
+        '<h4>Linked tasks</h4>' +
+        (linked.length ? '<ul class="relationships-linked-tasks">' + linked.map(function(i) {
+          return '<li><button type="button" class="btn-link relationships-open-task" data-id="' + escapeHtml(i.id) + '">' + escapeHtml((i.text || '').slice(0, 60)) + (i.text && i.text.length > 60 ? '…' : '') + '</button></li>';
+        }).join('') + '</ul>' : '<p class="empty-state">No tasks linked.</p>') +
+        '<div class="relationships-detail-actions">' +
+        '<button type="button" id="relationships-delete-person" class="btn-secondary btn-sm" data-person-id="' + escapeHtml(personId) + '">Delete person</button>' +
+        '</div>';
+      var markBtn = document.getElementById('relationships-mark-connected');
+      if (markBtn) markBtn.addEventListener('click', function() {
+        updatePerson(personId, { lastConnected: Date.now() });
+        renderRelationshipsDetail(personId);
+        showToast('Marked connected');
+      });
+      content.querySelectorAll('.relationships-open-task').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          closeRelationshipsPanel();
+          openEditModal(btn.dataset.id);
+        });
+      });
+      var delBtn = document.getElementById('relationships-delete-person');
+      if (delBtn) delBtn.addEventListener('click', function() {
+        var count = linked.length;
+        if (!window.confirm('Delete this person? ' + (count ? count + ' task(s) will no longer be linked to them.' : ''))) return;
+        deletePerson(personId);
+        state.relationshipsDetailPersonId = null;
+        renderRelationshipsPanel();
+        renderColumns();
+        showToast('Person removed');
+      });
+    }
+
+    var relAddBtn = document.getElementById('relationships-add-person');
+    var relAddForm = document.getElementById('relationships-add-form');
+    var relAddName = document.getElementById('relationships-add-name');
+    var relAddGroup = document.getElementById('relationships-add-group');
+    var relAddLast = document.getElementById('relationships-add-last-connected');
+    var relAddReconnect = document.getElementById('relationships-add-reconnect');
+    var relAddNotes = document.getElementById('relationships-add-notes');
+    var relAddSave = document.getElementById('relationships-add-save');
+    var relAddCancel = document.getElementById('relationships-add-cancel');
+    if (relAddBtn && relAddForm) relAddBtn.addEventListener('click', function() {
+      relAddForm.style.display = 'block';
+      if (relAddName) { relAddName.value = ''; relAddName.focus(); }
+      if (relAddLast) relAddLast.value = '';
+      if (relAddReconnect) relAddReconnect.value = '';
+      if (relAddNotes) relAddNotes.value = '';
+    });
+    if (relAddCancel && relAddForm) relAddCancel.addEventListener('click', function() { relAddForm.style.display = 'none'; });
+    if (relAddSave && relAddName) relAddSave.addEventListener('click', function() {
+      var name = (relAddName.value || '').trim();
+      if (!name) return;
+      var group = relAddGroup && relAddGroup.value ? relAddGroup.value : 'friends';
+      var lastVal = relAddLast && relAddLast.value ? relAddLast.value : null;
+      var lastMs = lastVal ? (new Date(lastVal)).setHours(0, 0, 0, 0) : null;
+      var reconnectVal = relAddReconnect && relAddReconnect.value ? relAddReconnect.value : null;
+      var reconnectRule = reconnectVal ? { interval: reconnectVal } : null;
+      var notes = relAddNotes && relAddNotes.value ? relAddNotes.value.trim() : null;
+      addPerson({ name: name, group: group, lastConnected: lastMs, reconnectRule: reconnectRule, notes: notes });
+      relAddForm.style.display = 'none';
+      relAddName.value = '';
+      renderRelationshipsList();
+      showToast('Person added');
+      if (window.talkAbout && state.deviceSyncId) saveDevicePreferencesToSupabase();
+    });
+    var relBack = document.getElementById('relationships-back');
+    if (relBack) relBack.addEventListener('click', function() {
+      state.relationshipsDetailPersonId = null;
+      renderRelationshipsPanel();
+    });
+    var closeRelationships = document.getElementById('close-relationships');
+    if (closeRelationships) closeRelationships.addEventListener('click', closeRelationshipsPanel);
+
+    var relationshipsBtn = document.getElementById('relationships-btn');
+    if (relationshipsBtn) relationshipsBtn.addEventListener('click', openRelationshipsPanel);
 
     const analyticsBtn = document.getElementById('analytics-btn');
     if (analyticsBtn) analyticsBtn.addEventListener('click', openAnalytics);

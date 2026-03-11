@@ -42,6 +42,57 @@ Make the app more supportive for people who menstruate by respecting cycle phase
 
 - If we ever add cycle tracking: store only phase or “expected high/low energy” per day; use it to adjust Suggest Next and copy. No need to store detailed health data; keep it minimal and user-controlled.
 
+---
+
+## Front-loading: do hard tasks before luteal
+
+**Goal:** Get the user to do tasks that are harder in luteal (rejection sensitivity, deep work, deadlines) *ahead of time* so they are actually set up to rest during those phases, instead of only softening the app once they're already in luteal.
+
+### When is luteal (so we can say "do this before then")
+
+- **Manual phase only (simplest):** User sets current phase. When phase is Follicular or Ovulation we treat it as "good window" and show a "do before luteal" list; no countdown. No dates stored.
+- **Optional "luteal in X days":** User can set "Next luteal starts in about ___ days" (or a rough date). We show: "Luteal in ~7 days — consider doing these before then" and list the right tasks. One extra field; user updates when their cycle shifts.
+- **Light prediction (no daily tracking):** User sets once: cycle length (e.g. 28) and "last period start" (or "last ovulation"). We estimate next luteal (e.g. days 21–28) and show "Luteal in ~X days." We store one date + number; still an estimate.
+
+**Recommendation:** Support manual phase always; add optional "luteal in X days" (manual number or date) so we can show a countdown when the user wants it.
+
+### Identifying "hard in luteal" tasks
+
+- **Explicit tag:** Optional task field "Better before luteal" or "Hard in luteal" (rejection sensitivity, deep work, deadlines, high-stakes). User marks them; we show these in the "do before luteal" list.
+- **Infer from existing data:** Use deadline in the next 2 weeks + friction = deep → treat as "good to do before luteal." No new field; can't capture "rejection-sensitive call" unless we add a tag.
+- **Hybrid:** Inference by default (deadline + deep friction) so the list isn't empty, plus optional "Better before luteal" (or "Hard in luteal") so user can add rejection-sensitive / high-stakes items.
+
+**Recommendation:** Hybrid — optional task flag "Better before luteal" and auto-include tasks with deadline in next N days and/or "deep" friction.
+
+### Surfacing "do this before luteal"
+
+- **"Before luteal" block when phase is high-energy:** When phase is Follicular or Ovulation (and optionally when "luteal in X days" is set), show a block: "Good window — do these before luteal" or "Luteal in ~X days — consider doing these first." List = tagged tasks + inferred (deadline soon, deep friction), sorted by deadline or deep-first. Same actions: open, add to Today, mark done.
+- **Suggest Next:** When in Follicular/Ovulation, bias Suggest Next toward tasks from that "before luteal" set so after completing a task, "next" often points at that list.
+- **Luteal phase:** When phase is Luteal (or Menstruation), don't push that list; show rest tone and low-friction suggestions. Optionally: "You're in rest phase — these can wait" for any remaining "hard in luteal" tasks.
+
+### Data model (additions for front-loading)
+
+- `state.cyclePhase`: already in sketch.
+- Optional: `state.lutealInDays: number | null` (user-set "luteal starts in ~X days") or `state.nextLutealDate: string | null` (YYYY-MM-DD) for countdown.
+- Optional: `task.betterBeforeLuteal: boolean` (or `hardInLuteal`) for explicit "do this before luteal" set.
+
+**Logic:** "Before luteal" list = tasks where `betterBeforeLuteal === true` OR (deadline in next N days AND friction === 'deep'), excluding completed/archived. Sort by deadline soonest or deep first. When phase is Follicular or Ovulation: show block and bias Suggest Next toward it. When phase is Luteal/Menstruation: don't surface as "do now"; use rest tone.
+
+### UI
+
+- **Settings:** Phase dropdown + optional "Next luteal in about ___ days" (or date).
+- **Add/Edit task:** Optional checkbox "Better before luteal" / "Hard in luteal."
+- **Main view:** When phase is high-energy, a section or strip: "Good window — do these before luteal" / "Luteal in ~X days — consider doing these first" with that list and normal task actions.
+
+### Flow in practice
+
+1. User sets phase to Follicular (or Ovulation) and optionally "Luteal in ~10 days."
+2. App shows "Luteal in ~10 days — consider doing these first" with tagged tasks and tasks with deadline soon and/or deep friction.
+3. Suggest Next, after a completion, often suggests the next task from this set.
+4. By the time user switches to Luteal, the list is shorter or empty; app switches to rest tone and low-friction suggestions — they're set up to rest.
+
+---
+
 ## Recommendation
 
 - **Phase 1:** Add optional **cycle phase** in Settings (dropdown: Off / Menstruation / Follicular / Ovulation / Luteal). Use it only for:
@@ -55,6 +106,10 @@ Make the app more supportive for people who menstruate by respecting cycle phase
 - `state.cyclePhase`: `null | 'menstruation' | 'follicular' | 'ovulation' | 'luteal'`.
 - Optional `state.cycleSyncEnabled`: boolean; if false, treat as no phase.
 - Persist in existing settings/localStorage and device prefs if applicable.
+
+## Implementation order
+
+- Implement **Journal** and **Relationship CRM** first (per product priority). Cycle Sync will be planned and built after those are in place.
 
 ## References
 
