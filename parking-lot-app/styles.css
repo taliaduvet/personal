@@ -1221,10 +1221,13 @@ body.sidebar-open .sidebar-overlay {
   right: calc(100% + 0.75rem);
   bottom: 50%;
   transform: translateY(50%);
-  max-width: 220px;
-  padding: 0.5rem 0.75rem;
-  font-size: 0.8rem;
-  line-height: 1.35;
+  /* Wider for reading; cap so tooltip stays on screen (left margin + FABs on right) */
+  width: max-content;
+  max-width: min(320px, calc(100vw - 7rem));
+  min-width: 200px;
+  padding: 0.6rem 0.85rem;
+  font-size: 0.95rem;
+  line-height: 1.4;
   color: var(--text);
   background: var(--bg-card);
   border: 1px solid var(--border);
@@ -1233,11 +1236,13 @@ body.sidebar-open .sidebar-overlay {
   pointer-events: none;
   opacity: 0;
   visibility: hidden;
-  transition: opacity 0.15s ease, visibility 0.15s ease;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
   z-index: 101;
+  white-space: normal;
+  box-sizing: border-box;
 }
 
-.fab-wrap:hover .fab-hover-help {
+.fab-wrap.fab-help-visible .fab-hover-help {
   opacity: 1;
   visibility: visible;
 }

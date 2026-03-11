@@ -2893,6 +2893,11 @@
     const seedFab = document.getElementById('seed-fab');
     if (seedFab) seedFab.addEventListener('click', openSeedRenderModal);
 
+    document.querySelectorAll('.fab-wrap').forEach(wrap => {
+      wrap.addEventListener('mouseenter', () => wrap.classList.add('fab-help-visible'));
+      wrap.addEventListener('mouseleave', () => wrap.classList.remove('fab-help-visible'));
+    });
+
     const closeAdd = document.getElementById('close-add');
     if (closeAdd) closeAdd.addEventListener('click', closeAddModal);
 
