@@ -769,6 +769,8 @@ body.sidebar-open .sidebar-overlay {
   border-radius: var(--radius);
   padding: 1rem;
   min-height: 200px;
+  display: flex;
+  flex-direction: column;
 }
 
 .column-accent {
@@ -847,6 +849,13 @@ body.sidebar-open .sidebar-overlay {
 .column-note-panel {
   margin-bottom: 0.5rem;
 }
+
+.column-note-full {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0;
+}
 .column-note-textarea {
   width: 100%;
   min-height: 4rem;
@@ -858,6 +867,11 @@ body.sidebar-open .sidebar-overlay {
   border-radius: var(--radius);
   resize: vertical;
   box-sizing: border-box;
+}
+
+.column-note-full .column-note-textarea {
+  flex: 1;
+  min-height: 12rem;
 }
 .column-note-textarea::placeholder {
   color: var(--text-muted);
@@ -1172,7 +1186,7 @@ body.sidebar-open .sidebar-overlay {
   bottom: 1.5rem;
   right: 1.5rem;
   display: flex;
-  flex-direction: column-reverse;
+  flex-direction: column;
   gap: 0.5rem;
   z-index: 100;
 }
@@ -1407,7 +1421,8 @@ body.sidebar-open .sidebar-overlay {
 }
 
 .add-options select,
-.add-options input[type="date"] {
+.add-options input[type="date"],
+.add-options input[type="text"] {
   padding: 0.5rem;
   background: var(--bg);
   border: 1px solid var(--border);
@@ -1455,7 +1470,8 @@ body.sidebar-open .sidebar-overlay {
 
 .edit-options select,
 .edit-options input[type="date"],
-.edit-options input[type="datetime-local"] {
+.edit-options input[type="datetime-local"],
+.edit-options input[type="text"] {
   padding: 0.5rem 0.75rem;
   background: var(--bg);
   border: 1px solid var(--border);
@@ -1466,7 +1482,8 @@ body.sidebar-open .sidebar-overlay {
 
 .edit-options select:focus,
 .edit-options input[type="date"]:focus,
-.edit-options input[type="datetime-local"]:focus {
+.edit-options input[type="datetime-local"]:focus,
+.edit-options input[type="text"]:focus {
   outline: none;
   border-color: var(--accent-coral);
 }
@@ -1556,6 +1573,13 @@ body.sidebar-open .sidebar-overlay {
   margin-bottom: 1rem;
   color: var(--text-muted);
 }
+
+.seed-render-search-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
 .seed-render-select {
   width: 100%;
   margin-bottom: 0.75rem;
@@ -1574,6 +1598,12 @@ body.sidebar-open .sidebar-overlay {
 }
 .seed-render-actions {
   margin-top: 0.5rem;
+}
+
+.seed-render-empty {
+  margin: -0.25rem 0 0.75rem 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
 }
 
 .consistency-small {
@@ -1703,6 +1733,28 @@ body.sidebar-open .sidebar-overlay {
 }
 
 /* Settings modal */
+.settings-accordion {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 0.75rem;
+  background: var(--bg-soft);
+}
+
+.settings-accordion-title {
+  cursor: pointer;
+  padding: 0.65rem 0.8rem;
+  font-weight: 600;
+  list-style: none;
+}
+
+.settings-accordion-title::-webkit-details-marker {
+  display: none;
+}
+
+.settings-accordion-content {
+  padding: 0 0.8rem 0.8rem 0.8rem;
+}
+
 .settings-preset-btns {
   display: flex;
   flex-direction: column;

@@ -93,6 +93,7 @@
     openColumnNoteId: null,
     columnNoteSaveTimeouts: {},
     lastSeed: null,
+    seedRenderTaskCache: [],
     habits: [],
     habitCompletions: []
   };
@@ -417,12 +418,27 @@
     return Math.floor(days / 365) + 'y';
   }
 
+  function parseLocalDate(iso) {
+    if (!iso || typeof iso !== 'string') return null;
+    const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!m) return null;
+    const y = parseInt(m[1], 10);
+    const mo = parseInt(m[2], 10);
+    const d = parseInt(m[3], 10);
+    return new Date(y, mo - 1, d);
+  }
+
+  function getSortReferenceDate(item) {
+    // Doing-by date is the execution target, so it outranks due date for sorting.
+    return parseLocalDate(item.doingDate) || parseLocalDate(item.deadline);
+  }
+
   function formatDeadline(iso) {
     if (!iso) return null;
-    const d = new Date(iso);
+    const d = parseLocalDate(iso);
+    if (!d) return null;
     const today = new Date();
     today.setHours(0,0,0,0);
-    d.setHours(0,0,0,0);
     const diff = (d - today) / 86400000;
     if (diff < 0) return { text: 'OVERDUE (' + Math.abs(Math.floor(diff)) + 'd)', overdue: true };
     if (diff === 0) return { text: 'Today', overdue: false };
@@ -536,8 +552,8 @@
   }
 
   function getTimeBand(item) {
-    const d = item.deadline ? new Date(item.deadline) : null;
-    if (!d || isNaN(d.getTime())) return 4;
+    const d = getSortReferenceDate(item);
+    if (!d || isNaN(d.getTime())) return 3;
     const now = new Date();
     now.setHours(0, 0, 0, 0);
     const todayEnd = new Date(now);
@@ -547,7 +563,7 @@
     if (d < now) return 0;
     if (d < todayEnd) return 1;
     if (d < weekEnd) return 2;
-    return 3;
+    return 4;
   }
 
   function sortByTimeBandsAndFriction(items) {
@@ -558,7 +574,9 @@
       const frictionA = FRICTION_ORDER[a.friction] ?? 1;
       const frictionB = FRICTION_ORDER[b.friction] ?? 1;
       if (frictionA !== frictionB) return frictionA - frictionB;
-      if (a.deadline && b.deadline) return new Date(a.deadline) - new Date(b.deadline);
+      const dateA = getSortReferenceDate(a);
+      const dateB = getSortReferenceDate(b);
+      if (dateA && dateB) return dateA - dateB;
       return (a.parkedAt || 0) - (b.parkedAt || 0);
     });
   }
@@ -572,7 +590,8 @@
     today.setHours(0, 0, 0, 0);
     let changed = false;
     state.items.forEach(i => {
-      if (!i.archived && i.doingDate && new Date(i.doingDate) < today) {
+      const doing = parseLocalDate(i.doingDate);
+      if (!i.archived && doing && doing < today) {
         i.archived = true;
         i.archivedAt = i.archivedAt || Date.now();
         changed = true;
@@ -684,18 +703,22 @@
               ${escapeHtml(label)} <span class="count">(${items.length})</span>
               <button type="button" class="column-note-btn" data-category="${catId}" title="Column note" aria-label="Open note">${noteContent.length ? '📝' : '✎'}</button>
             </div>
-            <div class="column-note-panel ${noteOpen ? 'open' : ''}" data-category="${catId}" style="display:${noteOpen ? 'block' : 'none'}">
-              <textarea class="column-note-textarea" data-category="${catId}" placeholder="Notes for this area..." rows="3">${escapeHtml(noteContent)}</textarea>
-              <div class="column-note-actions">
-                <button type="button" class="btn-secondary btn-sm column-turn-into-task" data-category="${catId}" title="Create task from selected text">Turn into task</button>
+            ${noteOpen ? `
+              <div class="column-note-panel column-note-full open" data-category="${catId}">
+                <textarea class="column-note-textarea" data-category="${catId}" placeholder="Notes for this area..." rows="3">${escapeHtml(noteContent)}</textarea>
+                <div class="column-note-actions">
+                  <button type="button" class="btn-secondary btn-sm column-turn-into-task" data-category="${catId}" title="Create task from selected text">Turn into task</button>
+                  <button type="button" class="btn-secondary btn-sm column-note-close" data-category="${catId}" title="Close note">Close note</button>
+                </div>
               </div>
-            </div>
-            <div class="column-items">
-              ${items.length ? items.map(item => renderTaskCard(item)).join('') : `
-                <div class="empty-state column-add-hint" data-category="${catId}">Nothing here yet—click to add</div>
-              `}
-            </div>
-            <button type="button" class="column-add-btn" data-category="${catId}" title="Add task">+ Add</button>
+            ` : `
+              <div class="column-items">
+                ${items.length ? items.map(item => renderTaskCard(item)).join('') : `
+                  <div class="empty-state column-add-hint" data-category="${catId}">Nothing here yet—click to add</div>
+                `}
+              </div>
+              <button type="button" class="column-add-btn" data-category="${catId}" title="Add task">+ Add</button>
+            `}
           </div>
         `;
       }).join('');
@@ -753,6 +776,12 @@
           if (window.talkAbout && state.deviceSyncId) saveDevicePreferencesToSupabase();
           renderColumns();
           showToast('Task created from note');
+        });
+      });
+      container.querySelectorAll('.column-note-close').forEach(btn => {
+        btn.addEventListener('click', () => {
+          state.openColumnNoteId = null;
+          renderColumns();
         });
       });
     }
@@ -919,10 +948,10 @@
 
   function formatDoingDate(iso) {
     if (!iso) return null;
-    const d = new Date(iso);
+    const d = parseLocalDate(iso);
+    if (!d) return null;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    d.setHours(0, 0, 0, 0);
     const diff = (d - today) / 86400000;
     if (diff < 0) return { text: 'Doing past', overdue: true };
     if (diff === 0) return { text: 'Aiming to complete today', overdue: false };
@@ -1579,7 +1608,68 @@
     if (submitBtn) submitBtn.addEventListener('click', addVoiceMultiple);
   }
 
+  function ensureSettingsAccordion() {
+    const modalBody = document.querySelector('#settings-modal .modal-body');
+    if (!modalBody || modalBody.dataset.accordionized === 'true') return;
+    const saveBtn = document.getElementById('save-settings');
+    if (!saveBtn) return;
+
+    function collectRange(startNode, endNode) {
+      if (!startNode || !endNode) return [];
+      const nodes = [];
+      let n = startNode;
+      while (n) {
+        const next = n.nextElementSibling;
+        nodes.push(n);
+        if (n === endNode) break;
+        n = next;
+      }
+      return nodes;
+    }
+
+    function createSection(title, open, nodes) {
+      if (!nodes || !nodes.length) return;
+      const details = document.createElement('details');
+      details.className = 'settings-accordion';
+      if (open) details.open = true;
+      const summary = document.createElement('summary');
+      summary.className = 'settings-accordion-title';
+      summary.textContent = title;
+      const content = document.createElement('div');
+      content.className = 'settings-accordion-content';
+      nodes.forEach(node => content.appendChild(node));
+      details.appendChild(summary);
+      details.appendChild(content);
+      modalBody.appendChild(details);
+    }
+
+    const notifications = document.getElementById('settings-push-notifications');
+    const syncStart = document.getElementById('settings-sync-code');
+    const syncEnd = document.getElementById('settings-pair-code');
+    const nameInput = document.getElementById('settings-display-name');
+    const dayReset = document.getElementById('settings-tally-reset-hour');
+    const presetButtons = document.querySelector('.settings-preset-btns');
+    const pilesAdd = document.querySelector('.settings-piles-add');
+    const themeColors = document.querySelector('.settings-theme-colors');
+
+    const generalStart = nameInput ? nameInput.previousElementSibling && nameInput.previousElementSibling.previousElementSibling : null;
+    const workflowStart = presetButtons ? presetButtons.previousElementSibling && presetButtons.previousElementSibling.previousElementSibling : null;
+    const appearanceStart = themeColors ? themeColors.previousElementSibling && themeColors.previousElementSibling.previousElementSibling : null;
+
+    saveBtn.remove();
+
+    createSection('General', true, collectRange(generalStart, dayReset));
+    createSection('Workflow', true, collectRange(workflowStart, pilesAdd));
+    createSection('Appearance', false, collectRange(appearanceStart, themeColors));
+    createSection('Sync & Devices', false, collectRange(syncStart, syncEnd));
+    if (notifications) createSection('Notifications', false, [notifications]);
+
+    modalBody.appendChild(saveBtn);
+    modalBody.dataset.accordionized = 'true';
+  }
+
   function openSettingsModal() {
+    ensureSettingsAccordion();
     const pushStatus = document.getElementById('settings-push-status');
     if (pushStatus) pushStatus.textContent = '';
     const displayNameEl = document.getElementById('settings-display-name');
@@ -1872,17 +1962,28 @@
     document.getElementById('settings-modal').style.display = 'none';
   }
 
+  function renderSeedTaskOptions(filterText) {
+    const taskSelect = document.getElementById('seed-render-task-select');
+    const emptyEl = document.getElementById('seed-render-empty');
+    if (!taskSelect) return;
+    const q = (filterText || '').trim().toLowerCase();
+    const filtered = (state.seedRenderTaskCache || []).filter(i => !q || (i.text || '').toLowerCase().includes(q));
+    taskSelect.innerHTML = '<option value="">— None —</option>' + filtered.map(i =>
+      `<option value="${escapeHtml(i.id)}">${escapeHtml((i.text || '').slice(0, 80))}${(i.text || '').length > 80 ? '…' : ''}</option>`
+    ).join('');
+    if (emptyEl) emptyEl.style.display = filtered.length ? 'none' : 'block';
+  }
+
   function openSeedRenderModal() {
     const modal = document.getElementById('seed-render-modal');
-    const taskSelect = document.getElementById('seed-render-task-select');
+    const searchInput = document.getElementById('seed-render-task-search');
     const questionInput = document.getElementById('seed-render-question');
     const resultDiv = document.getElementById('seed-render-result');
     const actionsDiv = document.getElementById('seed-render-actions');
-    if (!modal || !taskSelect) return;
-    const active = sortByTimeBandsAndFriction(getActiveItems());
-    taskSelect.innerHTML = '<option value="">— None —</option>' + active.map(i =>
-      `<option value="${escapeHtml(i.id)}">${escapeHtml((i.text || '').slice(0, 60))}${(i.text || '').length > 60 ? '…' : ''}</option>`
-    ).join('');
+    if (!modal) return;
+    state.seedRenderTaskCache = sortByTimeBandsAndFriction(getActiveItems());
+    if (searchInput) searchInput.value = '';
+    renderSeedTaskOptions('');
     if (questionInput) questionInput.value = '';
     if (resultDiv) resultDiv.style.display = 'none';
     if (actionsDiv) actionsDiv.style.display = 'block';
@@ -2751,6 +2852,8 @@
 
     const focusBtn = document.getElementById('focus-btn');
     if (focusBtn) focusBtn.addEventListener('click', toggleFocusMode);
+    const seedFab = document.getElementById('seed-fab');
+    if (seedFab) seedFab.addEventListener('click', openSeedRenderModal);
 
     const closeAdd = document.getElementById('close-add');
     if (closeAdd) closeAdd.addEventListener('click', closeAddModal);
@@ -2982,6 +3085,14 @@
     });
     const seedRenderDone = document.getElementById('seed-render-done');
     if (seedRenderDone) seedRenderDone.addEventListener('click', closeSeedRenderModal);
+    const seedRenderSearch = document.getElementById('seed-render-task-search');
+    if (seedRenderSearch) seedRenderSearch.addEventListener('input', () => renderSeedTaskOptions(seedRenderSearch.value));
+    const seedRenderSearchClear = document.getElementById('seed-render-task-search-clear');
+    if (seedRenderSearchClear) seedRenderSearchClear.addEventListener('click', () => {
+      const input = document.getElementById('seed-render-task-search');
+      if (input) input.value = '';
+      renderSeedTaskOptions('');
+    });
 
     const closeArchive = document.getElementById('close-archive');
     if (closeArchive) closeArchive.addEventListener('click', () => {

@@ -132,6 +132,7 @@
   </div>
   <div class="floating-buttons" id="floating-buttons" style="display:none">
     <button id="focus-btn" class="fab" title="Focus mode">◎</button>
+    <button id="seed-fab" class="fab" title="Seed my render">◔</button>
     <button id="add-btn" class="fab fab-primary" title="Add task">+</button>
   </div>
 
@@ -459,11 +460,17 @@
         <button id="close-seed-render" class="btn-close">×</button>
       </div>
       <div class="modal-body">
+        <label>Search tasks</label>
+        <div class="seed-render-search-row">
+          <input id="seed-render-task-search" type="text" placeholder="Search task text..." class="seed-render-input" autocomplete="off">
+          <button id="seed-render-task-search-clear" type="button" class="btn-secondary btn-sm">Clear</button>
+        </div>
         <p class="seed-render-hint">What's one thing to sit with? Pick a task or type a question for your brain to work on during rest.</p>
         <label>Pick a task (optional)</label>
         <select id="seed-render-task-select" class="seed-render-select">
           <option value="">— None —</option>
         </select>
+        <p id="seed-render-empty" class="seed-render-empty" style="display:none">No matching tasks</p>
         <label>Or type a question</label>
         <input id="seed-render-question" type="text" placeholder="e.g. What's the most important truth about this grant?" class="seed-render-input" autocomplete="off">
         <div id="seed-render-result" class="seed-render-result" style="display:none">
