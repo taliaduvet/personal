@@ -131,9 +131,18 @@
     <button id="add-to-suggestions-clear" type="button" class="btn-secondary btn-sm" title="Clear selection">Clear</button>
   </div>
   <div class="floating-buttons" id="floating-buttons" style="display:none">
-    <button id="focus-btn" class="fab" title="Focus mode">◎</button>
-    <button id="seed-fab" class="fab" title="Seed my render">◔</button>
-    <button id="add-btn" class="fab fab-primary" title="Add task">+</button>
+    <div class="fab-wrap">
+      <span class="fab-hover-help" id="fab-help-focus">Focus mode — see only today’s suggestions and complete them one at a time</span>
+      <button id="focus-btn" class="fab" title="Focus mode">◎</button>
+    </div>
+    <div class="fab-wrap">
+      <span class="fab-hover-help" id="fab-help-seed">Seed my render — pick a task or question for your brain to work on during rest, then take a break</span>
+      <button id="seed-fab" class="fab" title="Seed my render">◔</button>
+    </div>
+    <div class="fab-wrap">
+      <span class="fab-hover-help" id="fab-help-add">Add a task to your parking lot — single, quick-add, or voice</span>
+      <button id="add-btn" class="fab fab-primary" title="Add task">+</button>
+    </div>
   </div>
 
   <div id="add-modal" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="add-modal-title">
@@ -460,25 +469,39 @@
         <button id="close-seed-render" class="btn-close">×</button>
       </div>
       <div class="modal-body">
-        <label>Search tasks</label>
-        <div class="seed-render-search-row">
-          <input id="seed-render-task-search" type="text" placeholder="Search task text..." class="seed-render-input" autocomplete="off">
-          <button id="seed-render-task-search-clear" type="button" class="btn-secondary btn-sm">Clear</button>
+        <div id="seed-render-picker">
+          <label>Search tasks</label>
+          <div class="seed-render-search-row">
+            <input id="seed-render-task-search" type="text" placeholder="Search task text..." class="seed-render-input" autocomplete="off">
+            <button id="seed-render-task-search-clear" type="button" class="btn-secondary btn-sm">Clear</button>
+          </div>
+          <p class="seed-render-hint">What's one thing to sit with? Pick a task or type a question for your brain to work on during rest.</p>
+          <label>Pick a task (optional)</label>
+          <select id="seed-render-task-select" class="seed-render-select">
+            <option value="">— None —</option>
+          </select>
+          <p id="seed-render-empty" class="seed-render-empty" style="display:none">No matching tasks</p>
+          <label>Or type a question</label>
+          <input id="seed-render-question" type="text" placeholder="e.g. What's the most important truth about this grant?" class="seed-render-input" autocomplete="off">
+          <div id="seed-render-result" class="seed-render-result" style="display:none">
+            <p class="seed-render-confirm">Let your brain work on: <strong id="seed-render-confirm-text"></strong></p>
+            <button id="seed-render-done" type="button" class="btn-primary">Done</button>
+          </div>
+          <div id="seed-render-actions" class="seed-render-actions">
+            <button id="seed-render-set" type="button" class="btn-primary">Set seed</button>
+          </div>
         </div>
-        <p class="seed-render-hint">What's one thing to sit with? Pick a task or type a question for your brain to work on during rest.</p>
-        <label>Pick a task (optional)</label>
-        <select id="seed-render-task-select" class="seed-render-select">
-          <option value="">— None —</option>
-        </select>
-        <p id="seed-render-empty" class="seed-render-empty" style="display:none">No matching tasks</p>
-        <label>Or type a question</label>
-        <input id="seed-render-question" type="text" placeholder="e.g. What's the most important truth about this grant?" class="seed-render-input" autocomplete="off">
-        <div id="seed-render-result" class="seed-render-result" style="display:none">
-          <p class="seed-render-confirm">Let your brain work on: <strong id="seed-render-confirm-text"></strong></p>
-          <button id="seed-render-done" type="button" class="btn-primary">Done</button>
+        <div id="seed-render-rendering" class="seed-render-rendering" style="display:none">
+          <p class="seed-render-rendering-title">Rendering</p>
+          <p class="seed-render-rendering-hint">Go take a break. Let your brain work on it. Come back when you’re ready.</p>
+          <button id="seed-render-im-back" type="button" class="btn-primary">I’m back</button>
         </div>
-        <div id="seed-render-actions" class="seed-render-actions">
-          <button id="seed-render-set" type="button" class="btn-primary">Set seed</button>
+        <div id="seed-render-reflection" class="seed-render-reflection" style="display:none">
+          <p class="seed-render-reflection-title">Capture what came to mind</p>
+          <textarea id="seed-render-reflection-input" class="seed-render-reflection-input" placeholder="Anything that surfaced during your break…" rows="4"></textarea>
+          <div class="seed-render-reflection-actions">
+            <button id="seed-render-reflection-save" type="button" class="btn-primary">Save & close</button>
+          </div>
         </div>
       </div>
     </div>
@@ -535,7 +558,6 @@
     </div>
     <nav class="sidebar-nav">
       <button id="link-partner-btn" class="sidebar-item sidebar-link-partner" style="display:none">Link partner</button>
-      <button id="seed-render-btn" class="sidebar-item" data-action="seed-render">Seed my render</button>
       <button id="settings-btn" class="sidebar-item" data-action="settings">Settings</button>
       <button id="consistency-btn" class="sidebar-item" data-action="consistency">Consistency</button>
       <button id="archive-btn" class="sidebar-item" data-action="archive">View archive</button>

@@ -876,8 +876,26 @@ body.sidebar-open .sidebar-overlay {
 .column-note-textarea::placeholder {
   color: var(--text-muted);
 }
-.column-note-actions {
-  margin-top: 0.35rem;
+.column-note-textarea-wrap {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.column-note-turn-popover {
+  flex-shrink: 0;
+}
+
+.column-note-turn-popover .column-turn-into-task {
+  margin: 0;
+}
+
+.column-note-btn-close {
+  font-size: 1.25rem;
+  font-weight: 300;
+  line-height: 1;
 }
 
 .column-items {
@@ -1189,6 +1207,39 @@ body.sidebar-open .sidebar-overlay {
   flex-direction: column;
   gap: 0.5rem;
   z-index: 100;
+}
+
+.fab-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.fab-hover-help {
+  position: absolute;
+  right: calc(100% + 0.75rem);
+  bottom: 50%;
+  transform: translateY(50%);
+  max-width: 220px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  color: var(--text);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s ease, visibility 0.15s ease;
+  z-index: 101;
+}
+
+.fab-wrap:hover .fab-hover-help {
+  opacity: 1;
+  visibility: visible;
 }
 
 .fab {
@@ -1598,6 +1649,50 @@ body.sidebar-open .sidebar-overlay {
 }
 .seed-render-actions {
   margin-top: 0.5rem;
+}
+
+.seed-render-rendering {
+  padding: 1rem 0;
+}
+
+.seed-render-rendering-title {
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem 0;
+  color: var(--text);
+}
+
+.seed-render-rendering-hint {
+  margin: 0 0 1.25rem 0;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+.seed-render-reflection-title {
+  font-size: 1rem;
+  margin: 0 0 0.5rem 0;
+  color: var(--text);
+}
+
+.seed-render-reflection-input {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  margin-bottom: 0.75rem;
+  font-size: 1rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.seed-render-reflection-input::placeholder {
+  color: var(--text-muted);
+}
+
+.seed-render-reflection-actions {
+  margin-top: 0.25rem;
 }
 
 .seed-render-empty {

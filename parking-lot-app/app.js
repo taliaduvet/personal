@@ -37,6 +37,7 @@
   };
 
   const PRIORITIES = ['critical', 'high', 'medium', 'low'];
+  const PRIORITY_ORDER = { critical: 0, high: 1, medium: 2, low: 3 };
   const MONTHS = { jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12 };
 
   const STORAGE_PREFIX = 'parkingLotCouples_';
@@ -94,6 +95,8 @@
     columnNoteSaveTimeouts: {},
     lastSeed: null,
     seedRenderTaskCache: [],
+    seedRenderState: null,
+    seedReflections: [],
     habits: [],
     habitCompletions: []
   };
@@ -164,6 +167,7 @@
         if (typeof parsed.showSuggestNext === 'boolean') state.showSuggestNext = parsed.showSuggestNext;
         if (parsed.columnNotes && typeof parsed.columnNotes === 'object') state.columnNotes = parsed.columnNotes;
         if (typeof parsed.lastSeed === 'string') state.lastSeed = parsed.lastSeed;
+        if (Array.isArray(parsed.seedReflections)) state.seedReflections = parsed.seedReflections;
         if (Array.isArray(parsed.habits)) state.habits = parsed.habits;
         if (Array.isArray(parsed.habitCompletions)) state.habitCompletions = parsed.habitCompletions;
       }
@@ -199,6 +203,7 @@
         showSuggestNext: state.showSuggestNext !== false,
         columnNotes: state.columnNotes || {},
         lastSeed: state.lastSeed || null,
+        seedReflections: state.seedReflections || [],
         habits: state.habits || [],
         habitCompletions: state.habitCompletions || []
       }));
@@ -571,6 +576,9 @@
       const bandA = getTimeBand(a);
       const bandB = getTimeBand(b);
       if (bandA !== bandB) return bandA - bandB;
+      const priorityA = PRIORITY_ORDER[a.priority] ?? 2;
+      const priorityB = PRIORITY_ORDER[b.priority] ?? 2;
+      if (priorityA !== priorityB) return priorityA - priorityB;
       const frictionA = FRICTION_ORDER[a.friction] ?? 1;
       const frictionB = FRICTION_ORDER[b.friction] ?? 1;
       if (frictionA !== frictionB) return frictionA - frictionB;
@@ -653,6 +661,18 @@
     return div.innerHTML;
   }
 
+  function updateColumnNoteTurnPopover(e) {
+    const ta = e && e.target && e.target.classList && e.target.classList.contains('column-note-textarea') ? e.target : null;
+    if (!ta) return;
+    const wrap = ta.closest('.column-note-textarea-wrap');
+    const popover = wrap && wrap.querySelector('.column-note-turn-popover');
+    if (!popover) return;
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const hasSelection = typeof start === 'number' && typeof end === 'number' && start < end && (ta.value.slice(start, end).trim().length > 0);
+    popover.style.display = hasSelection ? 'block' : 'none';
+  }
+
   function renderColumns() {
     archivePastDoingDatesIfNeeded();
     const container = document.getElementById('columns');
@@ -701,14 +721,15 @@
           <div class="column column-accent" data-category="${catId}" style="--column-accent: ${color}">
             <div class="column-header ${canReorder ? 'column-header-draggable' : ''}" data-category="${catId}" ${canReorder ? 'draggable="true"' : ''} role="${canReorder ? 'button' : 'none'}" title="${canReorder ? 'Drag to reorder columns' : ''}">
               ${escapeHtml(label)} <span class="count">(${items.length})</span>
-              <button type="button" class="column-note-btn" data-category="${catId}" title="Column note" aria-label="Open note">${noteContent.length ? '📝' : '✎'}</button>
+              <button type="button" class="column-note-btn ${noteOpen ? 'column-note-btn-close' : ''}" data-category="${catId}" title="${noteOpen ? 'Close note' : 'Column note'}" aria-label="${noteOpen ? 'Close note' : 'Open note'}">${noteOpen ? '×' : (noteContent.length ? '📝' : '✎')}</button>
             </div>
             ${noteOpen ? `
               <div class="column-note-panel column-note-full open" data-category="${catId}">
-                <textarea class="column-note-textarea" data-category="${catId}" placeholder="Notes for this area..." rows="3">${escapeHtml(noteContent)}</textarea>
-                <div class="column-note-actions">
-                  <button type="button" class="btn-secondary btn-sm column-turn-into-task" data-category="${catId}" title="Create task from selected text">Turn into task</button>
-                  <button type="button" class="btn-secondary btn-sm column-note-close" data-category="${catId}" title="Close note">Close note</button>
+                <div class="column-note-textarea-wrap">
+                  <textarea class="column-note-textarea" data-category="${catId}" placeholder="Notes for this area..." rows="3">${escapeHtml(noteContent)}</textarea>
+                  <div class="column-note-turn-popover" data-category="${catId}" style="display:none">
+                    <button type="button" class="btn-secondary btn-sm column-turn-into-task" data-category="${catId}" title="Create task from selected text">Turn into task</button>
+                  </div>
                 </div>
               </div>
             ` : `
@@ -743,6 +764,9 @@
             if (window.talkAbout && state.deviceSyncId) saveDevicePreferencesToSupabase();
           }, 400);
         });
+        ta.addEventListener('select', updateColumnNoteTurnPopover);
+        ta.addEventListener('mouseup', updateColumnNoteTurnPopover);
+        ta.addEventListener('keyup', updateColumnNoteTurnPopover);
       });
       container.querySelectorAll('.column-turn-into-task').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -776,12 +800,8 @@
           if (window.talkAbout && state.deviceSyncId) saveDevicePreferencesToSupabase();
           renderColumns();
           showToast('Task created from note');
-        });
-      });
-      container.querySelectorAll('.column-note-close').forEach(btn => {
-        btn.addEventListener('click', () => {
-          state.openColumnNoteId = null;
-          renderColumns();
+          const popover = container.querySelector('.column-note-turn-popover[data-category="' + catId + '"]');
+          if (popover) popover.style.display = 'none';
         });
       });
     }
@@ -1320,7 +1340,15 @@
     if (candidates.length === 0 && pileId != null) {
       candidates = sortByTimeBandsAndFriction(active);
     }
-    return candidates.length > 0 ? candidates[0] : null;
+    if (candidates.length === 0) return null;
+    const top = candidates[0];
+    const lifeArea = completedItem && completedItem.category;
+    if (!lifeArea) return top;
+    const topBand = getTimeBand(top);
+    const topPriority = top.priority || 'medium';
+    const sameTier = candidates.filter(i => getTimeBand(i) === topBand && (i.priority || 'medium') === topPriority);
+    const sameLifeArea = sameTier.find(i => i.category === lifeArea);
+    return sameLifeArea || top;
   }
 
   function showSuggestNextStrip(nextTask, completedItem) {
@@ -1976,12 +2004,21 @@
 
   function openSeedRenderModal() {
     const modal = document.getElementById('seed-render-modal');
+    const picker = document.getElementById('seed-render-picker');
     const searchInput = document.getElementById('seed-render-task-search');
     const questionInput = document.getElementById('seed-render-question');
     const resultDiv = document.getElementById('seed-render-result');
     const actionsDiv = document.getElementById('seed-render-actions');
+    const renderingDiv = document.getElementById('seed-render-rendering');
+    const reflectionDiv = document.getElementById('seed-render-reflection');
+    const reflectionInput = document.getElementById('seed-render-reflection-input');
     if (!modal) return;
     state.seedRenderTaskCache = sortByTimeBandsAndFriction(getActiveItems());
+    state.seedRenderState = null;
+    if (picker) picker.style.display = 'block';
+    if (renderingDiv) renderingDiv.style.display = 'none';
+    if (reflectionDiv) reflectionDiv.style.display = 'none';
+    if (reflectionInput) reflectionInput.value = '';
     if (searchInput) searchInput.value = '';
     renderSeedTaskOptions('');
     if (questionInput) questionInput.value = '';
@@ -1993,6 +2030,7 @@
   function closeSeedRenderModal() {
     const modal = document.getElementById('seed-render-modal');
     if (modal) modal.style.display = 'none';
+    state.seedRenderState = null;
   }
 
   function openConsistencyPanel() {
@@ -3045,9 +3083,6 @@
       }
     });
 
-    const seedRenderBtn = document.getElementById('seed-render-btn');
-    if (seedRenderBtn) seedRenderBtn.addEventListener('click', openSeedRenderModal);
-
     const archiveBtn = document.getElementById('archive-btn');
     if (archiveBtn) archiveBtn.addEventListener('click', openArchiveModal);
 
@@ -3061,9 +3096,8 @@
     if (seedRenderSet) seedRenderSet.addEventListener('click', () => {
       const taskSelect = document.getElementById('seed-render-task-select');
       const questionInput = document.getElementById('seed-render-question');
-      const resultDiv = document.getElementById('seed-render-result');
-      const actionsDiv = document.getElementById('seed-render-actions');
-      const confirmText = document.getElementById('seed-render-confirm-text');
+      const picker = document.getElementById('seed-render-picker');
+      const renderingDiv = document.getElementById('seed-render-rendering');
       const taskId = taskSelect && taskSelect.value ? taskSelect.value : '';
       const question = questionInput && questionInput.value ? questionInput.value.trim() : '';
       let seed = '';
@@ -3077,14 +3111,39 @@
         return;
       }
       state.lastSeed = seed;
+      state.seedRenderState = 'rendering';
       saveState();
       if (window.talkAbout && state.deviceSyncId) saveDevicePreferencesToSupabase();
-      if (confirmText) confirmText.textContent = seed.length > 80 ? seed.slice(0, 80) + '…' : seed;
-      if (resultDiv) resultDiv.style.display = 'block';
-      if (actionsDiv) actionsDiv.style.display = 'none';
+      if (picker) picker.style.display = 'none';
+      if (renderingDiv) renderingDiv.style.display = 'block';
     });
     const seedRenderDone = document.getElementById('seed-render-done');
     if (seedRenderDone) seedRenderDone.addEventListener('click', closeSeedRenderModal);
+    const seedRenderImBack = document.getElementById('seed-render-im-back');
+    if (seedRenderImBack) seedRenderImBack.addEventListener('click', () => {
+      const renderingDiv = document.getElementById('seed-render-rendering');
+      const reflectionDiv = document.getElementById('seed-render-reflection');
+      const reflectionInput = document.getElementById('seed-render-reflection-input');
+      state.seedRenderState = 'back';
+      if (renderingDiv) renderingDiv.style.display = 'none';
+      if (reflectionDiv) reflectionDiv.style.display = 'block';
+      if (reflectionInput) { reflectionInput.value = ''; reflectionInput.focus(); }
+    });
+    const seedRenderReflectionSave = document.getElementById('seed-render-reflection-save');
+    if (seedRenderReflectionSave) seedRenderReflectionSave.addEventListener('click', () => {
+      const reflectionInput = document.getElementById('seed-render-reflection-input');
+      const text = reflectionInput && reflectionInput.value ? reflectionInput.value.trim() : '';
+      if (!state.seedReflections) state.seedReflections = [];
+      state.seedReflections.push({
+        seed: state.lastSeed || '',
+        reflectedAt: Date.now(),
+        text: text
+      });
+      saveState();
+      if (window.talkAbout && state.deviceSyncId) saveDevicePreferencesToSupabase();
+      showToast('Reflection saved');
+      closeSeedRenderModal();
+    });
     const seedRenderSearch = document.getElementById('seed-render-task-search');
     if (seedRenderSearch) seedRenderSearch.addEventListener('input', () => renderSeedTaskOptions(seedRenderSearch.value));
     const seedRenderSearchClear = document.getElementById('seed-render-task-search-clear');
