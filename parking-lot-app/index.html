@@ -563,16 +563,22 @@
         <button type="button" id="journal-focus-btn" class="journal-focus-btn btn-secondary btn-sm" title="Focus writing">Focus writing</button>
       </nav>
       <main class="journal-main">
-        <div id="journal-daily-view" class="journal-view journal-view-daily" style="display:block">
+        <div id="journal-daily-view" class="journal-view journal-view-daily journal-view-visible">
           <p id="journal-daily-date-label" class="journal-daily-date-label"></p>
           <div id="journal-daily-wrap" class="journal-daily-wrap">
             <div id="journal-daily-mirror" class="journal-daily-mirror" aria-hidden="true"></div>
             <textarea id="journal-daily-input" class="journal-daily-input" placeholder="What's on your mind?" rows="1"></textarea>
           </div>
-          <p id="journal-exit-focus-wrap" class="journal-exit-focus-wrap" style="display:none"><button type="button" id="journal-exit-focus" class="btn-secondary btn-sm">Exit focus</button></p>
+          <div class="journal-daily-actions">
+            <button type="button" id="journal-daily-save" class="btn-secondary btn-sm">Save</button>
+            <span class="journal-daily-autosave-hint">Saves as you type</span>
+          </div>
+          <button type="button" id="journal-focus-close" class="journal-focus-close" aria-label="Exit focus" style="display:none">×</button>
         </div>
-        <div id="journal-reflections-view" class="journal-view" style="display:none">
-          <button type="button" id="journal-add-reflection-btn" class="btn-primary btn-sm" style="margin-bottom:0.75rem">Add reflection</button>
+        <div id="journal-reflections-view" class="journal-view journal-view-hidden">
+          <div class="journal-reflections-header">
+            <button type="button" id="journal-add-reflection-btn" class="btn-primary btn-sm">Add reflection</button>
+          </div>
           <div id="journal-add-reflection-form" class="journal-add-reflection-form" style="display:none">
             <textarea id="journal-add-reflection-input" class="journal-reflection-input settings-name-input" placeholder="What came to mind?" rows="3"></textarea>
             <div class="journal-add-reflection-actions">
@@ -582,7 +588,7 @@
           </div>
           <div id="journal-reflections-list" class="journal-reflections-list"></div>
         </div>
-        <div id="journal-calendar-view" class="journal-view" style="display:none">
+        <div id="journal-calendar-view" class="journal-view journal-view-hidden">
           <label for="journal-calendar-picker">Pick a date</label>
           <input type="date" id="journal-calendar-picker" class="journal-calendar-picker settings-name-input">
           <div id="journal-calendar-result" class="journal-calendar-result"></div>

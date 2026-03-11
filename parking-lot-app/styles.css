@@ -1874,8 +1874,25 @@ body.sidebar-open .sidebar-overlay {
   max-width: 720px;
   margin: 0 auto;
 }
-.journal-view-daily {
+/* Visibility by class so inactive views actually hide (override inline display) */
+.journal-view-hidden {
+  display: none !important;
+}
+.journal-view-visible.journal-view-daily {
   display: flex !important;
+  flex-direction: column;
+  height: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+.journal-view-visible:not(.journal-view-daily) {
+  display: flex !important;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.journal-view-daily {
   flex-direction: column;
   height: 100%;
   max-width: none;
@@ -1920,9 +1937,9 @@ body.sidebar-open .sidebar-overlay {
   padding: 0.75rem 0;
   resize: none;
   background: transparent;
-  border: none;
-  outline: none;
-  box-shadow: none;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
   font: inherit;
   font-size: 1.05rem;
   line-height: 1.7;
@@ -1930,22 +1947,45 @@ body.sidebar-open .sidebar-overlay {
   caret-color: var(--text);
   z-index: 1;
 }
+.journal-daily-input:hover,
 .journal-daily-input:focus,
-.journal-daily-input:focus-visible {
-  outline: none;
-  border: none;
-  box-shadow: none;
+.journal-daily-input:focus-visible,
+.journal-daily-input:active {
+  outline: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+#journal-daily-input:hover,
+#journal-daily-input:focus,
+#journal-daily-input:focus-visible,
+#journal-daily-input:active {
+  outline: none !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 .journal-daily-input::placeholder {
   color: var(--text-muted);
 }
 /* No box around the writing area — one continuous page */
 .journal-daily-wrap {
-  outline: none;
+  outline: none !important;
+  border: none !important;
+  box-shadow: none !important;
 }
-.journal-daily-wrap:focus-within {
-  outline: none;
-  box-shadow: none;
+.journal-daily-wrap:hover,
+.journal-daily-wrap:focus,
+.journal-daily-wrap:focus-within,
+.journal-daily-wrap:active {
+  outline: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+#journal-daily-wrap:hover,
+#journal-daily-wrap:focus,
+#journal-daily-wrap:focus-within {
+  outline: none !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 .journal-daily-block {
   min-height: 1.7em;
@@ -1954,9 +1994,45 @@ body.sidebar-open .sidebar-overlay {
   opacity: 0.5;
   color: var(--text-muted);
 }
-.journal-exit-focus-wrap {
+.journal-daily-actions {
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
   margin-top: 0.75rem;
+}
+.journal-daily-autosave-hint {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+.journal-focus-close {
+  position: fixed;
+  top: 0.75rem;
+  right: 1rem;
+  z-index: 1001;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.7;
+}
+.journal-focus-close:hover {
+  opacity: 1;
+  color: var(--text);
+}
+.journal-reflections-header {
+  flex-shrink: 0;
+  margin-bottom: 0.75rem;
+}
+.journal-reflections-view .journal-reflections-list {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
 }
 .journal-reflections-list {
   display: flex;

@@ -2287,12 +2287,14 @@
     const panel = document.getElementById('journal-panel');
     const header = document.getElementById('journal-panel-header');
     const nav = document.getElementById('journal-nav');
-    const exitWrap = document.getElementById('journal-exit-focus-wrap');
+    const focusClose = document.getElementById('journal-focus-close');
     const focusBtn = document.getElementById('journal-focus-btn');
+    const dailyActions = document.querySelector('.journal-daily-actions');
     if (panel) panel.classList.toggle('journal-focus-mode', state.journalFocusMode);
     if (header) header.style.display = state.journalFocusMode ? 'none' : '';
     if (nav) nav.style.display = state.journalFocusMode ? 'none' : '';
-    if (exitWrap) exitWrap.style.display = state.journalFocusMode ? 'block' : 'none';
+    if (focusClose) focusClose.style.display = state.journalFocusMode ? 'block' : 'none';
+    if (dailyActions) dailyActions.style.display = state.journalFocusMode ? 'none' : '';
     if (focusBtn) focusBtn.textContent = state.journalFocusMode ? 'Exit focus' : 'Focus writing';
     if (state.journalFocusMode) {
       const dailyInput = document.getElementById('journal-daily-input');
@@ -2422,9 +2424,15 @@
     }
     if (picker) {
       picker.onchange = showResult;
-      picker.value = getTallyDateYYYYMMDD();
+      var todayStr = getTallyDateYYYYMMDD();
+      picker.value = todayStr;
+      if (!picker.value) picker.setAttribute('value', todayStr);
     }
-    showResult();
+    setTimeout(function() {
+      var p = document.getElementById('journal-calendar-picker');
+      if (p && !p.value) p.value = getTallyDateYYYYMMDD();
+      showResult();
+    }, 0);
   }
 
   function renderJournalPanel() {
@@ -2433,16 +2441,28 @@
     const reflectionsView = document.getElementById('journal-reflections-view');
     const calendarView = document.getElementById('journal-calendar-view');
     [dailyView, reflectionsView, calendarView].forEach(function(el) {
-      if (el) el.style.display = 'none';
+      if (el) {
+        el.classList.remove('journal-view-visible');
+        el.classList.add('journal-view-hidden');
+      }
     });
     if (state.journalActiveTab === 'daily') {
-      if (dailyView) dailyView.style.display = 'block';
+      if (dailyView) {
+        dailyView.classList.remove('journal-view-hidden');
+        dailyView.classList.add('journal-view-visible');
+      }
       renderJournalDaily();
     } else if (state.journalActiveTab === 'reflections') {
-      if (reflectionsView) reflectionsView.style.display = 'block';
+      if (reflectionsView) {
+        reflectionsView.classList.remove('journal-view-hidden');
+        reflectionsView.classList.add('journal-view-visible');
+      }
       renderJournalReflections();
     } else {
-      if (calendarView) calendarView.style.display = 'block';
+      if (calendarView) {
+        calendarView.classList.remove('journal-view-hidden');
+        calendarView.classList.add('journal-view-visible');
+      }
       renderJournalCalendar();
     }
   }
@@ -3559,10 +3579,16 @@
     if (journalFocusBtn) journalFocusBtn.addEventListener('click', function() {
       setJournalFocusMode(!state.journalFocusMode);
     });
-    const journalExitFocus = document.getElementById('journal-exit-focus');
-    if (journalExitFocus) journalExitFocus.addEventListener('click', function() {
+    const journalFocusClose = document.getElementById('journal-focus-close');
+    if (journalFocusClose) journalFocusClose.addEventListener('click', function() {
       setJournalFocusMode(false);
-      document.getElementById('journal-focus-btn').focus();
+      var fb = document.getElementById('journal-focus-btn');
+      if (fb) fb.focus();
+    });
+    const journalDailySave = document.getElementById('journal-daily-save');
+    if (journalDailySave) journalDailySave.addEventListener('click', function() {
+      flushJournalDailySave();
+      showToast('Saved');
     });
 
     const journalAddReflBtn = document.getElementById('journal-add-reflection-btn');
