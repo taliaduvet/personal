@@ -853,10 +853,14 @@ body.sidebar-open .sidebar-overlay {
   padding: 0.5rem;
   font-size: 0.9rem;
   background: var(--bg);
+  color: var(--text);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   resize: vertical;
   box-sizing: border-box;
+}
+.column-note-textarea::placeholder {
+  color: var(--text-muted);
 }
 .column-note-actions {
   margin-top: 0.35rem;
@@ -1045,7 +1049,10 @@ body.sidebar-open .sidebar-overlay {
   background: var(--bg-soft);
   border-radius: 6px;
   font-size: 0.9rem;
-  color: var(--text-muted);
+  color: var(--text);
+  border: 1px solid var(--border);
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .task-actions {
