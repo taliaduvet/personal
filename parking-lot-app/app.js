@@ -729,7 +729,8 @@
   }
 
   function getItemsByCategory(cat) {
-    let items = getActiveItems().filter(i => i.category === cat);
+    let items = getActiveItems()
+      .filter(i => i.category === cat && !state.todaySuggestionIds.includes(i.id));
     const q = (state.searchQuery || '').trim().toLowerCase();
     if (q) items = items.filter(i => (i.text || '').toLowerCase().includes(q));
     return items;
@@ -804,7 +805,8 @@
       pileColumns.push({ id: '__uncategorized', label: 'Uncategorized', pileId: null });
       const canReorder = false;
       container.innerHTML = pileColumns.map(col => {
-        const items = getActiveItems().filter(i => (i.pileId || null) === (col.pileId || null));
+        const items = getActiveItems()
+          .filter(i => (i.pileId || null) === (col.pileId || null) && !state.todaySuggestionIds.includes(i.id));
         const q = (state.searchQuery || '').trim().toLowerCase();
         const filtered = q ? items.filter(i => (i.text || '').toLowerCase().includes(q)) : items;
         const sorted = sortByTimeBandsAndFriction(filtered);
@@ -1550,7 +1552,7 @@
     if (state.undoDoneTimeout) clearTimeout(state.undoDoneTimeout);
     state.undoDoneTimeout = setTimeout(() => { /* toast hides */ }, 5000);
 
-    if (state.showSuggestNext !== false) {
+    if (state.showSuggestNext !== false && state.todaySuggestionIds.length === 0) {
       const nextTask = suggestNext(item);
       if (nextTask) showSuggestNextStrip(nextTask, item);
     }
@@ -3114,9 +3116,16 @@
 
     const todayListEl = document.getElementById('today-list');
     if (todayListEl) {
+      todayListEl.addEventListener('dragenter', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        e.dataTransfer.dropEffect = 'move';
+        todayListEl.classList.add('drag-over');
+      });
       todayListEl.addEventListener('dragover', (e) => {
         e.preventDefault();
-        e.dataTransfer.dropEffect = 'copy';
+        e.stopPropagation();
+        e.dataTransfer.dropEffect = 'move';
         todayListEl.classList.add('drag-over');
       });
       todayListEl.addEventListener('dragleave', (e) => {
@@ -3124,6 +3133,7 @@
       });
       todayListEl.addEventListener('drop', (e) => {
         e.preventDefault();
+        e.stopPropagation();
         todayListEl.classList.remove('drag-over');
         const id = e.dataTransfer.getData('text/plain');
         const item = state.items.find(i => i.id === id);
