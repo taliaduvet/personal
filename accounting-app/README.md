@@ -13,7 +13,8 @@ Track income and expenses with CRA T2125 categories and GST. Multi-user (you and
    If the Storage bucket creation fails, create a bucket named `acct_receipts` in Storage (private).
 
 3. **Enable Email auth**  
-   Supabase Dashboard → Authentication → Providers → Email: enable “Email” and, if you like, “Confirm email” (optional).
+   Supabase Dashboard → Authentication → Providers → Email: enable “Email” and, if you like, “Confirm email” (optional).  
+   If you use **GitHub Pages**, also open **Authentication → URL Configuration** and add your live app URL (e.g. `https://YOUR_USER.github.io/REPO/accounting-app`) under **Redirect URLs** so sign-in links work from that host.
 
 4. **Configure the app**  
    Copy `config.js.example` to `config.js`, then set:
@@ -22,7 +23,21 @@ Track income and expenses with CRA T2125 categories and GST. Multi-user (you and
    (Supabase Dashboard → Project Settings → API.)
 
 5. **Open the app**  
-   Open `index.html` in a browser, or serve the folder locally (e.g. `npx serve .`). Sign up with an email and password, then sign in.  
+   **GitHub Pages (no local server):** If this repo deploys to Pages (same workflow as Parking Lot), open **`https://<your-username>.github.io/personal/accounting-app/`** (replace `<your-username>` and repo name if yours differ). Your hub page lists Ledger under **Personal**.  
+   Uses the same repository secrets **`SUPABASE_URL`** and **`SUPABASE_KEY`** as Parking Lot.
+
+   **Local (optional):** The app also works if you serve the **`accounting-app`** folder.
+
+   - **Option A — double-click:** In Finder, open `accounting-app` and double-click **`serve.command`**. A Terminal window opens and starts the server. Then in your browser go to **http://127.0.0.1:8080/index.html** (use that full path, including `/index.html`).
+   - **Option B — Terminal:**  
+     `cd` into `accounting-app`, then run: `python3 -m http.server 8080`  
+     Keep that terminal window open. Open **http://127.0.0.1:8080/index.html**.
+
+   If you see **“connection refused”** or a blank load, the server isn’t running or you’re on the wrong port. If you ran the server from the **Personal** folder instead of **accounting-app**, use **http://127.0.0.1:8080/accounting-app/index.html** instead—or stop the server and restart it from inside `accounting-app`.
+
+   You can also open `index.html` directly in the browser, but Supabase may behave poorly; prefer the local server above.
+
+   Sign up with an email and password, then sign in.  
    (If the page is blank or scripts fail, ensure `config.js` exists—copy from `config.js.example`—and contains your Supabase URL and key.)
 
 ## What you can do

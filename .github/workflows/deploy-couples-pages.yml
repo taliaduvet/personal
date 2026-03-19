@@ -26,8 +26,15 @@ jobs:
           cp index.html deploy/
           cp -r parking-lot-app deploy/
           echo "const SUPABASE_URL='${{ secrets.SUPABASE_URL }}'; const SUPABASE_ANON_KEY='${{ secrets.SUPABASE_KEY }}';" > deploy/parking-lot-app/config.js
+          mkdir -p deploy/accounting-app
+          cp accounting-app/index.html accounting-app/styles.css accounting-app/api.js accounting-app/app.js deploy/accounting-app/
+          echo "const SUPABASE_URL='${{ secrets.SUPABASE_URL }}'; const SUPABASE_ANON_KEY='${{ secrets.SUPABASE_KEY }}';" > deploy/accounting-app/config.js
           if grep -q "SUPABASE_URL='';" deploy/parking-lot-app/config.js || grep -q "SUPABASE_ANON_KEY='';" deploy/parking-lot-app/config.js; then
             echo "::error::Supabase secrets appear empty. Check repo Settings → Secrets → SUPABASE_URL and SUPABASE_KEY are set."
+            exit 1
+          fi
+          if grep -q "SUPABASE_URL='';" deploy/accounting-app/config.js || grep -q "SUPABASE_ANON_KEY='';" deploy/accounting-app/config.js; then
+            echo "::error::Ledger config empty (same secrets as Parking Lot)."
             exit 1
           fi
 
