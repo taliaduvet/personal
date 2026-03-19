@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ledger – Sole Prop Accounting</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="auth-screen" class="auth-screen">
+    <h1>Ledger</h1>
+    <p>Sole proprietor income & expenses (Canada)</p>
+    <div class="auth-form">
+      <div id="auth-tab-signin">
+        <input type="email" id="auth-email" placeholder="Email" autocomplete="email">
+        <input type="password" id="auth-password" placeholder="Password" autocomplete="current-password">
+        <button type="button" id="auth-signin-btn" class="btn-primary">Sign in</button>
+        <p id="auth-error" class="error" style="display:none"></p>
+        <div class="toggle"><button type="button" id="auth-show-signup">Need an account? Sign up</button></div>
+      </div>
+      <div id="auth-tab-signup" style="display:none">
+        <input type="email" id="signup-email" placeholder="Email" autocomplete="email">
+        <input type="password" id="signup-password" placeholder="Password" autocomplete="new-password">
+        <button type="button" id="auth-signup-btn" class="btn-primary">Create account</button>
+        <p id="signup-error" class="error" style="display:none"></p>
+        <div class="toggle"><button type="button" id="auth-show-signin">Already have an account? Sign in</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="main-app" class="main-app">
+    <div class="app-wrap">
+      <header class="main-header">
+        <h1>Ledger</h1>
+        <span class="user" id="user-email"></span>
+        <button type="button" id="signout-btn">Sign out</button>
+      </header>
+      <nav class="tabs" role="tablist">
+        <button type="button" data-panel="dashboard" class="tab-btn active">Dashboard</button>
+        <button type="button" data-panel="income" class="tab-btn">Income</button>
+        <button type="button" data-panel="expenses" class="tab-btn">Expenses</button>
+        <button type="button" data-panel="reports" class="tab-btn">Reports</button>
+        <button type="button" data-panel="bank" class="tab-btn">Bank</button>
+        <button type="button" data-panel="budget" class="tab-btn">Budget</button>
+        <button type="button" data-panel="gf" class="tab-btn">Gluten-free medical</button>
+      </nav>
+
+      <section id="panel-dashboard" class="panel visible">
+        <div class="period-controls">
+          <label>From <input type="date" id="dash-period-from"></label>
+          <label>To <input type="date" id="dash-period-to"></label>
+          <button type="button" id="dash-apply" class="btn btn-primary">Apply</button>
+        </div>
+        <div id="dash-cards" class="dash-cards"></div>
+        <h3>Recent activity</h3>
+        <div id="dash-recent" class="entry-list"></div>
+      </section>
+
+      <section id="panel-income" class="panel">
+        <div class="period-controls">
+          <label>From <input type="date" id="income-period-from"></label>
+          <label>To <input type="date" id="income-period-to"></label>
+          <button type="button" id="income-apply" class="btn btn-primary">Apply</button>
+        </div>
+        <div id="income-summary" class="panel-summary"></div>
+        <div id="income-by-type" class="panel-by-category"></div>
+        <button type="button" id="income-add-btn" class="btn btn-primary">Add income</button>
+        <div id="income-form-wrap" style="display:none" class="form-wrap"></div>
+        <div id="income-list" class="entry-list" style="margin-top:1rem"></div>
+      </section>
+
+      <section id="panel-expenses" class="panel">
+        <div class="period-controls">
+          <label>From <input type="date" id="expense-period-from"></label>
+          <label>To <input type="date" id="expense-period-to"></label>
+          <button type="button" id="expense-apply" class="btn btn-primary">Apply</button>
+        </div>
+        <div id="expense-summary" class="panel-summary"></div>
+        <div id="expense-by-category" class="panel-by-category"></div>
+        <button type="button" id="expense-add-btn" class="btn btn-primary">Add expense</button>
+        <div id="expense-form-wrap" style="display:none" class="form-wrap"></div>
+        <div id="expense-list" class="entry-list" style="margin-top:1rem"></div>
+      </section>
+
+      <section id="panel-reports" class="panel">
+        <div class="report-controls">
+          <label>From <input type="date" id="report-from"></label>
+          <label>To <input type="date" id="report-to"></label>
+          <button type="button" id="report-apply" class="btn btn-primary">Apply</button>
+        </div>
+        <div id="report-summary" class="report-summary"></div>
+        <div id="report-by-category" class="report-by-category"></div>
+        <div id="report-gst" class="report-summary" style="margin-top:1rem"></div>
+      </section>
+
+      <section id="panel-bank" class="panel">
+        <div class="bank-import">
+          <h3>Import bank CSV</h3>
+          <p class="empty-state" style="padding:0 0 1rem 0; text-align:left">Upload a CSV from your bank, map columns once, then create income/expenses from transactions.</p>
+          <div class="form-row">
+            <label>Bank CSV file</label>
+            <input type="file" id="bank-file" accept=".csv,text/csv">
+          </div>
+          <div id="bank-mapping" style="display:none" class="form-row"></div>
+        </div>
+        <div id="bank-reconcile" class="bank-reconcile" style="margin-top:1.5rem"></div>
+      </section>
+
+      <section id="panel-budget" class="panel">
+        <div class="budget-controls">
+          <label>Period</label>
+          <select id="budget-period">
+            <option value="this-month">This month</option>
+            <option value="custom">Custom range</option>
+          </select>
+          <div id="budget-custom-range" style="display:none">
+            <label>From <input type="date" id="budget-from"></label>
+            <label>To <input type="date" id="budget-to"></label>
+          </div>
+          <button type="button" id="budget-apply" class="btn btn-primary">Apply</button>
+        </div>
+        <div id="budget-available-card" class="budget-available-card"></div>
+        <div id="budget-planned-section" class="budget-section">
+          <h3>Expected income &amp; expenses</h3>
+          <p class="hint">Edit any row, add new rows, then click Save. You always see your full plan so you can adjust anytime.</p>
+          <div class="budget-planned-table-wrap">
+            <table class="budget-planned-table">
+              <thead>
+                <tr>
+                  <th>Type</th>
+                  <th>Label</th>
+                  <th class="amount">Amount ($)</th>
+                  <th>Recurring</th>
+                  <th>Category / Income type</th>
+                  <th class="actions"></th>
+                </tr>
+              </thead>
+              <tbody id="budget-planned-tbody"></tbody>
+            </table>
+          </div>
+          <div class="budget-planned-actions">
+            <button type="button" id="budget-add-row-btn" class="btn btn-secondary">+ Add row</button>
+            <button type="button" id="budget-save-planned-btn" class="btn btn-primary">Save</button>
+          </div>
+        </div>
+        <div id="budget-plan-vs-actual" class="budget-section report-summary"></div>
+        <div id="budget-match-status" class="budget-section">
+          <h3>Match status (this period)</h3>
+          <div id="budget-match-list"></div>
+        </div>
+        <div id="budget-by-category" class="budget-section report-by-category">
+          <h3>Spending by category (actual)</h3>
+          <div id="budget-category-table"></div>
+        </div>
+      </section>
+
+      <section id="panel-gf" class="panel">
+        <div class="gf-instructions">
+          <p><strong>Gluten-free medical expense (CRA)</strong> — Log only items that are specifically gluten-free. Enter the regular price you’d normally pay for the non-GF equivalent. The app calculates the incremental cost and builds a yearly summary for your medical expense claim (lines 33099/33199).</p>
+          <p class="hint" style="margin:0.5rem 0 0 0;">Keep a letter from your doctor stating you have celiac disease and need a gluten-free diet; CRA may ask for it with your medical expenses.</p>
+        </div>
+        <div class="gf-layout">
+          <div class="gf-form-section">
+            <h3>Log gluten-free items from a receipt</h3>
+            <div id="gf-receipt-current" class="gf-receipt-current form-row">
+              <label>Receipt</label>
+              <div id="gf-receipt-state">
+                <span id="gf-receipt-no-current">No receipt open. Upload one to start logging line items.</span>
+                <button type="button" id="gf-receipt-upload-btn" class="btn btn-primary">Upload receipt</button>
+                <input type="file" id="gf-receipt-file" accept="image/*,application/pdf" style="display:none">
+              </div>
+              <div id="gf-receipt-has-current" style="display:none">
+                <span id="gf-receipt-current-name" class="gf-receipt-name"></span>
+                <button type="button" id="gf-receipt-done-btn" class="btn btn-secondary">Done with this receipt</button>
+                <span class="hint" style="display:block;margin-top:0.35rem;">Add line items below; click Done when you’ve entered everything for this receipt.</span>
+              </div>
+            </div>
+            <div class="form-row"><label>Date</label><input type="date" id="gf-purchase-date"></div>
+            <div class="form-row">
+              <label>Product</label>
+              <div id="gf-product-wrap"><select id="gf-product-select"><option value="">— Select or add product —</option></select> <button type="button" id="gf-product-new-btn" class="btn btn-secondary">+ New product</button></div>
+            </div>
+            <div id="gf-new-product-inline" class="gf-new-product-inline form-row" style="display:none">
+              <label>New product</label>
+              <div class="gf-new-product-fields">
+                <input type="text" id="gf-prod-name" placeholder="Product name" title="Product name">
+                <span class="gf-size-label">Regular $</span>
+                <input type="number" id="gf-prod-baseline" step="0.01" min="0" placeholder="0.00" title="Regular price per unit">
+                <span class="gf-size-label">Size</span>
+                <input type="number" id="gf-prod-size-value" min="0" step="any" placeholder="—" title="Regular size per unit">
+                <select id="gf-prod-size-unit" title="Unit"><option value="">—</option><option value="g">g</option><option value="kg">kg</option><option value="oz">oz</option><option value="lb">lb</option><option value="ml">mL</option><option value="l">L</option></select>
+                <button type="button" id="gf-prod-bc-avg-btn" class="btn btn-secondary">Use BC average</button>
+                <button type="button" id="gf-prod-add-use-btn" class="btn btn-primary">Add & use below</button>
+                <button type="button" id="gf-prod-cancel-btn" class="btn btn-secondary">Cancel</button>
+              </div>
+              <span id="gf-prod-bc-hint" class="hint"></span>
+            </div>
+            <div class="form-row"><label>Quantity</label><input type="number" id="gf-quantity" min="0.01" step="0.01" placeholder="1"></div>
+            <div class="form-row">
+              <label>GF total paid ($)</label>
+              <div>
+                <input type="number" id="gf-total-paid" step="0.01" min="0" placeholder="0.00">
+                <label class="gf-per-unit-check"><input type="checkbox" id="gf-total-is-per-unit"> Per unit (we’ll multiply by quantity)</label>
+              </div>
+            </div>
+            <div class="form-row"><label>Regular price per unit ($)</label><div><input type="number" id="gf-regular-unit" step="0.01" min="0" placeholder="0.00"> <span id="gf-bc-avg-hint" class="hint"></span></div></div>
+            <div class="form-row gf-size-row">
+              <label>Product size (optional)</label>
+              <div class="gf-size-fields">
+                <span class="gf-size-label">GF size per unit</span>
+                <input type="number" id="gf-size-value" min="0" step="any" placeholder="e.g. 907">
+                <select id="gf-size-unit"><option value="">—</option><option value="g">g</option><option value="kg">kg</option><option value="oz">oz</option><option value="lb">lb</option><option value="ml">mL</option><option value="l">L</option></select>
+                <span class="gf-size-label">Regular size per unit</span>
+                <input type="number" id="gf-regular-size-value" min="0" step="any" placeholder="e.g. 1">
+                <select id="gf-regular-size-unit"><option value="">—</option><option value="g">g</option><option value="kg">kg</option><option value="oz">oz</option><option value="lb">lb</option><option value="ml">mL</option><option value="l">L</option></select>
+              </div>
+              <span class="hint">Use when package sizes differ. Match units (both weight or both volume), e.g. 907 g vs 1 kg, or 355 mL vs 473 mL.</span>
+            </div>
+            <div class="form-row gf-calc">
+              <label>Calculated</label>
+              <div id="gf-calc-fields"><span id="gf-unit-price-out">—</span>; Incremental per unit: <span id="gf-inc-unit-out">—</span>; <strong>Incremental total: <span id="gf-inc-total-out">—</span></strong></div>
+              <span id="gf-size-mismatch-hint" class="hint gf-size-mismatch" style="display:none;"></span>
+            </div>
+            <div class="form-actions">
+              <button type="button" id="gf-save-line-btn" class="btn btn-primary">Save line</button>
+              <button type="button" id="gf-cancel-edit-btn" class="btn btn-secondary" style="display:none">Cancel</button>
+            </div>
+          </div>
+          <div class="gf-list-section">
+            <h3>Recent GF lines</h3>
+            <div id="gf-purchases-list" class="entry-list"></div>
+          </div>
+        </div>
+        <div class="gf-receipts-list-section">
+          <h3>Your uploaded receipts</h3>
+          <p class="hint">Keep these for CRA review. Click View to open the file.</p>
+          <div id="gf-receipts-list" class="entry-list"></div>
+        </div>
+        <div class="gf-summary-section">
+          <h3>CRA Summary</h3>
+          <div class="form-row"><label>Period</label><select id="gf-summary-year"></select> <span>or</span> <input type="date" id="gf-summary-from"> to <input type="date" id="gf-summary-to"> <button type="button" id="gf-summary-apply" class="btn btn-primary">Apply</button></div>
+          <div id="gf-summary-table-wrap"></div>
+          <p id="gf-summary-total" class="gf-total-line"></p>
+          <p class="hint">Use this total as part of your medical expenses (lines 33099/33199) when you file your personal return in Wealthsimple or other software.</p>
+          <button type="button" id="gf-export-btn" class="btn btn-secondary">Export summary (CSV)</button>
+          <button type="button" id="gf-print-btn" class="btn btn-secondary">Print summary</button>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="api.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

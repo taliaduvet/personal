@@ -26,3 +26,6 @@ email-management/credentials.json
 
 # Parking lot (also in parking-lot-app/.gitignore)
 parking-lot-app/config.js
+
+# Accounting app – local Supabase keys (use config.js.example)
+accounting-app/config.js
