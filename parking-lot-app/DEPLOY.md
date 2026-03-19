@@ -1,5 +1,13 @@
 # Deploy Couples Parking Lot to GitHub Pages
 
+## Standalone repo (separate URL from Ledger)
+
+To get **`https://YOUR_USER.github.io/parking-lot/`** (and your own custom domain), copy **this entire folder** to a new empty GitHub repo and use **`.github/workflows/deploy-pages.yml`**. Step-by-step for both apps: **`../docs/two-repos-setup.md`** (from the Personal monorepo root).
+
+---
+
+## Monorepo deploy (`personal` vault)
+
 ## One-time setup
 
 ### 1. Add GitHub Secrets

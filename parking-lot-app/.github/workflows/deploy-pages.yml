@@ -1,0 +1,54 @@
+# Use this when `parking-lot-app/` is the ROOT of its own GitHub repo (e.g. repo name: parking-lot).
+# Secrets: SUPABASE_URL, SUPABASE_KEY
+
+name: Deploy Parking Lot to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare site
+        run: |
+          mkdir -p _site
+          cp index.html styles.css manifest.json sw.js supabase.js _site/
+          cp -r js _site/js
+          echo "const SUPABASE_URL='${{ secrets.SUPABASE_URL }}'; const SUPABASE_ANON_KEY='${{ secrets.SUPABASE_KEY }}';" > _site/config.js
+          if grep -q "SUPABASE_URL='';" _site/config.js || grep -q "SUPABASE_ANON_KEY='';" _site/config.js; then
+            echo "::error::Supabase secrets empty. Add SUPABASE_URL and SUPABASE_KEY in repo Settings → Secrets."
+            exit 1
+          fi
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4.0.5
