@@ -687,6 +687,8 @@ body.sidebar-open .sidebar-overlay {
 /* Overview - 4 columns */
 .overview {
   padding: 1.5rem;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .columns-header {
@@ -755,13 +757,33 @@ body.sidebar-open .sidebar-overlay {
 
 .columns {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  /* auto-fit: as many columns as fit; min allows shrink without blowing past viewport */
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), minmax(0, 1fr)));
   gap: 1rem;
   margin-bottom: 1.5rem;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .columns.single-column {
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* Many pile columns: one row, scroll horizontally so the page doesn’t sprawl vertically */
+.columns.piles-view {
+  grid-template-columns: none;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(220px, min(280px, 85vw));
+  align-items: stretch;
+  overflow-x: auto;
+  overflow-y: visible;
+  padding-bottom: 0.35rem;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
+}
+
+.columns.piles-view .column {
+  min-width: 0;
 }
 
 .column {
@@ -769,6 +791,7 @@ body.sidebar-open .sidebar-overlay {
   border-radius: var(--radius);
   padding: 1rem;
   min-height: 200px;
+  min-width: 0;
   display: flex;
   flex-direction: column;
 }
@@ -902,6 +925,8 @@ body.sidebar-open .sidebar-overlay {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  min-width: 0;
+  min-height: 0;
 }
 
 .task-card {
@@ -2500,19 +2525,27 @@ body.sidebar-open .sidebar-overlay {
 
 /* Responsive - Tablet */
 @media (max-width: 900px) {
-  .columns {
-    grid-template-columns: repeat(2, 1fr);
+  .columns:not(.single-column):not(.piles-view) {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), minmax(0, 1fr)));
+  }
+
+  .columns.piles-view {
+    grid-auto-columns: minmax(200px, min(260px, 80vw));
   }
 }
 
 /* Responsive - Mobile */
 @media (max-width: 600px) {
-  .columns {
-    grid-template-columns: 1fr;
+  .columns:not(.single-column):not(.piles-view) {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), minmax(0, 1fr)));
   }
 
   .columns.single-column {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .columns.piles-view {
+    grid-auto-columns: minmax(180px, min(240px, 88vw));
   }
 
   .overview {

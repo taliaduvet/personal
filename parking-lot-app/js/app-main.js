@@ -1,22 +1,24 @@
-(function() {
-  'use strict';
+import {
+  CATEGORY_PRESETS,
+  PRESET_MIGRATION,
+  PRIORITIES,
+  PRIORITY_ORDER,
+  MONTHS,
+  STORAGE_PREFIX,
+  HAS_CHOSEN_SOLO_KEY,
+  DEFAULT_COLUMN_COLORS
+} from './constants.js';
+import { state } from './state.js';
 
-  const CATEGORY_PRESETS = {
-    generic: [
-      { id: 'work', label: 'Work' },
-      { id: 'hobbies', label: 'Hobbies' },
-      { id: 'life', label: 'Life' },
-      { id: 'other', label: 'Other' }
-    ],
-    creative: [
-      { id: 'misfit', label: 'Misfit' },
-      { id: 'stop2030barclay', label: 'Stop 2030 Barclay' },
-      { id: 'cycles', label: 'Cycles' },
-      { id: 'life', label: 'Life' }
-    ]
-  };
+function hasSupabaseConfig() {
+  let u = globalThis.SUPABASE_URL;
+  if (typeof u !== 'string' || !u.length) {
+    u = typeof SUPABASE_URL !== 'undefined' ? SUPABASE_URL : '';
+  }
+  return typeof u === 'string' && u.length > 0 && u !== 'https://your-project-id.supabase.co';
+}
 
-  function getCategories() {
+function getCategories() {
     const preset = state.categoryPreset || 'generic';
     return CATEGORY_PRESETS[preset] || CATEGORY_PRESETS.generic;
   }
@@ -30,82 +32,6 @@
     }
     return baseIds;
   }
-
-  const PRESET_MIGRATION = {
-    generic_to_creative: { work: 'misfit', hobbies: 'stop2030barclay', life: 'life', other: 'cycles' },
-    creative_to_generic: { misfit: 'work', stop2030barclay: 'hobbies', life: 'life', cycles: 'other' }
-  };
-
-  const PRIORITIES = ['critical', 'high', 'medium', 'low'];
-  const PRIORITY_ORDER = { critical: 0, high: 1, medium: 2, low: 3 };
-  const MONTHS = { jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12 };
-
-  const STORAGE_PREFIX = 'parkingLotCouples_';
-  const HAS_CHOSEN_SOLO_KEY = STORAGE_PREFIX + 'hasChosenSolo';
-
-  const DEFAULT_COLUMN_COLORS = {
-    work: '#e07a5f',
-    hobbies: '#81b29a',
-    life: '#f2cc8f',
-    other: '#9ca3af',
-    misfit: '#e07a5f',
-    stop2030barclay: '#81b29a',
-    cycles: '#f2cc8f'
-  };
-
-  let state = {
-    items: [],
-    todaySuggestionIds: [],
-    completedTodayCount: 0,
-    lastCompletedDate: null,
-    lastCategory: 'life',
-    drillDownCategory: null,
-    selectedIds: new Set(),
-    searchQuery: '',
-    undoItem: null,
-    undoTimeout: null,
-    editingId: null,
-    pairId: null,
-    addedBy: null,
-    deviceSyncId: null,
-    talkAboutItems: [],
-    talkAboutUnsubscribe: null,
-    prefsUnsubscribe: null,
-    customLabels: {},
-    columnColors: {},
-    columnOrder: null,
-    categoryPreset: 'generic',
-    buttonColor: null,
-    textColor: null,
-    displayName: '',
-    emailTriageItems: [],
-    lastAgentRun: null,
-    emailTriageUnsubscribe: null,
-    savePrefsTimeout: null,
-    processingIds: new Set(),
-    expandingMetaCardId: null,
-    addFromTalkItem: null,
-    tallyResetHour: 3,
-    piles: [],
-    viewMode: 'columns',
-    showSuggestNext: true,
-    suggestNextStripTimeout: null,
-    columnNotes: {},
-    openColumnNoteId: null,
-    columnNoteSaveTimeouts: {},
-    lastSeed: null,
-    seedRenderTaskCache: [],
-    seedRenderState: null,
-    seedReflections: [],
-    habits: [],
-    habitCompletions: [],
-    journalDaily: {},
-    journalActiveTab: 'daily',
-    journalFocusMode: false,
-    journalDailySaveTimeout: null,
-    people: [],
-    relationshipsDetailPersonId: null
-  };
 
   function loadPairState() {
     state.pairId = localStorage.getItem(STORAGE_PREFIX + 'pairId');
@@ -190,8 +116,23 @@
         if (parsed.journalDaily && typeof parsed.journalDaily === 'object') {
           state.journalDaily = {};
           const keyRe = /^\d{4}-\d{2}-\d{2}$/;
+          function toYYYYMMDD(key) {
+            if (keyRe.test(key)) return key;
+            var d = new Date(key);
+            if (isNaN(d.getTime())) return null;
+            var y = d.getFullYear();
+            var m = String(d.getMonth() + 1).padStart(2, '0');
+            var day = String(d.getDate()).padStart(2, '0');
+            return y + '-' + m + '-' + day;
+          }
           Object.keys(parsed.journalDaily).forEach(function(k) {
-            if (keyRe.test(k)) state.journalDaily[k] = parsed.journalDaily[k];
+            var val = parsed.journalDaily[k];
+            if (typeof val !== 'string') return;
+            var canonical = toYYYYMMDD(k);
+            if (canonical) {
+              var existing = state.journalDaily[canonical];
+              if (!existing || val.length > existing.length) state.journalDaily[canonical] = val;
+            }
           });
         }
         if (Array.isArray(parsed.people)) state.people = parsed.people;
@@ -2002,6 +1943,8 @@
     if (Array.isArray(state.habits) && state.habits.length) prefs.__habits = state.habits;
     if (Array.isArray(state.habitCompletions) && state.habitCompletions.length) prefs.__habitCompletions = state.habitCompletions;
     prefs.__people = Array.isArray(state.people) ? state.people : [];
+    if (state.journalDaily && typeof state.journalDaily === 'object' && Object.keys(state.journalDaily).length) prefs.__journalDaily = state.journalDaily;
+    if (Array.isArray(state.seedReflections) && state.seedReflections.length) prefs.__seedReflections = state.seedReflections;
     return prefs;
   }
 
@@ -2025,6 +1968,27 @@
     if (Array.isArray(prefs.__habits)) { state.habits = prefs.__habits; delete prefs.__habits; }
     if (Array.isArray(prefs.__habitCompletions)) { state.habitCompletions = prefs.__habitCompletions; delete prefs.__habitCompletions; }
     if (Array.isArray(prefs.__people)) { state.people = prefs.__people; delete prefs.__people; }
+    if (prefs.__journalDaily && typeof prefs.__journalDaily === 'object') {
+      state.journalDaily = state.journalDaily && typeof state.journalDaily === 'object' ? state.journalDaily : {};
+      Object.keys(prefs.__journalDaily).forEach(function(dateKey) {
+        var existing = state.journalDaily[dateKey];
+        var incoming = prefs.__journalDaily[dateKey];
+        if (typeof incoming !== 'string') return;
+        if (!existing || (incoming.length > existing.length)) state.journalDaily[dateKey] = incoming;
+      });
+      delete prefs.__journalDaily;
+    }
+    if (Array.isArray(prefs.__seedReflections)) {
+      var existingRefl = state.seedReflections || [];
+      var incomingRefl = prefs.__seedReflections;
+      var byTime = {};
+      existingRefl.forEach(function(r) { byTime[r.reflectedAt] = r; });
+      incomingRefl.forEach(function(r) {
+        if (r && (r.reflectedAt == null || !byTime[r.reflectedAt])) byTime[r.reflectedAt || Date.now() + Math.random()] = r;
+      });
+      state.seedReflections = Object.values(byTime).sort(function(a, b) { return (a.reflectedAt || 0) - (b.reflectedAt || 0); });
+      delete prefs.__seedReflections;
+    }
     if (Object.keys(prefs).length) state.columnColors = prefs;
     saveState(true, true);
   }
@@ -2787,7 +2751,7 @@
   }
 
   function openEmailTriage() {
-    if (!window.talkAbout || typeof SUPABASE_URL === 'undefined') {
+    if (!window.talkAbout || !hasSupabaseConfig()) {
       showToast('Email triage unavailable — connect Supabase first');
       return;
     }
@@ -2929,7 +2893,7 @@
     const statusEl = document.getElementById('email-triage-status');
     const emptyEl = document.getElementById('email-triage-empty');
     if (!section || !list) return;
-    if (!window.talkAbout || typeof SUPABASE_URL === 'undefined') {
+    if (!window.talkAbout || !hasSupabaseConfig()) {
       section.style.display = 'none';
       return;
     }
@@ -4096,9 +4060,8 @@
 
   bindLinkPartnerModal();
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => init().catch(e => console.error('Init failed', e)));
-  } else {
-    init().catch(e => console.error('Init failed', e));
-  }
-})();
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => init().catch(e => console.error('Init failed', e)));
+} else {
+  init().catch(e => console.error('Init failed', e));
+}

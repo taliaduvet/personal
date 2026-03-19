@@ -18,13 +18,13 @@ The app is a single-page application. The browser loads `index.html`, which defi
 - **Scripts** (bottom of body, in order):
   1. Supabase JS (CDN)
   2. Chrono-node (CDN, natural-language date parsing)
-  3. `config.js` — Supabase URL and anon key (gitignored)
-  4. `supabase.js` — Supabase client and cloud APIs
-  5. `app.js` — All app logic, state, and UI
+  3. `config.js` — Supabase URL and anon key (gitignored). Prefer **`var` bindings** (see `config.js.example`) so `SUPABASE_URL` exists on `globalThis` for the ES module; classic `const` at global scope is not always readable from `js/app-main.js`.
+  4. `supabase.js` — Supabase client and cloud APIs (classic script; attaches `window.talkAbout`)
+  5. `js/app-main.js` — `type="module"` entry: loads app logic, which imports `js/constants.js` and `js/state.js`
 
 ### 1.2 DOM structure (screens)
 
-The body contains one root `#app` and several overlays. **Only one main “screen” is visible at a time**; the rest are `display:none`. Visibility is toggled by `app.js` based on state.
+The body contains one root `#app` and several overlays. **Only one main “screen” is visible at a time**; the rest are `display:none`. Visibility is toggled by the app module (`js/app-main.js`) based on state.
 
 | Section | ID | Purpose |
 |--------|----|--------|
@@ -88,7 +88,7 @@ One global stylesheet. No CSS-in-JS; all layout and visuals are in this file.
 - **Design system**
   - Dark theme: `--bg`, `--bg-soft`, `--bg-card`, `--text`, `--text-muted`, `--border`, `--radius`, `--shadow`.
   - Accents: `--accent-coral`, `--accent-sage`, `--accent-amber`, `--accent-warm`.
-  - Theme colors (button, text) can be overridden via Settings; app.js sets CSS variables (e.g. `--accent-button`, `--accent-text`) on the root.
+  - Theme colors (button, text) can be overridden via Settings; the app module sets CSS variables (e.g. `--accent-button`, `--accent-text`) on the root.
 
 - **Sections** (conceptually): base/reset, entry screen, pair setup, main app (today bar, columns, piles, task cards), modals, panels (consistency, journal, relationships, analytics), sidebar, FABs, toast, focus mode, responsive tweaks.
 
@@ -96,9 +96,23 @@ One global stylesheet. No CSS-in-JS; all layout and visuals are in this file.
 
 ---
 
-## 3. Application logic: `app.js`
+## 3. Application logic: `js/` (ES modules)
 
-`app.js` is a single IIFE (no global namespace). It owns **state**, **persistence**, **rendering**, and **event binding**. Execution starts at the bottom: when the DOM is ready, `init()` runs.
+The main entry is **`js/app-main.js`** (loaded with `type="module"` from `index.html`). There is **no build step**: the browser resolves static imports directly.
+
+| File | Role |
+|------|------|
+| `js/constants.js` | Category presets, migration maps, priorities, storage key prefix, default column colors (exported constants). |
+| `js/state.js` | Single exported **`state`** object — the live in-memory store (tasks, prefs, UI flags, etc.). |
+| `js/app-main.js` | **Persistence** (`loadState` / `saveState` / pair + device sync), **parsing**, **renderers**, **Supabase hooks**, **event binding**, **`init()`**. |
+
+`supabase.js` stays a non-module script so it can stay compatible with `config.js` globals (`SUPABASE_URL`, `SUPABASE_ANON_KEY`) and attach **`window.talkAbout`**.
+
+Execution starts at the bottom of `app-main.js`: when the DOM is ready, `init()` runs (same as before the split).
+
+### 3.0 Layout note: board columns
+
+`styles.css` uses a responsive `auto-fit` grid for category columns, and **`.columns.piles-view`** uses a single horizontal row with **`overflow-x: auto`** so many pile columns don’t force the whole page wider. Column shells use **`min-width: 0`** so long task text doesn’t pinch neighboring tracks.
 
 ### 3.1 State (`state` object)
 
@@ -341,12 +355,12 @@ Used when the user “installs” the app (e.g. Add to Home Screen). Opens as a 
 ### 6.2 sw.js (service worker)
 
 - **Cache name**: `parking-lot-v15` (bump to invalidate old caches).
-- **Install**: Precache `./`, `index.html`, `app.js`, `styles.css`, `manifest.json`, `supabase.js`.
+- **Install**: Precache `./`, `index.html`, `js/app-main.js`, `js/constants.js`, `js/state.js`, `styles.css`, `manifest.json`, `supabase.js`.
 - **Activate**: Delete caches whose name is not the current one; `clients.claim()`.
 - **Fetch**:
   - Requests to other origins (e.g. Supabase) are not cached; pass through.
   - `config.js` and `sw.js`: always network (no cache).
-  - For “main” app paths (`, index.html, app.js, styles.css`): **network-first** — try fetch, then cache the response; on fetch failure, serve from cache (offline fallback).
+  - For “main” app paths (`index.html`, `js/app-main.js`, `styles.css`, etc.): **network-first** — try fetch, then cache the response; on fetch failure, serve from cache (offline fallback).
   - All other same-origin requests: **cache-first** (e.g. manifest), then network.
 
 Result: the app shell and core assets work offline after first load; API calls still require network.
@@ -423,7 +437,7 @@ Run these in order as needed for your project; the app code assumes the tables a
 
 1. **Load**  
    Browser opens `index.html` → loads CSS and scripts (config → supabase → app).  
-   `app.js` waits for DOMContentLoaded (or runs immediately if already loaded), then calls `init()`.
+   `js/app-main.js` waits for DOMContentLoaded (or runs immediately if already loaded), then calls `init()`.
 
 2. **Entry**  
    If no pairId, no deviceSyncId, and not “solo”: show entry screen. User picks solo, couple, or link device. Couple path shows pair setup (create or join).

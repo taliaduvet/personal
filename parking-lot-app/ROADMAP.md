@@ -145,19 +145,19 @@ References: [ADD Resource Center – Next Step Ready](https://www.addrc.org/mast
 
 | Area | Files | Changes |
 |------|--------|--------|
-| **Piles** | app.js, index.html | state.piles; load/save/sync; Manage piles UI; default or seed piles. |
-| **Task pile + friction** | app.js, index.html | task.pileId, task.friction; Add/Edit; pile tag and friction badge on cards. Migration: existing tasks pileId/friction null. |
-| **View toggle + Piles view** | index.html, app.js, styles.css | Toggle; viewMode; Piles view columns = piles + Uncategorized; card shows life-area tag; sort time bands + friction. |
-| **Sort (time bands + friction)** | app.js | Single sort function used in Columns view, Piles view, and suggest-next. Today's Suggestions stay user-ordered. |
-| **Suggest next** | app.js, index.html, styles.css | suggestNext(); call after markDone; strip/toast with next task + first step if set; fallback to all tasks; optional setting. |
-| **First step** | app.js, index.html | task.firstStep; Add/Edit + prompt; card "Start by: …"; suggest-next shows first step. |
-| **Column notes** | app.js, index.html, styles.css | state.columnNotes; note icon per column; textarea/contenteditable; debounce save; selection → "Turn into task"; createItem with column categoryId; migrate notes on preset change. |
-| **Seed the render** | app.js, index.html | Sidebar/footer entry; pick task (sorted) or type question; "Let your brain work on: …"; optional store last seed. |
-| **Consistency state + persistence** | app.js | state.habits, state.habitCompletions; load/save; device sync __habits, __habitCompletions. |
-| **Consistency helpers** | app.js | getHabits, getCompletionsForDate, recordCompletion, removeCompletionsForTask, isHabitDoneOnDate, computeWeightedPct, compute7DayRolling, getZoneLabel. |
-| **Mark-done hook** | app.js | In markDone: recordHabitCompletionsForTask(item) for habits where linkedCategoryId === item.category OR linkedPileId === item.pileId. Undo: removeCompletionsForTask(id). Migrate linkedCategoryId on preset change. |
-| **Consistency small view** | index.html, app.js, styles.css | #consistency-small: today's habits + checkboxes, weighted + 7-day + zone, "View full dashboard". |
-| **Consistency full dashboard** | index.html, app.js, styles.css | #consistency-dashboard: metrics, zone, trend, month grid, Manage habits (add/edit/delete, link to column + link to pile). Sidebar "Consistency". |
+| **Piles** | js/app-main.js, index.html | state.piles; load/save/sync; Manage piles UI; default or seed piles. |
+| **Task pile + friction** | js/app-main.js, index.html | task.pileId, task.friction; Add/Edit; pile tag and friction badge on cards. Migration: existing tasks pileId/friction null. |
+| **View toggle + Piles view** | index.html, js/app-main.js, styles.css | Toggle; viewMode; Piles view columns = piles + Uncategorized; card shows life-area tag; sort time bands + friction. |
+| **Sort (time bands + friction)** | js/app-main.js | Single sort function used in Columns view, Piles view, and suggest-next. Today's Suggestions stay user-ordered. |
+| **Suggest next** | js/app-main.js, index.html, styles.css | suggestNext(); call after markDone; strip/toast with next task + first step if set; fallback to all tasks; optional setting. |
+| **First step** | js/app-main.js, index.html | task.firstStep; Add/Edit + prompt; card "Start by: …"; suggest-next shows first step. |
+| **Column notes** | js/app-main.js, index.html, styles.css | state.columnNotes; note icon per column; textarea/contenteditable; debounce save; selection → "Turn into task"; createItem with column categoryId; migrate notes on preset change. |
+| **Seed the render** | js/app-main.js, index.html | Sidebar/footer entry; pick task (sorted) or type question; "Let your brain work on: …"; optional store last seed. |
+| **Consistency state + persistence** | js/app-main.js | state.habits, state.habitCompletions; load/save; device sync __habits, __habitCompletions. |
+| **Consistency helpers** | js/app-main.js | getHabits, getCompletionsForDate, recordCompletion, removeCompletionsForTask, isHabitDoneOnDate, computeWeightedPct, compute7DayRolling, getZoneLabel. |
+| **Mark-done hook** | js/app-main.js | In markDone: recordHabitCompletionsForTask(item) for habits where linkedCategoryId === item.category OR linkedPileId === item.pileId. Undo: removeCompletionsForTask(id). Migrate linkedCategoryId on preset change. |
+| **Consistency small view** | index.html, js/app-main.js, styles.css | #consistency-small: today's habits + checkboxes, weighted + 7-day + zone, "View full dashboard". |
+| **Consistency full dashboard** | index.html, js/app-main.js, styles.css | #consistency-dashboard: metrics, zone, trend, month grid, Manage habits (add/edit/delete, link to column + link to pile). Sidebar "Consistency". |
 
 ---
 

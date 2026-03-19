@@ -1,8 +1,10 @@
-const CACHE_NAME = 'parking-lot-v15';
+const CACHE_NAME = 'parking-lot-v16';
 const STATIC_ASSETS = [
   './',
   './index.html',
-  './app.js',
+  './js/app-main.js',
+  './js/constants.js',
+  './js/state.js',
   './styles.css',
   './manifest.json',
   './supabase.js'
@@ -25,7 +27,8 @@ self.addEventListener('activate', (e) => {
 });
 
 function isNetworkFirst(pathname) {
-  return pathname.endsWith('/') || pathname.endsWith('index.html') || pathname.endsWith('app.js') || pathname.endsWith('styles.css');
+  return pathname.endsWith('/') || pathname.endsWith('index.html') || pathname.endsWith('app.js') ||
+    pathname.endsWith('app-main.js') || pathname.endsWith('styles.css');
 }
 
 self.addEventListener('fetch', (e) => {

@@ -71,7 +71,8 @@ See [DEPLOY.md](DEPLOY.md) for setup. Add your Supabase URL and anon key as GitH
 ## Files
 
 - `index.html` — Main app
-- `app.js` — App logic
+- `js/app-main.js` — App entry (`type="module"`)
+- `js/constants.js`, `js/state.js` — Shared constants and `state` object
 - `supabase.js` — Supabase client and Talk about sync
 - `config.js` — Supabase URL and key (gitignored)
 - `config.js.example` — Template for config

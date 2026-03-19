@@ -355,6 +355,7 @@
             <input id="settings-link-code" type="text" placeholder="e.g. abc12345" maxlength="20" autocomplete="off" class="settings-link-input">
             <button id="settings-link-btn" class="btn-primary btn-sm">Link</button>
           </div>
+          <p class="settings-hint settings-storage-note">Data is stored on this device and synced to the cloud when you use device sync. Opening the app from the browser and from the dock (saved app) use different storage until you link with the same sync code.</p>
         </div>
         <div id="settings-pair-code" class="settings-sync-code" style="display:none">
           <h4 class="settings-section-title">Pair code</h4>
@@ -687,6 +688,6 @@
   <script src="https://unpkg.com/chrono-node@2.5.0/dist/bundle.js"></script>
   <script src="config.js"></script>
   <script src="supabase.js"></script>
-  <script src="app.js"></script>
+  <script type="module" src="js/app-main.js"></script>
 </body>
 </html>
