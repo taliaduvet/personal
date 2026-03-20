@@ -112,7 +112,7 @@ Execution starts at the bottom of `app-main.js`: when the DOM is ready, `init()`
 
 ### 3.0 Layout note: board columns
 
-`styles.css` uses a responsive `auto-fit` grid for category columns, and **`.columns.piles-view`** uses a single horizontal row with **`overflow-x: auto`** so many pile columns don’t force the whole page wider. Column shells use **`min-width: 0`** so long task text doesn’t pinch neighboring tracks.
+`styles.css` uses **`repeat(4, minmax(0, 1fr))`** for category columns on **large** viewports (**>1024px**), **`repeat(2, …)`** on **tablet** (**601–1024px**), and a **single column** at **600px and below**. **`.columns.piles-view`** uses a **horizontal flex row** with **`flex: 1 0 12rem`** (approx.) so piles **share extra space equally** but **won’t shrink** below a readable width—**many pile categories** then **scroll horizontally** (`overflow-x: auto`, touch momentum). On small phones, piles **stack vertically**. **`.overview`** uses **safe-area** padding on narrow screens for notched devices.
 
 ### 3.1 State (`state` object)
 

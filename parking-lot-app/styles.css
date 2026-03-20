@@ -694,6 +694,7 @@ body.sidebar-open .sidebar-overlay {
 .columns-header {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.75rem;
   margin-bottom: 1rem;
 }
@@ -755,10 +756,10 @@ body.sidebar-open .sidebar-overlay {
   background: var(--bg-soft);
 }
 
+/* Category columns: 4 equal lanes on large screens; 2×2 on tablet; stack on small phones */
 .columns {
   display: grid;
-  /* auto-fit: as many columns as fit; min allows shrink without blowing past viewport */
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), minmax(0, 1fr)));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 1rem;
   margin-bottom: 1.5rem;
   max-width: 100%;
@@ -769,21 +770,40 @@ body.sidebar-open .sidebar-overlay {
   grid-template-columns: minmax(0, 1fr);
 }
 
-/* Many pile columns: one row, scroll horizontally so the page doesn’t sprawl vertically */
+/* Piles: share width when they fit; extra piles stay readable (min width) and scroll horizontally */
 .columns.piles-view {
-  grid-template-columns: none;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(220px, min(280px, 85vw));
+  display: flex;
+  flex-flow: row nowrap;
   align-items: stretch;
+  gap: 1rem;
   overflow-x: auto;
   overflow-y: visible;
-  padding-bottom: 0.35rem;
+  padding: 0.125rem 0.125rem 0.35rem;
+  margin-inline: -0.125rem;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
   scrollbar-gutter: stable;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
+/* flex-grow shares spare space equally; flex-shrink: 0 + basis keeps a floor when there are many piles */
 .columns.piles-view .column {
+  flex: 1 0 11.25rem;
   min-width: 0;
+}
+
+@media (min-width: 601px) {
+  .columns.piles-view .column {
+    flex: 1 0 12rem;
+  }
+}
+
+/* Tablet: category board 2×2 so lanes stay readable */
+@media (max-width: 1024px) and (min-width: 601px) {
+  .columns:not(.single-column):not(.piles-view) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .column {
@@ -2523,21 +2543,10 @@ body.sidebar-open .sidebar-overlay {
   color: var(--text-muted);
 }
 
-/* Responsive - Tablet */
-@media (max-width: 900px) {
-  .columns:not(.single-column):not(.piles-view) {
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), minmax(0, 1fr)));
-  }
-
-  .columns.piles-view {
-    grid-auto-columns: minmax(200px, min(260px, 80vw));
-  }
-}
-
-/* Responsive - Mobile */
+/* Small phones: stack everything; safe area on notched devices */
 @media (max-width: 600px) {
   .columns:not(.single-column):not(.piles-view) {
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), minmax(0, 1fr)));
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .columns.single-column {
@@ -2545,11 +2554,26 @@ body.sidebar-open .sidebar-overlay {
   }
 
   .columns.piles-view {
-    grid-auto-columns: minmax(180px, min(240px, 88vw));
+    flex-direction: column;
+    flex-wrap: nowrap;
+    overflow-x: visible;
+    margin-inline: 0;
+    padding-inline: 0;
+  }
+
+  .columns.piles-view .column {
+    flex: none;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    min-height: 0;
   }
 
   .overview {
     padding: 1rem;
+    padding-left: max(1rem, env(safe-area-inset-left, 0px));
+    padding-right: max(1rem, env(safe-area-inset-right, 0px));
+    padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
   }
 
   .today-header {
