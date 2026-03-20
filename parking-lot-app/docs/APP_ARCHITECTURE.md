@@ -2,6 +2,24 @@
 
 This document describes how the app works from the entry point (`index.html`) through every file in the directory. Use it to understand the flow, data, and behavior of the system.
 
+**Modular refactor:** When splitting [`js/app-main.js`](../js/app-main.js) into more modules, use [MODULAR_REFACTOR_CHECKLIST.md](./MODULAR_REFACTOR_CHECKLIST.md) for **layer rules**, **Definition of Done** per milestone, smoke checks, and **verification greps**.
+
+### Module map (extend each PR)
+
+| File | Role |
+| --- | --- |
+| `js/constants.js` | Shared constants (presets, priorities, storage prefix, default colors). |
+| `js/state.js` | Exported `state` object (single in-memory store). |
+| `js/app-main.js` | Current composition root (persistence, domain, render, events — to be split per checklist). |
+| `js/config/supabase-env.js` | *Planned* — Supabase URL/key presence (`hasSupabaseConfig`). |
+| `js/utils/dom.js` | *Planned* — `escapeHtml`, pure helpers. |
+| `js/storage/*.js` | *Planned* — `loadState` / `saveState`, pair/device keys, migrations. |
+| `js/domain/*.js` | *Planned* — business logic, no DOM. |
+| `js/render/*.js` | *Planned* — DOM templates and re-renders. |
+| `js/features/*.js` | *Planned* — journal, consistency, relationships, email triage. |
+| `js/sync/realtime.js` | *Planned* — Supabase realtime subscribe/unsubscribe owner. |
+| `js/ui/theme.js` | *Planned* — CSS variables / theme application. |
+
 ---
 
 ## 1. Entry point: `index.html`
