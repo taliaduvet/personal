@@ -1,0 +1,20 @@
+{
+  "name": "parking-lot-app",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "qa:full": "npm run test && npm run e2e",
+    "e2e": "playwright test",
+    "e2e:headed": "playwright test --headed",
+    "e2e:headed:slow": "PW_HEADED_SLOW=1 playwright test --headed --workers=1",
+    "e2e:ui": "playwright test --ui",
+    "e2e:debug": "playwright test --debug",
+    "e2e:reuse": "PW_REUSE_SERVER=1 playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "vitest": "^3.2.4"
+  }
+}

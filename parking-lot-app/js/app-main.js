@@ -9,713 +9,83 @@ import {
   DEFAULT_COLUMN_COLORS
 } from './constants.js';
 import { state } from './state.js';
-
-function hasSupabaseConfig() {
-  let u = globalThis.SUPABASE_URL;
-  if (typeof u !== 'string' || !u.length) {
-    u = typeof SUPABASE_URL !== 'undefined' ? SUPABASE_URL : '';
-  }
-  return typeof u === 'string' && u.length > 0 && u !== 'https://your-project-id.supabase.co';
-}
-
-function getCategories() {
-    const preset = state.categoryPreset || 'generic';
-    return CATEGORY_PRESETS[preset] || CATEGORY_PRESETS.generic;
-  }
-
-  function getOrderedCategoryIds() {
-    const baseIds = getCategories().map(c => c.id);
-    if (state.columnOrder && state.columnOrder.length) {
-      const order = state.columnOrder.filter(id => baseIds.includes(id));
-      const rest = baseIds.filter(id => !order.includes(id));
-      return [...order, ...rest];
-    }
-    return baseIds;
-  }
-
-  function loadPairState() {
-    state.pairId = localStorage.getItem(STORAGE_PREFIX + 'pairId');
-    state.addedBy = localStorage.getItem(STORAGE_PREFIX + 'addedBy') || 'Talia';
-  }
-
-  function hasChosenSolo() {
-    return localStorage.getItem(HAS_CHOSEN_SOLO_KEY) === 'true';
-  }
-
-  function setChosenSolo() {
-    localStorage.setItem(HAS_CHOSEN_SOLO_KEY, 'true');
-  }
-
-  function savePairState() {
-    if (state.pairId) localStorage.setItem(STORAGE_PREFIX + 'pairId', state.pairId);
-    if (state.addedBy) localStorage.setItem(STORAGE_PREFIX + 'addedBy', state.addedBy);
-  }
-
-  function loadDeviceSyncState() {
-    state.deviceSyncId = localStorage.getItem(STORAGE_PREFIX + 'deviceSyncId');
-  }
-
-  function saveDeviceSyncState() {
-    if (state.deviceSyncId) localStorage.setItem(STORAGE_PREFIX + 'deviceSyncId', state.deviceSyncId);
-  }
-
-  function getTallyDate() {
-    const n = new Date();
-    const hour = (state.tallyResetHour != null && state.tallyResetHour >= 0 && state.tallyResetHour <= 23)
-      ? state.tallyResetHour : 3;
-    if (n.getHours() < hour) n.setDate(n.getDate() - 1);
-    return n.toDateString();
-  }
-
-  function getTallyDateYYYYMMDD() {
-    const n = new Date();
-    const hour = (state.tallyResetHour != null && state.tallyResetHour >= 0 && state.tallyResetHour <= 23)
-      ? state.tallyResetHour : 3;
-    if (n.getHours() < hour) n.setDate(n.getDate() - 1);
-    const y = n.getFullYear();
-    const m = String(n.getMonth() + 1).padStart(2, '0');
-    const d = String(n.getDate()).padStart(2, '0');
-    return y + '-' + m + '-' + d;
-  }
-
-  function countCompletedInTallyDay() {
-    const hour = (state.tallyResetHour != null && state.tallyResetHour >= 0 && state.tallyResetHour <= 23)
-      ? state.tallyResetHour : 3;
-    const now = new Date();
-    const start = new Date(now);
-    start.setHours(hour, 0, 0, 0);
-    if (now.getHours() < hour) start.setDate(start.getDate() - 1);
-    const startMs = start.getTime();
-    return state.items.filter(i => i.completedAt && i.completedAt >= startMs).length;
-  }
-
-  function loadState() {
-    try {
-      const stored = localStorage.getItem(STORAGE_PREFIX + 'data');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        state.items = (parsed.items || []).map(i => ({ ...i, doingDate: i.doingDate || null }));
-        state.todaySuggestionIds = parsed.todaySuggestionIds || [];
-        state.lastCategory = parsed.lastCategory || 'life';
-        state.customLabels = parsed.customLabels || {};
-        state.categoryPreset = parsed.categoryPreset || 'generic';
-        state.buttonColor = parsed.buttonColor || null;
-        state.textColor = parsed.textColor || null;
-        state.displayName = parsed.displayName || '';
-        if (parsed.columnColors && Object.keys(parsed.columnColors).length) state.columnColors = parsed.columnColors;
-        if (Array.isArray(parsed.columnOrder) && parsed.columnOrder.length) state.columnOrder = parsed.columnOrder;
-        if (typeof parsed.tallyResetHour === 'number' && parsed.tallyResetHour >= 0 && parsed.tallyResetHour <= 23) state.tallyResetHour = parsed.tallyResetHour;
-        if (Array.isArray(parsed.piles)) state.piles = parsed.piles;
-        if (parsed.viewMode === 'piles' || parsed.viewMode === 'columns') state.viewMode = parsed.viewMode;
-        if (typeof parsed.showSuggestNext === 'boolean') state.showSuggestNext = parsed.showSuggestNext;
-        if (parsed.columnNotes && typeof parsed.columnNotes === 'object') state.columnNotes = parsed.columnNotes;
-        if (typeof parsed.lastSeed === 'string') state.lastSeed = parsed.lastSeed;
-        if (Array.isArray(parsed.seedReflections)) state.seedReflections = parsed.seedReflections;
-        if (Array.isArray(parsed.habits)) state.habits = parsed.habits;
-        if (Array.isArray(parsed.habitCompletions)) state.habitCompletions = parsed.habitCompletions;
-        if (parsed.journalDaily && typeof parsed.journalDaily === 'object') {
-          state.journalDaily = {};
-          const keyRe = /^\d{4}-\d{2}-\d{2}$/;
-          function toYYYYMMDD(key) {
-            if (keyRe.test(key)) return key;
-            var d = new Date(key);
-            if (isNaN(d.getTime())) return null;
-            var y = d.getFullYear();
-            var m = String(d.getMonth() + 1).padStart(2, '0');
-            var day = String(d.getDate()).padStart(2, '0');
-            return y + '-' + m + '-' + day;
-          }
-          Object.keys(parsed.journalDaily).forEach(function(k) {
-            var val = parsed.journalDaily[k];
-            if (typeof val !== 'string') return;
-            var canonical = toYYYYMMDD(k);
-            if (canonical) {
-              var existing = state.journalDaily[canonical];
-              if (!existing || val.length > existing.length) state.journalDaily[canonical] = val;
-            }
-          });
-        }
-        if (Array.isArray(parsed.people)) state.people = parsed.people;
-      }
-      if (!state.journalDaily || typeof state.journalDaily !== 'object') state.journalDaily = {};
-      if (!Array.isArray(state.people)) state.people = [];
-      var peopleIds = (state.people || []).map(function(p) { return p.id; });
-      state.items = (state.items || []).map(i => ({
-        ...i,
-        pileId: i.pileId != null ? i.pileId : null,
-        friction: i.friction && ['quick', 'medium', 'deep'].includes(i.friction) ? i.friction : null,
-        firstStep: typeof i.firstStep === 'string' ? i.firstStep : null,
-        personId: (i.personId && peopleIds.indexOf(i.personId) >= 0) ? i.personId : null
-      }));
-      state.completedTodayCount = countCompletedInTallyDay();
-    } catch (e) {
-      console.warn('Load failed', e);
-      showToast('Could not load saved data — starting fresh');
-    }
-  }
-
-  function saveState(skipCloudSync, useRemoteTallyDate) {
-    try {
-      localStorage.setItem(STORAGE_PREFIX + 'data', JSON.stringify({
-        items: state.items,
-        todaySuggestionIds: state.todaySuggestionIds,
-        lastCategory: state.lastCategory,
-        customLabels: state.customLabels,
-        categoryPreset: state.categoryPreset || 'generic',
-        buttonColor: state.buttonColor,
-        textColor: state.textColor,
-        displayName: state.displayName || '',
-        columnColors: state.columnColors || {},
-        columnOrder: state.columnOrder || null,
-        tallyResetHour: state.tallyResetHour != null ? state.tallyResetHour : 3,
-        piles: state.piles || [],
-        viewMode: state.viewMode || 'columns',
-        showSuggestNext: state.showSuggestNext !== false,
-        columnNotes: state.columnNotes || {},
-        lastSeed: state.lastSeed || null,
-        seedReflections: state.seedReflections || [],
-        habits: state.habits || [],
-        habitCompletions: state.habitCompletions || [],
-        journalDaily: state.journalDaily || {},
-        people: state.people || []
-      }));
-      const tallyDate = useRemoteTallyDate && state.lastCompletedDate ? state.lastCompletedDate : getTallyDate();
-      localStorage.setItem(STORAGE_PREFIX + 'tally', JSON.stringify({
-        count: state.completedTodayCount,
-        date: tallyDate
-      }));
-      if (!skipCloudSync && window.talkAbout && state.deviceSyncId) saveDevicePreferencesToSupabase();
-    } catch (e) {
-      console.warn('Save failed', e);
-      showToast('Could not save — check storage or try again');
-    }
-  }
-
-  function detectCategory(text) {
-    const t = (text || '').toLowerCase();
-    const preset = state.categoryPreset || 'generic';
-    if (preset === 'creative') {
-      if (t.includes('misfit')) return 'misfit';
-      if (t.includes('barclay') || t.includes('stop 2030') || t.includes('stop2030')) return 'stop2030barclay';
-      if (t.includes('cycles')) return 'cycles';
-      if (t.includes('life')) return 'life';
-    } else {
-      if (t.includes('work')) return 'work';
-      if (t.includes('hobbi') || t.includes('hobby')) return 'hobbies';
-      if (t.includes('life')) return 'life';
-    }
-    return null;
-  }
-
-  function extractDeadline(text) {
-    const t = (text || '').toLowerCase();
-    const now = new Date();
-    const year = now.getFullYear();
-
-    const monthDay = t.match(/(?:due\s+)?(?:by\s+)?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{1,2})(?:\s+(\d{4}))?/i);
-    if (monthDay) {
-      const m = MONTHS[monthDay[1].toLowerCase().slice(0,3)];
-      const d = parseInt(monthDay[2], 10);
-      const y = monthDay[3] ? parseInt(monthDay[3], 10) : year;
-      const date = new Date(y, m - 1, d);
-      if (!isNaN(date.getTime())) return date.toISOString().slice(0, 10);
-    }
-    const slash = t.match(/(?:due\s+)?(?:by\s+)?(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2,4}))?/);
-    if (slash) {
-      const m = parseInt(slash[1], 10);
-      const d = parseInt(slash[2], 10);
-      const y = slash[3] ? (slash[3].length === 2 ? 2000 + parseInt(slash[3], 10) : parseInt(slash[3], 10)) : year;
-      const date = new Date(y, m - 1, d);
-      if (!isNaN(date.getTime())) return date.toISOString().slice(0, 10);
-    }
-
-    const dayNames = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
-    const nextDay = t.match(/(?:due\s+)?(?:by\s+)?(?:next|this)\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday)/i);
-    if (nextDay) {
-      const targetDay = dayNames.indexOf(nextDay[1].toLowerCase());
-      const isThis = /this\s+/.test(t);
-      let d = new Date(now);
-      const currentDay = d.getDay();
-      let diff = targetDay - currentDay;
-      if (diff <= 0 && !isThis) diff += 7;
-      else if (diff < 0 && isThis) diff += 7;
-      else if (diff === 0 && isThis) diff = 0;
-      else if (diff === 0) diff = 7;
-      d.setDate(d.getDate() + diff);
-      return d.toISOString().slice(0, 10);
-    }
-
-    const endOfMonth = t.match(/(?:due\s+)?(?:by\s+)?(?:the\s+)?(?:end\s+of\s+(?:the\s+)?month|eom)/i);
-    if (endOfMonth) {
-      const d = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-      return d.toISOString().slice(0, 10);
-    }
-
-    const inWeeks = t.match(/(?:due\s+)?(?:by\s+)?(?:in\s+)?(\d+)\s+weeks?(?:\s+from\s+now)?/i);
-    if (inWeeks) {
-      const d = new Date(now);
-      d.setDate(d.getDate() + parseInt(inWeeks[1], 10) * 7);
-      return d.toISOString().slice(0, 10);
-    }
-
-    const inDays = t.match(/(?:due\s+)?(?:by\s+)?(?:in\s+)?(\d+)\s+days?(?:\s+from\s+now)?/i);
-    if (inDays) {
-      const d = new Date(now);
-      d.setDate(d.getDate() + parseInt(inDays[1], 10));
-      return d.toISOString().slice(0, 10);
-    }
-
-    if (/\b(?:due\s+)?(?:by\s+)?tomorrow\b/i.test(t)) {
-      const d = new Date(now);
-      d.setDate(d.getDate() + 1);
-      return d.toISOString().slice(0, 10);
-    }
-
-    if (/\b(?:due\s+)?(?:by\s+)?next\s+week\b/i.test(t)) {
-      const d = new Date(now);
-      d.setDate(d.getDate() + 7);
-      return d.toISOString().slice(0, 10);
-    }
-
-    if (typeof window !== 'undefined' && window.chrono) {
-      try {
-        const parsed = window.chrono.parseDate(t);
-        if (parsed && !isNaN(parsed.getTime())) return parsed.toISOString().slice(0, 10);
-      } catch (e) { /* fallback to null */ }
-    }
-    return null;
-  }
-
-  function extractPriority(text) {
-    const t = (text || '').toLowerCase();
-    if (/\b(critical|urgent|asap|as\s+ap|emergency|rush|top\s+priority)\b/.test(t)) return 'critical';
-    if (/\b(high\s+priority|high\s+prio|important|must\s+do|must\s+be)\b/.test(t)) return 'high';
-    if (/\b(low\s+priority|low\s+prio|whenever|nice\s+to\s+have|optional|backlog)\b/.test(t)) return 'low';
-    if (/\b(medium|normal|regular)\b/.test(t)) return 'medium';
-    return null;
-  }
-
-  function stripAutoExtractedFromText(text, category, deadline, priority) {
-    let result = (text || '').trim();
-    if (!result) return result;
-    if (deadline) {
-      result = result.replace(/(?:due\s+)?(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{1,2}(?:\s+\d{4})?/gi, '');
-      result = result.replace(/(?:due\s+)?\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?/gi, '');
-      result = result.replace(/(?:due\s+)?(?:by\s+)?(?:the\s+)?end\s+of\s+(?:the\s+)?(?:next\s+)?month/gi, '');
-      result = result.replace(/(?:due\s+)?(?:by\s+)?eom\b/gi, '');
-      result = result.replace(/(?:due\s+)?(?:by\s+)?(?:next|this)\s+(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)/gi, '');
-      result = result.replace(/(?:due\s+)?(?:by\s+)?(?:in\s+)?\d+\s+(?:days?|weeks?)(?:\s+from\s+now)?/gi, '');
-      result = result.replace(/(?:due\s+)?(?:by\s+)?tomorrow\b/gi, '');
-      result = result.replace(/(?:due\s+)?(?:by\s+)?next\s+week\b/gi, '');
-    }
-    if (category) {
-      if (category === 'work') result = result.replace(/\bwork\b/gi, '');
-      if (category === 'hobbies') result = result.replace(/\bhobbies?\b/gi, '');
-      if (category === 'life') result = result.replace(/\blife\b/gi, '');
-      if (category === 'misfit') result = result.replace(/\bmisfit\b/gi, '');
-      if (category === 'stop2030barclay') result = result.replace(/\b(barclay|stop\s*2030|stop2030)\b/gi, '');
-      if (category === 'cycles') result = result.replace(/\bcycles\b/gi, '');
-    }
-    if (priority === 'critical') {
-      result = result.replace(/\b(critical|urgent|asap|as\s+ap|emergency|rush|top\s+priority)\b/gi, '');
-    } else if (priority === 'high') {
-      result = result.replace(/\b(high\s+priority|high\s+prio|important|must\s+do|must\s+be)\b/gi, '');
-    } else if (priority === 'low') {
-      result = result.replace(/\b(low\s+priority|low\s+prio|whenever|nice\s+to\s+have|optional|backlog)\b/gi, '');
-    }
-    return result.replace(/\s+/g, ' ').trim();
-  }
-
-  function createItem(text, category, deadline, priority, recurrence, reminderAt, doingDate, pileId, friction, personId) {
-    const cleanText = stripAutoExtractedFromText(text, category, deadline, priority) || text.trim();
-    return {
-      id: 'id_' + Date.now() + '_' + Math.random().toString(36).slice(2),
-      text: cleanText || text.trim(),
-      category: category || state.lastCategory,
-      parkedAt: Date.now(),
-      deadline: deadline || null,
-      doingDate: doingDate || null,
-      priority: priority || 'medium',
-      recurrence: recurrence || null,
-      reminderAt: reminderAt || null,
-      archived: false,
-      pileId: pileId != null ? pileId : null,
-      friction: friction && ['quick', 'medium', 'deep'].includes(friction) ? friction : null,
-      firstStep: null,
-      personId: personId != null ? personId : null
-    };
-  }
-
-  function getPiles() {
-    return (state.piles || []).slice();
-  }
-
-  function getPileName(pileId) {
-    if (!pileId) return null;
-    const p = (state.piles || []).find(pi => pi.id === pileId);
-    return p ? p.name : pileId;
-  }
-
-  const PEOPLE_GROUPS = [
-    { id: 'family', label: 'Family' },
-    { id: 'romantic', label: 'Romantic' },
-    { id: 'close_friends', label: 'Close friends' },
-    { id: 'friends', label: 'Friends' },
-    { id: 'acquaintances', label: 'Acquaintances' },
-    { id: 'work', label: 'Work' }
-  ];
-
-  function getPeople() {
-    return (state.people || []).slice();
-  }
-
-  function getPerson(id) {
-    if (!id) return null;
-    return (state.people || []).find(p => p.id === id) || null;
-  }
-
-  function getPersonName(id) {
-    const p = getPerson(id);
-    return p ? p.name : (id || null);
-  }
-
-  function addPerson(attrs) {
-    var name = (attrs && attrs.name != null) ? String(attrs.name).trim() : '';
-    if (!name) return null;
-    var group = (attrs && attrs.group && PEOPLE_GROUPS.some(function(g) { return g.id === attrs.group; })) ? attrs.group : 'friends';
-    var id = 'person_' + Date.now() + '_' + Math.random().toString(36).slice(2);
-    var person = {
-      id: id,
-      name: name,
-      group: group,
-      lastConnected: attrs && attrs.lastConnected != null ? attrs.lastConnected : null,
-      reconnectRule: attrs && attrs.reconnectRule && { interval: attrs.reconnectRule.interval } ? attrs.reconnectRule : null,
-      notes: (attrs && attrs.notes != null) ? String(attrs.notes) : null
-    };
-    state.people = (state.people || []).concat(person);
-    saveState();
-    return id;
-  }
-
-  function updatePerson(id, updates) {
-    var p = getPerson(id);
-    if (!p) return;
-    if (updates && updates.name != null) {
-      var n = String(updates.name).trim();
-      if (n) p.name = n;
-    }
-    if (updates && updates.group != null && PEOPLE_GROUPS.some(function(g) { return g.id === updates.group; })) p.group = updates.group;
-    if (updates && updates.lastConnected !== undefined) p.lastConnected = updates.lastConnected;
-    if (updates && updates.reconnectRule !== undefined) p.reconnectRule = updates.reconnectRule;
-    if (updates && updates.notes !== undefined) p.notes = updates.notes;
-    saveState();
-  }
-
-  function deletePerson(id) {
-    state.items.forEach(function(item) {
-      if (item.personId === id) item.personId = null;
-    });
-    state.people = (state.people || []).filter(p => p.id !== id);
-    saveState();
-  }
-
-  function getReconnectIntervalMs(interval) {
-    if (interval === '1w') return 7 * 24 * 60 * 60 * 1000;
-    if (interval === '2w') return 14 * 24 * 60 * 60 * 1000;
-    if (interval === '1m') return 30 * 24 * 60 * 60 * 1000;
-    if (interval === '3m') return 90 * 24 * 60 * 60 * 1000;
-    return 0;
-  }
-
-  function isOverdueToReconnect(person) {
-    if (!person || person.lastConnected == null || !person.reconnectRule || !person.reconnectRule.interval) return false;
-    var lc = person.lastConnected;
-    if (typeof lc !== 'number' || isNaN(lc) || lc <= 0) return false;
-    var dueMs = lc + getReconnectIntervalMs(person.reconnectRule.interval);
-    var today = new Date();
-    var todayStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
-    var dueDate = new Date(dueMs);
-    var dueStr = dueDate.getFullYear() + '-' + String(dueDate.getMonth() + 1).padStart(2, '0') + '-' + String(dueDate.getDate()).padStart(2, '0');
-    return todayStr >= dueStr;
-  }
-
-  function addPile(name) {
-    const trimmed = (name || '').trim();
-    if (!trimmed) return null;
-    const id = 'pile_' + Date.now() + '_' + Math.random().toString(36).slice(2);
-    const list = state.piles || [];
-    list.push({ id, name: trimmed });
-    state.piles = list;
-    saveState();
-    return id;
-  }
-
-  function updatePile(id, name) {
-    const trimmed = (name || '').trim();
-    if (!trimmed) return;
-    const p = (state.piles || []).find(pi => pi.id === id);
-    if (p) {
-      p.name = trimmed;
-      saveState();
-    }
-  }
-
-  function deletePile(id) {
-    const list = (state.piles || []).filter(pi => pi.id !== id);
-    const count = (state.items || []).filter(i => i.pileId === id).length;
-    state.items.forEach(i => { if (i.pileId === id) i.pileId = null; });
-    state.piles = list;
-    saveState();
-    return count;
-  }
-
-  function formatDuration(ms) {
-    const days = Math.floor(ms / 86400000);
-    if (days < 1) return 'Today';
-    if (days === 1) return '1d';
-    if (days < 7) return days + 'd';
-    if (days < 30) return Math.floor(days / 7) + 'w';
-    if (days < 365) return Math.floor(days / 30) + 'mo';
-    return Math.floor(days / 365) + 'y';
-  }
-
-  function parseLocalDate(iso) {
-    if (!iso || typeof iso !== 'string') return null;
-    const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if (!m) return null;
-    const y = parseInt(m[1], 10);
-    const mo = parseInt(m[2], 10);
-    const d = parseInt(m[3], 10);
-    return new Date(y, mo - 1, d);
-  }
-
-  function getSortReferenceDate(item) {
-    // Doing-by date is the execution target, so it outranks due date for sorting.
-    return parseLocalDate(item.doingDate) || parseLocalDate(item.deadline);
-  }
-
-  function formatDeadline(iso) {
-    if (!iso) return null;
-    const d = parseLocalDate(iso);
-    if (!d) return null;
-    const today = new Date();
-    today.setHours(0,0,0,0);
-    const diff = (d - today) / 86400000;
-    if (diff < 0) return { text: 'OVERDUE (' + Math.abs(Math.floor(diff)) + 'd)', overdue: true };
-    if (diff === 0) return { text: 'Today', overdue: false };
-    if (diff <= 7) return { text: 'In ' + Math.floor(diff) + 'd', overdue: false };
-    return { text: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), overdue: false };
-  }
-
-  const FRICTION_ORDER = { quick: 0, medium: 1, deep: 2 };
-
-  function getTodayLocalYYYYMMDD() {
-    const d = new Date();
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return y + '-' + m + '-' + day;
-  }
-
-  function getHabits() {
-    return (state.habits || []).slice();
-  }
-
-  function getCompletionsForDate(date) {
-    return (state.habitCompletions || []).filter(c => c.date === date);
-  }
-
-  function recordCompletion(habitId, date, source, taskId) {
-    if (!state.habitCompletions) state.habitCompletions = [];
-    state.habitCompletions.push({ habitId, date, source, taskId: taskId || undefined });
-  }
-
-  function removeCompletionsForTask(taskId, date) {
-    if (!state.habitCompletions) return;
-    state.habitCompletions = state.habitCompletions.filter(c => !(c.date === date && c.taskId === taskId));
-  }
-
-  function isHabitDoneOnDate(habitId, date) {
-    return (state.habitCompletions || []).some(c => c.habitId === habitId && c.date === date);
-  }
-
-  function computeWeightedPct(date) {
-    const habits = getHabits();
-    if (habits.length === 0) return 0;
-    const totalWeight = habits.reduce((s, h) => s + (h.weight || 1), 0);
-    const doneWeight = habits.filter(h => isHabitDoneOnDate(h.id, date)).reduce((s, h) => s + (h.weight || 1), 0);
-    return totalWeight ? Math.round((doneWeight / totalWeight) * 100) : 0;
-  }
-
-  function compute7DayRolling() {
-    const today = getTodayLocalYYYYMMDD();
-    let sum = 0;
-    let count = 0;
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(today);
-      d.setDate(d.getDate() - i);
-      const dateStr = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-      sum += computeWeightedPct(dateStr);
-      count++;
-    }
-    return count ? Math.round(sum / count) : 0;
-  }
-
-  function getZoneLabel(pct) {
-    if (pct >= 70 && pct <= 85) return 'Strong';
-    if (pct >= 50 && pct < 70) return 'Unstable but recoverable';
-    if (pct < 50) return 'Reduce volume';
-    if (pct > 85) return 'Check minimums';
-    return '—';
-  }
-
-  function addHabit(name, weight, linkedCategoryId, linkedPileId) {
-    const id = 'habit_' + Date.now() + '_' + Math.random().toString(36).slice(2);
-    (state.habits || []).push({
-      id,
-      name: (name || '').trim() || 'Habit',
-      weight: Math.max(1, Math.min(5, parseInt(weight, 10) || 3)),
-      linkedCategoryId: linkedCategoryId || null,
-      linkedPileId: linkedPileId || null
-    });
-    saveState();
-    return id;
-  }
-
-  function updateHabit(id, name, weight, linkedCategoryId, linkedPileId) {
-    const h = (state.habits || []).find(x => x.id === id);
-    if (!h) return;
-    if (name != null) h.name = (name || '').trim() || h.name;
-    if (weight != null) h.weight = Math.max(1, Math.min(5, parseInt(weight, 10) || 3));
-    if (linkedCategoryId !== undefined) h.linkedCategoryId = linkedCategoryId || null;
-    if (linkedPileId !== undefined) h.linkedPileId = linkedPileId || null;
-    saveState();
-  }
-
-  function deleteHabit(id) {
-    state.habits = (state.habits || []).filter(h => h.id !== id);
-    state.habitCompletions = (state.habitCompletions || []).filter(c => c.habitId !== id);
-    saveState();
-  }
-
-  function toggleHabitManual(habitId, date) {
-    if (isHabitDoneOnDate(habitId, date)) {
-      const list = state.habitCompletions || [];
-      const idx = list.findIndex(c => c.habitId === habitId && c.date === date && c.source === 'manual');
-      if (idx !== -1) {
-        list.splice(idx, 1);
-        state.habitCompletions = list;
-      }
-    } else {
-      recordCompletion(habitId, date, 'manual');
-    }
-    saveState();
-  }
-
-  function getTimeBand(item) {
-    const d = getSortReferenceDate(item);
-    if (!d || isNaN(d.getTime())) return 3;
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-    const todayEnd = new Date(now);
-    todayEnd.setDate(todayEnd.getDate() + 1);
-    const weekEnd = new Date(now);
-    weekEnd.setDate(weekEnd.getDate() + 8);
-    if (d < now) return 0;
-    if (d < todayEnd) return 1;
-    if (d < weekEnd) return 2;
-    return 4;
-  }
-
-  function sortByTimeBandsAndFriction(items) {
-    return [...items].sort((a, b) => {
-      const bandA = getTimeBand(a);
-      const bandB = getTimeBand(b);
-      if (bandA !== bandB) return bandA - bandB;
-      const priorityA = PRIORITY_ORDER[a.priority] ?? 2;
-      const priorityB = PRIORITY_ORDER[b.priority] ?? 2;
-      if (priorityA !== priorityB) return priorityA - priorityB;
-      const frictionA = FRICTION_ORDER[a.friction] ?? 1;
-      const frictionB = FRICTION_ORDER[b.friction] ?? 1;
-      if (frictionA !== frictionB) return frictionA - frictionB;
-      const dateA = getSortReferenceDate(a);
-      const dateB = getSortReferenceDate(b);
-      if (dateA && dateB) return dateA - dateB;
-      return (a.parkedAt || 0) - (b.parkedAt || 0);
-    });
-  }
-
-  function sortItems(items) {
-    return sortByTimeBandsAndFriction(items);
-  }
-
-  function archivePastDoingDatesIfNeeded() {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    let changed = false;
-    state.items.forEach(i => {
-      const doing = parseLocalDate(i.doingDate);
-      if (!i.archived && doing && doing < today) {
-        i.archived = true;
-        i.archivedAt = i.archivedAt || Date.now();
-        changed = true;
-      }
-    });
-    if (changed) saveState();
-    return changed;
-  }
-
-  function getActiveItems() {
-    return state.items.filter(i => !i.archived);
-  }
-
-  function getItemsByCategory(cat) {
-    let items = getActiveItems().filter(i => i.category === cat);
-    const q = (state.searchQuery || '').trim().toLowerCase();
-    if (q) items = items.filter(i => (i.text || '').toLowerCase().includes(q));
-    return items;
-  }
-
-  function getCategoryLabel(catId) {
-    if (state.customLabels[catId]) return state.customLabels[catId];
-    const cat = getCategories().find(c => c.id === catId);
-    return cat ? cat.label : catId;
-  }
-
-  function getColumnColor(catId) {
-    if (catId === '__button' || catId === '__text') return null;
-    return state.columnColors[catId] || DEFAULT_COLUMN_COLORS[catId] || '#6b7280';
-  }
-
-  function getActiveColumnColors() {
-    const out = {};
-    Object.keys(state.columnColors || {}).forEach(k => {
-      if (k !== '__button' && k !== '__text') out[k] = state.columnColors[k];
-    });
-    return out;
-  }
-
-  function applyThemeColors() {
-    const root = document.documentElement;
-    if (state.buttonColor) {
-      root.style.setProperty('--accent-button', state.buttonColor);
-      root.style.setProperty('--header-accent', state.buttonColor);
-    } else {
-      root.style.removeProperty('--accent-button');
-      root.style.removeProperty('--header-accent');
-    }
-    if (state.textColor) root.style.setProperty('--accent-text', state.textColor);
-    else root.style.removeProperty('--accent-text');
-    const metaTheme = document.querySelector('meta[name="theme-color"]');
-    if (metaTheme) metaTheme.setAttribute('content', state.buttonColor || '#e07a5f');
-  }
-
-  function escapeHtml(s) {
-    if (s == null) return '';
-    const div = document.createElement('div');
-    div.textContent = String(s);
-    return div.innerHTML;
-  }
+import { hasSupabaseConfig } from './config/supabase-env.js';
+import { escapeHtml } from './utils/dom.js';
+import { wirePersist } from './core/persist.js';
+import {
+  loadPairState,
+  savePairState,
+  hasChosenSolo,
+  setChosenSolo,
+  loadDeviceSyncState,
+  saveDeviceSyncState
+} from './storage/pair-device.js';
+import {
+  loadState,
+  saveState,
+  setStorageNotify,
+  setCloudSyncHook,
+  getTallyDate,
+  getTallyDateYYYYMMDD,
+  countCompletedInTallyDay
+} from './storage/local.js';
+import { getCategories, getOrderedCategoryIds, getCategoryLabel } from './domain/categories.js';
+import {
+  detectCategory,
+  extractDeadline,
+  extractDoingDate,
+  extractFriction,
+  extractRecurrence,
+  extractPriority,
+  stripAutoExtractedFromText,
+  createItem,
+  formatDuration,
+  parseLocalDate,
+  getSortReferenceDate,
+  formatDeadline,
+  getTodayLocalYYYYMMDD,
+  getTimeBand,
+  sortByTimeBandsAndFriction,
+  sortItems,
+  archivePastDoingDatesIfNeeded,
+  getActiveItems,
+  getItemsByCategory,
+  getColumnColor,
+  getActiveColumnColors
+} from './domain/tasks.js';
+import {
+  getPiles,
+  getPileName,
+  PEOPLE_GROUPS,
+  getPeople,
+  getPerson,
+  getPersonName,
+  addPerson,
+  updatePerson,
+  deletePerson,
+  getReconnectIntervalMs,
+  isOverdueToReconnect,
+  addPile,
+  updatePile,
+  deletePile
+} from './domain/piles-people.js';
+import {
+  getHabits,
+  getCompletionsForDate,
+  recordCompletion,
+  removeCompletionsForTask,
+  isHabitDoneOnDate,
+  computeWeightedPct,
+  compute7DayRolling,
+  getZoneLabel,
+  addHabit,
+  updateHabit,
+  deleteHabit,
+  toggleHabitManual
+} from './domain/habits.js';
+import { applyThemeColors } from './ui/theme.js';
+
+wirePersist(() => saveState());
 
   function updateColumnNoteTurnPopover(e) {
     const ta = e && e.target && e.target.classList && e.target.classList.contains('column-note-textarea') ? e.target : null;
@@ -782,7 +152,7 @@ function getCategories() {
             ${noteOpen ? `
               <div class="column-note-panel column-note-full open" data-category="${catId}">
                 <div class="column-note-textarea-wrap">
-                  <textarea class="column-note-textarea" data-category="${catId}" placeholder="Notes for this area..." rows="3">${escapeHtml(noteContent)}</textarea>
+                  <textarea class="column-note-textarea" data-category="${catId}" placeholder="Notes for this area..." rows="3">${(noteContent || '').replace(/<\/textarea/gi, '<\\/textarea')}</textarea>
                   <div class="column-note-turn-popover" data-category="${catId}" style="display:none">
                     <button type="button" class="btn-secondary btn-sm column-turn-into-task" data-category="${catId}" title="Create task from selected text">Turn into task</button>
                   </div>
@@ -847,7 +217,8 @@ function getCategories() {
 
           const before = ta.value.slice(0, start);
           const after = ta.value.slice(end);
-          const nextValue = (before + after).replace(/\n{3,}/g, '\n\n').trim();
+          // Preserve user formatting; only collapse extreme whitespace.
+          const nextValue = (before + after).replace(/\n{4,}/g, '\n\n\n');
           ta.value = nextValue;
           if (!state.columnNotes) state.columnNotes = {};
           state.columnNotes[catId] = nextValue;
@@ -1514,16 +885,16 @@ function getCategories() {
 
     state.processingIds.delete(id);
     if (showUndo) {
-      state.undoItem = item;
+      const restoreIndex = idx;
+      const restoreItem = item;
       showToast('Removed', () => {
-        state.items.push(state.undoItem);
+        const safeIndex = Math.max(0, Math.min(restoreIndex, state.items.length));
+        state.items.splice(safeIndex, 0, restoreItem);
         saveState();
         renderTodayList();
         renderFocusList();
         renderColumns();
       });
-      if (state.undoTimeout) clearTimeout(state.undoTimeout);
-      state.undoTimeout = setTimeout(() => { state.undoItem = null; }, 5000);
     }
   }
 
@@ -1579,6 +950,8 @@ function getCategories() {
     updateCategorySelectOptions();
     updatePileSelectOptions('pile-select', presetPileId != null ? presetPileId : '');
     updatePersonSelectOptions('person-select', '');
+    const submitVoice = document.getElementById('submit-voice');
+    if (submitVoice) submitVoice.disabled = true;
     const tabSingle = document.getElementById('tab-single');
     const tabQuick = document.getElementById('tab-quick');
     const tabVoice = document.getElementById('tab-voice');
@@ -1593,8 +966,6 @@ function getCategories() {
     if (voiceAdd) voiceAdd.style.display = 'none';
     const transcriptEl = document.getElementById('voice-transcript');
     if (transcriptEl) transcriptEl.textContent = '';
-    const submitVoice = document.getElementById('submit-voice');
-    if (submitVoice) submitVoice.disabled = true;
     const taskInput = document.getElementById('task-input');
     if (taskInput) {
       taskInput.value = '';
@@ -2268,35 +1639,44 @@ function getCategories() {
 
   function getJournalDailyBlocks(text) {
     if (!text || !text.length) return [''];
-    return text.split(/\n\n/);
+    return text.split(/\n{2,}/);
   }
 
   function updateJournalDailyMirror() {
     const input = document.getElementById('journal-daily-input');
     const mirror = document.getElementById('journal-daily-mirror');
     if (!input || !mirror) return;
-    const text = input.value;
-    const cursorPos = input.selectionStart;
-    const blocks = getJournalDailyBlocks(text);
-    let pos = 0;
-    let currentBlockIndex = 0;
-    for (let i = 0; i < blocks.length; i++) {
-      const blockLen = blocks[i].length + (i < blocks.length - 1 ? 2 : 0);
-      if (cursorPos >= pos && cursorPos <= pos + blockLen) {
-        currentBlockIndex = i;
-        break;
-      }
-      if (cursorPos <= pos + blockLen) {
-        currentBlockIndex = i;
-        break;
-      }
-      pos += blockLen;
+    const text = input.value || '';
+    const cursorPos = typeof input.selectionStart === 'number' ? input.selectionStart : 0;
+
+    // Split into blocks while tracking separator lengths so cursor → block mapping stays stable.
+    const blocks = [];
+    const seps = [];
+    const re = /\n{2,}/g;
+    let last = 0;
+    let m;
+    while ((m = re.exec(text)) !== null) {
+      blocks.push(text.slice(last, m.index));
+      seps.push(m[0].length);
+      last = m.index + m[0].length;
     }
-    if (blocks.length === 1) currentBlockIndex = 0;
+    blocks.push(text.slice(last));
+
+    let currentBlockIndex = 0;
+    let pos = 0;
+    for (let i = 0; i < blocks.length; i++) {
+      const sepLen = i < seps.length ? seps[i] : 0;
+      const spanLen = blocks[i].length + sepLen;
+      if (cursorPos <= pos + spanLen) { currentBlockIndex = i; break; }
+      pos += spanLen;
+    }
+
     mirror.innerHTML = blocks.map(function(block, i) {
       const inactive = i !== currentBlockIndex;
       const escaped = escapeHtml(block).replace(/\n/g, '<br>');
-      return '<div class="journal-daily-block' + (inactive ? ' journal-daily-block-inactive' : '') + '">' + escaped + (inactive && block ? '<br>' : '') + '</div>';
+      // Keep height consistent for empty blocks so the cursor doesn't feel "trapped".
+      const tail = (inactive && block) ? '<br>' : (block ? '' : '<br>');
+      return '<div class="journal-daily-block' + (inactive ? ' journal-daily-block-inactive' : '') + '">' + escaped + tail + '</div>';
     }).join('');
   }
 
@@ -2539,6 +1919,41 @@ function getCategories() {
       const sel = document.getElementById('priority-select');
       if (sel && sel.querySelector(`option[value="${priority}"]`)) sel.value = priority;
     }
+    const recurrence = extractRecurrence(text);
+    if (recurrence) {
+      const sel = document.getElementById('recurrence-select');
+      if (sel && sel.querySelector(`option[value="${recurrence}"]`)) sel.value = recurrence;
+    }
+    const doingDate = extractDoingDate(text);
+    // If doing-date matches the extracted deadline, treat as due-only (avoid past doing-date auto-archive).
+    if (doingDate && doingDate !== deadline) {
+      const inp = document.getElementById('doing-date-input');
+      if (inp) inp.value = doingDate;
+    }
+    const friction = extractFriction(text);
+    if (friction) {
+      const sel = document.getElementById('friction-select');
+      if (sel && sel.querySelector(`option[value="${friction}"]`)) sel.value = friction;
+    }
+    // Soft-detect pile/person by matching known names.
+    const t = (text || '').toLowerCase();
+    const piles = (state.piles || []).slice();
+    const people = (state.people || []).slice();
+    const pile = piles.find(p => p?.name && t.includes(String(p.name).toLowerCase()));
+    if (pile) {
+      const sel = document.getElementById('pile-select');
+      if (sel && sel.querySelector(`option[value="${pile.id}"]`)) sel.value = pile.id;
+    }
+    const person = people.find(p => p?.name && t.includes(String(p.name).toLowerCase()));
+    if (person) {
+      const sel = document.getElementById('person-select');
+      if (sel && sel.querySelector(`option[value="${person.id}"]`)) sel.value = person.id;
+    }
+    const firstStepMatch = (text || '').match(/\b(?:first\s+step|start\s+by|start)\s*:\s*(.+)$/i);
+    if (firstStepMatch && firstStepMatch[1]) {
+      const inp = document.getElementById('first-step-input');
+      if (inp && !inp.value) inp.value = firstStepMatch[1].trim().slice(0, 200);
+    }
   }
 
   function applySmartFieldsToEdit() {
@@ -2559,6 +1974,21 @@ function getCategories() {
     if (priority) {
       const sel = document.getElementById('edit-priority');
       if (sel && sel.querySelector(`option[value="${priority}"]`)) sel.value = priority;
+    }
+    const recurrence = extractRecurrence(text);
+    if (recurrence) {
+      const sel = document.getElementById('edit-recurrence');
+      if (sel && sel.querySelector(`option[value="${recurrence}"]`)) sel.value = recurrence;
+    }
+    const doingDate = extractDoingDate(text);
+    if (doingDate && doingDate !== deadline) {
+      const inp = document.getElementById('edit-doing-date');
+      if (inp) inp.value = doingDate;
+    }
+    const friction = extractFriction(text);
+    if (friction) {
+      const sel = document.getElementById('edit-friction');
+      if (sel && sel.querySelector(`option[value="${friction}"]`)) sel.value = friction;
     }
   }
 
@@ -2583,16 +2013,22 @@ function getCategories() {
     const firstStepEl = document.getElementById('first-step-input');
     const firstStep = (firstStepEl && firstStepEl.value) ? firstStepEl.value.trim() : null;
     if (submitBtn) submitBtn.disabled = true;
-    state.lastCategory = category;
-    const personEl = document.getElementById('person-select');
-    const personId = (personEl && personEl.value) ? personEl.value : null;
-    const item = createItem(text, category, deadline, priority, recurrence, null, doingDate, pileId, friction, personId);
-    if (firstStep) item.firstStep = firstStep;
-    state.items.push(item);
-    saveState();
-    closeAddModal();
-    renderColumns();
-    if (submitBtn) submitBtn.disabled = false;
+    try {
+      state.lastCategory = category;
+      const personEl = document.getElementById('person-select');
+      const personId = (personEl && personEl.value) ? personEl.value : null;
+      const item = createItem(text, category, deadline, priority, recurrence, null, doingDate, pileId, friction, personId);
+      if (firstStep) item.firstStep = firstStep;
+      state.items.push(item);
+      saveState();
+      closeAddModal();
+      renderColumns();
+    } catch (e) {
+      console.warn('Add single failed', e);
+      showToast('Could not add task — ' + (e?.message || 'try again'));
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
+    }
   }
 
   function openEditModal(id) {
@@ -2804,6 +2240,28 @@ function getCategories() {
     });
   }
 
+  /** Avoid blocking main UI on slow/missing Supabase (E2E + flaky networks). */
+  async function safeGetDevicePreferences(deviceSyncId) {
+    if (typeof window !== 'undefined' && window.__E2E__) {
+      return { __skipped: true };
+    }
+    if (!window.talkAbout || !deviceSyncId) return { __skipped: true };
+    const ms = 12000;
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        console.warn('getDevicePreferences timed out after', ms, 'ms');
+        resolve({ error: 'timeout' });
+      }, ms);
+      window.talkAbout.getDevicePreferences(deviceSyncId).then((prefs) => {
+        clearTimeout(timer);
+        resolve(prefs);
+      }).catch((e) => {
+        clearTimeout(timer);
+        resolve({ error: e && e.message ? e.message : String(e) });
+      });
+    });
+  }
+
   async function showMainApp() {
     document.getElementById('entry-screen').style.display = 'none';
     document.getElementById('pair-setup').style.display = 'none';
@@ -2827,8 +2285,10 @@ function getCategories() {
     await runDeviceSyncMigration();
     try {
       if (window.talkAbout && state.deviceSyncId) {
-        const prefs = await window.talkAbout.getDevicePreferences(state.deviceSyncId);
-        if (prefs?.error) {
+        const prefs = await safeGetDevicePreferences(state.deviceSyncId);
+        if (prefs?.__skipped) {
+          /* E2E or no-op */
+        } else if (prefs?.error) {
           showToast('Could not load preferences — using local settings');
         } else {
           applyDevicePreferencesToState(prefs);
@@ -2847,6 +2307,8 @@ function getCategories() {
     renderEmailTriage(false);
     updateTally();
     updateAddToSuggestionsBtn();
+    // Test-mode shortcut: avoid long-lived realtime subscriptions and extra network calls.
+    if (typeof window !== 'undefined' && window.__E2E__) return;
     if (window.talkAbout && state.pairId) {
       if (state.talkAboutUnsubscribe) state.talkAboutUnsubscribe();
       state.talkAboutUnsubscribe = window.talkAbout.subscribeTalkAbout(state.pairId, (items) => {
@@ -3955,6 +3417,8 @@ function getCategories() {
   }
 
   async function init() {
+    setStorageNotify((msg) => showToast(msg));
+    setCloudSyncHook(() => saveDevicePreferencesToSupabase());
     window.addEventListener('online', () => {
       updateOfflineBanner();
       showToast('Back online — sync resumed');
@@ -3966,7 +3430,7 @@ function getCategories() {
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })
         .then((reg) => {
-          reg.update();
+          if (reg) reg.update();
           navigator.serviceWorker.addEventListener('controllerchange', () => window.location.reload());
         })
         .catch((err) => {

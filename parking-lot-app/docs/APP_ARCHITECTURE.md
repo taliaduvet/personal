@@ -2,6 +2,8 @@
 
 This document describes how the app works from the entry point (`index.html`) through every file in the directory. Use it to understand the flow, data, and behavior of the system.
 
+**Full manual QA:** See [QA_FULL_CHECKLIST.md](./QA_FULL_CHECKLIST.md) for every user-facing flow (and which checks are automated in Playwright). **Automating “clicks” (Playwright + how the agent runs them):** [QA_AUTOMATION_SETUP.md](./QA_AUTOMATION_SETUP.md).
+
 **Modular refactor:** When splitting [`js/app-main.js`](../js/app-main.js) into more modules, use [MODULAR_REFACTOR_CHECKLIST.md](./MODULAR_REFACTOR_CHECKLIST.md) for **layer rules**, **Definition of Done** per milestone, smoke checks, and **verification greps**.
 
 ### Module map (extend each PR)
