@@ -373,6 +373,17 @@
       return { data: data || [], error };
     },
 
+    /** Load receipt rows for export (by primary key, scoped to user). */
+    async gfReceiptsByIds(ids) {
+      const sb = getClient();
+      const u = await getUid();
+      if (!sb || !u) return { data: [], error: 'Not authenticated' };
+      const list = (ids || []).filter(Boolean);
+      if (list.length === 0) return { data: [], error: null };
+      const { data, error } = await sb.from('gf_receipts').select('*').eq('user_id', u).in('id', list);
+      return { data: data || [], error };
+    },
+
     async gfReceiptUpload(file, receiptDate) {
       const sb = getClient();
       const u = await getUid();

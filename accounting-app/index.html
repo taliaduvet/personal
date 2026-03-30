@@ -243,6 +243,7 @@
           <p id="gf-summary-total" class="gf-total-line"></p>
           <p class="hint">Use this total as part of your medical expenses (lines 33099/33199) when you file your personal return in Wealthsimple or other software.</p>
           <button type="button" id="gf-export-btn" class="btn btn-secondary">Export summary (CSV)</button>
+          <button type="button" id="gf-export-zip-btn" class="btn btn-secondary">Download report + receipts (ZIP)</button>
           <button type="button" id="gf-print-btn" class="btn btn-secondary">Print summary</button>
         </div>
       </section>
@@ -250,6 +251,7 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
   <script src="config.js"></script>
   <script src="api.js"></script>
   <script src="app.js"></script>

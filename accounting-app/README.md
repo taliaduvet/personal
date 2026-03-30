@@ -55,7 +55,7 @@ Full step-by-step (Parking + Ledger, custom domains): in the **Personal** monore
 - **Expenses**: Add, edit, delete; optional **vendor**, T2125 category, GST; **attach receipt photos or PDFs** (Phase 2).
 - **Reports**: Pick a date range; see income/expense totals, expenses by T2125 category, and GST summary for your return.
 - **Bank**: Upload a CSV from your bank; map date, description, and amount columns; see unreconciled transactions; **Create expense** or **Create income** (with suggested category/type from your saved rules), or **Ignore**. **Remember for next time** saves a rule so future similar descriptions get the same suggestion (Phase 3 + 4).
-- **Gluten-free medical**: For celiac medical expense claims (CRA lines 33099/33199). Upload grocery receipts, log GF items with quantity and GF total paid, enter the regular (non-GF) price per unit (or use **Use BC average** to fetch Statistics Canada BC prices). The app computes incremental cost and builds a CRA-style yearly summary. Export CSV or print for your records.
+- **Gluten-free medical**: For celiac medical expense claims (CRA lines 33099/33199). Upload grocery receipts, log GF items with quantity and GF total paid, enter the regular (non-GF) price per unit (or use **Use BC average** to fetch Statistics Canada BC prices). The app computes incremental cost and builds a CRA-style yearly summary. Export CSV, print, or **Download report + receipts (ZIP)** — after you click **Apply** on the summary, that ZIP includes the same CSV plus a `receipts/` folder of files linked to lines in that period (via JSZip from the CDN).
 
 ## Test the whole system
 

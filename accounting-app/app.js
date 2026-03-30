@@ -1154,6 +1154,8 @@
   let gfEditingPurchaseId = null;
   let gfEditingProductName = null;
   let gfEditingReceiptId = null;
+  /** Set when CRA Summary Apply succeeds: purchases, aggregated rows, totals, date range (for CSV + ZIP export). */
+  let gfLastSummaryContext = null;
   const GF_CURRENT_RECEIPT_KEY = 'gf_current_receipt_id';
   const GF_CURRENT_RECEIPT_NAME_KEY = 'gf_current_receipt_name';
   const GF_CURRENT_RECEIPT_DATE_KEY = 'gf_current_receipt_date';
@@ -1537,6 +1539,26 @@
     });
   }
 
+  function gfBuildSummaryCsvFromContext(ctx) {
+    if (!ctx || !ctx.rows || ctx.rows.length === 0) return '';
+    const lines = [];
+    lines.push('"Product","# bought","Avg regular/unit","Avg GF/unit","Incremental/unit","Amount to claim"');
+    ctx.rows.forEach(r => {
+      lines.push([
+        '"' + String(r.product_name).replace(/"/g, '""') + '"',
+        String(r.total_quantity),
+        '"$' + centsToDollars(r.avg_regular_unit_price_cents) + '"',
+        '"$' + centsToDollars(r.avg_gf_unit_price_cents) + '"',
+        '"$' + centsToDollars(r.incremental_per_unit_cents) + '"',
+        '"$' + centsToDollars(r.incremental_total_cents) + '"'
+      ].join(','));
+    });
+    lines.push('');
+    lines.push('"Total incremental gluten-free cost for this period: $' + centsToDollars(ctx.totalCents) + ' (use as medical expense on lines 33099/33199)."');
+    if (ctx.from && ctx.to) lines.push('', '"Period: ' + String(ctx.from) + ' to ' + String(ctx.to).replace(/"/g, '""') + '"');
+    return lines.join('\n');
+  }
+
   async function gfSummaryApply() {
     const yearSel = document.getElementById('gf-summary-year');
     const fromEl = document.getElementById('gf-summary-from');
@@ -1552,9 +1574,15 @@
     }
     if (!from || !to) { alert('Choose a year or enter from/to dates.'); return; }
     const { data, error } = await gfApi.purchasesList({ from, to });
-    if (error) { document.getElementById('gf-summary-table-wrap').innerHTML = '<p class="empty-state">Could not load.</p>'; return; }
-    const rows = gfAggregateSummary(data || []);
+    if (error) {
+      gfLastSummaryContext = null;
+      document.getElementById('gf-summary-table-wrap').innerHTML = '<p class="empty-state">Could not load.</p>';
+      return;
+    }
+    const purchases = data || [];
+    const rows = gfAggregateSummary(purchases);
     const totalCents = rows.reduce((s, r) => s + r.incremental_total_cents, 0);
+    gfLastSummaryContext = { purchases, rows, totalCents, from, to };
     const tableWrap = document.getElementById('gf-summary-table-wrap');
     const totalLine = document.getElementById('gf-summary-total');
     if (rows.length === 0) {
@@ -1580,6 +1608,17 @@
   }
 
   function gfExportCsv() {
+    const ctx = gfLastSummaryContext;
+    if (ctx && ctx.rows && ctx.rows.length > 0) {
+      const csv = gfBuildSummaryCsvFromContext(ctx);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'gf-medical-summary.csv';
+      a.click();
+      URL.revokeObjectURL(a.href);
+      return;
+    }
     const tableWrap = document.getElementById('gf-summary-table-wrap');
     const table = tableWrap?.querySelector('table');
     if (!table) { alert('Run the summary first (choose period and click Apply).'); return; }
@@ -1587,7 +1626,7 @@
     const lines = [];
     rows.forEach(tr => {
       const cells = tr.querySelectorAll('th, td');
-      lines.push(Array.from(cells).map(c => `"${c.textContent.trim().replace(/"/g, '""')}"`).join(','));
+      lines.push(Array.from(cells).map(c => '"' + c.textContent.trim().replace(/"/g, '""') + '"').join(','));
     });
     const totalLine = document.getElementById('gf-summary-total')?.textContent || '';
     if (totalLine) lines.push('', totalLine);
@@ -1597,6 +1636,116 @@
     a.download = 'gf-medical-summary.csv';
     a.click();
     URL.revokeObjectURL(a.href);
+  }
+
+  async function gfExportReportWithReceiptsZip() {
+    const ctx = gfLastSummaryContext;
+    if (!ctx || !ctx.purchases || ctx.purchases.length === 0) {
+      alert('Run the summary first (choose period and click Apply).');
+      return;
+    }
+    if (!ctx.rows || ctx.rows.length === 0) {
+      alert('No GF purchases in this period — nothing to put in the report.');
+      return;
+    }
+    if (typeof JSZip === 'undefined') {
+      alert('ZIP helper did not load. Refresh the page and try again.');
+      return;
+    }
+    const btn = document.getElementById('gf-export-zip-btn');
+    var prevText = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; btn.textContent = 'Building ZIP…'; }
+    try {
+      const zip = new JSZip();
+      zip.file('gf-medical-summary.csv', gfBuildSummaryCsvFromContext(ctx));
+      zip.file('READ_ME.txt', [
+        'Gluten-free medical expense report pack',
+        '',
+        'Period: ' + ctx.from + ' to ' + ctx.to,
+        '',
+        'gf-medical-summary.csv — incremental GF amounts by product (CRA-style summary).',
+        'receipts/ — files linked to GF line items in this period (for your records).',
+        '',
+        'Use the summary total as part of medical expenses (lines 33099/33199) when filing.'
+      ].join('\n'));
+
+      const receiptIdSet = new Set();
+      ctx.purchases.forEach(function (p) {
+        if (p.receipt_id) receiptIdSet.add(p.receipt_id);
+      });
+      const ids = Array.from(receiptIdSet);
+      const receiptsFolder = zip.folder('receipts');
+      const missing = [];
+      const fetchFailed = [];
+      const usedNames = {};
+
+      if (ids.length) {
+        const { data: recRows, error: recErr } = await gfApi.gfReceiptsByIds(ids);
+        if (recErr) {
+          alert(recErr.message || String(recErr) || 'Could not load receipt list.');
+          return;
+        }
+        const byId = {};
+        (recRows || []).forEach(function (r) { byId[r.id] = r; });
+        for (var i = 0; i < ids.length; i++) {
+          var rid = ids[i];
+          var rec = byId[rid];
+          if (!rec) {
+            missing.push(rid);
+            continue;
+          }
+          var urlRes = await gfApi.getGfReceiptUrl(rec.file_path);
+          if (urlRes.error || !urlRes.url) {
+            fetchFailed.push(rec.file_name || rid);
+            continue;
+          }
+          try {
+            var res = await fetch(urlRes.url);
+            if (!res.ok) {
+              fetchFailed.push(rec.file_name || rid);
+              continue;
+            }
+            var fileBlob = await res.blob();
+            var baseName = (rec.file_name || 'receipt').replace(/[<>:"/\\|?*\x00-\x1f]/g, '_');
+            if (!baseName.trim()) baseName = 'receipt';
+            var safeName = rid.slice(0, 8) + '_' + baseName;
+            if (usedNames[safeName]) {
+              usedNames[safeName] += 1;
+              var dot = safeName.lastIndexOf('.');
+              if (dot > 0) {
+                safeName = safeName.slice(0, dot) + '_' + usedNames[safeName] + safeName.slice(dot);
+              } else {
+                safeName = safeName + '_' + usedNames[safeName];
+              }
+            } else {
+              usedNames[safeName] = 1;
+            }
+            receiptsFolder.file(safeName, fileBlob);
+          } catch (e) {
+            fetchFailed.push(rec.file_name || rid);
+          }
+        }
+      }
+
+      var notes = [];
+      if (ids.length === 0) notes.push('No receipt files were linked to GF line items in this period.');
+      if (missing.length) notes.push('Missing receipt records in database: ' + missing.join(', '));
+      if (fetchFailed.length) notes.push('Could not download file: ' + fetchFailed.join(', '));
+      if (notes.length) receiptsFolder.file('_notes.txt', notes.join('\n'));
+
+      var outBlob = await zip.generateAsync({ type: 'blob' });
+      var nameSafe = ('gf-medical-report_' + ctx.from + '_' + ctx.to).replace(/[^a-zA-Z0-9._-]/g, '-');
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(outBlob);
+      a.download = nameSafe + '.zip';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = prevText || 'Download report + receipts (ZIP)';
+      }
+    }
   }
 
   async function gfAddAndUseProduct() {
@@ -1774,6 +1923,7 @@
     });
     document.getElementById('gf-summary-apply')?.addEventListener('click', gfSummaryApply);
     document.getElementById('gf-export-btn')?.addEventListener('click', gfExportCsv);
+    document.getElementById('gf-export-zip-btn')?.addEventListener('click', function () { gfExportReportWithReceiptsZip(); });
     document.getElementById('gf-print-btn')?.addEventListener('click', gfPrintSummary);
   }
 
