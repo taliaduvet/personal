@@ -4,7 +4,7 @@ This document describes how the app works from the entry point (`index.html`) th
 
 **Full manual QA:** See [QA_FULL_CHECKLIST.md](./QA_FULL_CHECKLIST.md) for every user-facing flow (and which checks are automated in Playwright). **Automating “clicks” (Playwright + how the agent runs them):** [QA_AUTOMATION_SETUP.md](./QA_AUTOMATION_SETUP.md).
 
-**Modular refactor:** When splitting [`js/app-main.js`](../js/app-main.js) into more modules, use [MODULAR_REFACTOR_CHECKLIST.md](./MODULAR_REFACTOR_CHECKLIST.md) for **layer rules**, **Definition of Done** per milestone, smoke checks, and **verification greps**.
+**Modular refactor:** When splitting [`js/app-main.js`](../js/app-main.js) into more modules, use [MODULAR_REFACTOR_CHECKLIST.md](./MODULAR_REFACTOR_CHECKLIST.md) for **layer rules**, **Definition of Done** per milestone, smoke checks, and **verification greps**. **Folder roles and workflows:** [STRUCTURE.md](./STRUCTURE.md).
 
 ### Module map (extend each PR)
 
@@ -12,15 +12,19 @@ This document describes how the app works from the entry point (`index.html`) th
 | --- | --- |
 | `js/constants.js` | Shared constants (presets, priorities, storage prefix, default colors). |
 | `js/state.js` | Exported `state` object (single in-memory store). |
-| `js/app-main.js` | Current composition root (persistence, domain, render, events — to be split per checklist). |
-| `js/config/supabase-env.js` | *Planned* — Supabase URL/key presence (`hasSupabaseConfig`). |
-| `js/utils/dom.js` | *Planned* — `escapeHtml`, pure helpers. |
-| `js/storage/*.js` | *Planned* — `loadState` / `saveState`, pair/device keys, migrations. |
-| `js/domain/*.js` | *Planned* — business logic, no DOM. |
-| `js/render/*.js` | *Planned* — DOM templates and re-renders. |
-| `js/features/*.js` | *Planned* — journal, consistency, relationships, email triage. |
+| `js/app-main.js` | **Bootstrap only** — imports `./app/orchestrator.js` (thin entry for the service worker / HTML). |
+| `js/app/orchestrator.js` | Composition root today: persistence wiring, `init()`, `showMainApp()`, `bindEvents()`, renders, modals (remaining split targets per checklist). |
+| `js/config/supabase-env.js` | Supabase URL/key presence (`hasSupabaseConfig`). |
+| `js/utils/dom.js` | `escapeHtml`, pure helpers. |
+| `js/storage/*.js` | `loadState` / `saveState`, pair/device keys. |
+| `js/domain/*.js` | Business logic, no DOM. |
+| `js/domain/backup-export.js` | Stable JSON shape for Settings → Export backup (`buildBackupPayload`). |
+| `js/render/task-card.js` | Task card HTML (`renderTaskCard`, `formatDoingDate`). |
+| `js/features/toast.js` | `showToast`. |
+| `js/features/offline-banner.js` | `updateOfflineBanner`. |
+| `js/features/*.js` | *(grow here)* journal, consistency, relationships, email triage panels. |
 | `js/sync/realtime.js` | *Planned* — Supabase realtime subscribe/unsubscribe owner. |
-| `js/ui/theme.js` | *Planned* — CSS variables / theme application. |
+| `js/ui/theme.js` | CSS variables / theme application (`applyThemeColors`). |
 
 ---
 
@@ -40,7 +44,7 @@ The app is a single-page application. The browser loads `index.html`, which defi
   2. Chrono-node (CDN, natural-language date parsing)
   3. `config.js` — Supabase URL and anon key (gitignored). Prefer **`var` bindings** (see `config.js.example`) so `SUPABASE_URL` exists on `globalThis` for the ES module; classic `const` at global scope is not always readable from `js/app-main.js`.
   4. `supabase.js` — Supabase client and cloud APIs (classic script; attaches `window.talkAbout`)
-  5. `js/app-main.js` — `type="module"` entry: loads app logic, which imports `js/constants.js` and `js/state.js`
+  5. `js/app-main.js` — `type="module"` entry: imports `js/app/orchestrator.js` (which loads the rest of the graph: `constants`, `state`, domain, storage, `render/*`, `features/*`, …)
 
 ### 1.2 DOM structure (screens)
 
@@ -124,11 +128,12 @@ The main entry is **`js/app-main.js`** (loaded with `type="module"` from `index.
 |------|------|
 | `js/constants.js` | Category presets, migration maps, priorities, storage key prefix, default column colors (exported constants). |
 | `js/state.js` | Single exported **`state`** object — the live in-memory store (tasks, prefs, UI flags, etc.). |
-| `js/app-main.js` | **Persistence** (`loadState` / `saveState` / pair + device sync), **parsing**, **renderers**, **Supabase hooks**, **event binding**, **`init()`**. |
+| `js/app-main.js` | Re-exports the app graph via **`import './app/orchestrator.js'`** only. |
+| `js/app/orchestrator.js` | **Persistence** (`loadState` / `saveState` / pair + device sync), **parsing**, **renderers**, **Supabase hooks**, **event binding**, **`init()`**. |
 
 `supabase.js` stays a non-module script so it can stay compatible with `config.js` globals (`SUPABASE_URL`, `SUPABASE_ANON_KEY`) and attach **`window.talkAbout`**.
 
-Execution starts at the bottom of `app-main.js`: when the DOM is ready, `init()` runs (same as before the split).
+Execution starts at the bottom of **`orchestrator.js`**: when the DOM is ready, `init()` runs.
 
 ### 3.0 Layout note: board columns
 

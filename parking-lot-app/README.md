@@ -68,10 +68,15 @@ See [DEPLOY.md](DEPLOY.md) for setup. Add your Supabase URL and anon key as GitH
 
 ---
 
+## For developers
+
+- **[docs/STRUCTURE.md](docs/STRUCTURE.md)** — Where code lives, workflows, CDN/SW notes.
+- **`npm run qa:full`** — Vitest + Playwright (see [docs/QA_AUTOMATION_SETUP.md](docs/QA_AUTOMATION_SETUP.md)).
+
 ## Files
 
 - `index.html` — Main app
-- `js/app-main.js` — App entry (`type="module"`)
+- `js/app-main.js` — Module entry (imports `js/app/orchestrator.js`)
 - `js/constants.js`, `js/state.js` — Shared constants and `state` object
 - `supabase.js` — Supabase client and Talk about sync
 - `config.js` — Supabase URL and key (gitignored)

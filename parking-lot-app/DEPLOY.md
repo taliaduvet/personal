@@ -6,6 +6,13 @@ To get **`https://YOUR_USER.github.io/parking-lot/`** (and your own custom domai
 
 ---
 
+## Which workflow runs?
+
+| Layout | Workflow | Notes |
+|--------|-----------|--------|
+| **Monorepo** (`personal` repo) | [`.github/workflows/deploy-couples-pages.yml`](../../.github/workflows/deploy-couples-pages.yml) at repo root | Builds `deploy/parking-lot-app/` and other apps. **Runs Parking Lot tests first** (Vitest + Playwright); deploy fails if tests fail. |
+| **Standalone** repo (only Parking Lot) | `parking-lot-app/.github/workflows/deploy-pages.yml` **only if** that folder is the **repository root** | GitHub ignores nested `.github` in monorepos — copy this folder to its own repo for this path. Job detects repo root vs nested `parking-lot-app/`. |
+
 ## Monorepo deploy (`personal` vault)
 
 ## One-time setup
@@ -50,3 +57,11 @@ After the first successful deploy:
 ## Custom domain (optional)
 
 In **Settings** → **Pages** → **Custom domain**, add your domain and follow the DNS instructions.
+
+---
+
+## Stale PWA / bad deploy recovery
+
+The service worker bumps `CACHE_NAME` when offline behavior changes. If users see an old bundle after deploy: **hard refresh** (e.g. Shift+Reload) or clear **site data** for the Pages origin. See [docs/STRUCTURE.md](./docs/STRUCTURE.md) (Service worker section).
+
+If **Playwright fails on CI**, open the **Actions** artifact `parking-lot-playwright-results` (monorepo workflow) for traces/screenshots.

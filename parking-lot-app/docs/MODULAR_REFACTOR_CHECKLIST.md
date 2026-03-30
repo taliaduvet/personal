@@ -53,9 +53,28 @@ Companion to the Cursor plan *Parking Lot modular + launch*. Use this for **merg
 
 ### M6 — Launch / trust
 
+**Suggested order before “public” promotion:**
+
+1. **RLS** — Complete [RLS_AUDIT.md](./RLS_AUDIT.md); fix policies in Supabase before inviting strangers.
+2. **Data rights** — Privacy/terms, subprocessors, in-app export path (already have backup export); document delete/limitation story.
+3. **License & hygiene** — `LICENSE` in repo; scrub private URLs from docs and build refs.
+
+Checklist:
+
 - [ ] Privacy/terms linked; subprocessors, export/delete, data-loss story substantive.
-- [ ] Per-table RLS audit documented (e.g. `docs/RLS_AUDIT.md`).
+- [ ] Per-table RLS audit documented ([RLS_AUDIT.md](./RLS_AUDIT.md)).
 - [ ] `LICENSE`; BUILD_REF has no private URLs.
+
+### Extracting `bindEvents` (M4–M5)
+
+- Move **`bindEvents` + `ensureViewToggle`** together when splitting.
+- **Nested functions** currently defined inside `bindEvents` (e.g. relationships helpers) must move to the **same** feature/events module in the **same PR**, or be lifted first — avoid a shallow copy that leaves half the UI in orchestrator.
+- Prefer **`wireMainEvents(deps)`** with a JSDoc `@typedef` listing only the callbacks that **must** be injected to break cycles; pass everything else via normal imports.
+
+### Standalone vs monorepo workflows
+
+- **Standalone** GitHub repo (this app at root): use [`.github/workflows/deploy-pages.yml`](../.github/workflows/deploy-pages.yml) inside this folder (detects `parking-lot-app/` nested layout if someone clones into a monorepo by mistake).
+- **Personal / monorepo vault:** root [`.github/workflows/deploy-couples-pages.yml`](../../.github/workflows/deploy-couples-pages.yml) deploys; it runs **Vitest + Playwright** before publish.
 
 ---
 

@@ -1,13 +1,14 @@
-const CACHE_NAME = 'parking-lot-v16';
+const CACHE_NAME = 'parking-lot-v18';
 const STATIC_ASSETS = [
   './',
   './index.html',
   './js/app-main.js',
+  './js/app/orchestrator.js',
   './js/constants.js',
   './js/state.js',
   './styles.css',
   './manifest.json',
-  './supabase.js'
+  './supabase.js',
 ];
 
 self.addEventListener('install', (e) => {
@@ -26,9 +27,17 @@ self.addEventListener('activate', (e) => {
   self.clients.claim();
 });
 
+/**
+ * Network-first for shell + all app JS under /js/ so new modules work offline after
+ * first load without editing this list every time. Other assets: cache-first.
+ */
 function isNetworkFirst(pathname) {
-  return pathname.endsWith('/') || pathname.endsWith('index.html') || pathname.endsWith('app.js') ||
-    pathname.endsWith('app-main.js') || pathname.endsWith('styles.css');
+  if (pathname.endsWith('/') || pathname.endsWith('index.html')) return true;
+  if (pathname.endsWith('styles.css')) return true;
+  if (pathname.endsWith('app.js')) return true;
+  if (pathname.endsWith('app-main.js')) return true;
+  if (pathname.includes('/js/') && pathname.endsWith('.js')) return true;
+  return false;
 }
 
 self.addEventListener('fetch', (e) => {

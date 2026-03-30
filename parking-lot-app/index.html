@@ -684,8 +684,9 @@
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://unpkg.com/chrono-node@2.5.0/dist/bundle.js"></script>
+  <!-- Pinned CDN + SRI; bump integrity when changing versions (see docs/STRUCTURE.md). -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.8/dist/umd/supabase.min.js" integrity="sha384-z2hqtpr/vSDZ8zSjLOiNgnR/mpU799AD93s6rvkNJLI6Hl0YlKXEhDtREzNT749S" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/chrono-node@2.5.0/dist/bundle.js" integrity="sha384-/8+AY0G8PzBjQkmrieIR1qah93hZKx833l5OXtZUK6Hig5vQerZN4wfRXJ289/nv" crossorigin="anonymous"></script>
   <script src="config.js"></script>
   <script src="supabase.js"></script>
   <script type="module" src="js/app-main.js"></script>

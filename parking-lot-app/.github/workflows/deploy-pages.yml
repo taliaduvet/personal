@@ -1,5 +1,8 @@
-# Use this when `parking-lot-app/` is the ROOT of its own GitHub repo (e.g. repo name: parking-lot).
+# Use when parking-lot-app is the GitHub repo ROOT (standalone site).
 # Secrets: SUPABASE_URL, SUPABASE_KEY
+#
+# Monorepo (e.g. personal vault): the root workflow `.github/workflows/deploy-couples-pages.yml`
+# deploys this app from `parking-lot-app/` — this file is not used unless you split repos.
 
 name: Deploy Parking Lot to GitHub Pages
 
@@ -18,18 +21,59 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build:
+  test:
+    name: Test (Vitest + Playwright)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Resolve app directory
+        id: root
+        run: |
+          if [ -f parking-lot-app/index.html ]; then
+            echo "APP_DIR=parking-lot-app" >> "$GITHUB_ENV"
+          else
+            echo "APP_DIR=." >> "$GITHUB_ENV"
+          fi
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: ${{ env.APP_DIR }}/package-lock.json
+      - name: Install and test
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          npm ci
+          npm run test
+          npx playwright install --with-deps chromium
+          npm run e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-results
+          path: ${{ env.APP_DIR }}/test-results/
+          if-no-files-found: ignore
 
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resolve app directory
+        run: |
+          if [ -f parking-lot-app/index.html ]; then
+            echo "APP_DIR=parking-lot-app" >> "$GITHUB_ENV"
+          else
+            echo "APP_DIR=." >> "$GITHUB_ENV"
+          fi
       - name: Prepare site
         run: |
-          mkdir -p _site
-          cp index.html styles.css manifest.json sw.js supabase.js _site/
-          cp -r js _site/js
-          echo "const SUPABASE_URL='${{ secrets.SUPABASE_URL }}'; const SUPABASE_ANON_KEY='${{ secrets.SUPABASE_KEY }}';" > _site/config.js
-          if grep -q "SUPABASE_URL='';" _site/config.js || grep -q "SUPABASE_ANON_KEY='';" _site/config.js; then
+          SRC="$GITHUB_WORKSPACE/$APP_DIR"
+          SITE="$GITHUB_WORKSPACE/_site"
+          mkdir -p "$SITE"
+          cp "$SRC/index.html" "$SRC/styles.css" "$SRC/manifest.json" "$SRC/sw.js" "$SRC/supabase.js" "$SITE/"
+          cp -r "$SRC/js" "$SITE/js"
+          echo "const SUPABASE_URL='${{ secrets.SUPABASE_URL }}'; const SUPABASE_ANON_KEY='${{ secrets.SUPABASE_KEY }}';" > "$SITE/config.js"
+          if grep -q "SUPABASE_URL='';" "$SITE/config.js" || grep -q "SUPABASE_ANON_KEY='';" "$SITE/config.js"; then
             echo "::error::Supabase secrets empty. Add SUPABASE_URL and SUPABASE_KEY in repo Settings → Secrets."
             exit 1
           fi
