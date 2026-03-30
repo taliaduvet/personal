@@ -35,17 +35,17 @@
         <span class="user" id="user-email"></span>
         <button type="button" id="signout-btn">Sign out</button>
       </header>
-      <nav class="tabs" role="tablist">
-        <button type="button" data-panel="dashboard" class="tab-btn active">Dashboard</button>
-        <button type="button" data-panel="income" class="tab-btn">Income</button>
-        <button type="button" data-panel="expenses" class="tab-btn">Expenses</button>
-        <button type="button" data-panel="reports" class="tab-btn">Reports</button>
-        <button type="button" data-panel="bank" class="tab-btn">Bank</button>
-        <button type="button" data-panel="budget" class="tab-btn">Budget</button>
-        <button type="button" data-panel="gf" class="tab-btn">Gluten-free medical</button>
+      <nav class="tabs" role="tablist" aria-label="Main sections">
+        <button type="button" id="tab-dashboard" role="tab" aria-selected="true" aria-controls="panel-dashboard" data-panel="dashboard" class="tab-btn active">Dashboard</button>
+        <button type="button" id="tab-income" role="tab" aria-selected="false" aria-controls="panel-income" data-panel="income" class="tab-btn">Income</button>
+        <button type="button" id="tab-expenses" role="tab" aria-selected="false" aria-controls="panel-expenses" data-panel="expenses" class="tab-btn">Expenses</button>
+        <button type="button" id="tab-reports" role="tab" aria-selected="false" aria-controls="panel-reports" data-panel="reports" class="tab-btn">Reports</button>
+        <button type="button" id="tab-bank" role="tab" aria-selected="false" aria-controls="panel-bank" data-panel="bank" class="tab-btn">Bank</button>
+        <button type="button" id="tab-budget" role="tab" aria-selected="false" aria-controls="panel-budget" data-panel="budget" class="tab-btn">Budget</button>
+        <button type="button" id="tab-gf" role="tab" aria-selected="false" aria-controls="panel-gf" data-panel="gf" class="tab-btn">Gluten-free medical</button>
       </nav>
 
-      <section id="panel-dashboard" class="panel visible">
+      <section id="panel-dashboard" role="tabpanel" aria-labelledby="tab-dashboard" class="panel visible">
         <div class="period-controls">
           <label>From <input type="date" id="dash-period-from"></label>
           <label>To <input type="date" id="dash-period-to"></label>
@@ -56,7 +56,7 @@
         <div id="dash-recent" class="entry-list"></div>
       </section>
 
-      <section id="panel-income" class="panel">
+      <section id="panel-income" role="tabpanel" aria-labelledby="tab-income" class="panel">
         <div class="period-controls">
           <label>From <input type="date" id="income-period-from"></label>
           <label>To <input type="date" id="income-period-to"></label>
@@ -69,7 +69,7 @@
         <div id="income-list" class="entry-list" style="margin-top:1rem"></div>
       </section>
 
-      <section id="panel-expenses" class="panel">
+      <section id="panel-expenses" role="tabpanel" aria-labelledby="tab-expenses" class="panel">
         <div class="period-controls">
           <label>From <input type="date" id="expense-period-from"></label>
           <label>To <input type="date" id="expense-period-to"></label>
@@ -82,7 +82,7 @@
         <div id="expense-list" class="entry-list" style="margin-top:1rem"></div>
       </section>
 
-      <section id="panel-reports" class="panel">
+      <section id="panel-reports" role="tabpanel" aria-labelledby="tab-reports" class="panel">
         <div class="report-controls">
           <label>From <input type="date" id="report-from"></label>
           <label>To <input type="date" id="report-to"></label>
@@ -93,7 +93,7 @@
         <div id="report-gst" class="report-summary" style="margin-top:1rem"></div>
       </section>
 
-      <section id="panel-bank" class="panel">
+      <section id="panel-bank" role="tabpanel" aria-labelledby="tab-bank" class="panel">
         <div class="bank-import">
           <h3>Import bank CSV</h3>
           <p class="empty-state" style="padding:0 0 1rem 0; text-align:left">Upload a CSV from your bank, map columns once, then create income/expenses from transactions.</p>
@@ -106,7 +106,7 @@
         <div id="bank-reconcile" class="bank-reconcile" style="margin-top:1.5rem"></div>
       </section>
 
-      <section id="panel-budget" class="panel">
+      <section id="panel-budget" role="tabpanel" aria-labelledby="tab-budget" class="panel">
         <div class="budget-controls">
           <label>Period</label>
           <select id="budget-period">
@@ -154,7 +154,7 @@
         </div>
       </section>
 
-      <section id="panel-gf" class="panel">
+      <section id="panel-gf" role="tabpanel" aria-labelledby="tab-gf" class="panel">
         <div class="gf-instructions">
           <p><strong>Gluten-free medical expense (CRA)</strong> — Log only items that are specifically gluten-free. Enter the regular price you’d normally pay for the non-GF equivalent. The app calculates the incremental cost and builds a yearly summary for your medical expense claim (lines 33099/33199).</p>
           <p class="hint" style="margin:0.5rem 0 0 0;">Keep a letter from your doctor stating you have celiac disease and need a gluten-free diet; CRA may ask for it with your medical expenses.</p>
@@ -254,6 +254,7 @@
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
   <script src="config.js"></script>
   <script src="api.js"></script>
+  <script src="js/parse-csv.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

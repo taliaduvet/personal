@@ -1,2 +1,6 @@
 # Local Supabase keys (GitHub Actions writes config.js on deploy)
 config.js
+
+node_modules/
+test-results/
+playwright-report/

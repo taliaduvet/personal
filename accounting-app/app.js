@@ -1,11 +1,41 @@
 (function () {
   'use strict';
 
+  function escapeHtml(s) {
+    if (s == null) return '';
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function escapeHtmlAttr(s) {
+    return escapeHtml(s).replace(/`/g, '&#96;');
+  }
+
+  function apiErrorMessage(err) {
+    if (err == null) return 'Unknown error';
+    if (typeof err === 'string') return err;
+    return err.message || err.error_description || String(err);
+  }
+
+  function showAppToast(message, isError) {
+    const el = document.createElement('div');
+    el.className = 'app-toast' + (isError ? ' app-toast-error' : '');
+    el.textContent = message;
+    document.body.appendChild(el);
+    setTimeout(function () {
+      if (el.parentNode) el.parentNode.removeChild(el);
+    }, 4500);
+  }
+
   const T2125_CATEGORIES = [
     { id: '8521', label: 'Advertising' },
     { id: '8590', label: 'Bad debts' },
     { id: '8760', label: 'Business taxes and fees' },
-    { id: '8760', label: 'Licenses / Subscriptions' },
+    { id: '8760-licenses', label: 'Licenses / Subscriptions (CRA line 8760)' },
     { id: '8360', label: 'Sub-contractors' },
     { id: '8690', label: 'Insurance' },
     { id: '8710', label: 'Interest' },
@@ -96,11 +126,17 @@
 
   function setPanel(name) {
     document.querySelectorAll('.panel').forEach(p => { p.classList.remove('visible'); });
-    document.querySelectorAll('.tab-btn').forEach(b => { b.classList.remove('active'); });
+    document.querySelectorAll('.tab-btn').forEach(b => {
+      b.classList.remove('active');
+      b.setAttribute('aria-selected', 'false');
+    });
     const panel = document.getElementById('panel-' + name);
     const btn = document.querySelector('.tab-btn[data-panel="' + name + '"]');
     if (panel) panel.classList.add('visible');
-    if (btn) btn.classList.add('active');
+    if (btn) {
+      btn.classList.add('active');
+      btn.setAttribute('aria-selected', 'true');
+    }
     if (name === 'reports') runReport();
     if (name === 'dashboard') renderDashboard();
     if (name === 'income') incomeListRender();
@@ -234,7 +270,7 @@
     matchListEl.innerHTML = planned.length ? planned.map(p => {
       const count = matchedInPeriod[p.id] || 0;
       const status = count > 0 ? `Matched ${count > 1 ? '(' + count + ')' : ''}` : 'Not yet';
-      return `<div class="budget-match-row"><span class="label">${p.label}</span> <span class="amount">${p.type === 'income' ? '+' : '-'}$${centsToDollars(p.amount_cents)}</span> <span class="status">${status}</span></div>`;
+      return `<div class="budget-match-row"><span class="label">${escapeHtml(p.label)}</span> <span class="amount">${p.type === 'income' ? '+' : '-'}$${centsToDollars(p.amount_cents)}</span> <span class="status">${escapeHtml(status)}</span></div>`;
     }).join('') : '<p class="empty-state">Add planned items above.</p>';
 
     const byCat = {};
@@ -246,7 +282,8 @@
     const sorted = Object.entries(byCat).sort((a, b) => b[1] - a[1]);
     categoryTableEl.innerHTML = sorted.length ? `<table><thead><tr><th>Category</th><th class="amount">Spent</th></tr></thead><tbody>${sorted.map(([catId, amt]) => {
       const cat = T2125_CATEGORIES.find(c => c.id === catId);
-      return `<tr><td>${cat ? categoryDisplayLabel(cat) : catId}</td><td class="amount">$${centsToDollars(amt)}</td></tr>`;
+      const label = escapeHtml(cat ? categoryDisplayLabel(cat) : catId);
+      return `<tr><td>${label}</td><td class="amount">$${centsToDollars(amt)}</td></tr>`;
     }).join('')}</tbody></table>` : '<p class="empty-state">No expenses in this period.</p>';
   }
 
@@ -254,13 +291,13 @@
     const isNew = !p || !p.id;
     const id = p?.id ? ` data-id="${p.id}"` : ' data-new="true"';
     const typeVal = p?.type || 'expense';
-    const catOpts = T2125_CATEGORIES.map(c => `<option value="${c.id}" ${p?.category === c.id ? 'selected' : ''}>${categoryDisplayLabel(c)}</option>`).join('');
-    const incOpts = INCOME_TYPES.map(t => `<option value="${t.id}" ${p?.income_type === t.id ? 'selected' : ''}>${t.label}</option>`).join('');
+    const catOpts = T2125_CATEGORIES.map(c => `<option value="${escapeHtmlAttr(c.id)}" ${p?.category === c.id ? 'selected' : ''}>${escapeHtml(categoryDisplayLabel(c))}</option>`).join('');
+    const incOpts = INCOME_TYPES.map(t => `<option value="${escapeHtmlAttr(t.id)}" ${p?.income_type === t.id ? 'selected' : ''}>${escapeHtml(t.label)}</option>`).join('');
     const freqVal = p?.frequency || 'monthly';
     const freqOpts = ['weekly', 'biweekly', 'monthly', 'yearly'].map(f => `<option value="${f}" ${freqVal === f ? 'selected' : ''}>${f.charAt(0).toUpperCase() + f.slice(1)}</option>`).join('');
     return `<tr${id} data-type="${typeVal}">
       <td><select class="planned-input-type" aria-label="Type"><option value="expense" ${typeVal === 'expense' ? 'selected' : ''}>Expense</option><option value="income" ${typeVal === 'income' ? 'selected' : ''}>Income</option></select></td>
-      <td><input type="text" class="planned-input-label" placeholder="e.g. Rent" value="${(p?.label || '').replace(/"/g, '&quot;')}" aria-label="Label"></td>
+      <td><input type="text" class="planned-input-label" placeholder="e.g. Rent" value="${escapeHtmlAttr(p?.label || '')}" aria-label="Label"></td>
       <td class="amount"><input type="number" step="0.01" min="0" class="planned-input-amount" value="${p ? (Number(p.amount_cents) / 100) : ''}" placeholder="0" aria-label="Amount"></td>
       <td><select class="planned-input-frequency" aria-label="Recurring">${freqOpts}</select></td>
       <td class="planned-cell-category-type">
@@ -291,14 +328,14 @@
   function buildPlannedForm(item) {
     const isEdit = !!item;
     const typeVal = item?.type || 'expense';
-    const categoryOptions = T2125_CATEGORIES.map(c => `<option value="${c.id}" ${item?.category === c.id ? 'selected' : ''}>${categoryDisplayLabel(c)}</option>`).join('');
-    const incomeTypeOptions = INCOME_TYPES.map(t => `<option value="${t.id}" ${item?.income_type === t.id ? 'selected' : ''}>${t.label}</option>`).join('');
+    const categoryOptions = T2125_CATEGORIES.map(c => `<option value="${escapeHtmlAttr(c.id)}" ${item?.category === c.id ? 'selected' : ''}>${escapeHtml(categoryDisplayLabel(c))}</option>`).join('');
+    const incomeTypeOptions = INCOME_TYPES.map(t => `<option value="${escapeHtmlAttr(t.id)}" ${item?.income_type === t.id ? 'selected' : ''}>${escapeHtml(t.label)}</option>`).join('');
     const freqVal = item?.frequency || 'monthly';
     const freqOptions = ['weekly', 'biweekly', 'monthly', 'yearly'].map(f => `<option value="${f}" ${freqVal === f ? 'selected' : ''}>${f.charAt(0).toUpperCase() + f.slice(1)}</option>`).join('');
     return `
       <h4>${isEdit ? 'Edit' : 'Add'} planned item</h4>
       <div class="form-row"><label>Type</label><select id="planned-type"><option value="expense" ${typeVal === 'expense' ? 'selected' : ''}>Expense</option><option value="income" ${typeVal === 'income' ? 'selected' : ''}>Income</option></select></div>
-      <div class="form-row"><label>Label</label><input type="text" id="planned-label" placeholder="e.g. Rent, Paycheque" value="${item?.label || ''}"></div>
+      <div class="form-row"><label>Label</label><input type="text" id="planned-label" placeholder="e.g. Rent, Paycheque" value="${escapeHtmlAttr(item?.label || '')}"></div>
       <div class="form-row"><label>Amount ($)</label><input type="number" step="0.01" min="0" id="planned-amount" value="${item ? (Number(item.amount_cents) / 100) : ''}"></div>
       <div class="form-row"><label>Recurring</label><select id="planned-frequency">${freqOptions}</select></div>
       <div class="form-row" id="planned-category-row"><label>Category (expense)</label><select id="planned-category"><option value="">—</option>${categoryOptions}</select></div>
@@ -326,12 +363,12 @@
       const type = document.getElementById('planned-type').value;
       const label = document.getElementById('planned-label').value.trim();
       const amount_cents = toCents(document.getElementById('planned-amount').value);
-      if (!label || amount_cents < 0) { alert('Label and amount required.'); return; }
+      if (!label || amount_cents < 0) { showAppToast('Label and amount required.', true); return; }
       const frequency = document.getElementById('planned-frequency')?.value || 'monthly';
       const row = { type, label, amount_cents, frequency };
       if (type === 'expense') {
         const category = document.getElementById('planned-category').value;
-        if (!category) { alert('Category required for expense.'); return; }
+        if (!category) { showAppToast('Category required for expense.', true); return; }
         row.category = category;
         row.income_type = null;
       } else {
@@ -340,12 +377,12 @@
       }
       if (editingPlannedId) {
         acctApi.plannedUpdate(editingPlannedId, row).then(({ error }) => {
-          if (error) alert(error.message || 'Update failed');
+          if (error) showAppToast(error.message || 'Update failed', true);
           else { document.getElementById('budget-planned-form-wrap').style.display = 'none'; editingPlannedId = null; renderBudgetPanel(); }
         });
       } else {
         acctApi.plannedInsert(row).then(({ error }) => {
-          if (error) alert(error.message || 'Insert failed');
+          if (error) showAppToast(error.message || 'Insert failed', true);
           else { document.getElementById('budget-planned-form-wrap').style.display = 'none'; editingPlannedId = null; renderBudgetPanel(); }
         });
       }
@@ -359,7 +396,7 @@
   function deletePlanned(id) {
     if (!confirm('Delete this planned item? Actual transactions linked to it will be unlinked.')) return;
     acctApi.plannedDelete(id).then(({ error }) => {
-      if (error) alert(error.message || 'Delete failed');
+      if (error) showAppToast(error.message || 'Delete failed', true);
       else renderBudgetPanel();
     });
   }
@@ -377,6 +414,15 @@
       if (toEl) toEl.value = to;
     }
     Promise.all([acctApi.incomeInRange(from, to), acctApi.expensesInRange(from, to)]).then(([ir, er]) => {
+      if (ir.error || er.error) {
+        const msg = 'Could not load dashboard. ' + (apiErrorMessage(ir.error || er.error) || 'Check your connection and try again.');
+        console.error('renderDashboard API error', ir.error, er.error);
+        const recent = document.getElementById('dash-recent');
+        const cards = document.getElementById('dash-cards');
+        if (cards) cards.innerHTML = '<p class="report-error" role="alert">' + escapeHtml(msg) + '</p>';
+        if (recent) recent.innerHTML = '';
+        return;
+      }
       const income = ir.data || [];
       const expenses = er.data || [];
       const businessExpenses = expenses.filter(r => isBusinessExpense(r.category));
@@ -408,7 +454,7 @@
         const amt = Number(r.amount_cents) + Number(r.gst_cents || 0);
         const totalPay = r._type === 'expense' && r.total_payment_cents != null ? Number(r.total_payment_cents) : null;
         const amtStr = r._type === 'income' ? '+$' + centsToDollars(amt) : (totalPay ? `-$${centsToDollars(amt)} of $${centsToDollars(totalPay)}` : '-$' + centsToDollars(amt));
-        const label = r._type === 'income' ? incomeLineMeta(r) : expenseLineMeta(r);
+        const label = escapeHtml(r._type === 'income' ? incomeLineMeta(r) : expenseLineMeta(r));
         return `<div class="entry-row ${r._type}">
           <span class="date">${formatDate(r.date)}</span>
           <span class="meta">${label}</span>
@@ -424,11 +470,11 @@
       <div class="form-row"><label>Date</label><input type="date" id="income-date" value="${editRow ? editRow.date : new Date().toISOString().slice(0, 10)}"></div>
       <div class="form-row"><label>Amount ($)</label><input type="number" step="0.01" min="0" id="income-amount" placeholder="0.00" value="${editRow ? (Number(editRow.amount_cents) / 100) : ''}"></div>
       <div class="form-row"><label>GST ($)</label><input type="number" step="0.01" min="0" id="income-gst" placeholder="0.00" value="${editRow ? (Number(editRow.gst_cents) / 100) : '0'}"></div>
-      <div class="form-row"><label>Vendor</label><input type="text" id="income-vendor" placeholder="Who paid you (optional)" value="${(editRow?.vendor || '').replace(/"/g, '&quot;')}"></div>
-      <div class="form-row"><label>Client / project</label><input type="text" id="income-client" placeholder="Optional" value="${(editRow?.client_or_project || '').replace(/"/g, '&quot;')}"></div>
-      <div class="form-row"><label>Type</label><select id="income-type"><option value="">—</option>${INCOME_TYPES.map(t => `<option value="${t.id}" ${editRow?.income_type === t.id ? 'selected' : ''}>${t.label}</option>`).join('')}</select></div>
+      <div class="form-row"><label>Vendor</label><input type="text" id="income-vendor" placeholder="Who paid you (optional)" value="${escapeHtmlAttr(editRow?.vendor || '')}"></div>
+      <div class="form-row"><label>Client / project</label><input type="text" id="income-client" placeholder="Optional" value="${escapeHtmlAttr(editRow?.client_or_project || '')}"></div>
+      <div class="form-row"><label>Type</label><select id="income-type"><option value="">—</option>${INCOME_TYPES.map(t => `<option value="${escapeHtmlAttr(t.id)}" ${editRow?.income_type === t.id ? 'selected' : ''}>${escapeHtml(t.label)}</option>`).join('')}</select></div>
       <div class="form-row"><label>Match to planned</label><select id="income-planned"><option value="">—</option></select></div>
-      <div class="form-row"><label>Note</label><textarea id="income-note" placeholder="Optional">${editRow?.note || ''}</textarea></div>
+      <div class="form-row"><label>Note</label><textarea id="income-note" placeholder="Optional">${escapeHtml(editRow?.note || '')}</textarea></div>
       <div class="form-actions">
         <button type="button" class="btn btn-primary" id="income-save-btn">${isEdit ? 'Update' : 'Add'}</button>
         <button type="button" class="btn btn-secondary" id="income-cancel-btn">Cancel</button>
@@ -443,11 +489,11 @@
       <div class="form-row"><label>Amount ($)</label><input type="number" step="0.01" min="0" id="expense-amount" placeholder="0.00" value="${editRow ? (Number(editRow.amount_cents) / 100) : ''}"></div>
       <div class="form-row"><label>Total payment ($) <span class="hint">Optional — use when the full amount left your account but you’re only claiming your portion (e.g. shared rent; someone e-transfers you their half).</span></label><input type="number" step="0.01" min="0" id="expense-total-payment" placeholder="Leave blank if same as amount" value="${editRow && editRow.total_payment_cents != null ? (Number(editRow.total_payment_cents) / 100) : ''}"></div>
       <div class="form-row"><label>GST ($)</label><input type="number" step="0.01" min="0" id="expense-gst" placeholder="0.00" value="${editRow ? (Number(editRow.gst_cents) / 100) : '0'}"></div>
-      <div class="form-row"><label>Vendor</label><input type="text" id="expense-vendor" placeholder="Who you paid (optional)" value="${(editRow?.vendor || '').replace(/"/g, '&quot;')}"></div>
-      <div class="form-row"><label>Category (T2125)</label><div id="expense-category-wrap" class="category-picker-wrap"><input type="hidden" id="expense-category" value="${editRow?.category || ''}"><input type="text" class="category-picker-input" placeholder="Search categories..." value="${editRow?.category ? categoryDisplayLabel(T2125_CATEGORIES.find(c => c.id === editRow.category)) : ''}" autocomplete="off"><ul class="category-picker-list" aria-hidden="true"></ul></div></div>
+      <div class="form-row"><label>Vendor</label><input type="text" id="expense-vendor" placeholder="Who you paid (optional)" value="${escapeHtmlAttr(editRow?.vendor || '')}"></div>
+      <div class="form-row"><label>Category (T2125)</label><div id="expense-category-wrap" class="category-picker-wrap"><input type="hidden" id="expense-category" value="${escapeHtmlAttr(editRow?.category || '')}"><input type="text" class="category-picker-input" placeholder="Search categories..." value="${editRow?.category ? escapeHtmlAttr(categoryDisplayLabel(T2125_CATEGORIES.find(c => c.id === editRow.category))) : ''}" autocomplete="off"><ul class="category-picker-list" aria-hidden="true"></ul></div></div>
       <div class="form-row"><label>Match to planned</label><select id="expense-planned"><option value="">—</option></select></div>
       <div class="form-row"><label>Receipt (image or PDF)<br><span class="hint">Optional; you can add more later when editing.</span></label><input type="file" id="expense-receipt" accept="image/*,application/pdf" multiple></div>
-      <div class="form-row"><label>Note</label><textarea id="expense-note" placeholder="Optional">${editRow?.note || ''}</textarea></div>
+      <div class="form-row"><label>Note</label><textarea id="expense-note" placeholder="Optional">${escapeHtml(editRow?.note || '')}</textarea></div>
       <div class="form-row" id="expense-receipts-list-wrap" style="display:${isEdit ? '' : 'none'}"></div>
       <div class="form-actions">
         <button type="button" class="btn btn-primary" id="expense-save-btn">${isEdit ? 'Update' : 'Add'}</button>
@@ -467,8 +513,9 @@
     function renderList(filter) {
       const q = (filter || '').toLowerCase().trim();
       const filtered = q ? options.filter(o => o.display.toLowerCase().includes(q) || String(o.id).toLowerCase().includes(q)) : options;
-      list.innerHTML = filtered.map(o => `<li data-id="${o.id}" data-display="${o.display.replace(/"/g, '&quot;')}">${o.display}</li>`).join('');
+      list.innerHTML = filtered.map(o => `<li data-id="${escapeHtmlAttr(o.id)}" data-display="${escapeHtmlAttr(o.display)}">${escapeHtml(o.display)}</li>`).join('');
       list.style.display = filtered.length ? 'block' : 'none';
+      list.setAttribute('aria-hidden', filtered.length ? 'false' : 'true');
       list.querySelectorAll('li').forEach(li => {
         li.addEventListener('click', () => {
           hidden.value = li.dataset.id;
@@ -485,9 +532,26 @@
     }
     renderList();
     list.style.display = 'none';
-    input.addEventListener('input', () => { renderList(input.value); list.style.display = list.querySelectorAll('li').length ? 'block' : 'none'; });
-    input.addEventListener('focus', () => { renderList(input.value); list.style.display = list.querySelectorAll('li').length ? 'block' : 'none'; });
-    input.addEventListener('blur', () => { syncHiddenFromVisible(); setTimeout(() => { list.style.display = 'none'; }, 150); });
+    list.setAttribute('aria-hidden', 'true');
+    input.addEventListener('input', () => {
+      renderList(input.value);
+      const n = list.querySelectorAll('li').length;
+      list.style.display = n ? 'block' : 'none';
+      list.setAttribute('aria-hidden', n ? 'false' : 'true');
+    });
+    input.addEventListener('focus', () => {
+      renderList(input.value);
+      const n = list.querySelectorAll('li').length;
+      list.style.display = n ? 'block' : 'none';
+      list.setAttribute('aria-hidden', n ? 'false' : 'true');
+    });
+    input.addEventListener('blur', () => {
+      syncHiddenFromVisible();
+      setTimeout(() => {
+        list.style.display = 'none';
+        list.setAttribute('aria-hidden', 'true');
+      }, 150);
+    });
   }
 
   function toCents(val) {
@@ -501,7 +565,7 @@
     if (!sel) return;
     acctApi.plannedList().then(({ data }) => {
       const list = (data || []).filter(p => p.type === type);
-      sel.innerHTML = '<option value="">—</option>' + list.map(p => `<option value="${p.id}" ${p.id === selectedId ? 'selected' : ''}>${p.label} ($${centsToDollars(p.amount_cents)})</option>`).join('');
+      sel.innerHTML = '<option value="">—</option>' + list.map(p => `<option value="${escapeHtmlAttr(p.id)}" ${p.id === selectedId ? 'selected' : ''}>${escapeHtml(p.label)} ($${centsToDollars(p.amount_cents)})</option>`).join('');
     });
   }
 
@@ -533,7 +597,7 @@
       const sortedTypes = Object.entries(byType).sort((a, b) => b[1] - a[1]);
       if (byTypeEl) byTypeEl.innerHTML = sortedTypes.length ? `<h4>By type</h4><table class="panel-breakdown-table"><thead><tr><th>Type</th><th class="amount">Amount</th></tr></thead><tbody>${sortedTypes.map(([key, amt]) => {
         const label = INCOME_TYPES.find(t => t.id === key)?.label || key;
-        return `<tr><td>${label}</td><td class="amount">+$${centsToDollars(amt)}</td></tr>`;
+        return `<tr><td>${escapeHtml(label)}</td><td class="amount">+$${centsToDollars(amt)}</td></tr>`;
       }).join('')}</tbody></table>` : '';
       if (!list) return;
       if (income.length === 0) {
@@ -543,7 +607,7 @@
       list.innerHTML = income.map(r => {
         const amt = Number(r.amount_cents) + Number(r.gst_cents || 0);
         return `<div class="entry-row income" data-id="${r.id}">
-          <div><span class="date">${formatDate(r.date)}</span> <span class="meta">${incomeLineMeta(r)}</span></div>
+          <div><span class="date">${formatDate(r.date)}</span> <span class="meta">${escapeHtml(incomeLineMeta(r))}</span></div>
           <div class="amount">+$${centsToDollars(amt)}</div>
           <div class="actions">
             <button type="button" class="edit-btn" data-id="${r.id}">Edit</button>
@@ -584,7 +648,7 @@
       const sortedCat = Object.entries(byCat).sort((a, b) => b[1] - a[1]);
       if (byCatEl) byCatEl.innerHTML = sortedCat.length ? `<h4>By category</h4><table class="panel-breakdown-table"><thead><tr><th>Category</th><th class="amount">Amount</th></tr></thead><tbody>${sortedCat.map(([catId, amt]) => {
         const cat = T2125_CATEGORIES.find(c => c.id === catId);
-        return `<tr><td>${cat ? categoryDisplayLabel(cat) : catId}</td><td class="amount">-$${centsToDollars(amt)}</td></tr>`;
+        return `<tr><td>${escapeHtml(cat ? categoryDisplayLabel(cat) : catId)}</td><td class="amount">-$${centsToDollars(amt)}</td></tr>`;
       }).join('')}</tbody></table>` : '';
       if (!list) return;
       if (expenses.length === 0) {
@@ -596,7 +660,7 @@
         const totalPay = r.total_payment_cents != null ? Number(r.total_payment_cents) : null;
         const amtDisplay = totalPay != null && totalPay > 0 ? `-$${centsToDollars(amt)} of $${centsToDollars(totalPay)}` : `-$${centsToDollars(amt)}`;
         return `<div class="entry-row expense" data-id="${r.id}">
-          <div><span class="date">${formatDate(r.date)}</span> <span class="meta">${expenseLineMeta(r)}</span></div>
+          <div><span class="date">${formatDate(r.date)}</span> <span class="meta">${escapeHtml(expenseLineMeta(r))}</span></div>
           <div class="amount">${amtDisplay}</div>
           <div class="actions">
             <button type="button" class="edit-btn" data-id="${r.id}">Edit</button>
@@ -665,17 +729,17 @@
       const typeEl = document.getElementById('income-type');
       const income_type = (typeEl && typeEl.value) ? typeEl.value : null;
       const note = document.getElementById('income-note').value.trim() || null;
-      if (!date || amount_cents < 0) { alert('Date and amount required.'); return; }
+      if (!date || amount_cents < 0) { showAppToast('Date and amount required.', true); return; }
       const planned_id = document.getElementById('income-planned')?.value || null;
       const row = { date, amount_cents, gst_cents, vendor, client_or_project, income_type, note, planned_id: planned_id || null };
       if (editingIncomeId) {
         acctApi.incomeUpdate(editingIncomeId, row).then(({ error }) => {
-          if (error) alert(error.message || 'Update failed');
+          if (error) showAppToast(error.message || 'Update failed', true);
           else { document.getElementById('income-form-wrap').style.display = 'none'; editingIncomeId = null; incomeListRender(); renderDashboard(); }
         });
       } else {
         acctApi.incomeInsert(row).then(({ error }) => {
-          if (error) alert(error.message || 'Insert failed');
+          if (error) showAppToast(error.message || 'Insert failed', true);
           else { document.getElementById('income-form-wrap').style.display = 'none'; incomeListRender(); renderDashboard(); }
         });
       }
@@ -714,15 +778,15 @@
       if (!category) category = (document.getElementById('expense-category')?.value || '').trim();
       const note = document.getElementById('expense-note').value.trim() || null;
       const files = document.getElementById('expense-receipt')?.files || [];
-      if (!date || amount_cents < 0 || !category) { alert('Date, amount, and category required.'); return; }
-      if (total_payment_cents != null && total_payment_cents > 0 && amount_cents > total_payment_cents) { alert('Your amount cannot be more than the total payment.'); return; }
+      if (!date || amount_cents < 0 || !category) { showAppToast('Date, amount, and category required.', true); return; }
+      if (total_payment_cents != null && total_payment_cents > 0 && amount_cents > total_payment_cents) { showAppToast('Your amount cannot be more than the total payment.', true); return; }
       const planned_id = document.getElementById('expense-planned')?.value || null;
       const vendor = document.getElementById('expense-vendor').value.trim() || null;
       const row = { date, amount_cents, gst_cents, category, vendor, note, planned_id: planned_id || null };
       row.total_payment_cents = (total_payment_cents != null && total_payment_cents > 0) ? total_payment_cents : null;
       if (editingExpenseId) {
         acctApi.expensesUpdate(editingExpenseId, row).then(async ({ error }) => {
-          if (error) { alert(error.message || 'Update failed'); return; }
+          if (error) { showAppToast(error.message || 'Update failed', true); return; }
           if (files.length) {
             for (const f of files) {
               const { error: upErr } = await acctApi.uploadReceipt(editingExpenseId, f);
@@ -736,7 +800,7 @@
         });
       } else {
         acctApi.expensesInsert(row).then(async ({ data, error }) => {
-          if (error) { alert(error.message || 'Insert failed'); return; }
+          if (error) { showAppToast(error.message || 'Insert failed', true); return; }
           const newId = data?.id;
           if (newId && files.length) {
             for (const f of files) {
@@ -766,12 +830,12 @@
     if (!data.length) { wrap.innerHTML = '<label>Existing receipts</label><p class="empty-state">No receipts yet.</p>'; return; }
     wrap.innerHTML = '<label>Existing receipts</label><ul id="expense-receipts-list"></ul>';
     const ul = document.getElementById('expense-receipts-list');
-    ul.innerHTML = data.map(r => `<li data-path="${r.file_path}"><button type="button" class="btn btn-secondary btn-sm" data-path="${r.file_path}">${r.file_name}</button></li>`).join('');
+    ul.innerHTML = data.map(r => `<li data-path="${escapeHtmlAttr(r.file_path)}"><button type="button" class="btn btn-secondary btn-sm" data-path="${escapeHtmlAttr(r.file_path)}">${escapeHtml(r.file_name)}</button></li>`).join('');
     ul.querySelectorAll('button').forEach(btn => {
       btn.addEventListener('click', async () => {
         const path = btn.getAttribute('data-path');
         const { url, error: urlErr } = await acctApi.getReceiptUrl(path);
-        if (urlErr || !url) { alert('Could not open receipt'); return; }
+        if (urlErr || !url) { showAppToast('Could not open receipt', true); return; }
         window.open(url, '_blank');
       });
     });
@@ -804,16 +868,11 @@
   }
 
   function parseCsv(text) {
-    const lines = text.split(/\r?\n/).filter(l => l.trim() !== '');
-    if (!lines.length) return { headers: [], rows: [] };
-    const headers = lines[0].split(',').map(h => h.trim());
-    const rows = lines.slice(1).map(line => {
-      const cols = line.split(',');
-      const obj = {};
-      headers.forEach((h, idx) => { obj[h] = (cols[idx] ?? '').trim(); });
-      return obj;
-    });
-    return { headers, rows };
+    if (!window.LedgerParseCsv || typeof window.LedgerParseCsv.parseCsv !== 'function') {
+      console.warn('LedgerParseCsv not loaded; install js/parse-csv.js before app.js');
+      return { headers: [], rows: [] };
+    }
+    return window.LedgerParseCsv.parseCsv(text);
   }
 
   function onBankFileChosen(e) {
@@ -825,7 +884,7 @@
       bankHeaders = headers;
       bankParsedRows = rows;
       if (!headers.length || !rows.length) {
-        alert('Could not parse CSV. Make sure it has a header row.');
+        showAppToast('Could not parse CSV. Make sure it has a header row.', true);
         return;
       }
       showBankMapping(headers, file.name);
@@ -852,16 +911,24 @@
     return s;
   }
 
+  function isValidIsoDate(d) {
+    if (d == null || String(d).trim() === '') return false;
+    const s = String(d).trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+    const t = Date.parse(s + 'T12:00:00');
+    return !Number.isNaN(t);
+  }
+
   function showBankMapping(headers, fileName) {
     const wrap = document.getElementById('bank-mapping');
     if (!wrap) return;
     const dateGuess = guessHeader(headers, 'date');
     const descGuess = guessHeader(headers, 'description') || guessHeader(headers, 'details');
     const amountGuess = guessHeader(headers, 'amount');
-    const optionsHtml = headers.map(h => `<option value="${h}">${h}</option>`).join('');
+    const optionsHtml = headers.map(h => `<option value="${escapeHtmlAttr(h)}">${escapeHtml(h)}</option>`).join('');
     wrap.style.display = 'block';
     wrap.innerHTML = `
-      <label>Map columns for ${fileName}</label>
+      <label>Map columns for ${escapeHtml(fileName)}</label>
       <div style="display:flex; flex-wrap:wrap; gap:0.75rem; margin-top:0.5rem;">
         <div><span style="font-size:0.85rem;color:var(--muted);">Date column</span><br>
           <select id="bank-col-date">
@@ -900,7 +967,7 @@
     const descCol = document.getElementById('bank-col-desc').value;
     const amountCol = document.getElementById('bank-col-amount').value;
     if (!dateCol || !descCol || !amountCol) {
-      alert('Please choose date, description, and amount columns.');
+      showAppToast('Please choose date, description, and amount columns.', true);
       return;
     }
     const source = document.getElementById('bank-file')?.files[0];
@@ -917,13 +984,18 @@
         source_file_name: sourceName
       };
     }).filter(r => r.date && r.description && r.amount_cents !== 0);
+    const badDates = rows.filter(r => !isValidIsoDate(r.date));
+    if (badDates.length > 0) {
+      showAppToast('Import cancelled: ' + badDates.length + ' row(s) have dates that could not be parsed as YYYY-MM-DD. Fix the CSV or date mapping.', true);
+      return;
+    }
     const existingRes = await acctApi.bankListKeysForDedup();
-    if (existingRes.error) { alert(existingRes.error.message || 'Could not check for duplicates'); return; }
+    if (existingRes.error) { showAppToast(existingRes.error.message || 'Could not check for duplicates', true); return; }
     const existingKeys = new Set((existingRes.data || []).map(t => bankDedupKey(t.date, t.description, t.amount_cents)));
     const toInsert = rows.filter(r => !existingKeys.has(bankDedupKey(r.date, r.description, r.amount_cents)));
     const skipped = rows.length - toInsert.length;
     if (toInsert.length === 0) {
-      alert('All ' + rows.length + ' rows from the CSV already exist. No new transactions imported.');
+      showAppToast('All ' + rows.length + ' rows from the CSV already exist. No new transactions imported.', true);
       document.getElementById('bank-mapping').style.display = 'none';
       document.getElementById('bank-file').value = '';
       bankParsedRows = [];
@@ -932,14 +1004,14 @@
       return;
     }
     const { error } = await acctApi.bankInsertMany(toInsert);
-    if (error) { alert(error.message || 'Import failed'); return; }
+    if (error) { showAppToast(error.message || 'Import failed', true); return; }
     document.getElementById('bank-mapping').style.display = 'none';
     document.getElementById('bank-file').value = '';
     bankParsedRows = [];
     bankHeaders = [];
     loadBankReconcile();
     if (skipped > 0) {
-      alert('Imported ' + toInsert.length + ' new transactions. Skipped ' + skipped + ' duplicate(s) already in your ledger.');
+      showAppToast('Imported ' + toInsert.length + ' new transactions. Skipped ' + skipped + ' duplicate(s) already in your ledger.', true);
     }
   }
 
@@ -952,8 +1024,8 @@
     if (error) { wrap.innerHTML = '<p class="empty-state">Could not load.</p>'; return; }
     bankRules = rulesRes.data || [];
     const planned = plannedRes.data || [];
-    const plannedExpenseOpts = planned.filter(p => p.type === 'expense').map(p => `<option value="${p.id}">${p.label} ($${centsToDollars(p.amount_cents)})</option>`).join('');
-    const plannedIncomeOpts = planned.filter(p => p.type === 'income').map(p => `<option value="${p.id}">${p.label} ($${centsToDollars(p.amount_cents)})</option>`).join('');
+    const plannedExpenseOpts = planned.filter(p => p.type === 'expense').map(p => `<option value="${escapeHtmlAttr(p.id)}">${escapeHtml(p.label)} ($${centsToDollars(p.amount_cents)})</option>`).join('');
+    const plannedIncomeOpts = planned.filter(p => p.type === 'income').map(p => `<option value="${escapeHtmlAttr(p.id)}">${escapeHtml(p.label)} ($${centsToDollars(p.amount_cents)})</option>`).join('');
     const all = bankRes.data || [];
     const unreconciled = all.filter(tx => !tx.acct_reconciliation || tx.acct_reconciliation.length === 0);
     if (!unreconciled.length) { wrap.innerHTML = '<p class="empty-state">No unreconciled transactions. Import a CSV or you’re fully reconciled.</p>'; return; }
@@ -965,18 +1037,23 @@
       const sug = suggestFromRules(tx.description, bankRules);
       const defCat = sug.categoryId || '9270';
       const defType = sug.incomeType || '';
-      const incomeTypeOptions = INCOME_TYPES.map(t => `<option value="${t.id}" ${t.id === defType ? 'selected' : ''}>${t.label}</option>`).join('');
-      return `<div class="bank-row" data-id="${tx.id}" data-description="${(tx.description || '').replace(/"/g, '&quot;')}" data-amount-cents="${amt >= 0 ? amt : -amt}">
+      const incomeTypeOptions = INCOME_TYPES.map(t => `<option value="${escapeHtmlAttr(t.id)}" ${t.id === defType ? 'selected' : ''}>${escapeHtml(t.label)}</option>`).join('');
+      const desc = tx.description || '';
+      const descShort = desc.length > 60 ? desc.slice(0, 60) + '…' : desc;
+      const dateBad = !isValidIsoDate(tx.date);
+      const rowClass = 'bank-row' + (dateBad ? ' bank-row-invalid' : '');
+      return `<div class="${rowClass}" data-id="${escapeHtmlAttr(tx.id)}" data-description="${escapeHtmlAttr(desc)}" data-amount-cents="${amt >= 0 ? amt : -amt}">
         <div class="bank-row-main">
           <div>
-            <div class="meta">${formatDate(tx.date)} · ${(tx.description || '').slice(0, 60)}${(tx.description || '').length > 60 ? '…' : ''}</div>
-            <div class="meta" style="font-size:0.8rem;">Source: ${tx.source_file_name || '—'}</div>
+            <div class="meta">${formatDate(tx.date)} · ${escapeHtml(descShort)}</div>
+            ${dateBad ? '<div class="bank-row-warn" role="status">Date could not be verified — edit amount/date in your ledger if needed.</div>' : ''}
+            <div class="meta" style="font-size:0.8rem;">Source: ${escapeHtml(tx.source_file_name || '—')}</div>
           </div>
           <div class="amount ${cls}">${sign}$${centsToDollars(abs)}</div>
         </div>
         <div class="bank-row-suggest">
           <label class="bank-suggest-label">As expense:</label>
-          <div class="bank-row-category-wrap category-picker-wrap"><input type="hidden" class="bank-row-category-value" value="${defCat}"><input type="text" class="category-picker-input" placeholder="Search categories..." value="${categoryDisplayLabel(T2125_CATEGORIES.find(c => c.id === defCat))}" autocomplete="off"><ul class="category-picker-list" aria-hidden="true"></ul></div>
+          <div class="bank-row-category-wrap category-picker-wrap"><input type="hidden" class="bank-row-category-value" value="${escapeHtmlAttr(defCat)}"><input type="text" class="category-picker-input" placeholder="Search categories..." value="${escapeHtmlAttr(categoryDisplayLabel(T2125_CATEGORIES.find(c => c.id === defCat)))}" autocomplete="off"><ul class="category-picker-list" aria-hidden="true"></ul></div>
           <label class="bank-suggest-label">Amount to record ($)</label>
           <input type="number" step="0.01" min="0" class="bank-row-amount-record" value="${(abs / 100).toFixed(2)}" placeholder="Your portion" title="Use when someone else paid part (e.g. your half of rent)">
           <label class="bank-suggest-label">Match to planned (expense):</label>
@@ -1002,7 +1079,7 @@
   async function onBankIgnore(id) {
     if (!confirm('Ignore this transaction?')) return;
     const { error } = await acctApi.bankMarkIgnored(id);
-    if (error) { alert(error.message || 'Could not ignore'); return; }
+    if (error) { showAppToast(error.message || 'Could not ignore', true); return; }
     loadBankReconcile();
   }
 
@@ -1030,9 +1107,13 @@
 
   async function onBankCreateExpense(id) {
     const { data, error } = await acctApi.bankListUnreconciled();
-    if (error) { alert(error.message || 'Could not load transaction'); return; }
+    if (error) { showAppToast(error.message || 'Could not load transaction', true); return; }
     const tx = (data || []).find(t => t.id === id);
     if (!tx) return;
+    if (!isValidIsoDate(tx.date)) {
+      showAppToast('This transaction has an invalid date. Correct it in your bank export or skip this row.', true);
+      return;
+    }
     const sel = getBankRowSelection(id);
     const fullAmt = Math.abs(Number(tx.amount_cents || 0));
     const amount_cents = (sel.amountToRecordCents != null && sel.amountToRecordCents > 0) ? sel.amountToRecordCents : fullAmt;
@@ -1040,7 +1121,7 @@
     if (amount_cents < fullAmt) row.total_payment_cents = fullAmt;
     if (sel.plannedIdExpense) row.planned_id = sel.plannedIdExpense;
     const { data: exp, error: expErr } = await acctApi.expensesInsert(row);
-    if (expErr) { alert(expErr.message || 'Could not create expense'); return; }
+    if (expErr) { showAppToast(expErr.message || 'Could not create expense', true); return; }
     await acctApi.createReconciliation(id, null, exp.id);
     if (confirm('Remember this category for similar descriptions? (e.g. next time you see "' + (tx.description || '').slice(0, 30) + '…" it will suggest this category)')) {
       const pattern = prompt('Pattern to match (e.g. SPOTIFY):', (tx.description || '').replace(/[^a-zA-Z0-9]/g, ' ').trim().slice(0, 25)) || (tx.description || '').slice(0, 20);
@@ -1053,15 +1134,19 @@
 
   async function onBankCreateIncome(id) {
     const { data, error } = await acctApi.bankListUnreconciled();
-    if (error) { alert(error.message || 'Could not load transaction'); return; }
+    if (error) { showAppToast(error.message || 'Could not load transaction', true); return; }
     const tx = (data || []).find(t => t.id === id);
     if (!tx) return;
+    if (!isValidIsoDate(tx.date)) {
+      showAppToast('This transaction has an invalid date. Correct it in your bank export or skip this row.', true);
+      return;
+    }
     const sel = getBankRowSelection(id);
     const amt = Math.abs(Number(tx.amount_cents || 0));
     const row = { date: tx.date, amount_cents: amt, gst_cents: 0, vendor: guessVendorFromBankDescription(tx.description), client_or_project: null, income_type: sel.incomeType || null, note: tx.description || null };
     if (sel.plannedIdIncome) row.planned_id = sel.plannedIdIncome;
     const { data: inc, error: incErr } = await acctApi.incomeInsert(row);
-    if (incErr) { alert(incErr.message || 'Could not create income'); return; }
+    if (incErr) { showAppToast(incErr.message || 'Could not create income', true); return; }
     await acctApi.createReconciliation(id, inc.id, null);
     if (confirm('Remember this income type for similar descriptions?')) {
       const pattern = prompt('Pattern to match (e.g. VENMO):', (tx.description || '').replace(/[^a-zA-Z0-9]/g, ' ').trim().slice(0, 25)) || (tx.description || '').slice(0, 20);
@@ -1075,7 +1160,7 @@
   function deleteIncome(id) {
     if (!confirm('Delete this income entry?')) return;
     acctApi.incomeDelete(id).then(({ error }) => {
-      if (error) alert(error.message || 'Delete failed');
+      if (error) showAppToast(error.message || 'Delete failed', true);
       else { incomeListRender(); renderDashboard(); }
     });
   }
@@ -1083,7 +1168,7 @@
   function deleteExpense(id) {
     if (!confirm('Delete this expense entry?')) return;
     acctApi.expensesDelete(id).then(({ error }) => {
-      if (error) alert(error.message || 'Delete failed');
+      if (error) showAppToast(error.message || 'Delete failed', true);
       else { expenseListRender(); renderDashboard(); }
     });
   }
@@ -1099,6 +1184,18 @@
       acctApi.incomeInRange(from, to),
       acctApi.expensesInRange(from, to)
     ]).then(([ir, er]) => {
+      if (ir.error || er.error) {
+        const msg = 'Could not load report data. ' + (apiErrorMessage(ir.error || er.error) || 'Check your connection and try again.');
+        console.error('runReport API error', ir.error, er.error);
+        const errHtml = '<p class="report-error" role="alert">' + escapeHtml(msg) + '</p>';
+        const rs = document.getElementById('report-summary');
+        const rg = document.getElementById('report-gst');
+        const rbc = document.getElementById('report-by-category');
+        if (rs) rs.innerHTML = errHtml;
+        if (rg) rg.innerHTML = '';
+        if (rbc) rbc.innerHTML = '';
+        return;
+      }
       const income = ir.data || [];
       const expenses = er.data || [];
       const businessExpenses = expenses.filter(r => isBusinessExpense(r.category));
@@ -1135,7 +1232,8 @@
         <table><thead><tr><th>Category</th><th class="amount">Amount</th><th class="amount">GST</th></tr></thead><tbody>
           ${sorted.map(([catId, o]) => {
             const cat = T2125_CATEGORIES.find(c => c.id === catId);
-            return `<tr><td>${cat ? categoryDisplayLabel(cat) : catId}</td><td class="amount">$${centsToDollars(o.amount_cents)}</td><td class="amount">$${centsToDollars(o.gst_cents)}</td></tr>`;
+            const label = escapeHtml(cat ? categoryDisplayLabel(cat) : catId);
+            return `<tr><td>${label}</td><td class="amount">$${centsToDollars(o.amount_cents)}</td><td class="amount">$${centsToDollars(o.gst_cents)}</td></tr>`;
           }).join('')}
         </tbody></table>
       ` : '<p class="empty-state">No expenses in this range.</p>';
@@ -1260,7 +1358,7 @@
     var current = getCurrentGfReceipt();
     if (!current) return;
     var result = await gfApi.gfReceiptUpdate(current.id, { done_at: new Date().toISOString() });
-    if (result.error) { alert(result.error.message || 'Could not mark receipt done.'); return; }
+    if (result.error) { showAppToast(result.error.message || 'Could not mark receipt done.', true); return; }
     setCurrentGfReceipt(null);
     renderGFReceiptState();
     gfReceiptsListRender();
@@ -1371,9 +1469,9 @@
     }
     list.innerHTML = rows.map(r => {
       const incCents = gfIncrementalCentsForRow(r);
-      return `<div class="entry-row" data-id="${r.id}">
+      return `<div class="entry-row" data-id="${escapeHtmlAttr(r.id)}">
         <span class="date">${formatDate(r.purchase_date)}</span>
-        <span class="meta">${r.product_name} × ${Number(r.quantity)}</span>
+        <span class="meta">${escapeHtml(r.product_name)} × ${Number(r.quantity)}</span>
         <span class="amount">GF $${centsToDollars(r.gf_total_cents)} → +$${centsToDollars(incCents)}</span>
         <div class="actions">
           <button type="button" class="edit-btn" data-id="${r.id}">Edit</button>
@@ -1399,9 +1497,9 @@
     list.innerHTML = receipts.map(function (r) {
       var dateLabel = r.receipt_date ? formatDate(r.receipt_date) : (r.uploaded_at ? new Date(r.uploaded_at).toLocaleDateString('en-CA', { year: 'numeric', month: 'short', day: 'numeric' }) : '');
       var doneLabel = r.done_at ? ' <span class="gf-receipt-done">Done</span>' : '';
-      return '<div class="entry-row gf-receipt-row" data-path="' + (r.file_path || '').replace(/"/g, '&quot;') + '">' +
-        '<span class="date">' + dateLabel + '</span>' +
-        '<span class="meta">' + (r.file_name || 'Receipt') + doneLabel + '</span>' +
+      return '<div class="entry-row gf-receipt-row" data-path="' + escapeHtmlAttr(r.file_path || '') + '">' +
+        '<span class="date">' + escapeHtml(dateLabel) + '</span>' +
+        '<span class="meta">' + escapeHtml(r.file_name || 'Receipt') + doneLabel + '</span>' +
         '<div class="actions"><button type="button" class="view-receipt-btn">View</button></div>' +
         '</div>';
     }).join('');
@@ -1411,7 +1509,7 @@
         var path = row && row.getAttribute('data-path');
         if (!path) return;
         gfApi.getGfReceiptUrl(path).then(function (res) {
-          if (res.error) { alert(res.error.message || 'Could not open receipt.'); return; }
+          if (res.error) { showAppToast(res.error.message || 'Could not open receipt.', true); return; }
           if (res.url) window.open(res.url, '_blank');
         });
       });
@@ -1429,13 +1527,13 @@
     const regularUnitCents = gfDollarsToCents(document.getElementById('gf-regular-unit')?.value);
     var currentReceipt = getCurrentGfReceipt();
     const receiptId = gfEditingPurchaseId ? (gfEditingReceiptId || null) : (currentReceipt ? currentReceipt.id : null);
-    if (!dateEl?.value) { alert('Please set date.'); return; }
-    if (!quantity || quantity <= 0) { alert('Please enter a quantity greater than 0.'); return; }
-    if (!productName || productName.startsWith('—')) { alert('Please select or add a product.'); return; }
+    if (!dateEl?.value) { showAppToast('Please set date.', true); return; }
+    if (!quantity || quantity <= 0) { showAppToast('Please enter a quantity greater than 0.', true); return; }
+    if (!productName || productName.startsWith('—')) { showAppToast('Please select or add a product.', true); return; }
     const totalIsPerUnit = document.getElementById('gf-total-is-per-unit')?.checked;
     const effectiveGfTotalCents = totalIsPerUnit ? Math.round(gfDollarsToCents(document.getElementById('gf-total-paid')?.value) * quantity) : gfTotalCents;
-    if (effectiveGfTotalCents < 0) { alert('Please enter GF total paid (0 or more).'); return; }
-    if (regularUnitCents < 0) { alert('Please enter regular price per unit (0 or more).'); return; }
+    if (effectiveGfTotalCents < 0) { showAppToast('Please enter GF total paid (0 or more).', true); return; }
+    if (regularUnitCents < 0) { showAppToast('Please enter regular price per unit (0 or more).', true); return; }
     var gfVal = parseFloat(document.getElementById('gf-size-value')?.value) || null;
     var gfUnit = document.getElementById('gf-size-unit')?.value || null;
     var regVal = parseFloat(document.getElementById('gf-regular-size-value')?.value) || null;
@@ -1461,12 +1559,12 @@
     };
     if (gfEditingPurchaseId) {
       const { error } = await gfApi.purchaseUpdate(gfEditingPurchaseId, payload);
-      if (error) { alert(error.message || 'Update failed'); return; }
+      if (error) { showAppToast(error.message || 'Update failed', true); return; }
       gfEditingPurchaseId = null;
       document.getElementById('gf-cancel-edit-btn').style.display = 'none';
     } else {
       const { error } = await gfApi.purchaseInsert(payload);
-      if (error) { alert(error.message || 'Insert failed'); return; }
+      if (error) { showAppToast(error.message || 'Insert failed', true); return; }
     }
     gfPurchasesListRender();
     document.getElementById('gf-quantity').value = '';
@@ -1506,7 +1604,7 @@
   function gfDeletePurchase(id) {
     if (!confirm('Delete this GF line?')) return;
     gfApi.purchaseDelete(id).then(({ error }) => {
-      if (error) alert(error.message || 'Delete failed');
+      if (error) showAppToast(error.message || 'Delete failed', true);
       else { gfPurchasesListRender(); if (gfEditingPurchaseId === id) { gfEditingPurchaseId = null; document.getElementById('gf-cancel-edit-btn').style.display = 'none'; } }
     });
   }
@@ -1572,7 +1670,7 @@
       from = fromEl?.value;
       to = toEl?.value;
     }
-    if (!from || !to) { alert('Choose a year or enter from/to dates.'); return; }
+    if (!from || !to) { showAppToast('Choose a year or enter from/to dates.', true); return; }
     const { data, error } = await gfApi.purchasesList({ from, to });
     if (error) {
       gfLastSummaryContext = null;
@@ -1595,7 +1693,7 @@
         <th>Product</th><th># bought</th><th>Avg regular/unit</th><th>Avg GF/unit</th><th>Incremental/unit</th><th>Amount to claim</th>
       </tr></thead><tbody>
         ${rows.map(r => `<tr>
-          <td>${r.product_name}</td>
+          <td>${escapeHtml(r.product_name)}</td>
           <td>${r.total_quantity}</td>
           <td class="amount">$${centsToDollars(r.avg_regular_unit_price_cents)}</td>
           <td class="amount">$${centsToDollars(r.avg_gf_unit_price_cents)}</td>
@@ -1621,7 +1719,7 @@
     }
     const tableWrap = document.getElementById('gf-summary-table-wrap');
     const table = tableWrap?.querySelector('table');
-    if (!table) { alert('Run the summary first (choose period and click Apply).'); return; }
+    if (!table) { showAppToast('Run the summary first (choose period and click Apply).', true); return; }
     const rows = table.querySelectorAll('tr');
     const lines = [];
     rows.forEach(tr => {
@@ -1641,15 +1739,15 @@
   async function gfExportReportWithReceiptsZip() {
     const ctx = gfLastSummaryContext;
     if (!ctx || !ctx.purchases || ctx.purchases.length === 0) {
-      alert('Run the summary first (choose period and click Apply).');
+      showAppToast('Run the summary first (choose period and click Apply).', true);
       return;
     }
     if (!ctx.rows || ctx.rows.length === 0) {
-      alert('No GF purchases in this period — nothing to put in the report.');
+      showAppToast('No GF purchases in this period — nothing to put in the report.', true);
       return;
     }
     if (typeof JSZip === 'undefined') {
-      alert('ZIP helper did not load. Refresh the page and try again.');
+      showAppToast('ZIP helper did not load. Refresh the page and try again.', true);
       return;
     }
     const btn = document.getElementById('gf-export-zip-btn');
@@ -1682,7 +1780,7 @@
       if (ids.length) {
         const { data: recRows, error: recErr } = await gfApi.gfReceiptsByIds(ids);
         if (recErr) {
-          alert(recErr.message || String(recErr) || 'Could not load receipt list.');
+          showAppToast(recErr.message || String(recErr) || 'Could not load receipt list.', true);
           return;
         }
         const byId = {};
@@ -1750,7 +1848,7 @@
 
   async function gfAddAndUseProduct() {
     const name = document.getElementById('gf-prod-name')?.value?.trim();
-    if (!name) { alert('Enter product name.'); return; }
+    if (!name) { showAppToast('Enter product name.', true); return; }
     const baseline = document.getElementById('gf-prod-baseline')?.value;
     const baselineCents = baseline !== '' && baseline !== undefined ? gfDollarsToCents(baseline) : null;
     const sizeVal = document.getElementById('gf-prod-size-value')?.value;
@@ -1760,7 +1858,7 @@
     if (sizeNum != null && sizeNum > 0 && sizeUnit) unitDescription = 'per ' + sizeNum + ' ' + sizeUnit;
     const row = { name, baseline_regular_unit_price_cents: baselineCents, unit_description: unitDescription };
     const { data, error } = await gfApi.productUpsert(row);
-    if (error) { alert(error.message || 'Save failed'); return; }
+    if (error) { showAppToast(error.message || 'Save failed', true); return; }
     var inline = document.getElementById('gf-new-product-inline');
     if (inline) inline.style.display = 'none';
     await gfRefreshProductsDropdown();
@@ -1908,7 +2006,7 @@
       var dateEl = document.getElementById('gf-purchase-date');
       var result = await gfApi.gfReceiptUpload(file, dateEl && dateEl.value ? dateEl.value : null);
       e.target.value = '';
-      if (result.error) { alert(result.error.message || 'Upload failed'); return; }
+      if (result.error) { showAppToast(result.error.message || 'Upload failed', true); return; }
       var data = result.data;
       if (data && data.id) {
         setCurrentGfReceipt({
@@ -1932,7 +2030,7 @@
     const totalLine = document.getElementById('gf-summary-total');
     const table = tableWrap?.querySelector('table');
     if (!table || !totalLine?.textContent) {
-      alert('Run the summary first (choose period and click Apply).');
+      showAppToast('Run the summary first (choose period and click Apply).', true);
       return;
     }
     const win = window.open('', '_blank');
@@ -1941,7 +2039,7 @@
       '<!DOCTYPE html><html><head><title>GF Medical Summary</title>' +
       '<style>body{font-family:system-ui,sans-serif;padding:2rem;max-width:800px;margin:0 auto} table{width:100%;border-collapse:collapse} th,td{text-align:left;padding:0.5rem;border-bottom:1px solid #ddd} td.amount{text-align:right} .total{margin-top:1rem;font-weight:bold}</style></head><body>' +
       '<h1>Gluten-free medical expense summary</h1><p>Use as part of your medical expenses (lines 33099/33199).</p>' +
-      table.outerHTML + '<p class="total">' + totalText.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</p>' +
+      table.outerHTML + '<p class="total">' + escapeHtml(totalText) + '</p>' +
       '</body></html>'
     );
     win.document.close();
@@ -2070,7 +2168,7 @@
         if (type === 'expense') {
           row.category = tr.querySelector('.planned-input-category')?.value || null;
           row.income_type = null;
-          if (!row.category) { alert('Category required for expense: ' + (label || 'unnamed')); return; }
+          if (!row.category) { showAppToast('Category required for expense: ' + (label || 'unnamed'), true); return; }
         } else {
           row.category = null;
           row.income_type = tr.querySelector('.planned-input-income-type')?.value || null;
@@ -2081,8 +2179,11 @@
         else if (isNew) promises.push(acctApi.plannedInsert(row));
       }
       Promise.all(promises).then((results) => {
-        const err = (results || []).find(r => r?.error);
-        if (err) alert(err.error?.message || err.error || 'Save failed');
+        const failures = (results || []).filter(r => r && r.error);
+        if (failures.length) {
+          const extra = failures.length > 1 ? ' (' + (failures.length - 1) + ' more)' : '';
+          showAppToast('Save incomplete: ' + (apiErrorMessage(failures[0].error) || 'Save failed') + extra, true);
+        }
         renderBudgetPanel();
       });
     });

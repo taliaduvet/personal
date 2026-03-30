@@ -59,11 +59,13 @@ Full step-by-step (Parking + Ledger, custom domains): in the **Personal** monore
 
 ## Test the whole system
 
+**Automated (local):** From this folder, run `npm install` once, then **`npm run qa:full`** (Vitest + Playwright with a stubbed Supabase). That guards navigation and basic behavior; it does **not** replace checks with a real database. For a full issue/improvement pass ordered by severity, see **`docs/QA_AUDIT.md`**.
+
 1. **Auth**: Sign up → sign in → see Dashboard.
 2. **Income**: Add income (e.g. $500, type Gigs, $25 GST) → appears in list and Dashboard.
 3. **Expenses**: Add expense (e.g. $50, category Office, $0 GST); optionally attach a receipt image/PDF → appears in list and Dashboard.
 4. **Reports**: Set date range (e.g. this year) → Apply → check summary, by-category table, and GST section.
-5. **Bank**: Create a small CSV with header row, e.g. `Date,Description,Amount` and a few rows (`2025-01-15,SPOTIFY,-9.99`). Upload → map columns → Import. In the list, change “As expense” category if you like, click **Create expense** → confirm “Remember for next time?” and enter a pattern (e.g. SPOTIFY). Next time you import a tx with SPOTIFY in the description, that category will be suggested.
+5. **Bank**: Create a small CSV with header row, e.g. `Date,Description,Amount` and a few rows (`2025-01-15,SPOTIFY,-9.99`). The importer supports **quoted fields** (RFC 4180–style), e.g. `Description,"1,234.56"`. Upload → map columns → Import. In the list, change “As expense” category if you like, click **Create expense** → confirm “Remember for next time?” and enter a pattern (e.g. SPOTIFY). Next time you import a tx with SPOTIFY in the description, that category will be suggested.
 6. **Receipts**: Edit an expense → under “Existing receipts” click the file name to open it in a new tab.
 
 ## Files
@@ -74,5 +76,7 @@ Full step-by-step (Parking + Ledger, custom domains): in the **Personal** monore
 - `config.js` – Your Supabase URL and key (from `config.js.example`)  
 - `supabase-accounting-schema.sql` – Tables and RLS (run once in Supabase)
 - `supabase-gf-schema.sql` – GF product catalog, GF receipts, GF purchases tables (run after main schema)
+- `js/parse-csv.js` – Bank CSV parser (loaded before `app.js`)
+- `docs/INCOME_TYPES.md` – Keep `income_type` values aligned with the database
 
 **BC average lookup**: “Use BC average” in the GF product form calls Statistics Canada’s Web Data Service for British Columbia average food prices. If you see a CORS/network error in the browser, the lookup still works when you enter the baseline price manually, or you can deploy a Supabase Edge Function that proxies the StatsCan API (same endpoints and request body as in `app.js`).
