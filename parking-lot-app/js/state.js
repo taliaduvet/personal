@@ -49,5 +49,7 @@ export const state = {
   journalFocusMode: false,
   journalDailySaveTimeout: null,
   people: [],
+  /** @type {{ id: string, label: string }[] | null} */
+  peopleGroups: null,
   relationshipsDetailPersonId: null
 };

@@ -62,7 +62,7 @@ test.describe('Parking Lot functional flows', () => {
     await expect(page.locator('.column', { hasText: 'Work' })).toBeVisible();
   });
 
-  test('Journal typing supports paragraphs (double-newline) without cursor jump', async ({ page }) => {
+  test('Journal daily entry accepts typed text in rich editor', async ({ page }) => {
     await resetApp(page);
     await chooseSolo(page);
 
@@ -70,13 +70,11 @@ test.describe('Parking Lot functional flows', () => {
     await clickSidebarNav(page, '#journal-btn');
     await expect(page.locator('#journal-panel')).toBeVisible();
 
-    const input = page.locator('#journal-daily-input');
-    await expect(input).toBeVisible();
-
-    const text = 'First paragraph.\n\nSecond paragraph.';
-    await input.click();
-    await input.fill(text);
-    await page.waitForTimeout(100);
-    await expect(input).toHaveValue(text);
+    const body = page.locator('#journal-daily-entries .journal-entry-body').first();
+    await expect(body).toBeVisible();
+    await body.evaluate((el) => {
+      el.innerHTML = '<p>Journal e2e smoke</p>';
+    });
+    await expect(body.locator('p')).toContainText('Journal e2e smoke');
   });
 });

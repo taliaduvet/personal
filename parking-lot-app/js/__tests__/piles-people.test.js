@@ -17,6 +17,7 @@ describe('domain/piles-people', () => {
     state.items = [];
     state.piles = [];
     state.people = [];
+    state.peopleGroups = null;
   });
 
   it('addPile()/updatePile()/deletePile() manage piles and clear item pileId', () => {

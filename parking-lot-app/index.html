@@ -567,10 +567,10 @@
         <div id="journal-daily-view" class="journal-view journal-view-daily journal-view-visible">
           <p id="journal-daily-date-label" class="journal-daily-date-label"></p>
           <div id="journal-daily-wrap" class="journal-daily-wrap">
-            <div id="journal-daily-mirror" class="journal-daily-mirror" aria-hidden="true"></div>
-            <textarea id="journal-daily-input" class="journal-daily-input" placeholder="What's on your mind?" rows="1"></textarea>
+            <div id="journal-daily-entries" class="journal-daily-entries"></div>
           </div>
           <div class="journal-daily-actions">
+            <button type="button" id="journal-daily-add-entry" class="btn-secondary btn-sm">Add entry</button>
             <button type="button" id="journal-daily-save" class="btn-secondary btn-sm">Save</button>
             <span class="journal-daily-autosave-hint">Saves as you type</span>
           </div>
@@ -590,7 +590,13 @@
           <div id="journal-reflections-list" class="journal-reflections-list"></div>
         </div>
         <div id="journal-calendar-view" class="journal-view journal-view-hidden">
-          <label for="journal-calendar-picker">Pick a date</label>
+          <div class="journal-calendar-month-nav">
+            <button type="button" id="journal-cal-prev" class="btn-secondary btn-sm" aria-label="Previous month">‹</button>
+            <span id="journal-cal-month-label" class="journal-cal-month-label"></span>
+            <button type="button" id="journal-cal-next" class="btn-secondary btn-sm" aria-label="Next month">›</button>
+          </div>
+          <div id="journal-calendar-month-grid" class="journal-calendar-month-grid"></div>
+          <label for="journal-calendar-picker">Or pick a date</label>
           <input type="date" id="journal-calendar-picker" class="journal-calendar-picker settings-name-input">
           <div id="journal-calendar-result" class="journal-calendar-result"></div>
         </div>
@@ -606,18 +612,22 @@
         <button id="close-relationships" class="btn-close" aria-label="Close">×</button>
       </div>
       <div id="relationships-list-view" class="relationships-list-view">
-        <button type="button" id="relationships-add-person" class="btn-primary btn-sm" style="margin-bottom:0.75rem">Add person</button>
+        <div class="relationships-list-actions">
+          <button type="button" id="relationships-add-person" class="btn-primary btn-sm">Add person</button>
+          <button type="button" id="relationships-toggle-groups" class="btn-secondary btn-sm">Edit groups</button>
+        </div>
+        <div id="relationships-groups-panel" class="relationships-groups-panel" style="display:none">
+          <p class="settings-hint">Rename or delete groups. Deleting moves people to <strong>Friends</strong>.</p>
+          <ul id="relationships-groups-list" class="relationships-groups-list"></ul>
+          <div class="relationships-group-add">
+            <input type="text" id="relationships-new-group-name" class="settings-name-input" placeholder="New group name" maxlength="48" aria-label="New group name">
+            <button type="button" id="relationships-new-group-add" class="btn-primary btn-sm">Add group</button>
+          </div>
+        </div>
         <div id="relationships-add-form" class="relationships-add-form" style="display:none">
           <input id="relationships-add-name" type="text" placeholder="Name" class="settings-name-input" maxlength="120">
           <label>Group</label>
-          <select id="relationships-add-group" class="settings-select">
-            <option value="family">Family</option>
-            <option value="romantic">Romantic</option>
-            <option value="close_friends">Close friends</option>
-            <option value="friends" selected>Friends</option>
-            <option value="acquaintances">Acquaintances</option>
-            <option value="work">Work</option>
-          </select>
+          <select id="relationships-add-group" class="settings-select"></select>
           <label>Last connected (optional)</label>
           <input type="date" id="relationships-add-last-connected">
           <label>Reconnect (optional)</label>

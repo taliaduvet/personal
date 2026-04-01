@@ -11,6 +11,7 @@ function getPileName(pileId) {
   return p ? p.name : pileId;
 }
 
+/** Default groups (seed into state.peopleGroups when empty). */
 const PEOPLE_GROUPS = [
   { id: 'family', label: 'Family' },
   { id: 'romantic', label: 'Romantic' },
@@ -19,6 +20,53 @@ const PEOPLE_GROUPS = [
   { id: 'acquaintances', label: 'Acquaintances' },
   { id: 'work', label: 'Work' }
 ];
+
+function seedPeopleGroupsIfEmpty() {
+  if (!state.peopleGroups || !state.peopleGroups.length) {
+    state.peopleGroups = PEOPLE_GROUPS.map((g) => ({ ...g }));
+  }
+}
+
+function getPeopleGroups() {
+  seedPeopleGroupsIfEmpty();
+  return (state.peopleGroups || []).slice();
+}
+
+function isValidPeopleGroupId(id) {
+  return getPeopleGroups().some((g) => g.id === id);
+}
+
+function addPeopleGroup(label) {
+  const trimmed = (label || '').trim();
+  if (!trimmed) return null;
+  seedPeopleGroupsIfEmpty();
+  const id = 'grp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+  state.peopleGroups.push({ id, label: trimmed });
+  persist();
+  return id;
+}
+
+function renamePeopleGroup(id, label) {
+  const trimmed = (label || '').trim();
+  if (!trimmed) return;
+  const g = (state.peopleGroups || []).find((x) => x.id === id);
+  if (g) {
+    g.label = trimmed;
+    persist();
+  }
+}
+
+function deletePeopleGroup(id) {
+  seedPeopleGroupsIfEmpty();
+  const remaining = (state.peopleGroups || []).filter((g) => g.id !== id);
+  const fallback = remaining.find((g) => g.id === 'friends') || remaining[0];
+  const fallbackId = fallback ? fallback.id : 'friends';
+  (state.people || []).forEach((p) => {
+    if (p.group === id) p.group = fallbackId;
+  });
+  state.peopleGroups = remaining.length ? remaining : PEOPLE_GROUPS.map((g) => ({ ...g }));
+  persist();
+}
 
 function getPeople() {
   return (state.people || []).slice();
@@ -34,10 +82,19 @@ function getPersonName(id) {
   return p ? p.name : (id || null);
 }
 
+function normalizeHistory(h) {
+  if (!Array.isArray(h)) return [];
+  return h
+    .filter((x) => x && typeof x.text === 'string' && typeof x.at === 'number')
+    .map((x) => ({ at: x.at, text: String(x.text) }))
+    .sort((a, b) => b.at - a.at);
+}
+
 function addPerson(attrs) {
   var name = (attrs && attrs.name != null) ? String(attrs.name).trim() : '';
   if (!name) return null;
-  var group = (attrs && attrs.group && PEOPLE_GROUPS.some(function(g) { return g.id === attrs.group; })) ? attrs.group : 'friends';
+  seedPeopleGroupsIfEmpty();
+  var group = (attrs && attrs.group && isValidPeopleGroupId(attrs.group)) ? attrs.group : 'friends';
   var id = 'person_' + Date.now() + '_' + Math.random().toString(36).slice(2);
   var person = {
     id: id,
@@ -45,7 +102,8 @@ function addPerson(attrs) {
     group: group,
     lastConnected: attrs && attrs.lastConnected != null ? attrs.lastConnected : null,
     reconnectRule: attrs && attrs.reconnectRule && { interval: attrs.reconnectRule.interval } ? attrs.reconnectRule : null,
-    notes: (attrs && attrs.notes != null) ? String(attrs.notes) : null
+    notes: (attrs && attrs.notes != null) ? String(attrs.notes) : null,
+    history: normalizeHistory(attrs && attrs.history)
   };
   state.people = (state.people || []).concat(person);
   persist();
@@ -59,10 +117,21 @@ function updatePerson(id, updates) {
     var n = String(updates.name).trim();
     if (n) p.name = n;
   }
-  if (updates && updates.group != null && PEOPLE_GROUPS.some(function(g) { return g.id === updates.group; })) p.group = updates.group;
+  if (updates && updates.group != null && isValidPeopleGroupId(updates.group)) p.group = updates.group;
   if (updates && updates.lastConnected !== undefined) p.lastConnected = updates.lastConnected;
   if (updates && updates.reconnectRule !== undefined) p.reconnectRule = updates.reconnectRule;
   if (updates && updates.notes !== undefined) p.notes = updates.notes;
+  if (updates && updates.history !== undefined) p.history = normalizeHistory(updates.history);
+  persist();
+}
+
+function appendPersonHistory(id, text) {
+  const t = (text || '').trim();
+  if (!t) return;
+  const p = getPerson(id);
+  if (!p) return;
+  const row = { at: Date.now(), text: t };
+  p.history = normalizeHistory((p.history || []).concat([row]));
   persist();
 }
 
@@ -128,11 +197,18 @@ export {
   getPiles,
   getPileName,
   PEOPLE_GROUPS,
+  seedPeopleGroupsIfEmpty,
+  getPeopleGroups,
+  isValidPeopleGroupId,
+  addPeopleGroup,
+  renamePeopleGroup,
+  deletePeopleGroup,
   getPeople,
   getPerson,
   getPersonName,
   addPerson,
   updatePerson,
+  appendPersonHistory,
   deletePerson,
   getReconnectIntervalMs,
   isOverdueToReconnect,

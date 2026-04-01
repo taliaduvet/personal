@@ -1,5 +1,7 @@
 import { STORAGE_PREFIX } from '../constants.js';
 import { state } from '../state.js';
+import { normalizeJournalDayValue } from '../domain/journal-daily.js';
+import { seedPeopleGroupsIfEmpty } from '../domain/piles-people.js';
 
 let storageNotify = (msg) => {
   console.warn(msg);
@@ -12,7 +14,7 @@ export function setStorageNotify(fn) {
 let cloudSyncHook = null;
 
 export function setCloudSyncHook(fn) {
-  cloudSyncHook = typeof fn === 'function' ? fn : null;
+  cloudSyncHook = typeof fn === 'function' ? fn : () => {};
 }
 
 export function getTallyDate() {
@@ -83,16 +85,19 @@ export function loadState() {
         }
         Object.keys(parsed.journalDaily).forEach(function(k) {
           const val = parsed.journalDaily[k];
-          if (typeof val !== 'string') return;
           const canonical = toYYYYMMDD(k);
-          if (canonical) {
-            const existing = state.journalDaily[canonical];
-            if (!existing || val.length > existing.length) state.journalDaily[canonical] = val;
-          }
+          if (!canonical) return;
+          state.journalDaily[canonical] = normalizeJournalDayValue(val);
+        });
+      }
+      if (Array.isArray(parsed.peopleGroups) && parsed.peopleGroups.length) {
+        state.peopleGroups = parsed.peopleGroups.filter(function(g) {
+          return g && typeof g.id === 'string' && typeof g.label === 'string';
         });
       }
       if (Array.isArray(parsed.people)) state.people = parsed.people;
     }
+    seedPeopleGroupsIfEmpty();
     if (!state.journalDaily || typeof state.journalDaily !== 'object') state.journalDaily = {};
     if (!Array.isArray(state.people)) state.people = [];
     const peopleIds = (state.people || []).map(function(p) { return p.id; });
@@ -133,7 +138,8 @@ export function saveState(skipCloudSync, useRemoteTallyDate) {
       habits: state.habits || [],
       habitCompletions: state.habitCompletions || [],
       journalDaily: state.journalDaily || {},
-      people: state.people || []
+      people: state.people || [],
+      peopleGroups: state.peopleGroups || []
     }));
     const tallyDate = useRemoteTallyDate && state.lastCompletedDate ? state.lastCompletedDate : getTallyDate();
     localStorage.setItem(STORAGE_PREFIX + 'tally', JSON.stringify({

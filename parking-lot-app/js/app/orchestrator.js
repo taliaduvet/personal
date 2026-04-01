@@ -56,12 +56,16 @@ import {
 import {
   getPiles,
   getPileName,
-  PEOPLE_GROUPS,
+  getPeopleGroups,
+  addPeopleGroup,
+  renamePeopleGroup,
+  deletePeopleGroup,
   getPeople,
   getPerson,
   getPersonName,
   addPerson,
   updatePerson,
+  appendPersonHistory,
   deletePerson,
   getReconnectIntervalMs,
   isOverdueToReconnect,
@@ -69,6 +73,13 @@ import {
   updatePile,
   deletePile
 } from '../domain/piles-people.js';
+import {
+  mergeJournalDayRemote,
+  normalizeJournalDayValue,
+  sanitizeJournalHtml,
+  newEntryId,
+  journalDayHasContent
+} from '../domain/journal-daily.js';
 import {
   getHabits,
   getCompletionsForDate,
@@ -90,6 +101,42 @@ import { renderTaskCard } from '../render/task-card.js';
 import { buildBackupPayload } from '../domain/backup-export.js';
 
 wirePersist(() => saveState());
+
+  function getColumnNoteFocusSnapshot() {
+    const el = document.activeElement;
+    if (!el || !el.classList || !el.classList.contains('column-note-textarea')) return null;
+    return {
+      category: el.dataset.category,
+      start: el.selectionStart,
+      end: el.selectionEnd,
+      scrollTop: el.scrollTop
+    };
+  }
+
+  function restoreColumnNoteFocus(snap) {
+    if (!snap) return;
+    requestAnimationFrame(() => {
+      const el = document.querySelector('.column-note-textarea[data-category="' + snap.category + '"]');
+      if (!el) return;
+      el.focus();
+      try {
+        const max = el.value.length;
+        el.setSelectionRange(Math.min(snap.start, max), Math.min(snap.end, max));
+      } catch (e) { /* selection may be invalid on first paint */ }
+      el.scrollTop = snap.scrollTop;
+    });
+  }
+
+  function refreshUIAfterRemotePrefs() {
+    const noteSnap = getColumnNoteFocusSnapshot();
+    applyThemeColors();
+    updateCategorySelectOptions();
+    renderColumns();
+    restoreColumnNoteFocus(noteSnap);
+    renderTodayList();
+    updateTally();
+    updateAddToSuggestionsBtn();
+  }
 
   function updateColumnNoteTurnPopover(e) {
     const ta = e && e.target && e.target.classList && e.target.classList.contains('column-note-textarea') ? e.target : null;
@@ -113,13 +160,16 @@ wirePersist(() => saveState());
     container.classList.toggle('single-column', !!state.drillDownCategory);
     container.classList.toggle('piles-view', isPilesView);
 
+    const todayIdSet = new Set(state.todaySuggestionIds || []);
+    const withoutToday = (items) => items.filter(i => !todayIdSet.has(i.id));
+
     if (isPilesView) {
       const piles = getPiles();
       const pileColumns = piles.map(p => ({ id: p.id, label: p.name, pileId: p.id }));
       pileColumns.push({ id: '__uncategorized', label: 'Uncategorized', pileId: null });
       const canReorder = false;
       container.innerHTML = pileColumns.map(col => {
-        const items = getActiveItems().filter(i => (i.pileId || null) === (col.pileId || null));
+        const items = withoutToday(getActiveItems().filter(i => (i.pileId || null) === (col.pileId || null)));
         const q = (state.searchQuery || '').trim().toLowerCase();
         const filtered = q ? items.filter(i => (i.text || '').toLowerCase().includes(q)) : items;
         const sorted = sortByTimeBandsAndFriction(filtered);
@@ -141,7 +191,7 @@ wirePersist(() => saveState());
     } else {
       const canReorder = !state.drillDownCategory && cats.length > 1;
       container.innerHTML = cats.map(catId => {
-        const items = sortItems(getItemsByCategory(catId));
+        const items = withoutToday(sortItems(getItemsByCategory(catId)));
         const label = getCategoryLabel(catId);
         const color = getColumnColor(catId);
         const noteContent = (state.columnNotes && state.columnNotes[catId]) || '';
@@ -849,8 +899,9 @@ wirePersist(() => saveState());
     const el = typeof selectIdOrEl === 'string' ? document.getElementById(selectIdOrEl) : selectIdOrEl;
     if (!el) return;
     const people = getPeople().slice().sort(function(a, b) {
-      var ai = PEOPLE_GROUPS.findIndex(function(g) { return g.id === a.group; });
-      var bi = PEOPLE_GROUPS.findIndex(function(g) { return g.id === b.group; });
+      const groups = getPeopleGroups();
+      var ai = groups.findIndex(function(g) { return g.id === a.group; });
+      var bi = groups.findIndex(function(g) { return g.id === b.group; });
       if (ai !== bi) return ai - bi;
       return (a.name || '').localeCompare(b.name || '');
     });
@@ -1229,6 +1280,7 @@ wirePersist(() => saveState());
     if (Array.isArray(state.habits) && state.habits.length) prefs.__habits = state.habits;
     if (Array.isArray(state.habitCompletions) && state.habitCompletions.length) prefs.__habitCompletions = state.habitCompletions;
     prefs.__people = Array.isArray(state.people) ? state.people : [];
+    if (Array.isArray(state.peopleGroups) && state.peopleGroups.length) prefs.__peopleGroups = state.peopleGroups;
     if (state.journalDaily && typeof state.journalDaily === 'object' && Object.keys(state.journalDaily).length) prefs.__journalDaily = state.journalDaily;
     if (Array.isArray(state.seedReflections) && state.seedReflections.length) prefs.__seedReflections = state.seedReflections;
     return prefs;
@@ -1254,13 +1306,17 @@ wirePersist(() => saveState());
     if (Array.isArray(prefs.__habits)) { state.habits = prefs.__habits; delete prefs.__habits; }
     if (Array.isArray(prefs.__habitCompletions)) { state.habitCompletions = prefs.__habitCompletions; delete prefs.__habitCompletions; }
     if (Array.isArray(prefs.__people)) { state.people = prefs.__people; delete prefs.__people; }
+    if (Array.isArray(prefs.__peopleGroups) && prefs.__peopleGroups.length) {
+      state.peopleGroups = prefs.__peopleGroups.filter(function(g) { return g && typeof g.id === 'string' && typeof g.label === 'string'; });
+      delete prefs.__peopleGroups;
+    }
     if (prefs.__journalDaily && typeof prefs.__journalDaily === 'object') {
-      state.journalDaily = state.journalDaily && typeof state.journalDaily === 'object' ? state.journalDaily : {};
+      if (!state.journalDaily || typeof state.journalDaily !== 'object') state.journalDaily = {};
       Object.keys(prefs.__journalDaily).forEach(function(dateKey) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return;
         var existing = state.journalDaily[dateKey];
         var incoming = prefs.__journalDaily[dateKey];
-        if (typeof incoming !== 'string') return;
-        if (!existing || (incoming.length > existing.length)) state.journalDaily[dateKey] = incoming;
+        state.journalDaily[dateKey] = mergeJournalDayRemote(existing, incoming);
       });
       delete prefs.__journalDaily;
     }
@@ -1502,17 +1558,46 @@ wirePersist(() => saveState());
     }
   }
 
+  function collectJournalDayFromDom() {
+    const wrap = document.getElementById('journal-daily-entries');
+    if (!wrap) return normalizeJournalDayValue(null);
+    const entries = [];
+    wrap.querySelectorAll('.journal-entry-card').forEach((card) => {
+      const id = card.dataset.entryId;
+      const body = card.querySelector('.journal-entry-body');
+      if (!id || !body) return;
+      entries.push({ id, html: sanitizeJournalHtml(body.innerHTML), updatedAt: Date.now() });
+    });
+    return normalizeJournalDayValue({ v: 2, entries });
+  }
+
+  function scheduleJournalDailyPersist() {
+    if (state.journalDailySaveTimeout) clearTimeout(state.journalDailySaveTimeout);
+    state.journalDailySaveTimeout = setTimeout(() => {
+      state.journalDailySaveTimeout = null;
+      const tallyStr = getTallyDateYYYYMMDD();
+      if (!state.journalDaily) state.journalDaily = {};
+      state.journalDaily[tallyStr] = collectJournalDayFromDom();
+      saveState();
+    }, 450);
+  }
+
   function flushJournalDailySave() {
     if (state.journalDailySaveTimeout) {
       clearTimeout(state.journalDailySaveTimeout);
       state.journalDailySaveTimeout = null;
     }
-    const input = document.getElementById('journal-daily-input');
-    if (!input) return;
+    if (!document.getElementById('journal-daily-entries')) return;
     const tallyStr = getTallyDateYYYYMMDD();
     if (!state.journalDaily) state.journalDaily = {};
-    state.journalDaily[tallyStr] = input.value;
+    state.journalDaily[tallyStr] = collectJournalDayFromDom();
     saveState();
+  }
+
+  function journalSyncPlaceholderClass(el) {
+    if (!el) return;
+    const t = (el.textContent || '').replace(/\u200b/g, '').trim();
+    el.classList.toggle('journal-entry-empty', !t);
   }
 
   function openJournalPanel() {
@@ -1521,8 +1606,8 @@ wirePersist(() => saveState());
     if (!panel) return;
     panel.style.display = 'block';
     renderJournalPanel();
-    const dailyInput = document.getElementById('journal-daily-input');
-    if (dailyInput && state.journalActiveTab === 'daily') dailyInput.focus();
+    const firstBody = document.querySelector('#journal-daily-entries .journal-entry-body');
+    if (firstBody && state.journalActiveTab === 'daily') firstBody.focus();
   }
 
   function closeJournalPanel() {
@@ -1547,85 +1632,88 @@ wirePersist(() => saveState());
     if (dailyActions) dailyActions.style.display = state.journalFocusMode ? 'none' : '';
     if (focusBtn) focusBtn.textContent = state.journalFocusMode ? 'Exit focus' : 'Focus writing';
     if (state.journalFocusMode) {
-      const dailyInput = document.getElementById('journal-daily-input');
-      if (dailyInput) dailyInput.focus();
+      const body = document.querySelector('#journal-daily-entries .journal-entry-body');
+      if (body) body.focus();
     }
-  }
-
-  function getJournalDailyBlocks(text) {
-    if (!text || !text.length) return [''];
-    return text.split(/\n{2,}/);
-  }
-
-  function updateJournalDailyMirror() {
-    const input = document.getElementById('journal-daily-input');
-    const mirror = document.getElementById('journal-daily-mirror');
-    if (!input || !mirror) return;
-    const text = input.value || '';
-    const cursorPos = typeof input.selectionStart === 'number' ? input.selectionStart : 0;
-
-    // Split into blocks while tracking separator lengths so cursor → block mapping stays stable.
-    const blocks = [];
-    const seps = [];
-    const re = /\n{2,}/g;
-    let last = 0;
-    let m;
-    while ((m = re.exec(text)) !== null) {
-      blocks.push(text.slice(last, m.index));
-      seps.push(m[0].length);
-      last = m.index + m[0].length;
-    }
-    blocks.push(text.slice(last));
-
-    let currentBlockIndex = 0;
-    let pos = 0;
-    for (let i = 0; i < blocks.length; i++) {
-      const sepLen = i < seps.length ? seps[i] : 0;
-      const spanLen = blocks[i].length + sepLen;
-      if (cursorPos <= pos + spanLen) { currentBlockIndex = i; break; }
-      pos += spanLen;
-    }
-
-    mirror.innerHTML = blocks.map(function(block, i) {
-      const inactive = i !== currentBlockIndex;
-      const escaped = escapeHtml(block).replace(/\n/g, '<br>');
-      // Keep height consistent for empty blocks so the cursor doesn't feel "trapped".
-      const tail = (inactive && block) ? '<br>' : (block ? '' : '<br>');
-      return '<div class="journal-daily-block' + (inactive ? ' journal-daily-block-inactive' : '') + '">' + escaped + tail + '</div>';
-    }).join('');
   }
 
   function renderJournalDaily() {
     const tallyStr = getTallyDateYYYYMMDD();
     const dateLabel = document.getElementById('journal-daily-date-label');
     if (dateLabel) dateLabel.textContent = 'Today, ' + (getTallyDate() || '').replace(/\s+\d{4}$/, '');
-    const input = document.getElementById('journal-daily-input');
-    if (input) {
-      input.value = (state.journalDaily && state.journalDaily[tallyStr]) || '';
-      updateJournalDailyMirror();
-      input.oninput = function() {
-        if (state.journalDailySaveTimeout) clearTimeout(state.journalDailySaveTimeout);
-        state.journalDailySaveTimeout = setTimeout(function() {
-          state.journalDailySaveTimeout = null;
-          const v = input.value;
-          if (!state.journalDaily) state.journalDaily = {};
-          state.journalDaily[tallyStr] = v;
-          saveState();
-        }, 400);
-        updateJournalDailyMirror();
-      };
-      input.onblur = function() { flushJournalDailySave(); };
-      input.onclick = input.onkeyup = function() { updateJournalDailyMirror(); };
-      input.onscroll = function() {
-        var mirror = document.getElementById('journal-daily-mirror');
-        if (mirror) { mirror.scrollTop = input.scrollTop; mirror.scrollLeft = input.scrollLeft; }
-      };
+    const wrap = document.getElementById('journal-daily-entries');
+    if (!wrap) return;
+
+    const day = normalizeJournalDayValue(state.journalDaily && state.journalDaily[tallyStr]);
+    let entryList = day.entries.length ? day.entries.slice() : [{ id: newEntryId(), html: '<p><br></p>', updatedAt: Date.now() }];
+    const showRemove = entryList.length > 1;
+
+    wrap.innerHTML = entryList.map((ent) => {
+      return '<div class="journal-entry-card" data-entry-id="' + escapeHtml(ent.id) + '">' +
+        '<div class="journal-entry-toolbar" role="toolbar" aria-label="Text formatting">' +
+        '<button type="button" class="btn-secondary btn-sm journal-cmd" data-cmd="bold" title="Bold"><b>B</b></button>' +
+        '<button type="button" class="btn-secondary btn-sm journal-cmd" data-cmd="italic" title="Italic"><i>I</i></button>' +
+        '<button type="button" class="btn-secondary btn-sm journal-cmd" data-cmd="underline" title="Underline"><u>U</u></button>' +
+        '<button type="button" class="btn-secondary btn-sm journal-cmd" data-cmd="insertUnorderedList" title="Bullets">•</button>' +
+        '<button type="button" class="btn-secondary btn-sm journal-cmd" data-cmd="insertOrderedList" title="Numbered list">1.</button>' +
+        (showRemove ? '<button type="button" class="btn-secondary btn-sm journal-entry-remove" title="Remove this entry">Remove</button>' : '') +
+        '</div>' +
+        '<div class="journal-entry-body" contenteditable="true" spellcheck="true" data-placeholder="Write here…" title="Journal entry">' + ent.html + '</div>' +
+        '</div>';
+    }).join('');
+
+    wrap.querySelectorAll('.journal-entry-body').forEach((el) => {
+      journalSyncPlaceholderClass(el);
+      el.addEventListener('input', () => journalSyncPlaceholderClass(el));
+    });
+
+    wrap.querySelectorAll('.journal-cmd').forEach((btn) => {
+      btn.addEventListener('mousedown', (e) => e.preventDefault());
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const card = btn.closest('.journal-entry-card');
+        const body = card && card.querySelector('.journal-entry-body');
+        if (!body) return;
+        body.focus();
+        const cmd = btn.dataset.cmd;
+        try {
+          document.execCommand(cmd, false, null);
+        } catch (err) {
+          console.warn('execCommand', cmd, err);
+        }
+        scheduleJournalDailyPersist();
+      });
+    });
+
+    wrap.querySelectorAll('.journal-entry-remove').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const card = btn.closest('.journal-entry-card');
+        if (card && wrap.querySelectorAll('.journal-entry-card').length > 1) {
+          card.remove();
+          scheduleJournalDailyPersist();
+          flushJournalDailySave();
+        }
+      });
+    });
+
+    wrap.oninput = () => scheduleJournalDailyPersist();
+
+    const addBtn = document.getElementById('journal-daily-add-entry');
+    if (addBtn && !addBtn._journalBound) {
+      addBtn._journalBound = true;
+      addBtn.addEventListener('click', () => {
+        flushJournalDailySave();
+        if (!state.journalDaily) state.journalDaily = {};
+        const current = normalizeJournalDayValue(state.journalDaily[tallyStr]);
+        current.entries.push({ id: newEntryId(), html: '<p><br></p>', updatedAt: Date.now() });
+        state.journalDaily[tallyStr] = current;
+        renderJournalDaily();
+        const bodies = wrap.querySelectorAll('.journal-entry-body');
+        const last = bodies[bodies.length - 1];
+        if (last) last.focus();
+      });
     }
-    var mirror = document.getElementById('journal-daily-mirror');
-    if (mirror && input) {
-      mirror.style.height = input.offsetHeight + 'px';
-      mirror.style.overflow = 'auto';
-    }
+
     setJournalFocusMode(state.journalFocusMode);
   }
 
@@ -1648,31 +1736,52 @@ wirePersist(() => saveState());
   function renderJournalCalendar() {
     const picker = document.getElementById('journal-calendar-picker');
     const resultEl = document.getElementById('journal-calendar-result');
+    const gridEl = document.getElementById('journal-calendar-month-grid');
+    const labelEl = document.getElementById('journal-cal-month-label');
+    const prevBtn = document.getElementById('journal-cal-prev');
+    const nextBtn = document.getElementById('journal-cal-next');
     if (!resultEl) return;
-    function showResult() {
-      const dateStr = picker && picker.value ? picker.value : '';
+
+    const themeColor = state.buttonColor || '#e07a5f';
+
+    function pad(n) {
+      return String(n).padStart(2, '0');
+    }
+    function ymdStr(y, m0, d) {
+      return y + '-' + pad(m0 + 1) + '-' + pad(d);
+    }
+    function parsePickerYM() {
+      if (picker && picker.value && /^\d{4}-\d{2}-\d{2}$/.test(picker.value)) {
+        const [y, mo] = picker.value.split('-').map(Number);
+        return { y, m: mo - 1 };
+      }
+      const t = new Date();
+      return { y: t.getFullYear(), m: t.getMonth() };
+    }
+
+    let viewYM = parsePickerYM();
+
+    function showResultForDate(dateStr) {
       if (!dateStr) {
         resultEl.innerHTML = '<p class="empty-state">Pick a date to see journal and reflections.</p>';
         return;
       }
-      const journalText = (state.journalDaily && state.journalDaily[dateStr]) || '';
-      const reflections = (state.seedReflections || []).filter(function(r) {
+      const jDay = normalizeJournalDayValue(state.journalDaily && state.journalDaily[dateStr]);
+      const journalHtml = jDay.entries.map((e) => e.html || '').join('');
+      const reflections = (state.seedReflections || []).filter((r) => {
         if (r.reflectedAt == null) return false;
         const d = new Date(r.reflectedAt);
-        const y = d.getFullYear();
-        const m = String(d.getMonth() + 1).padStart(2, '0');
-        const day = String(d.getDate()).padStart(2, '0');
-        return (y + '-' + m + '-' + day) === dateStr;
+        return ymdStr(d.getFullYear(), d.getMonth(), d.getDate()) === dateStr;
       });
       let html = '<h4>Journal for ' + escapeHtml(dateStr) + '</h4>';
-      if (journalText.trim()) {
-        html += '<div class="journal-calendar-journal">' + escapeHtml(journalText).replace(/\n/g, '<br>') + '</div>';
+      if (journalHtml.trim()) {
+        html += '<div class="journal-calendar-journal journal-rich">' + journalHtml + '</div>';
       } else {
-        html += '<p class="empty-state">No journal entry for this day.</p>';
+        html += '<p class="empty-state">No journal entries for this day.</p>';
       }
       html += '<h4>Reflections</h4>';
       if (reflections.length) {
-        html += reflections.map(function(r) {
+        html += reflections.map((r) => {
           const seedPart = (r.seed && r.seed.trim()) ? ' “‘' + escapeHtml(r.seed.trim()) + '”' : '';
           return '<div class="journal-reflection-item">' + seedPart + ' ' + escapeHtml((r.text || '').slice(0, 300)) + ((r.text || '').length > 300 ? '…' : '') + '</div>';
         }).join('');
@@ -1681,15 +1790,75 @@ wirePersist(() => saveState());
       }
       resultEl.innerHTML = html;
     }
-    if (picker) {
-      picker.onchange = showResult;
-      var todayStr = getTallyDateYYYYMMDD();
-      picker.value = todayStr;
-      if (!picker.value) picker.setAttribute('value', todayStr);
+
+    function showResult() {
+      const dateStr = picker && picker.value ? picker.value : '';
+      showResultForDate(dateStr);
     }
-    setTimeout(function() {
-      var p = document.getElementById('journal-calendar-picker');
-      if (p && !p.value) p.value = getTallyDateYYYYMMDD();
+
+    function renderMonthGrid() {
+      if (!gridEl) return;
+      const y = viewYM.y;
+      const m = viewYM.m;
+      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+      if (labelEl) labelEl.textContent = monthNames[m] + ' ' + y;
+      const first = new Date(y, m, 1);
+      const startPad = first.getDay();
+      const dim = new Date(y, m + 1, 0).getDate();
+      const todayYmd = getTallyDateYYYYMMDD();
+
+      let html = '<div class="journal-cal-dow">' + ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) =>
+        '<span>' + d + '</span>').join('') + '</div><div class="journal-cal-cells">';
+      for (let i = 0; i < startPad; i++) html += '<div class="journal-cal-cell journal-cal-pad"></div>';
+      for (let d = 1; d <= dim; d++) {
+        const ds = ymdStr(y, m, d);
+        const raw = state.journalDaily && state.journalDaily[ds];
+        const has = journalDayHasContent(raw);
+        const isToday = ds === todayYmd;
+        html += '<button type="button" class="journal-cal-day' + (has ? ' journal-cal-has-entry' : '') + (isToday ? ' journal-cal-today' : '') + '" data-date="' + ds + '"' +
+          (has ? ' style="--journal-cal-accent:' + themeColor + '"' : '') + '>' + d + '</button>';
+      }
+      html += '</div>';
+      gridEl.innerHTML = html;
+      gridEl.querySelectorAll('.journal-cal-day').forEach((b) => {
+        b.addEventListener('click', () => {
+          const ds = b.dataset.date;
+          if (picker) picker.value = ds;
+          showResultForDate(ds);
+        });
+      });
+    }
+
+    if (prevBtn) {
+      prevBtn.onclick = () => {
+        viewYM.m -= 1;
+        if (viewYM.m < 0) { viewYM.m = 11; viewYM.y -= 1; }
+        renderMonthGrid();
+      };
+    }
+    if (nextBtn) {
+      nextBtn.onclick = () => {
+        viewYM.m += 1;
+        if (viewYM.m > 11) { viewYM.m = 0; viewYM.y += 1; }
+        renderMonthGrid();
+      };
+    }
+
+    if (picker) {
+      picker.onchange = () => {
+        viewYM = parsePickerYM();
+        renderMonthGrid();
+        showResult();
+      };
+    }
+
+    const todayStr = getTallyDateYYYYMMDD();
+    if (picker && !picker.value) picker.value = todayStr;
+
+    viewYM = parsePickerYM();
+    renderMonthGrid();
+    setTimeout(() => {
+      if (picker && !picker.value) picker.value = getTallyDateYYYYMMDD();
       showResult();
     }, 0);
   }
@@ -2234,12 +2403,7 @@ wirePersist(() => saveState());
       if (state.prefsUnsubscribe) state.prefsUnsubscribe();
       state.prefsUnsubscribe = window.talkAbout.subscribeDevicePreferences(state.deviceSyncId, (prefs) => {
         applyDevicePreferencesToState(prefs);
-        applyThemeColors();
-        updateCategorySelectOptions();
-        renderColumns();
-        renderTodayList();
-        updateTally();
-        updateAddToSuggestionsBtn();
+        refreshUIAfterRemotePrefs();
       });
     } else if (state.prefsUnsubscribe) {
       state.prefsUnsubscribe();
@@ -2733,19 +2897,9 @@ wirePersist(() => saveState());
               if (state.prefsUnsubscribe) state.prefsUnsubscribe();
               state.prefsUnsubscribe = window.talkAbout.subscribeDevicePreferences(state.deviceSyncId, (p) => {
                 applyDevicePreferencesToState(p);
-                applyThemeColors();
-                updateCategorySelectOptions();
-                renderColumns();
-                renderTodayList();
-                updateTally();
-                updateAddToSuggestionsBtn();
+                refreshUIAfterRemotePrefs();
               });
-              applyThemeColors();
-              updateCategorySelectOptions();
-              renderColumns();
-              renderTodayList();
-              updateTally();
-              updateAddToSuggestionsBtn();
+              refreshUIAfterRemotePrefs();
               const syncDisplay = document.getElementById('settings-sync-code-display');
               if (syncDisplay) syncDisplay.textContent = state.deviceSyncId;
               const syncEl = document.getElementById('settings-sync-code');
@@ -2993,17 +3147,72 @@ wirePersist(() => saveState());
       }
     }
 
+    function fillRelationshipGroupSelect(selectEl, selectedId) {
+      if (!selectEl) return;
+      const groups = getPeopleGroups();
+      selectEl.innerHTML = groups.map(function(g) {
+        return '<option value="' + escapeHtml(g.id) + '"' + (g.id === selectedId ? ' selected' : '') + '>' + escapeHtml(g.label) + '</option>';
+      }).join('');
+    }
+
+    function renderRelationshipsGroupsPanel() {
+      var panel = document.getElementById('relationships-groups-panel');
+      var listEl = document.getElementById('relationships-groups-list');
+      if (!panel || !listEl) return;
+      var groups = getPeopleGroups();
+      listEl.innerHTML = groups.map(function(g) {
+        var count = getPeople().filter(function(p) { return p.group === g.id; }).length;
+        return '<li class="relationships-group-edit-row" data-group-id="' + escapeHtml(g.id) + '">' +
+          '<input type="text" class="settings-name-input relationships-group-rename" value="' + escapeHtml(g.label) + '" maxlength="48" aria-label="Group name">' +
+          '<span class="relationships-group-count">' + count + ' people</span>' +
+          '<button type="button" class="btn-secondary btn-sm relationships-group-save">Rename</button>' +
+          '<button type="button" class="btn-secondary btn-sm relationships-group-delete">Delete</button>' +
+          '</li>';
+      }).join('');
+      listEl.querySelectorAll('.relationships-group-save').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          var row = btn.closest('.relationships-group-edit-row');
+          var id = row && row.dataset.groupId;
+          var inp = row && row.querySelector('.relationships-group-rename');
+          if (!id || !inp) return;
+          renamePeopleGroup(id, inp.value);
+          renderRelationshipsGroupsPanel();
+          var addSel = document.getElementById('relationships-add-group');
+          if (addSel) fillRelationshipGroupSelect(addSel, addSel.value);
+          showToast('Group updated');
+        });
+      });
+      listEl.querySelectorAll('.relationships-group-delete').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          var row = btn.closest('.relationships-group-edit-row');
+          var id = row && row.dataset.groupId;
+          if (!id) return;
+          if (!window.confirm('Delete this group? People in it move to Friends.')) return;
+          deletePeopleGroup(id);
+          renderRelationshipsGroupsPanel();
+          var addSel2 = document.getElementById('relationships-add-group');
+          if (addSel2) fillRelationshipGroupSelect(addSel2, 'friends');
+          renderRelationshipsList();
+          showToast('Group removed');
+        });
+      });
+    }
+
     function renderRelationshipsList() {
       var container = document.getElementById('relationships-group-list');
       if (!container) return;
+      var addGrpEl = document.getElementById('relationships-add-group');
+      var prevSel = (addGrpEl && addGrpEl.value) ? addGrpEl.value : 'friends';
+      fillRelationshipGroupSelect(addGrpEl, prevSel);
       var people = getPeople();
+      var groups = getPeopleGroups();
       var byGroup = {};
-      PEOPLE_GROUPS.forEach(function(g) {
+      groups.forEach(function(g) {
         byGroup[g.id] = people.filter(function(p) { return p.group === g.id; });
       });
       container.innerHTML = people.length === 0
         ? '<p class="empty-state">No people yet. Add someone to stay in touch.</p>'
-        : PEOPLE_GROUPS.map(function(g) {
+        : groups.map(function(g) {
             var list = byGroup[g.id] || [];
             if (list.length === 0) return '';
             return '<div class="relationships-group-section"><h4 class="relationships-group-title">' + escapeHtml(g.label) + ' (' + list.length + ')</h4><div class="relationships-person-list">' +
@@ -3038,32 +3247,76 @@ wirePersist(() => saveState());
         renderRelationshipsPanel();
         return;
       }
-      var lastStr = person.lastConnected == null ? 'Never' : (function() {
+      var lastDateVal = person.lastConnected != null ? (function() {
         var d = new Date(person.lastConnected);
-        return d.toLocaleDateString();
-      })();
-      var ruleStr = (person.reconnectRule && person.reconnectRule.interval) ? { '1w': 'Every week', '2w': 'Every 2 weeks', '1m': 'Every month', '3m': 'Every 3 months' }[person.reconnectRule.interval] || '—' : '—';
+        return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      })() : '';
+      var hist = (person.history || []).slice().sort(function(a, b) { return (b.at || 0) - (a.at || 0); });
+      var historyHtml = hist.length ? hist.map(function(h) {
+        var d = new Date(h.at);
+        return '<div class="relationships-history-row"><span class="relationships-history-date">' + escapeHtml(d.toLocaleString()) + '</span><p class="relationships-history-text">' + escapeHtml(h.text) + '</p></div>';
+      }).join('') : '<p class="empty-state">No history yet — add notes as you go.</p>';
       var linked = (state.items || []).filter(function(i) { return !i.archived && i.personId === personId; });
-      content.innerHTML = '<div class="relationships-detail-block">' +
-        '<p><strong>' + escapeHtml(person.name) + '</strong></p>' +
-        '<p>Group: ' + escapeHtml((PEOPLE_GROUPS.find(function(g) { return g.id === person.group; }) || {}).label || person.group) + '</p>' +
-        '<p>Last connected: ' + escapeHtml(lastStr) + '</p>' +
-        '<p>Reconnect: ' + escapeHtml(ruleStr) + '</p>' +
-        (person.notes ? '<p>Notes: ' + escapeHtml(person.notes) + '</p>' : '') +
-        '<button type="button" id="relationships-mark-connected" class="btn-primary btn-sm" data-person-id="' + escapeHtml(personId) + '">Mark connected</button>' +
-        '</div>' +
+      content.innerHTML = '<div class="relationships-detail-block relationships-detail-form">' +
+        '<label>Name</label><input type="text" id="relationships-detail-name" class="settings-name-input" maxlength="120" value="' + escapeHtml(person.name) + '">' +
+        '<label>Group</label><select id="relationships-detail-group" class="settings-select"></select>' +
+        '<label>Last connected</label><input type="date" id="relationships-detail-last" class="settings-name-input" value="' + escapeHtml(lastDateVal) + '">' +
+        '<label>Reconnect reminder</label><select id="relationships-detail-reconnect" class="settings-select">' +
+        '<option value="">No reminder</option><option value="1w">Every week</option><option value="2w">Every 2 weeks</option>' +
+        '<option value="1m">Every month</option><option value="3m">Every 3 months</option></select>' +
+        '<label>Notes</label><textarea id="relationships-detail-notes" class="settings-name-input" rows="3" placeholder="Things to remember">' + escapeHtml(person.notes || '') + '</textarea>' +
+        '<div class="relationships-detail-save-row">' +
+        '<button type="button" id="relationships-detail-save" class="btn-primary btn-sm">Save changes</button>' +
+        '<button type="button" id="relationships-mark-connected" class="btn-secondary btn-sm" data-person-id="' + escapeHtml(personId) + '">Mark connected today</button>' +
+        '</div></div>' +
+        '<h4>History</h4>' +
+        '<div class="relationships-history-list">' + historyHtml + '</div>' +
+        '<label class="relationships-history-add-label">Add to history</label>' +
+        '<textarea id="relationships-history-new" class="settings-name-input" rows="2" placeholder="e.g. Video call, sent a card, deep talk about…"></textarea>' +
+        '<button type="button" id="relationships-history-add" class="btn-secondary btn-sm">Add note</button>' +
         '<h4>Linked tasks</h4>' +
         (linked.length ? '<ul class="relationships-linked-tasks">' + linked.map(function(i) {
           return '<li><button type="button" class="btn-link relationships-open-task" data-id="' + escapeHtml(i.id) + '">' + escapeHtml((i.text || '').slice(0, 60)) + (i.text && i.text.length > 60 ? '…' : '') + '</button></li>';
         }).join('') + '</ul>' : '<p class="empty-state">No tasks linked.</p>') +
         '<div class="relationships-detail-actions">' +
-        '<button type="button" id="relationships-delete-person" class="btn-secondary btn-sm" data-person-id="' + escapeHtml(personId) + '">Delete person</button>' +
-        '</div>';
+        '<button type="button" id="relationships-delete-person" class="btn-secondary btn-sm" data-person-id="' + escapeHtml(personId) + '">Delete person</button></div>';
+      fillRelationshipGroupSelect(document.getElementById('relationships-detail-group'), person.group);
+      var recSel = document.getElementById('relationships-detail-reconnect');
+      if (recSel && person.reconnectRule && person.reconnectRule.interval) recSel.value = person.reconnectRule.interval;
+
+      var saveBtn = document.getElementById('relationships-detail-save');
+      if (saveBtn) saveBtn.addEventListener('click', function() {
+        var name = (document.getElementById('relationships-detail-name') || {}).value.trim();
+        var group = (document.getElementById('relationships-detail-group') || {}).value;
+        var lastVal = (document.getElementById('relationships-detail-last') || {}).value;
+        var lastMs = lastVal ? (new Date(lastVal)).setHours(0, 0, 0, 0) : null;
+        var rec = (document.getElementById('relationships-detail-reconnect') || {}).value;
+        var reconnectRule = rec ? { interval: rec } : null;
+        var notesRaw = (document.getElementById('relationships-detail-notes') || {}).value;
+        var notes = (notesRaw || '').trim() || null;
+        if (!name) { showToast('Name required'); return; }
+        updatePerson(personId, { name: name, group: group, lastConnected: lastMs, reconnectRule: reconnectRule, notes: notes });
+        showToast('Saved');
+        renderRelationshipsDetail(personId);
+        if (window.talkAbout && state.deviceSyncId) saveDevicePreferencesToSupabase();
+      });
       var markBtn = document.getElementById('relationships-mark-connected');
       if (markBtn) markBtn.addEventListener('click', function() {
         updatePerson(personId, { lastConnected: Date.now() });
+        appendPersonHistory(personId, 'Marked connected');
         renderRelationshipsDetail(personId);
         showToast('Marked connected');
+        if (window.talkAbout && state.deviceSyncId) saveDevicePreferencesToSupabase();
+      });
+      var histAdd = document.getElementById('relationships-history-add');
+      if (histAdd) histAdd.addEventListener('click', function() {
+        var t = (document.getElementById('relationships-history-new') || {}).value.trim();
+        if (!t) return;
+        appendPersonHistory(personId, t);
+        document.getElementById('relationships-history-new').value = '';
+        renderRelationshipsDetail(personId);
+        showToast('History updated');
+        if (window.talkAbout && state.deviceSyncId) saveDevicePreferencesToSupabase();
       });
       content.querySelectorAll('.relationships-open-task').forEach(function(btn) {
         btn.addEventListener('click', function() {
@@ -3094,6 +3347,7 @@ wirePersist(() => saveState());
     var relAddCancel = document.getElementById('relationships-add-cancel');
     if (relAddBtn && relAddForm) relAddBtn.addEventListener('click', function() {
       relAddForm.style.display = 'block';
+      fillRelationshipGroupSelect(relAddGroup, (relAddGroup && relAddGroup.value) ? relAddGroup.value : 'friends');
       if (relAddName) { relAddName.value = ''; relAddName.focus(); }
       if (relAddLast) relAddLast.value = '';
       if (relAddReconnect) relAddReconnect.value = '';
@@ -3116,6 +3370,29 @@ wirePersist(() => saveState());
       showToast('Person added');
       if (window.talkAbout && state.deviceSyncId) saveDevicePreferencesToSupabase();
     });
+    var relToggleGroups = document.getElementById('relationships-toggle-groups');
+    var relGroupsPanel = document.getElementById('relationships-groups-panel');
+    if (relToggleGroups && relGroupsPanel) {
+      relToggleGroups.addEventListener('click', function() {
+        var open = relGroupsPanel.style.display !== 'block';
+        relGroupsPanel.style.display = open ? 'block' : 'none';
+        if (open) renderRelationshipsGroupsPanel();
+      });
+    }
+    var relNewGroupAdd = document.getElementById('relationships-new-group-add');
+    var relNewGroupName = document.getElementById('relationships-new-group-name');
+    if (relNewGroupAdd && relNewGroupName) {
+      relNewGroupAdd.addEventListener('click', function() {
+        var id = addPeopleGroup(relNewGroupName.value);
+        if (!id) { showToast('Enter a group name'); return; }
+        relNewGroupName.value = '';
+        renderRelationshipsGroupsPanel();
+        fillRelationshipGroupSelect(document.getElementById('relationships-add-group'), id);
+        showToast('Group added');
+        if (window.talkAbout && state.deviceSyncId) saveDevicePreferencesToSupabase();
+      });
+    }
+
     var relBack = document.getElementById('relationships-back');
     if (relBack) relBack.addEventListener('click', function() {
       state.relationshipsDetailPersonId = null;

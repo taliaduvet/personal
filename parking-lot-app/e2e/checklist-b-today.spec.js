@@ -23,7 +23,8 @@ test.describe('Checklist B — Today bar & suggestions', () => {
     await expect(page.locator('#add-to-suggestions-float.visible')).toHaveCount(1);
     await page.locator('#add-to-suggestions-btn').click();
     await expect(page.locator('#today-list .today-item').filter({ hasText: 'qa-b2-alpha' })).toHaveCount(1);
-    await expect(page.locator('#columns .task-card').filter({ hasText: 'qa-b2-alpha' })).toHaveCount(1);
+    await expect(page.locator('#columns .task-card').filter({ hasText: 'qa-b2-alpha' })).toHaveCount(0);
+    await expect(page.locator('#columns .task-card').filter({ hasText: 'qa-b2-beta' })).toHaveCount(1);
   });
 
   test('B3 Clear selection on float', async ({ page }) => {
