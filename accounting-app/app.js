@@ -846,6 +846,7 @@
   let bankParsedRows = [];
   let bankHeaders = [];
   let bankRules = [];
+  let bankReviewRows = [];
 
   function suggestFromRules(description, rules) {
     if (!description || !rules.length) return { entryType: null, categoryId: '9270', incomeType: null, gstEligible: false };
@@ -865,6 +866,26 @@
       incomeType: r.income_type || null,
       gstEligible: !!r.gst_eligible
     };
+  }
+
+  function normalizeRulePattern(description) {
+    const vendor = guessVendorFromBankDescription(description) || description || '';
+    return String(vendor)
+      .toUpperCase()
+      .replace(/[^A-Z0-9 ]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 40);
+  }
+
+  function parseBankMoneyToCents(value) {
+    const n = parseFloat(String(value == null ? '' : value).replace(/[^0-9.-]/g, ''));
+    if (Number.isNaN(n)) return 0;
+    return Math.round(n * 100);
+  }
+
+  function toBankMoney(cents) {
+    return (Number(cents || 0) / 100).toFixed(2);
   }
 
   function parseCsv(text) {
@@ -1029,132 +1050,247 @@
     const all = bankRes.data || [];
     const unreconciled = all.filter(tx => !tx.acct_reconciliation || tx.acct_reconciliation.length === 0);
     if (!unreconciled.length) { wrap.innerHTML = '<p class="empty-state">No unreconciled transactions. Import a CSV or you’re fully reconciled.</p>'; return; }
-    wrap.innerHTML = unreconciled.map(tx => {
+    bankReviewRows = unreconciled.map(tx => {
       const amt = Number(tx.amount_cents || 0);
-      const cls = amt >= 0 ? 'positive' : 'negative';
-      const sign = amt >= 0 ? '+' : '-';
       const abs = Math.abs(amt);
       const sug = suggestFromRules(tx.description, bankRules);
-      const defCat = sug.categoryId || '9270';
-      const defType = sug.incomeType || '';
-      const incomeTypeOptions = INCOME_TYPES.map(t => `<option value="${escapeHtmlAttr(t.id)}" ${t.id === defType ? 'selected' : ''}>${escapeHtml(t.label)}</option>`).join('');
-      const desc = tx.description || '';
-      const descShort = desc.length > 60 ? desc.slice(0, 60) + '…' : desc;
-      const dateBad = !isValidIsoDate(tx.date);
-      const rowClass = 'bank-row' + (dateBad ? ' bank-row-invalid' : '');
-      return `<div class="${rowClass}" data-id="${escapeHtmlAttr(tx.id)}" data-description="${escapeHtmlAttr(desc)}" data-amount-cents="${amt >= 0 ? amt : -amt}">
-        <div class="bank-row-main">
-          <div>
-            <div class="meta">${formatDate(tx.date)} · ${escapeHtml(descShort)}</div>
-            ${dateBad ? '<div class="bank-row-warn" role="status">Date could not be verified — edit amount/date in your ledger if needed.</div>' : ''}
-            <div class="meta" style="font-size:0.8rem;">Source: ${escapeHtml(tx.source_file_name || '—')}</div>
+      return {
+        id: tx.id,
+        sourceFileName: tx.source_file_name || '',
+        description: tx.description || '',
+        date: tx.date,
+        amountCents: abs,
+        txSignedCents: amt,
+        entryType: sug.entryType || (amt < 0 ? 'expense' : 'income'),
+        categoryId: sug.categoryId || '9270',
+        incomeType: sug.incomeType || 'other',
+        plannedExpenseId: '',
+        plannedIncomeId: '',
+        include: true,
+        status: 'pending',
+        statusMessage: '',
+        receiptFile: null
+      };
+    });
+
+    function renderBankReview() {
+      const rowsHtml = bankReviewRows.map(function (r) {
+        const dateBad = !isValidIsoDate(r.date);
+        const statusCls = r.status === 'success' ? ' bank-row-success' : (r.status === 'error' ? ' bank-row-error' : '');
+        const rowClass = 'bank-row' + (dateBad ? ' bank-row-invalid' : '') + statusCls;
+        const incomeTypeOptions = INCOME_TYPES.map(t => `<option value="${escapeHtmlAttr(t.id)}" ${t.id === r.incomeType ? 'selected' : ''}>${escapeHtml(t.label)}</option>`).join('');
+        const statusLine = r.statusMessage ? `<div class="bank-row-status">${escapeHtml(r.statusMessage)}</div>` : '';
+        return `<div class="${rowClass}" data-id="${escapeHtmlAttr(r.id)}">
+          <div class="bank-row-main">
+            <label class="bank-include-toggle"><input type="checkbox" class="bank-row-include" ${r.include ? 'checked' : ''}> Include</label>
+            <div>
+              <div class="meta">${escapeHtml(r.description || '—')}</div>
+              <div class="meta" style="font-size:0.8rem;">Source: ${escapeHtml(r.sourceFileName || '—')}</div>
+            </div>
+            <div class="amount ${r.txSignedCents >= 0 ? 'positive' : 'negative'}">${r.txSignedCents >= 0 ? '+' : '-'}$${centsToDollars(Math.abs(r.txSignedCents))}</div>
           </div>
-          <div class="amount ${cls}">${sign}$${centsToDollars(abs)}</div>
+          <div class="bank-row-edit-grid">
+            <label>Type
+              <select class="bank-row-entry-type">
+                <option value="expense" ${r.entryType === 'expense' ? 'selected' : ''}>Expense</option>
+                <option value="income" ${r.entryType === 'income' ? 'selected' : ''}>Income</option>
+              </select>
+            </label>
+            <label>Date
+              <input type="date" class="bank-row-date" value="${escapeHtmlAttr(r.date || '')}">
+            </label>
+            <label>Amount to record ($)
+              <input type="number" step="0.01" min="0" class="bank-row-amount-record" value="${toBankMoney(r.amountCents)}">
+            </label>
+            <label class="bank-field-expense ${r.entryType === 'expense' ? '' : 'hidden'}">Category
+              <div class="bank-row-category-wrap category-picker-wrap"><input type="hidden" class="bank-row-category-value" value="${escapeHtmlAttr(r.categoryId)}"><input type="text" class="category-picker-input" placeholder="Search categories..." value="${escapeHtmlAttr(categoryDisplayLabel(T2125_CATEGORIES.find(c => c.id === r.categoryId)))}" autocomplete="off"><ul class="category-picker-list" aria-hidden="true"></ul></div>
+            </label>
+            <label class="bank-field-income ${r.entryType === 'income' ? '' : 'hidden'}">Income type
+              <select class="bank-row-income-type"><option value="">—</option>${incomeTypeOptions}</select>
+            </label>
+            <label class="bank-field-expense ${r.entryType === 'expense' ? '' : 'hidden'}">Planned expense
+              <select class="bank-row-planned-expense"><option value="">—</option>${plannedExpenseOpts}</select>
+            </label>
+            <label class="bank-field-income ${r.entryType === 'income' ? '' : 'hidden'}">Planned income
+              <select class="bank-row-planned-income"><option value="">—</option>${plannedIncomeOpts}</select>
+            </label>
+            <label class="bank-field-expense ${r.entryType === 'expense' ? '' : 'hidden'}">Receipt (optional)
+              <input type="file" class="bank-row-receipt" accept="image/*,application/pdf">
+            </label>
+          </div>
+          ${dateBad ? '<div class="bank-row-warn" role="status">Date is invalid. Fix before submit.</div>' : ''}
+          ${statusLine}
+        </div>`;
+      }).join('');
+      wrap.innerHTML = `
+        <div class="bank-bulk-actions">
+          <button type="button" id="bank-submit-all-btn" class="btn btn-primary">Submit all selected</button>
+          <button type="button" id="bank-ignore-unselected-btn" class="btn btn-secondary">Ignore unselected</button>
         </div>
-        <div class="bank-row-suggest">
-          <label class="bank-suggest-label">As expense:</label>
-          <div class="bank-row-category-wrap category-picker-wrap"><input type="hidden" class="bank-row-category-value" value="${escapeHtmlAttr(defCat)}"><input type="text" class="category-picker-input" placeholder="Search categories..." value="${escapeHtmlAttr(categoryDisplayLabel(T2125_CATEGORIES.find(c => c.id === defCat)))}" autocomplete="off"><ul class="category-picker-list" aria-hidden="true"></ul></div>
-          <label class="bank-suggest-label">Amount to record ($)</label>
-          <input type="number" step="0.01" min="0" class="bank-row-amount-record" value="${(abs / 100).toFixed(2)}" placeholder="Your portion" title="Use when someone else paid part (e.g. your half of rent)">
-          <label class="bank-suggest-label">Match to planned (expense):</label>
-          <select class="bank-row-planned-expense"><option value="">—</option>${plannedExpenseOpts}</select>
-          <label class="bank-suggest-label">As income:</label>
-          <select class="bank-row-income-type"><option value="">—</option>${incomeTypeOptions}</select>
-          <label class="bank-suggest-label">Match to planned (income):</label>
-          <select class="bank-row-planned-income"><option value="">—</option>${plannedIncomeOpts}</select>
-        </div>
-        <div class="actions">
-          <button type="button" class="btn-create-expense" data-id="${tx.id}">Create expense</button>
-          <button type="button" class="btn-create-income" data-id="${tx.id}">Create income</button>
-          <button type="button" class="btn-ignore" data-id="${tx.id}">Ignore</button>
-        </div>
-      </div>`;
-    }).join('');
-    wrap.querySelectorAll('.bank-row-category-wrap').forEach(w => initCategoryPicker(w));
-    wrap.querySelectorAll('.btn-ignore').forEach(btn => { btn.addEventListener('click', () => onBankIgnore(btn.dataset.id)); });
-    wrap.querySelectorAll('.btn-create-expense').forEach(btn => { btn.addEventListener('click', () => onBankCreateExpense(btn.dataset.id)); });
-    wrap.querySelectorAll('.btn-create-income').forEach(btn => { btn.addEventListener('click', () => onBankCreateIncome(btn.dataset.id)); });
+        ${rowsHtml}
+      `;
+      wrap.querySelectorAll('.bank-row-category-wrap').forEach(w => initCategoryPicker(w));
+      wrap.querySelectorAll('.bank-row').forEach(function (rowEl) {
+        const id = rowEl.getAttribute('data-id');
+        const state = bankReviewRows.find(r => r.id === id);
+        if (!state) return;
+        const includeEl = rowEl.querySelector('.bank-row-include');
+        const entryEl = rowEl.querySelector('.bank-row-entry-type');
+        const dateEl = rowEl.querySelector('.bank-row-date');
+        const amountEl = rowEl.querySelector('.bank-row-amount-record');
+        const catEl = rowEl.querySelector('.bank-row-category-value');
+        const typeEl = rowEl.querySelector('.bank-row-income-type');
+        const pExpEl = rowEl.querySelector('.bank-row-planned-expense');
+        const pIncEl = rowEl.querySelector('.bank-row-planned-income');
+        const receiptEl = rowEl.querySelector('.bank-row-receipt');
+        if (includeEl) includeEl.addEventListener('change', function () { state.include = !!includeEl.checked; });
+        if (entryEl) entryEl.addEventListener('change', function () {
+          state.entryType = entryEl.value === 'expense' ? 'expense' : 'income';
+          renderBankReview();
+        });
+        if (dateEl) dateEl.addEventListener('change', function () { state.date = dateEl.value || ''; });
+        if (amountEl) amountEl.addEventListener('change', function () { state.amountCents = Math.max(0, parseBankMoneyToCents(amountEl.value)); });
+        if (catEl) catEl.addEventListener('change', function () { state.categoryId = catEl.value || '9270'; });
+        if (typeEl) typeEl.addEventListener('change', function () { state.incomeType = typeEl.value || 'other'; });
+        if (pExpEl) pExpEl.addEventListener('change', function () { state.plannedExpenseId = pExpEl.value || ''; });
+        if (pIncEl) pIncEl.addEventListener('change', function () { state.plannedIncomeId = pIncEl.value || ''; });
+        if (receiptEl) receiptEl.addEventListener('change', function () { state.receiptFile = receiptEl.files && receiptEl.files[0] ? receiptEl.files[0] : null; });
+      });
+      document.getElementById('bank-submit-all-btn')?.addEventListener('click', onBankSubmitAll);
+      document.getElementById('bank-ignore-unselected-btn')?.addEventListener('click', onBankIgnoreUnselected);
+    }
+
+    async function ensureAutoRule(state) {
+      const pattern = normalizeRulePattern(state.description);
+      if (!pattern) return;
+      const existing = bankRules.find(function (r) {
+        const samePattern = String(r.pattern || '').toUpperCase().trim() === pattern;
+        if (!samePattern) return false;
+        return state.entryType === 'expense'
+          ? (r.entry_type === 'expense' && String(r.category_id || '') === String(state.categoryId || ''))
+          : (r.entry_type === 'income' && String(r.income_type || '') === String(state.incomeType || 'other'));
+      });
+      if (existing) return;
+      const payload = state.entryType === 'expense'
+        ? { pattern_type: 'contains', pattern, entry_type: 'expense', category_id: state.categoryId || '9270' }
+        : { pattern_type: 'contains', pattern, entry_type: 'income', income_type: state.incomeType || 'other' };
+      const res = await acctApi.rulesInsert(payload);
+      if (!res.error) bankRules.unshift(res.data || payload);
+    }
+
+    async function processBankRow(state) {
+      state.status = 'pending';
+      state.statusMessage = '';
+      if (!state.include) return;
+      if (!isValidIsoDate(state.date)) {
+        state.status = 'error';
+        state.statusMessage = 'Invalid date';
+        return;
+      }
+      if (!state.amountCents || state.amountCents <= 0) {
+        state.status = 'error';
+        state.statusMessage = 'Amount must be greater than 0';
+        return;
+      }
+      if (state.entryType === 'expense') {
+        const expRow = {
+          date: state.date,
+          amount_cents: state.amountCents,
+          gst_cents: 0,
+          category: state.categoryId || '9270',
+          vendor: guessVendorFromBankDescription(state.description),
+          note: state.description || null
+        };
+        if (state.amountCents < Math.abs(state.txSignedCents)) expRow.total_payment_cents = Math.abs(state.txSignedCents);
+        if (state.plannedExpenseId) expRow.planned_id = state.plannedExpenseId;
+        const expRes = await acctApi.expensesInsert(expRow);
+        if (expRes.error || !expRes.data?.id) {
+          state.status = 'error';
+          state.statusMessage = apiErrorMessage(expRes.error || 'Could not create expense');
+          return;
+        }
+        const recRes = await acctApi.createReconciliation(state.id, null, expRes.data.id);
+        if (recRes.error) {
+          state.status = 'error';
+          state.statusMessage = apiErrorMessage(recRes.error || 'Could not reconcile expense');
+          return;
+        }
+        if (state.receiptFile) {
+          const upRes = await acctApi.uploadReceipt(expRes.data.id, state.receiptFile);
+          if (upRes.error) {
+            state.status = 'error';
+            state.statusMessage = 'Expense saved, receipt upload failed: ' + apiErrorMessage(upRes.error);
+            return;
+          }
+        }
+      } else {
+        const incRow = {
+          date: state.date,
+          amount_cents: state.amountCents,
+          gst_cents: 0,
+          vendor: guessVendorFromBankDescription(state.description),
+          client_or_project: null,
+          income_type: state.incomeType || 'other',
+          note: state.description || null
+        };
+        if (state.plannedIncomeId) incRow.planned_id = state.plannedIncomeId;
+        const incRes = await acctApi.incomeInsert(incRow);
+        if (incRes.error || !incRes.data?.id) {
+          state.status = 'error';
+          state.statusMessage = apiErrorMessage(incRes.error || 'Could not create income');
+          return;
+        }
+        const recRes = await acctApi.createReconciliation(state.id, incRes.data.id, null);
+        if (recRes.error) {
+          state.status = 'error';
+          state.statusMessage = apiErrorMessage(recRes.error || 'Could not reconcile income');
+          return;
+        }
+      }
+      await ensureAutoRule(state);
+      state.status = 'success';
+      state.statusMessage = 'Saved';
+    }
+
+    async function onBankSubmitAll() {
+      const selected = bankReviewRows.filter(r => r.include);
+      if (!selected.length) {
+        showAppToast('Select at least one row to submit.', true);
+        return;
+      }
+      for (const row of selected) {
+        await processBankRow(row);
+      }
+      const ok = selected.filter(r => r.status === 'success').length;
+      const fail = selected.length - ok;
+      showAppToast('Processed ' + ok + ' row(s).' + (fail ? ' ' + fail + ' failed.' : ''), fail > 0);
+      renderBankReview();
+      if (ok > 0) {
+        incomeListRender();
+        expenseListRender();
+        renderDashboard();
+      }
+    }
+
+    async function onBankIgnoreUnselected() {
+      const ids = bankReviewRows.filter(r => !r.include).map(r => r.id);
+      if (!ids.length) {
+        showAppToast('No unselected rows to ignore.', true);
+        return;
+      }
+      for (const id of ids) {
+        await onBankIgnore(id, true);
+      }
+      loadBankReconcile();
+    }
+
+    renderBankReview();
   }
 
-  async function onBankIgnore(id) {
-    if (!confirm('Ignore this transaction?')) return;
+  async function onBankIgnore(id, skipConfirm) {
+    if (!skipConfirm && !confirm('Ignore this transaction?')) return;
     const { error } = await acctApi.bankMarkIgnored(id);
     if (error) { showAppToast(error.message || 'Could not ignore', true); return; }
-    loadBankReconcile();
-  }
-
-  function getBankRowSelection(id) {
-    const row = document.querySelector(`.bank-row[data-id="${id}"]`);
-    if (!row) return { categoryId: '9270', incomeType: null, description: '', amountToRecordCents: null, plannedIdExpense: null, plannedIdIncome: null };
-    const catSel = row.querySelector('.bank-row-category-value');
-    const typeSel = row.querySelector('.bank-row-income-type');
-    const amountInput = row.querySelector('.bank-row-amount-record');
-    const plannedExpSel = row.querySelector('.bank-row-planned-expense');
-    const plannedIncSel = row.querySelector('.bank-row-planned-income');
-    const desc = row.getAttribute('data-description') || '';
-    const totalTxCents = parseInt(row.getAttribute('data-amount-cents'), 10) || 0;
-    const amountToRecordCents = amountInput ? toCents(amountInput.value) : null;
-    return {
-      categoryId: catSel ? catSel.value : '9270',
-      incomeType: typeSel && typeSel.value ? typeSel.value : null,
-      description: desc.replace(/&quot;/g, '"'),
-      amountToRecordCents: amountToRecordCents >= 0 ? amountToRecordCents : null,
-      totalTxCents,
-      plannedIdExpense: plannedExpSel && plannedExpSel.value ? plannedExpSel.value : null,
-      plannedIdIncome: plannedIncSel && plannedIncSel.value ? plannedIncSel.value : null
-    };
-  }
-
-  async function onBankCreateExpense(id) {
-    const { data, error } = await acctApi.bankListUnreconciled();
-    if (error) { showAppToast(error.message || 'Could not load transaction', true); return; }
-    const tx = (data || []).find(t => t.id === id);
-    if (!tx) return;
-    if (!isValidIsoDate(tx.date)) {
-      showAppToast('This transaction has an invalid date. Correct it in your bank export or skip this row.', true);
-      return;
-    }
-    const sel = getBankRowSelection(id);
-    const fullAmt = Math.abs(Number(tx.amount_cents || 0));
-    const amount_cents = (sel.amountToRecordCents != null && sel.amountToRecordCents > 0) ? sel.amountToRecordCents : fullAmt;
-    const row = { date: tx.date, amount_cents, gst_cents: 0, category: sel.categoryId, vendor: guessVendorFromBankDescription(tx.description), note: tx.description || null };
-    if (amount_cents < fullAmt) row.total_payment_cents = fullAmt;
-    if (sel.plannedIdExpense) row.planned_id = sel.plannedIdExpense;
-    const { data: exp, error: expErr } = await acctApi.expensesInsert(row);
-    if (expErr) { showAppToast(expErr.message || 'Could not create expense', true); return; }
-    await acctApi.createReconciliation(id, null, exp.id);
-    if (confirm('Remember this category for similar descriptions? (e.g. next time you see "' + (tx.description || '').slice(0, 30) + '…" it will suggest this category)')) {
-      const pattern = prompt('Pattern to match (e.g. SPOTIFY):', (tx.description || '').replace(/[^a-zA-Z0-9]/g, ' ').trim().slice(0, 25)) || (tx.description || '').slice(0, 20);
-      if (pattern) await acctApi.rulesInsert({ pattern_type: 'contains', pattern: pattern.trim(), entry_type: 'expense', category_id: sel.categoryId });
-    }
-    expenseListRender();
-    renderDashboard();
-    loadBankReconcile();
-  }
-
-  async function onBankCreateIncome(id) {
-    const { data, error } = await acctApi.bankListUnreconciled();
-    if (error) { showAppToast(error.message || 'Could not load transaction', true); return; }
-    const tx = (data || []).find(t => t.id === id);
-    if (!tx) return;
-    if (!isValidIsoDate(tx.date)) {
-      showAppToast('This transaction has an invalid date. Correct it in your bank export or skip this row.', true);
-      return;
-    }
-    const sel = getBankRowSelection(id);
-    const amt = Math.abs(Number(tx.amount_cents || 0));
-    const row = { date: tx.date, amount_cents: amt, gst_cents: 0, vendor: guessVendorFromBankDescription(tx.description), client_or_project: null, income_type: sel.incomeType || null, note: tx.description || null };
-    if (sel.plannedIdIncome) row.planned_id = sel.plannedIdIncome;
-    const { data: inc, error: incErr } = await acctApi.incomeInsert(row);
-    if (incErr) { showAppToast(incErr.message || 'Could not create income', true); return; }
-    await acctApi.createReconciliation(id, inc.id, null);
-    if (confirm('Remember this income type for similar descriptions?')) {
-      const pattern = prompt('Pattern to match (e.g. VENMO):', (tx.description || '').replace(/[^a-zA-Z0-9]/g, ' ').trim().slice(0, 25)) || (tx.description || '').slice(0, 20);
-      if (pattern) await acctApi.rulesInsert({ pattern_type: 'contains', pattern: pattern.trim(), entry_type: 'income', income_type: sel.incomeType || 'other' });
-    }
-    incomeListRender();
-    renderDashboard();
-    loadBankReconcile();
   }
 
   function deleteIncome(id) {
@@ -1257,6 +1393,73 @@
   const GF_CURRENT_RECEIPT_KEY = 'gf_current_receipt_id';
   const GF_CURRENT_RECEIPT_NAME_KEY = 'gf_current_receipt_name';
   const GF_CURRENT_RECEIPT_DATE_KEY = 'gf_current_receipt_date';
+  const GF_PRODUCT_PREFS_KEY = 'gf_product_prefs_v1';
+  let gfProductsById = {};
+
+  function parseUnitDescription(unitDescription) {
+    const m = String(unitDescription || '').match(/per\s+([0-9]+(?:\.[0-9]+)?)\s*([a-zA-Z]+)/i);
+    if (!m) return null;
+    return { value: Number(m[1]), unit: String(m[2]).toLowerCase() };
+  }
+
+  function loadGfProductPrefs() {
+    try {
+      const raw = localStorage.getItem(GF_PRODUCT_PREFS_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  function saveGfProductPrefs(prefs) {
+    try {
+      localStorage.setItem(GF_PRODUCT_PREFS_KEY, JSON.stringify(prefs || {}));
+    } catch (e) {}
+  }
+
+  function setGfProductPref(productId, pref) {
+    if (!productId) return;
+    const all = loadGfProductPrefs();
+    all[productId] = pref;
+    saveGfProductPrefs(all);
+  }
+
+  function getGfProductPref(productId) {
+    if (!productId) return null;
+    const all = loadGfProductPrefs();
+    return all[productId] || null;
+  }
+
+  function applyGfProductPrefill(productId) {
+    if (!productId) return;
+    const product = gfProductsById[productId] || null;
+    const pref = getGfProductPref(productId);
+    const regPriceEl = document.getElementById('gf-regular-unit');
+    const gfTotalEl = document.getElementById('gf-total-paid');
+    const gfSizeValEl = document.getElementById('gf-size-value');
+    const gfSizeUnitEl = document.getElementById('gf-size-unit');
+    const regSizeValEl = document.getElementById('gf-regular-size-value');
+    const regSizeUnitEl = document.getElementById('gf-regular-size-unit');
+    if (regPriceEl) {
+      if (pref && pref.regularUnitPriceCents != null) regPriceEl.value = centsToDollars(pref.regularUnitPriceCents);
+      else if (product && product.baseline_regular_unit_price_cents != null) regPriceEl.value = centsToDollars(product.baseline_regular_unit_price_cents);
+    }
+    if (product && product.unit_description && (!pref || pref.regularSizeValue == null)) {
+      const parsed = parseUnitDescription(product.unit_description);
+      if (parsed) {
+        if (regSizeValEl) regSizeValEl.value = parsed.value;
+        if (regSizeUnitEl) regSizeUnitEl.value = parsed.unit;
+      }
+    }
+    if (pref) {
+      if (gfTotalEl && pref.gfTotalCents != null) gfTotalEl.value = centsToDollars(pref.gfTotalCents);
+      if (gfSizeValEl) gfSizeValEl.value = pref.gfSizeValue != null ? String(pref.gfSizeValue) : '';
+      if (gfSizeUnitEl) gfSizeUnitEl.value = pref.gfSizeUnit || '';
+      if (regSizeValEl && pref.regularSizeValue != null) regSizeValEl.value = String(pref.regularSizeValue);
+      if (regSizeUnitEl) regSizeUnitEl.value = pref.regularSizeUnit || regSizeUnitEl.value || '';
+    }
+    gfLiveCalc();
+  }
 
   function getCurrentGfReceipt() {
     try {
@@ -1350,6 +1553,8 @@
     const sel = document.getElementById('gf-product-select');
     if (!sel) return;
     const { data } = await gfApi.productsList();
+    gfProductsById = {};
+    (data || []).forEach(function (p) { gfProductsById[p.id] = p; });
     const opts = ['<option value="">— Select or add product —</option>'].concat((data || []).map(p => `<option value="${p.id}" data-cents="${p.baseline_regular_unit_price_cents ?? ''}">${p.name}${p.unit_description ? ' (' + p.unit_description + ')' : ''}</option>`));
     sel.innerHTML = opts.join('');
   }
@@ -1566,15 +1771,38 @@
       const { error } = await gfApi.purchaseInsert(payload);
       if (error) { showAppToast(error.message || 'Insert failed', true); return; }
     }
+
+    if (productId) {
+      setGfProductPref(productId, {
+        regularUnitPriceCents: regularUnitCents,
+        gfTotalCents: effectiveGfTotalCents,
+        gfSizeValue: gfVal,
+        gfSizeUnit: gfUnit || '',
+        regularSizeValue: regVal,
+        regularSizeUnit: regUnit || ''
+      });
+      const unitDescription = (regVal != null && regVal > 0 && regUnit) ? ('per ' + regVal + ' ' + regUnit) : null;
+      await gfApi.productUpsert({
+        id: productId,
+        name: productName,
+        baseline_regular_unit_price_cents: regularUnitCents,
+        unit_description: unitDescription
+      });
+    }
+
     gfPurchasesListRender();
     document.getElementById('gf-quantity').value = '';
-    document.getElementById('gf-total-paid').value = '';
     var perUnitChk = document.getElementById('gf-total-is-per-unit');
     if (perUnitChk) perUnitChk.checked = false;
-    document.getElementById('gf-regular-unit').value = '';
-    var sv = document.getElementById('gf-size-value'), su = document.getElementById('gf-size-unit');
-    var rv = document.getElementById('gf-regular-size-value'), ru = document.getElementById('gf-regular-size-unit');
-    if (sv) sv.value = ''; if (su) su.value = ''; if (rv) rv.value = ''; if (ru) ru.value = '';
+    if (productId) {
+      applyGfProductPrefill(productId);
+    } else {
+      document.getElementById('gf-total-paid').value = '';
+      document.getElementById('gf-regular-unit').value = '';
+      var sv = document.getElementById('gf-size-value'), su = document.getElementById('gf-size-unit');
+      var rv = document.getElementById('gf-regular-size-value'), ru = document.getElementById('gf-regular-size-unit');
+      if (sv) sv.value = ''; if (su) su.value = ''; if (rv) rv.value = ''; if (ru) ru.value = '';
+    }
     gfLiveCalc();
   }
 
@@ -1987,6 +2215,7 @@
       const opt = sel?.selectedOptions?.[0];
       const cents = opt?.dataset?.cents;
       if (cents !== undefined && cents !== '') document.getElementById('gf-regular-unit').value = (parseInt(cents, 10) / 100).toFixed(2);
+      applyGfProductPrefill(sel?.value || null);
       gfLiveCalc();
     });
     ['gf-quantity', 'gf-total-paid', 'gf-regular-unit', 'gf-size-value', 'gf-regular-size-value', 'gf-size-unit', 'gf-regular-size-unit', 'gf-total-is-per-unit'].forEach(id => {
@@ -2055,9 +2284,8 @@
         authScreen.style.display = 'none';
         mainApp.classList.add('visible');
         if (userEmail) userEmail.textContent = user.email;
-        incomeListRender();
-        expenseListRender();
         initReportDates();
+        setPanel('dashboard');
       } else {
         authScreen.style.display = 'flex';
         mainApp.classList.remove('visible');
