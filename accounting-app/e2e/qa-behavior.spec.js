@@ -44,13 +44,13 @@ test.describe('Ledger QA — behavior (stubbed cloud)', () => {
       buffer: Buffer.from(csv1),
     });
     await page.locator('#bank-import-btn').click();
-    await page.getByRole('button', { name: 'Submit all selected' }).waitFor({ timeout: 10_000 });
+    await page.getByRole('button', { name: 'Submit all included' }).waitFor({ timeout: 10_000 });
 
     await page.locator('.bank-row-category-value').first().evaluate((el) => {
       el.value = '8810';
       el.dispatchEvent(new Event('change', { bubbles: true }));
     });
-    await page.getByRole('button', { name: 'Submit all selected' }).click();
+    await page.getByRole('button', { name: 'Submit all included' }).click();
     await expect(page.locator('.bank-row-status').first()).toContainText(/saved/i);
 
     const csv2 = [
@@ -63,7 +63,7 @@ test.describe('Ledger QA — behavior (stubbed cloud)', () => {
       buffer: Buffer.from(csv2),
     });
     await page.locator('#bank-import-btn').click();
-    await page.getByRole('button', { name: 'Submit all selected' }).waitFor({ timeout: 10_000 });
+    await page.getByRole('button', { name: 'Submit all included' }).waitFor({ timeout: 10_000 });
     await expect(page.locator('.bank-row-category-value').first()).toHaveValue('8810');
   });
 

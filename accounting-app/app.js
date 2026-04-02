@@ -1,3 +1,5 @@
+import { signedCentsFromBankRow, guessBankEntryType } from './js/bank-amount-pure.js';
+
 (function () {
   'use strict';
 
@@ -125,6 +127,9 @@
   }
 
   function setPanel(name) {
+    try {
+      sessionStorage.setItem('ledger_panel', name);
+    } catch (_e) {}
     document.querySelectorAll('.panel').forEach(p => { p.classList.remove('visible'); });
     document.querySelectorAll('.tab-btn').forEach(b => {
       b.classList.remove('active');
@@ -946,6 +951,8 @@
     const dateGuess = guessHeader(headers, 'date');
     const descGuess = guessHeader(headers, 'description') || guessHeader(headers, 'details');
     const amountGuess = guessHeader(headers, 'amount');
+    const debitGuess = guessHeader(headers, 'debit') || guessHeader(headers, 'withdrawal');
+    const creditGuess = guessHeader(headers, 'credit') || guessHeader(headers, 'deposit');
     const optionsHtml = headers.map(h => `<option value="${escapeHtmlAttr(h)}">${escapeHtml(h)}</option>`).join('');
     wrap.style.display = 'block';
     wrap.innerHTML = `
@@ -961,19 +968,32 @@
             <option value="">-- choose --</option>${optionsHtml}
           </select>
         </div>
-        <div><span style="font-size:0.85rem;color:var(--muted);">Amount column</span><br>
+        <div><span style="font-size:0.85rem;color:var(--muted);">Amount (signed or one column)</span><br>
           <select id="bank-col-amount">
-            <option value="">-- choose --</option>${optionsHtml}
+            <option value="">-- optional if Debit/Credit --</option>${optionsHtml}
+          </select>
+        </div>
+        <div><span style="font-size:0.85rem;color:var(--muted);">Debit (money out)</span><br>
+          <select id="bank-col-debit">
+            <option value="">-- optional --</option>${optionsHtml}
+          </select>
+        </div>
+        <div><span style="font-size:0.85rem;color:var(--muted);">Credit (money in)</span><br>
+          <select id="bank-col-credit">
+            <option value="">-- optional --</option>${optionsHtml}
           </select>
         </div>
         <div style="align-self:flex-end;">
           <button type="button" class="btn btn-primary" id="bank-import-btn">Import</button>
         </div>
       </div>
+      <p class="hint" style="margin-top:0.5rem">Use <strong>Debit</strong> + <strong>Credit</strong> when amounts are always positive. Parentheses like (50.00) count as negative. Optional trailing CR/DR is understood.</p>
     `;
     if (dateGuess) document.getElementById('bank-col-date').value = dateGuess;
     if (descGuess) document.getElementById('bank-col-desc').value = descGuess;
     if (amountGuess) document.getElementById('bank-col-amount').value = amountGuess;
+    if (debitGuess) document.getElementById('bank-col-debit').value = debitGuess;
+    if (creditGuess) document.getElementById('bank-col-credit').value = creditGuess;
     document.getElementById('bank-import-btn').addEventListener('click', importBankMapped);
   }
 
@@ -987,16 +1007,20 @@
     const dateCol = document.getElementById('bank-col-date').value;
     const descCol = document.getElementById('bank-col-desc').value;
     const amountCol = document.getElementById('bank-col-amount').value;
-    if (!dateCol || !descCol || !amountCol) {
-      showAppToast('Please choose date, description, and amount columns.', true);
+    const debitCol = document.getElementById('bank-col-debit').value;
+    const creditCol = document.getElementById('bank-col-credit').value;
+    if (!dateCol || !descCol) {
+      showAppToast('Please choose date and description columns.', true);
+      return;
+    }
+    if (!amountCol && !debitCol && !creditCol) {
+      showAppToast('Choose an Amount column, or at least one of Debit / Credit.', true);
       return;
     }
     const source = document.getElementById('bank-file')?.files[0];
     const sourceName = source ? source.name : null;
     const rows = bankParsedRows.map(r => {
-      const rawAmt = r[amountCol] || '0';
-      const n = parseFloat(String(rawAmt).replace(/[^0-9.-]/g, '')) || 0;
-      const amount_cents = Math.round(n * 100);
+      const amount_cents = signedCentsFromBankRow(r, amountCol, debitCol, creditCol);
       const dateNorm = normalizeDate(r[dateCol]);
       return {
         date: dateNorm,
@@ -1050,6 +1074,9 @@
     const all = bankRes.data || [];
     const unreconciled = all.filter(tx => !tx.acct_reconciliation || tx.acct_reconciliation.length === 0);
     if (!unreconciled.length) { wrap.innerHTML = '<p class="empty-state">No unreconciled transactions. Import a CSV or you’re fully reconciled.</p>'; return; }
+    const batchHasNegative = unreconciled.some(function (tx) {
+      return Number(tx.amount_cents) < 0;
+    });
     bankReviewRows = unreconciled.map(tx => {
       const amt = Number(tx.amount_cents || 0);
       const abs = Math.abs(amt);
@@ -1061,19 +1088,49 @@
         date: tx.date,
         amountCents: abs,
         txSignedCents: amt,
-        entryType: sug.entryType || (amt < 0 ? 'expense' : 'income'),
+        entryType: guessBankEntryType(amt, tx.description, sug, batchHasNegative),
         categoryId: sug.categoryId || '9270',
         incomeType: sug.incomeType || 'other',
         plannedExpenseId: '',
         plannedIncomeId: '',
-        include: true,
+        include: false,
+        bulkPick: false,
         status: 'pending',
         statusMessage: '',
         receiptFile: null
       };
     });
 
+    function touchBankRow(state, rowEl) {
+      state.include = true;
+      if (rowEl) {
+        const inc = rowEl.querySelector('.bank-row-include');
+        if (inc) inc.checked = true;
+      }
+    }
+
     function renderBankReview() {
+      const bulkIncomeOpts = INCOME_TYPES.map(t => `<option value="${escapeHtmlAttr(t.id)}">${escapeHtml(t.label)}</option>`).join('');
+      const bulkBarHtml = `
+        <div class="bank-bulk-edit-bar">
+          <span class="bank-bulk-edit-title">Bulk edit</span>
+          <span id="bank-bulk-count" class="muted"></span>
+          <label class="bank-bulk-field">Type
+            <select id="bank-bulk-entry-type">
+              <option value="expense">Expense</option>
+              <option value="income">Income</option>
+            </select>
+          </label>
+          <label class="bank-bulk-field bank-bulk-field-expense" id="bank-bulk-cat-label">Category
+            <div id="bank-bulk-category-wrap" class="category-picker-wrap"><input type="hidden" id="bank-bulk-category-value" value="9270"><input type="text" id="bank-bulk-category-input" class="category-picker-input" placeholder="Search categories..." value="${escapeHtmlAttr(categoryDisplayLabel(T2125_CATEGORIES.find(c => c.id === '9270')))}" autocomplete="off"><ul class="category-picker-list" aria-hidden="true"></ul></div>
+          </label>
+          <label class="bank-bulk-field bank-bulk-field-income" id="bank-bulk-inc-label" style="display:none">Income type
+            <select id="bank-bulk-income-type"><option value="">— keep each row’s type</option>${bulkIncomeOpts}</select>
+          </label>
+          <button type="button" id="bank-bulk-apply-btn" class="btn btn-primary">Apply to bulk-selected rows</button>
+          <button type="button" id="bank-bulk-select-all-btn" class="btn btn-secondary">Bulk-select all</button>
+          <button type="button" id="bank-bulk-clear-btn" class="btn btn-secondary">Clear bulk selection</button>
+        </div>`;
       const rowsHtml = bankReviewRows.map(function (r) {
         const dateBad = !isValidIsoDate(r.date);
         const statusCls = r.status === 'success' ? ' bank-row-success' : (r.status === 'error' ? ' bank-row-error' : '');
@@ -1082,7 +1139,10 @@
         const statusLine = r.statusMessage ? `<div class="bank-row-status">${escapeHtml(r.statusMessage)}</div>` : '';
         return `<div class="${rowClass}" data-id="${escapeHtmlAttr(r.id)}">
           <div class="bank-row-main">
-            <label class="bank-include-toggle"><input type="checkbox" class="bank-row-include" ${r.include ? 'checked' : ''}> Include</label>
+            <div class="bank-row-ledges">
+              <label class="bank-include-toggle"><input type="checkbox" class="bank-row-include" ${r.include ? 'checked' : ''}> Include</label>
+              <label class="bank-bulk-toggle" title="Select for bulk type/category changes"><input type="checkbox" class="bank-row-bulk" ${r.bulkPick ? 'checked' : ''}> Bulk</label>
+            </div>
             <div>
               <div class="meta">${escapeHtml(r.description || '—')}</div>
               <div class="meta" style="font-size:0.8rem;">Source: ${escapeHtml(r.sourceFileName || '—')}</div>
@@ -1114,7 +1174,7 @@
             <label class="bank-field-income ${r.entryType === 'income' ? '' : 'hidden'}">Planned income
               <select class="bank-row-planned-income"><option value="">—</option>${plannedIncomeOpts}</select>
             </label>
-            <label class="bank-field-expense ${r.entryType === 'expense' ? '' : 'hidden'}">Receipt (optional)
+            <label class="bank-field-expense bank-field-receipt ${r.entryType === 'expense' ? '' : 'hidden'}"><span class="bank-receipt-label-text">Receipt (optional)</span>
               <input type="file" class="bank-row-receipt" accept="image/*,application/pdf">
             </label>
           </div>
@@ -1124,17 +1184,35 @@
       }).join('');
       wrap.innerHTML = `
         <div class="bank-bulk-actions">
-          <button type="button" id="bank-submit-all-btn" class="btn btn-primary">Submit all selected</button>
-          <button type="button" id="bank-ignore-unselected-btn" class="btn btn-secondary">Ignore unselected</button>
+          <button type="button" id="bank-submit-all-btn" class="btn btn-primary">Submit all included</button>
+          <button type="button" id="bank-ignore-unselected-btn" class="btn btn-secondary">Ignore rows not included</button>
         </div>
+        ${bulkBarHtml}
         ${rowsHtml}
       `;
+      function updateBulkCount() {
+        const n = bankReviewRows.filter(function (r) { return r.bulkPick; }).length;
+        const el = document.getElementById('bank-bulk-count');
+        if (el) el.textContent = n ? '(' + n + ' bulk-selected)' : '(no bulk selection)';
+      }
       wrap.querySelectorAll('.bank-row-category-wrap').forEach(w => initCategoryPicker(w));
+      initCategoryPicker(document.getElementById('bank-bulk-category-wrap'));
+      const bulkTypeEl = document.getElementById('bank-bulk-entry-type');
+      function syncBulkBarVisibility() {
+        const isInc = bulkTypeEl && bulkTypeEl.value === 'income';
+        const catL = document.getElementById('bank-bulk-cat-label');
+        const incL = document.getElementById('bank-bulk-inc-label');
+        if (catL) catL.style.display = isInc ? 'none' : '';
+        if (incL) incL.style.display = isInc ? '' : 'none';
+      }
+      if (bulkTypeEl) bulkTypeEl.addEventListener('change', syncBulkBarVisibility);
+      syncBulkBarVisibility();
       wrap.querySelectorAll('.bank-row').forEach(function (rowEl) {
         const id = rowEl.getAttribute('data-id');
         const state = bankReviewRows.find(r => r.id === id);
         if (!state) return;
         const includeEl = rowEl.querySelector('.bank-row-include');
+        const bulkEl = rowEl.querySelector('.bank-row-bulk');
         const entryEl = rowEl.querySelector('.bank-row-entry-type');
         const dateEl = rowEl.querySelector('.bank-row-date');
         const amountEl = rowEl.querySelector('.bank-row-amount-record');
@@ -1143,21 +1221,60 @@
         const pExpEl = rowEl.querySelector('.bank-row-planned-expense');
         const pIncEl = rowEl.querySelector('.bank-row-planned-income');
         const receiptEl = rowEl.querySelector('.bank-row-receipt');
+        const catWrap = rowEl.querySelector('.bank-row-category-wrap');
         if (includeEl) includeEl.addEventListener('change', function () { state.include = !!includeEl.checked; });
+        if (bulkEl) bulkEl.addEventListener('change', function () { state.bulkPick = !!bulkEl.checked; updateBulkCount(); });
         if (entryEl) entryEl.addEventListener('change', function () {
+          touchBankRow(state, rowEl);
           state.entryType = entryEl.value === 'expense' ? 'expense' : 'income';
           renderBankReview();
         });
-        if (dateEl) dateEl.addEventListener('change', function () { state.date = dateEl.value || ''; });
-        if (amountEl) amountEl.addEventListener('change', function () { state.amountCents = Math.max(0, parseBankMoneyToCents(amountEl.value)); });
-        if (catEl) catEl.addEventListener('change', function () { state.categoryId = catEl.value || '9270'; });
-        if (typeEl) typeEl.addEventListener('change', function () { state.incomeType = typeEl.value || 'other'; });
-        if (pExpEl) pExpEl.addEventListener('change', function () { state.plannedExpenseId = pExpEl.value || ''; });
-        if (pIncEl) pIncEl.addEventListener('change', function () { state.plannedIncomeId = pIncEl.value || ''; });
-        if (receiptEl) receiptEl.addEventListener('change', function () { state.receiptFile = receiptEl.files && receiptEl.files[0] ? receiptEl.files[0] : null; });
+        if (dateEl) {
+          dateEl.addEventListener('change', function () { state.date = dateEl.value || ''; touchBankRow(state, rowEl); });
+          dateEl.addEventListener('input', function () { touchBankRow(state, rowEl); });
+        }
+        if (amountEl) {
+          amountEl.addEventListener('change', function () { state.amountCents = Math.max(0, parseBankMoneyToCents(amountEl.value)); touchBankRow(state, rowEl); });
+          amountEl.addEventListener('input', function () { touchBankRow(state, rowEl); });
+        }
+        if (catEl) catEl.addEventListener('change', function () { state.categoryId = catEl.value || '9270'; touchBankRow(state, rowEl); });
+        if (catWrap) {
+          catWrap.addEventListener('click', function (e) {
+            if (e.target.closest('.category-picker-list li')) touchBankRow(state, rowEl);
+          });
+          const catIn = catWrap.querySelector('.category-picker-input');
+          if (catIn) catIn.addEventListener('input', function () { touchBankRow(state, rowEl); });
+        }
+        if (typeEl) typeEl.addEventListener('change', function () { state.incomeType = typeEl.value || 'other'; touchBankRow(state, rowEl); });
+        if (pExpEl) pExpEl.addEventListener('change', function () { state.plannedExpenseId = pExpEl.value || ''; touchBankRow(state, rowEl); });
+        if (pIncEl) pIncEl.addEventListener('change', function () { state.plannedIncomeId = pIncEl.value || ''; touchBankRow(state, rowEl); });
+        if (receiptEl) receiptEl.addEventListener('change', function () { state.receiptFile = receiptEl.files && receiptEl.files[0] ? receiptEl.files[0] : null; touchBankRow(state, rowEl); });
+      });
+      document.getElementById('bank-bulk-apply-btn')?.addEventListener('click', function () {
+        const pick = bankReviewRows.filter(function (r) { return r.bulkPick; });
+        if (!pick.length) { showAppToast('Tick Bulk on one or more rows first.', true); return; }
+        const t = document.getElementById('bank-bulk-entry-type')?.value || 'expense';
+        const catVal = document.getElementById('bank-bulk-category-value')?.value;
+        const incVal = document.getElementById('bank-bulk-income-type')?.value;
+        pick.forEach(function (state) {
+          state.entryType = t === 'income' ? 'income' : 'expense';
+          if (state.entryType === 'expense' && catVal) state.categoryId = catVal;
+          if (state.entryType === 'income' && incVal) state.incomeType = incVal;
+        });
+        showAppToast('Updated ' + pick.length + ' row(s).', false);
+        renderBankReview();
+      });
+      document.getElementById('bank-bulk-select-all-btn')?.addEventListener('click', function () {
+        bankReviewRows.forEach(function (r) { r.bulkPick = true; });
+        renderBankReview();
+      });
+      document.getElementById('bank-bulk-clear-btn')?.addEventListener('click', function () {
+        bankReviewRows.forEach(function (r) { r.bulkPick = false; });
+        renderBankReview();
       });
       document.getElementById('bank-submit-all-btn')?.addEventListener('click', onBankSubmitAll);
       document.getElementById('bank-ignore-unselected-btn')?.addEventListener('click', onBankIgnoreUnselected);
+      updateBulkCount();
     }
 
     async function ensureAutoRule(state) {
@@ -1255,7 +1372,7 @@
     async function onBankSubmitAll() {
       const selected = bankReviewRows.filter(r => r.include);
       if (!selected.length) {
-        showAppToast('Select at least one row to submit.', true);
+        showAppToast('Include at least one row (check Include after editing), or nothing will be submitted.', true);
         return;
       }
       for (const row of selected) {
@@ -2279,13 +2396,27 @@
     const mainApp = document.getElementById('main-app');
     const userEmail = document.getElementById('user-email');
 
-    function setLoggedIn(user) {
+    function setLoggedIn(user, event) {
       if (user) {
         authScreen.style.display = 'none';
         mainApp.classList.add('visible');
         if (userEmail) userEmail.textContent = user.email;
         initReportDates();
-        setPanel('dashboard');
+        if (event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+          return;
+        }
+        if (event === 'SIGNED_IN') {
+          try {
+            sessionStorage.setItem('ledger_panel', 'dashboard');
+          } catch (_e) {}
+          setPanel('dashboard');
+          return;
+        }
+        let saved = 'dashboard';
+        try {
+          saved = sessionStorage.getItem('ledger_panel') || 'dashboard';
+        } catch (_e) {}
+        setPanel(saved);
       } else {
         authScreen.style.display = 'flex';
         mainApp.classList.remove('visible');
@@ -2294,8 +2425,8 @@
 
     const sb = acctApi.getClient();
     if (sb) {
-      sb.auth.getSession().then(({ data: { session } }) => setLoggedIn(session?.user));
-      acctApi.onAuthChange((event, session) => setLoggedIn(session?.user));
+      sb.auth.getSession().then(({ data: { session } }) => setLoggedIn(session?.user, undefined));
+      acctApi.onAuthChange((event, session) => setLoggedIn(session?.user, event));
     }
 
     document.getElementById('auth-signin-btn')?.addEventListener('click', async () => {

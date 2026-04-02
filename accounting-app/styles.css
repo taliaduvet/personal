@@ -177,13 +177,31 @@ nav.tabs button:hover:not(.active) { background: #f2e6db; color: var(--text); }
   padding: 0.75rem;
 }
 .bank-row-main { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 0.5rem; }
-.bank-include-toggle { font-size: 0.88rem; color: var(--muted); display: inline-flex; align-items: center; gap: 0.3rem; }
+.bank-row-ledges { display: flex; flex-direction: column; gap: 0.35rem; align-items: flex-start; }
+.bank-include-toggle, .bank-bulk-toggle { font-size: 0.88rem; color: var(--muted); display: inline-flex; align-items: center; gap: 0.3rem; }
+.bank-bulk-toggle { font-size: 0.8rem; }
 .bank-row .meta { color: var(--muted); font-size: 0.84rem; }
 .bank-row .amount { font-weight: 700; }
 .bank-row .amount.positive { color: var(--green); }
 .bank-row .amount.negative { color: var(--red); }
+.bank-bulk-edit-bar {
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.55rem 0.75rem;
+  padding: 0.75rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  margin-bottom: 0.35rem;
+}
+.bank-bulk-edit-title { font-weight: 600; margin-right: 0.25rem; }
+.bank-bulk-field { display: grid; gap: 0.25rem; color: var(--muted); font-size: 0.85rem; min-width: 140px; }
+.bank-bulk-field .category-picker-wrap { min-width: min(100%, 220px); }
 .bank-row-edit-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0.55rem; align-items: end; }
 .bank-row-edit-grid label { display: grid; gap: 0.25rem; color: var(--muted); font-size: 0.85rem; }
+.bank-row-edit-grid label.bank-field-receipt {
+  grid-column: 1 / -1;
+  align-items: stretch;
+}
+.bank-row-edit-grid label.bank-field-receipt .bank-receipt-label-text { margin-bottom: 0.15rem; }
+.bank-row-edit-grid input[type="file"].bank-row-receipt {
+  width: 100%; max-width: 100%; font-size: 0.82rem; padding: 0.35rem 0;
+}
 .bank-row-status { font-size: 0.84rem; color: var(--muted); }
 .bank-row-success { border-color: #a8d3bf; background: #f1fbf5; }
 .bank-row-error { border-color: #e4b9b9; background: #fff6f6; }
