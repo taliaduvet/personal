@@ -1,10 +1,23 @@
-import { describe, it, expect } from 'vitest';
-import {
-  parseBankCsvMoneyCents,
-  signedCentsFromBankRow,
-  guessBankEntryType,
-  descriptionLooksLikeIncome
-} from '../bank-amount-pure.js';
+import { describe, it, expect, beforeAll } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { runInThisContext } from 'node:vm';
+
+let parseBankCsvMoneyCents;
+let signedCentsFromBankRow;
+let guessBankEntryType;
+let descriptionLooksLikeIncome;
+
+beforeAll(() => {
+  const path = fileURLToPath(new URL('../ledger-bank.js', import.meta.url));
+  runInThisContext(readFileSync(path, 'utf8'), { filename: 'ledger-bank.js' });
+  const LB = globalThis.LedgerBankAmount;
+  if (!LB) throw new Error('ledger-bank.js did not set LedgerBankAmount');
+  parseBankCsvMoneyCents = LB.parseBankCsvMoneyCents;
+  signedCentsFromBankRow = LB.signedCentsFromBankRow;
+  guessBankEntryType = LB.guessBankEntryType;
+  descriptionLooksLikeIncome = LB.descriptionLooksLikeIncome;
+});
 
 describe('parseBankCsvMoneyCents', () => {
   it('parses plain dollars', () => {

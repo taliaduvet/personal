@@ -1,7 +1,16 @@
-import { signedCentsFromBankRow, guessBankEntryType } from './js/bank-amount-pure.js';
-
 (function () {
   'use strict';
+
+  const LedgerBank = typeof globalThis !== 'undefined' ? globalThis.LedgerBankAmount : null;
+  if (!LedgerBank) {
+    console.error('Ledger: missing LedgerBankAmount — ensure js/ledger-bank.js is loaded before app.js');
+  }
+  const signedCentsFromBankRow = LedgerBank
+    ? LedgerBank.signedCentsFromBankRow.bind(LedgerBank)
+    : function () { return 0; };
+  const guessBankEntryType = LedgerBank
+    ? LedgerBank.guessBankEntryType.bind(LedgerBank)
+    : function (_c, _d, sug) { return sug && sug.entryType ? sug.entryType : 'expense'; };
 
   function escapeHtml(s) {
     if (s == null) return '';

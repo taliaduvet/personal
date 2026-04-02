@@ -4,7 +4,7 @@ Track income and expenses with CRA T2125 categories and GST. Multi-user (you and
 
 ## Deploy as its own repo (recommended for a clean URL)
 
-Copy this whole folder to a new GitHub repository (e.g. **`ledger`**). The included **`.github/workflows/deploy-pages.yml`** publishes `index.html`, `app.js`, `api.js`, `styles.css`, **`js/parse-csv.js`**, **`js/bank-amount-pure.js`**, and injects **`config.js`** from Actions secrets **`SUPABASE_URL`** + **`SUPABASE_KEY`**. Enable **Settings → Pages → GitHub Actions**.
+Copy this whole folder to a new GitHub repository (e.g. **`ledger`**). The included **`.github/workflows/deploy-pages.yml`** publishes `index.html`, `app.js`, `api.js`, `styles.css`, **`js/parse-csv.js`**, **`js/ledger-bank.js`**, and injects **`config.js`** from Actions secrets **`SUPABASE_URL`** + **`SUPABASE_KEY`**. Enable **Settings → Pages → GitHub Actions**.
 
 Full step-by-step (Parking + Ledger, custom domains): in the **Personal** monorepo see **`docs/two-repos-setup.md`**.
 
