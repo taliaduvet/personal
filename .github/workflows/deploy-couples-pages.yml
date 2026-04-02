@@ -53,7 +53,7 @@ jobs:
           echo "const SUPABASE_URL='${{ secrets.SUPABASE_URL }}'; const SUPABASE_ANON_KEY='${{ secrets.SUPABASE_KEY }}';" > deploy/parking-lot-app/config.js
           mkdir -p deploy/accounting-app/js
           cp accounting-app/index.html accounting-app/styles.css accounting-app/api.js accounting-app/app.js deploy/accounting-app/
-          cp accounting-app/js/parse-csv.js deploy/accounting-app/js/
+          cp accounting-app/js/parse-csv.js accounting-app/js/bank-amount-pure.js deploy/accounting-app/js/
           echo "const SUPABASE_URL='${{ secrets.SUPABASE_URL }}'; const SUPABASE_ANON_KEY='${{ secrets.SUPABASE_KEY }}';" > deploy/accounting-app/config.js
           if grep -q "SUPABASE_URL='';" deploy/parking-lot-app/config.js || grep -q "SUPABASE_ANON_KEY='';" deploy/parking-lot-app/config.js; then
             echo "::error::Supabase secrets appear empty. Check repo Settings → Secrets → SUPABASE_URL and SUPABASE_KEY are set."

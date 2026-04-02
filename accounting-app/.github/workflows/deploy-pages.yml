@@ -27,7 +27,7 @@ jobs:
         run: |
           mkdir -p _site/js
           cp index.html styles.css api.js app.js _site/
-          cp js/parse-csv.js _site/js/
+          cp js/parse-csv.js js/bank-amount-pure.js _site/js/
           echo "const SUPABASE_URL='${{ secrets.SUPABASE_URL }}'; const SUPABASE_ANON_KEY='${{ secrets.SUPABASE_KEY }}';" > _site/config.js
           if grep -q "SUPABASE_URL='';" _site/config.js || grep -q "SUPABASE_ANON_KEY='';" _site/config.js; then
             echo "::error::Supabase secrets empty. Add SUPABASE_URL and SUPABASE_KEY in repo Settings → Secrets."
