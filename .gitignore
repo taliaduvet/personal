@@ -30,3 +30,6 @@ parking-lot-app/config.js
 
 # Accounting app – local Supabase keys (use config.js.example)
 accounting-app/config.js
+
+# clasp: user-specific Apps Script project id
+accounting-app/gmail-receipts-clasp/.clasp.json

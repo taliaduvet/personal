@@ -2,6 +2,10 @@
 
 Use this when you **email yourself** photos/PDFs (e.g. from your phone) with **“receipt”** in the subject so monthly bookkeeping is easy to find.
 
+## Recommended: clasp (versioned in your vault)
+
+The live Apps Script source lives in **`accounting-app/gmail-receipts-clasp/`**. Install [clasp](https://github.com/google/clasp), run `clasp create` and `clasp push` from that folder — see its **README.md**. You only paste into script.google.com if you’re not using clasp.
+
 ## What you get
 
 - A filter catches messages whose **subject includes `receipt`** (case ignored in the script; Gmail’s filter UI is case-sensitive for “contains” — use both `receipt` and `Receipt` if you want).

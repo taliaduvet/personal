@@ -1,0 +1,3 @@
+# Don’t upload docs / examples to Apps Script
+README.md
+.clasp.json.example
