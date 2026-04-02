@@ -50,6 +50,16 @@ describe('signedCentsFromBankRow', () => {
   it('falls back to amount column', () => {
     expect(signedCentsFromBankRow({ A: '-25.00' }, 'A', '', '')).toBe(-2500);
   });
+
+  it('prefers non-empty Amount over Debit/Credit when both mapped (bad auto-guess)', () => {
+    const row = { Amt: '-12.99', Debit: '', Credit: '' };
+    expect(signedCentsFromBankRow(row, 'Amt', 'Debit', 'Credit')).toBe(-1299);
+  });
+
+  it('uses Debit/Credit when Amount cell is empty', () => {
+    const row = { Amt: '', Debit: '15.00', Credit: '' };
+    expect(signedCentsFromBankRow(row, 'Amt', 'Debit', 'Credit')).toBe(-1500);
+  });
 });
 
 describe('guessBankEntryType', () => {

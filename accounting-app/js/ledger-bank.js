@@ -30,13 +30,20 @@
   }
 
   function signedCentsFromBankRow(row, amountCol, debitCol, creditCol) {
+    const amountCell = amountCol != null ? row[amountCol] : null;
+    const amountStr = amountCell != null ? String(amountCell).trim() : '';
+    if (amountStr !== '') {
+      return parseBankCsvMoneyCents(amountCell);
+    }
     if (debitCol || creditCol) {
       const debit = debitCol ? parseBankCsvMoneyCents(row[debitCol]) : 0;
       const credit = creditCol ? parseBankCsvMoneyCents(row[creditCol]) : 0;
       return credit - debit;
     }
-    if (!amountCol) return 0;
-    return parseBankCsvMoneyCents(row[amountCol]);
+    if (amountCol) {
+      return parseBankCsvMoneyCents(row[amountCol]);
+    }
+    return 0;
   }
 
   const INCOME_DESC_HINTS = [

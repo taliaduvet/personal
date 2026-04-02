@@ -26,14 +26,22 @@
     return cents;
   }
 
+  /** Prefer a non-empty Amount cell when mapped — auto-guessed Debit/Credit columns are often wrong and would mask Amount. */
   function signedCentsFromBankRow(row, amountCol, debitCol, creditCol) {
+    const amountCell = amountCol != null ? row[amountCol] : null;
+    const amountStr = amountCell != null ? String(amountCell).trim() : '';
+    if (amountStr !== '') {
+      return parseBankCsvMoneyCents(amountCell);
+    }
     if (debitCol || creditCol) {
       const debit = debitCol ? parseBankCsvMoneyCents(row[debitCol]) : 0;
       const credit = creditCol ? parseBankCsvMoneyCents(row[creditCol]) : 0;
       return credit - debit;
     }
-    if (!amountCol) return 0;
-    return parseBankCsvMoneyCents(row[amountCol]);
+    if (amountCol) {
+      return parseBankCsvMoneyCents(row[amountCol]);
+    }
+    return 0;
   }
 
   const INCOME_DESC_HINTS = [
@@ -1057,7 +1065,7 @@
           <button type="button" class="btn btn-primary" id="bank-import-btn">Import</button>
         </div>
       </div>
-      <p class="hint" style="margin-top:0.5rem">Use <strong>Debit</strong> + <strong>Credit</strong> when amounts are always positive. Parentheses like (50.00) count as negative. Optional trailing CR/DR is understood.</p>
+      <p class="hint" style="margin-top:0.5rem">If your file has a single <strong>Amount</strong> column (positive or negative), map that and set <strong>Debit</strong>/<strong>Credit</strong> back to “optional” unless you truly use two amount columns—otherwise import can see every line as $0. Parentheses like (50.00) and trailing CR/DR are understood.</p>
     `;
     if (dateGuess) document.getElementById('bank-col-date').value = dateGuess;
     if (descGuess) document.getElementById('bank-col-desc').value = descGuess;
@@ -1089,16 +1097,33 @@
     }
     const source = document.getElementById('bank-file')?.files[0];
     const sourceName = source ? source.name : null;
-    const rows = bankParsedRows.map(r => {
+    const mapped = bankParsedRows.map(function (r) {
       const amount_cents = signedCentsFromBankRow(r, amountCol, debitCol, creditCol);
       const dateNorm = normalizeDate(r[dateCol]);
+      const descVal = r[descCol];
+      const description = descVal != null ? String(descVal).trim() : '';
       return {
         date: dateNorm,
-        description: r[descCol],
+        description: description,
         amount_cents,
         source_file_name: sourceName
       };
-    }).filter(r => r.date && r.description && r.amount_cents !== 0);
+    });
+    const rows = mapped.filter(function (r) {
+      return r.date && String(r.date).trim() && r.description && r.amount_cents !== 0;
+    });
+    if (rows.length === 0 && bankParsedRows.length > 0) {
+      const noDate = mapped.filter(function (r) { return !r.date || !String(r.date).trim(); }).length;
+      const noDesc = mapped.filter(function (r) { return !r.description; }).length;
+      const zeroAmt = mapped.filter(function (r) { return r.amount_cents === 0; }).length;
+      showAppToast(
+        'No importable rows after mapping. CSV has ' + bankParsedRows.length + ' data row(s). ' +
+        'Try clearing wrong Debit/Credit picks if you use an Amount column. ' +
+        'Skipped: ' + zeroAmt + ' with $0, ' + noDate + ' missing date, ' + noDesc + ' missing description.',
+        true
+      );
+      return;
+    }
     const badDates = rows.filter(r => !isValidIsoDate(r.date));
     if (badDates.length > 0) {
       showAppToast('Import cancelled: ' + badDates.length + ' row(s) have dates that could not be parsed as YYYY-MM-DD. Fix the CSV or date mapping.', true);
@@ -1110,7 +1135,7 @@
     const toInsert = rows.filter(r => !existingKeys.has(bankDedupKey(r.date, r.description, r.amount_cents)));
     const skipped = rows.length - toInsert.length;
     if (toInsert.length === 0) {
-      showAppToast('All ' + rows.length + ' rows from the CSV already exist. No new transactions imported.', true);
+      showAppToast('All ' + rows.length + ' parsed row(s) are already in your bank list (same date, description, and amount). Nothing new imported.', true);
       document.getElementById('bank-mapping').style.display = 'none';
       document.getElementById('bank-file').value = '';
       bankParsedRows = [];
