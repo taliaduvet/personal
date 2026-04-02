@@ -221,6 +221,20 @@
       return { error };
     },
 
+    async bankDeleteMany(ids) {
+      const sb = getClient();
+      const u = await getUid();
+      if (!sb || !u) return { error: 'Not authenticated' };
+      const list = (ids || []).filter(Boolean);
+      if (!list.length) return { error: null };
+      const { error } = await sb
+        .from('acct_bank_transactions')
+        .delete()
+        .eq('user_id', u)
+        .in('id', list);
+      return { error };
+    },
+
     async createReconciliation(bankTransactionId, incomeId, expenseId) {
       const sb = getClient();
       const u = await getUid();

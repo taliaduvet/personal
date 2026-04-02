@@ -182,6 +182,7 @@
     }
     var chain = {
       eq: function (col, val) { filters.push({ op: 'eq', col: col, val: val }); return chain; },
+      in: function (col, val) { filters.push({ op: 'in', col: col, val: val }); return chain; },
       then: function (onF, onR) { apply(); return Promise.resolve({ error: null }).then(onF, onR); },
       catch: function (onR) { return Promise.resolve({ error: null }).catch(onR); },
       finally: function (onF) { return Promise.resolve({ error: null }).finally(onF); },

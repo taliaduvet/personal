@@ -1290,7 +1290,7 @@
       wrap.innerHTML = `
         <div class="bank-bulk-actions">
           <button type="button" id="bank-submit-all-btn" class="btn btn-primary">Submit all included</button>
-          <button type="button" id="bank-ignore-unselected-btn" class="btn btn-secondary">Ignore rows not included</button>
+          <button type="button" id="bank-ignore-unselected-btn" class="btn btn-secondary">Delete rows not included</button>
         </div>
         ${bulkBarHtml}
         ${rowsHtml}
@@ -1506,22 +1506,38 @@
     async function onBankIgnoreUnselected() {
       const ids = bankReviewRows.filter(r => !r.include).map(r => r.id);
       if (!ids.length) {
-        showAppToast('No unselected rows to ignore.', true);
+        showAppToast('Every row is checked Include, or there is nothing to remove.', true);
         return;
       }
-      for (const id of ids) {
-        await onBankIgnore(id, true);
+      if (!confirm(
+        'Permanently delete ' + ids.length + ' imported bank line(s) that are not checked Include? ' +
+        'This removes them from the Bank queue only (not income/expenses you already posted).'
+      )) {
+        return;
       }
-      loadBankReconcile();
+      const btn = document.getElementById('bank-ignore-unselected-btn');
+      if (btn) btn.disabled = true;
+      try {
+        const { error } = await acctApi.bankDeleteMany(ids);
+        if (error) {
+          showAppToast(apiErrorMessage(error) || 'Could not delete bank lines', true);
+          return;
+        }
+        showAppToast('Removed ' + ids.length + ' bank import line(s).', false);
+        await loadBankReconcile();
+      } finally {
+        if (btn) btn.disabled = false;
+      }
     }
 
     renderBankReview();
   }
 
   async function onBankIgnore(id, skipConfirm) {
-    if (!skipConfirm && !confirm('Ignore this transaction?')) return;
-    const { error } = await acctApi.bankMarkIgnored(id);
-    if (error) { showAppToast(error.message || 'Could not ignore', true); return; }
+    if (!skipConfirm && !confirm('Delete this imported bank line from the queue?')) return;
+    const { error } = await acctApi.bankDeleteMany([id]);
+    if (error) { showAppToast(apiErrorMessage(error) || 'Could not delete', true); return; }
+    loadBankReconcile();
   }
 
   function deleteIncome(id) {
