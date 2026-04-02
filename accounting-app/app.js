@@ -187,6 +187,16 @@
     { id: 'other', label: 'Other' }
   ];
 
+  const INCOME_TYPE_IDS = new Set(INCOME_TYPES.map(function (t) { return t.id; }));
+
+  /** Must match Supabase acct_income_income_type_check (bad values break bank submit). */
+  function normalizeIncomeTypeForDb(raw) {
+    const s = raw == null ? '' : String(raw).trim();
+    if (!s) return 'other';
+    if (INCOME_TYPE_IDS.has(s)) return s;
+    return 'other';
+  }
+
   function centsToDollars(c) {
     if (c == null) return '0.00';
     return (Number(c) / 100).toFixed(2);
@@ -810,7 +820,7 @@
       const client_or_project = document.getElementById('income-client').value.trim() || null;
       const vendor = document.getElementById('income-vendor').value.trim() || null;
       const typeEl = document.getElementById('income-type');
-      const income_type = (typeEl && typeEl.value) ? typeEl.value : null;
+      const income_type = (typeEl && typeEl.value) ? normalizeIncomeTypeForDb(typeEl.value) : null;
       const note = document.getElementById('income-note').value.trim() || null;
       if (!date || amount_cents < 0) { showAppToast('Date and amount required.', true); return; }
       const planned_id = document.getElementById('income-planned')?.value || null;
@@ -1185,7 +1195,7 @@
         txSignedCents: amt,
         entryType: guessBankEntryType(amt, tx.description, sug, batchHasNegative),
         categoryId: sug.categoryId || '9270',
-        incomeType: sug.incomeType || 'other',
+        incomeType: normalizeIncomeTypeForDb(sug.incomeType != null ? sug.incomeType : 'other'),
         plannedExpenseId: '',
         plannedIncomeId: '',
         include: false,
@@ -1340,7 +1350,7 @@
           const catIn = catWrap.querySelector('.category-picker-input');
           if (catIn) catIn.addEventListener('input', function () { touchBankRow(state, rowEl); });
         }
-        if (typeEl) typeEl.addEventListener('change', function () { state.incomeType = typeEl.value || 'other'; touchBankRow(state, rowEl); });
+        if (typeEl) typeEl.addEventListener('change', function () { state.incomeType = normalizeIncomeTypeForDb(typeEl.value); touchBankRow(state, rowEl); });
         if (pExpEl) pExpEl.addEventListener('change', function () { state.plannedExpenseId = pExpEl.value || ''; touchBankRow(state, rowEl); });
         if (pIncEl) pIncEl.addEventListener('change', function () { state.plannedIncomeId = pIncEl.value || ''; touchBankRow(state, rowEl); });
         if (receiptEl) receiptEl.addEventListener('change', function () { state.receiptFile = receiptEl.files && receiptEl.files[0] ? receiptEl.files[0] : null; touchBankRow(state, rowEl); });
@@ -1354,7 +1364,7 @@
         pick.forEach(function (state) {
           state.entryType = t === 'income' ? 'income' : 'expense';
           if (state.entryType === 'expense' && catVal) state.categoryId = catVal;
-          if (state.entryType === 'income' && incVal) state.incomeType = incVal;
+          if (state.entryType === 'income' && incVal) state.incomeType = normalizeIncomeTypeForDb(incVal);
         });
         showAppToast('Updated ' + pick.length + ' row(s).', false);
         renderBankReview();
@@ -1385,15 +1395,16 @@
       if (existing) return;
       const payload = state.entryType === 'expense'
         ? { pattern_type: 'contains', pattern, entry_type: 'expense', category_id: state.categoryId || '9270' }
-        : { pattern_type: 'contains', pattern, entry_type: 'income', income_type: state.incomeType || 'other' };
+        : { pattern_type: 'contains', pattern, entry_type: 'income', income_type: normalizeIncomeTypeForDb(state.incomeType) };
       const res = await acctApi.rulesInsert(payload);
       if (!res.error) bankRules.unshift(res.data || payload);
     }
 
     async function processBankRow(state) {
+      if (!state.include) return;
+      if (state.status === 'success') return;
       state.status = 'pending';
       state.statusMessage = '';
-      if (!state.include) return;
       if (!isValidIsoDate(state.date)) {
         state.status = 'error';
         state.statusMessage = 'Invalid date';
@@ -1442,7 +1453,7 @@
           gst_cents: 0,
           vendor: guessVendorFromBankDescription(state.description),
           client_or_project: null,
-          income_type: state.incomeType || 'other',
+          income_type: normalizeIncomeTypeForDb(state.incomeType),
           note: state.description || null
         };
         if (state.plannedIncomeId) incRow.planned_id = state.plannedIncomeId;
@@ -1470,17 +1481,25 @@
         showAppToast('Include at least one row (check Include after editing), or nothing will be submitted.', true);
         return;
       }
-      for (const row of selected) {
-        await processBankRow(row);
-      }
-      const ok = selected.filter(r => r.status === 'success').length;
-      const fail = selected.length - ok;
-      showAppToast('Processed ' + ok + ' row(s).' + (fail ? ' ' + fail + ' failed.' : ''), fail > 0);
-      renderBankReview();
-      if (ok > 0) {
-        incomeListRender();
-        expenseListRender();
-        renderDashboard();
+      const submitBtn = document.getElementById('bank-submit-all-btn');
+      if (submitBtn) submitBtn.disabled = true;
+      try {
+        for (const row of selected) {
+          await processBankRow(row);
+        }
+        const ok = selected.filter(r => r.status === 'success').length;
+        const fail = selected.length - ok;
+        showAppToast('Processed ' + ok + ' row(s).' + (fail ? ' ' + fail + ' failed.' : ''), fail > 0);
+        if (ok > 0) {
+          incomeListRender();
+          expenseListRender();
+          renderDashboard();
+          await loadBankReconcile();
+        } else {
+          renderBankReview();
+        }
+      } finally {
+        if (submitBtn) submitBtn.disabled = false;
       }
     }
 
