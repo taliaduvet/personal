@@ -1,6 +1,6 @@
 /**
- * Bank CSV amount parsing and income/expense heuristics (browser + Vitest via global).
- * Load before app.js — same pattern as js/parse-csv.js (no ES modules on static hosts).
+ * Vitest-only fixture: same logic as the inlined block at the top of app.js (keep in sync).
+ * Not loaded in index.html — production uses inlined helpers so GitHub Pages needs only app.js + parse-csv.
  */
 (function (global) {
   'use strict';

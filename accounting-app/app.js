@@ -1,16 +1,77 @@
 (function () {
   'use strict';
 
-  const LedgerBank = typeof globalThis !== 'undefined' ? globalThis.LedgerBankAmount : null;
-  if (!LedgerBank) {
-    console.error('Ledger: missing LedgerBankAmount — ensure js/ledger-bank.js is loaded before app.js');
+  /** Bank CSV money + income/expense defaults (inlined so GitHub Pages only needs app.js + parse-csv). Vitest: keep in sync with js/ledger-bank.js */
+  function parseBankCsvMoneyCents(raw) {
+    if (raw == null) return 0;
+    let s = String(raw).trim();
+    if (!s) return 0;
+    let negate = false;
+    if (s.startsWith('(') && s.endsWith(')')) {
+      negate = true;
+      s = s.slice(1, -1).trim();
+    }
+    s = s.replace(/,/g, '');
+    const crdr = s.match(/^(.+?)\s+(CR|DR|DB)$/i);
+    if (crdr) {
+      s = crdr[1].trim();
+      const t = crdr[2].toUpperCase();
+      if (t === 'DR' || t === 'DB') negate = !negate;
+    }
+    const n = parseFloat(String(s).replace(/[^0-9.-]/g, ''));
+    if (Number.isNaN(n)) return 0;
+    let cents = Math.round(Math.abs(n) * 100);
+    if (n < 0) negate = !negate;
+    if (negate) cents = -cents;
+    return cents;
   }
-  const signedCentsFromBankRow = LedgerBank
-    ? LedgerBank.signedCentsFromBankRow.bind(LedgerBank)
-    : function () { return 0; };
-  const guessBankEntryType = LedgerBank
-    ? LedgerBank.guessBankEntryType.bind(LedgerBank)
-    : function (_c, _d, sug) { return sug && sug.entryType ? sug.entryType : 'expense'; };
+
+  function signedCentsFromBankRow(row, amountCol, debitCol, creditCol) {
+    if (debitCol || creditCol) {
+      const debit = debitCol ? parseBankCsvMoneyCents(row[debitCol]) : 0;
+      const credit = creditCol ? parseBankCsvMoneyCents(row[creditCol]) : 0;
+      return credit - debit;
+    }
+    if (!amountCol) return 0;
+    return parseBankCsvMoneyCents(row[amountCol]);
+  }
+
+  const INCOME_DESC_HINTS = [
+    /PAY\s*ROLL/i,
+    /PAYROLL/i,
+    /DIRECT\s*DEP/i,
+    /DIR\.?\s*DEP/i,
+    /DEPOSIT/i,
+    /E[\s.-]*TRANSFER.*REC/i,
+    /RECEIVED/i,
+    /INTEREST(?!\s+CHARG)/i,
+    /REFUND/i,
+    /DIVIDEND/i,
+    /WIRE\s*IN/i,
+    /INCOMING/i,
+    /CREDIT\s*MEMO/i
+  ];
+
+  function descriptionLooksLikeIncome(description) {
+    const d = String(description || '');
+    return INCOME_DESC_HINTS.some(function (re) {
+      return re.test(d);
+    });
+  }
+
+  function guessBankEntryType(signedCents, description, sug, batchHasNegative) {
+    if (sug && sug.entryType) return sug.entryType;
+    if (batchHasNegative) {
+      if (signedCents < 0) return 'expense';
+      if (signedCents > 0) return 'income';
+      return 'expense';
+    }
+    if (signedCents < 0) return 'expense';
+    if (signedCents > 0) {
+      return descriptionLooksLikeIncome(description) ? 'income' : 'expense';
+    }
+    return 'expense';
+  }
 
   function escapeHtml(s) {
     if (s == null) return '';
