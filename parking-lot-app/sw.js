@@ -1,4 +1,4 @@
-const CACHE_NAME = 'parking-lot-v18';
+const CACHE_NAME = 'parking-lot-v19';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -8,6 +8,7 @@ const STATIC_ASSETS = [
   './js/state.js',
   './styles.css',
   './manifest.json',
+  './product.json',
   './supabase.js',
 ];
 
@@ -36,6 +37,7 @@ function isNetworkFirst(pathname) {
   if (pathname.endsWith('styles.css')) return true;
   if (pathname.endsWith('app.js')) return true;
   if (pathname.endsWith('app-main.js')) return true;
+  if (pathname.endsWith('product.json')) return true;
   if (pathname.includes('/js/') && pathname.endsWith('.js')) return true;
   return false;
 }

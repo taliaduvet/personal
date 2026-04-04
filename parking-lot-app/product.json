@@ -1,0 +1,8 @@
+{
+  "name": "Parking Lot",
+  "shortName": "Parking Lot",
+  "buildRef": "local",
+  "pairJoinHint": "Who are you?",
+  "pairRolePrimaryLabel": "I created the pair",
+  "pairRolePartnerLabel": "I'm the partner"
+}

@@ -20,10 +20,14 @@ This document describes how the app works from the entry point (`index.html`) th
 | `js/domain/*.js` | Business logic, no DOM. |
 | `js/domain/backup-export.js` | Stable JSON shape for Settings → Export backup (`buildBackupPayload`). |
 | `js/render/task-card.js` | Task card HTML (`renderTaskCard`, `formatDoingDate`). |
+| `js/render/board.js` | `createBoardRenderer` — columns / piles DOM + drag, column notes. |
+| `js/render/today-focus.js` | `createTodayFocusRenderer` — today list, focus list, tally, suggest-next strip, small consistency strip. |
 | `js/features/toast.js` | `showToast`. |
 | `js/features/offline-banner.js` | `updateOfflineBanner`. |
-| `js/features/*.js` | *(grow here)* journal, consistency, relationships, email triage panels. |
-| `js/sync/realtime.js` | *Planned* — Supabase realtime subscribe/unsubscribe owner. |
+| `js/features/talk-about.js` | `createTalkAboutUI` — Talk about list + add-from-talk modal. |
+| `js/features/email-triage.js` | `createEmailTriageUI` — email triage list + approve/dismiss. |
+| `js/features/*.js` | Journal, consistency panel, relationships UI still live in `orchestrator.js` (next extractions). |
+| `js/sync/realtime.js` | `attachMainAppRealtime`, `attachDevicePreferencesRealtime` — owns Supabase subscription wiring. |
 | `js/ui/theme.js` | CSS variables / theme application (`applyThemeColors`). |
 
 ---

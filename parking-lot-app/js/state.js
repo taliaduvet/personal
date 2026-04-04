@@ -51,5 +51,9 @@ export const state = {
   people: [],
   /** @type {{ id: string, label: string }[] | null} */
   peopleGroups: null,
-  relationshipsDetailPersonId: null
+  relationshipsDetailPersonId: null,
+  /** Shown in Settings; set from `product.json` (no private URLs). */
+  buildRef: '',
+  /** Optional white-label copy from `product.json`. */
+  productConfig: null
 };

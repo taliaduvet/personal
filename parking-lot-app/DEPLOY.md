@@ -60,6 +60,17 @@ In **Settings** → **Pages** → **Custom domain**, add your domain and follow 
 
 ---
 
+## Build reference & white-label (`product.json`)
+
+The app loads **`product.json`** from the site root (network-first in `sw.js`). Use it for:
+
+- **`buildRef`** — short string shown in **Settings** (e.g. git SHA or `v1.2.3`). **Do not** put private repo URLs or internal hostnames here.
+- **`name`** — optional; updates `document.title` when present.
+
+CI can generate or overwrite `product.json` before deploy (e.g. `echo '{"buildRef":"'"$GITHUB_SHA"'",...}' > product.json`). Keep the file valid JSON.
+
+---
+
 ## Stale PWA / bad deploy recovery
 
 The service worker bumps `CACHE_NAME` when offline behavior changes. If users see an old bundle after deploy: **hard refresh** (e.g. Shift+Reload) or clear **site data** for the Pages origin. See [docs/STRUCTURE.md](./docs/STRUCTURE.md) (Service worker section).
