@@ -77,7 +77,9 @@ import {
   normalizeJournalDayValue,
   sanitizeJournalHtml,
   newEntryId,
-  journalDayHasContent
+  journalDayHasContent,
+  coerceJournalEntryDisplayHtml,
+  JOURNAL_EMPTY_ENTRY_HTML
 } from '../domain/journal-daily.js';
 import {
   getHabits,
@@ -1068,6 +1070,33 @@ function wireComposer() {
     el.classList.toggle('journal-entry-empty', !t);
   }
 
+  let journalCaretScrollRaf = 0;
+  function journalMaybeScrollCaretIntoComfortZone(body) {
+    if (!body || !document.body.contains(body)) return;
+    const scroller = body.closest('.journal-daily-entries--stoic');
+    if (!scroller) return;
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return;
+    if (!body.contains(sel.anchorNode)) return;
+    const range = sel.getRangeAt(0);
+    if (!range.collapsed) return;
+    const rect = range.getBoundingClientRect();
+    if (rect.width === 0 && rect.height === 0 && rect.top === 0 && rect.left === 0) return;
+    const scRect = scroller.getBoundingClientRect();
+    const targetTop = scRect.top + scRect.height * 0.36;
+    const delta = rect.top - targetTop;
+    if (Math.abs(delta) > 8) scroller.scrollTop += delta;
+  }
+
+  function requestJournalCaretComfortScroll(body) {
+    if (!body) return;
+    if (journalCaretScrollRaf) cancelAnimationFrame(journalCaretScrollRaf);
+    journalCaretScrollRaf = requestAnimationFrame(function() {
+      journalCaretScrollRaf = 0;
+      journalMaybeScrollCaretIntoComfortZone(body);
+    });
+  }
+
   function openJournalPanel() {
     state.journalFocusMode = false;
     const panel = document.getElementById('journal-panel');
@@ -1115,7 +1144,7 @@ function wireComposer() {
     if (!wrap) return;
 
     const day = normalizeJournalDayValue(state.journalDaily && state.journalDaily[tallyStr]);
-    let entryList = day.entries.length ? day.entries.slice() : [{ id: newEntryId(), html: '<p><br></p>', updatedAt: Date.now() }];
+    let entryList = day.entries.length ? day.entries.slice() : [{ id: newEntryId(), html: JOURNAL_EMPTY_ENTRY_HTML, updatedAt: Date.now() }];
 
     let selectedId = state.journalDailyOpenEntryByDate[tallyStr];
     if (!selectedId || !entryList.some((e) => e.id === selectedId)) {
@@ -1140,17 +1169,31 @@ function wireComposer() {
 
     if (delBtn) delBtn.hidden = entryList.length < 2;
 
+    const displayHtml = coerceJournalEntryDisplayHtml(selected.html);
     wrap.innerHTML =
       '<div id="journal-daily-active-slot" class="journal-daily-active-slot" data-entry-id="' + escapeHtml(selected.id) + '">' +
-      '<div class="journal-entry-body" contenteditable="true" spellcheck="true" data-placeholder="Write here…" title="Journal entry">' + selected.html + '</div>' +
+      '<div class="journal-entry-body" contenteditable="true" spellcheck="true" data-placeholder="Title, then your thoughts…" title="Journal entry">' + displayHtml + '</div>' +
       '</div>';
 
     const body = wrap.querySelector('.journal-entry-body');
     if (body) {
       journalSyncPlaceholderClass(body);
-      body.addEventListener('input', () => journalSyncPlaceholderClass(body));
-      body.addEventListener('focusin', () => { journalStoicLastBody = body; });
+      body.addEventListener('input', function() {
+        journalSyncPlaceholderClass(body);
+        requestJournalCaretComfortScroll(body);
+      });
+      body.addEventListener('keyup', function() {
+        requestJournalCaretComfortScroll(body);
+      });
+      body.addEventListener('focusin', function() {
+        journalStoicLastBody = body;
+        requestJournalCaretComfortScroll(body);
+      });
+      body.addEventListener('mouseup', function() {
+        requestJournalCaretComfortScroll(body);
+      });
       journalStoicLastBody = body;
+      if (displayHtml !== String(selected.html || '')) scheduleJournalDailyPersist();
     }
 
     const journalPanel = document.getElementById('journal-panel');
@@ -1169,11 +1212,18 @@ function wireComposer() {
           if (!b) return;
           b.focus();
           const cmd = btn.dataset.cmd;
+          const block = btn.dataset.block;
           try {
-            document.execCommand(cmd, false, null);
+            if (cmd === 'formatBlock' && block) {
+              const tag = block.toLowerCase();
+              document.execCommand('formatBlock', false, tag);
+            } else if (cmd) {
+              document.execCommand(cmd, false, null);
+            }
           } catch (err) {
-            console.warn('execCommand', cmd, err);
+            console.warn('execCommand', cmd || block, err);
           }
+          requestJournalCaretComfortScroll(b);
           scheduleJournalDailyPersist();
         });
       }
@@ -2452,7 +2502,7 @@ function wireComposer() {
         if (!state.journalDaily) state.journalDaily = {};
         const current = normalizeJournalDayValue(state.journalDaily[tallyStr]);
         const nid = newEntryId();
-        current.entries.push({ id: nid, html: '<p><br></p>', updatedAt: Date.now() });
+        current.entries.push({ id: nid, html: JOURNAL_EMPTY_ENTRY_HTML, updatedAt: Date.now() });
         state.journalDaily[tallyStr] = current;
         state.journalDailyOpenEntryByDate[tallyStr] = nid;
         saveState();

@@ -3,7 +3,9 @@ import {
   normalizeJournalDayValue,
   journalDayHasContent,
   mergeJournalDayRemote,
-  legacyPlainTextToJournalHtml
+  legacyPlainTextToJournalHtml,
+  coerceJournalEntryDisplayHtml,
+  JOURNAL_EMPTY_ENTRY_HTML
 } from '../domain/journal-daily.js';
 
 describe('journal-daily', () => {
@@ -27,10 +29,17 @@ describe('journal-daily', () => {
     expect(m.entries.map((e) => e.id).sort()).toEqual(['x', 'y']);
   });
 
-  it('legacyPlainTextToJournalHtml wraps paragraphs', () => {
+  it('legacyPlainTextToJournalHtml uses H1 for first block then paragraphs', () => {
     const h = legacyPlainTextToJournalHtml('a\n\nb');
-    expect(h).toContain('<p>');
+    expect(h).toContain('journal-entry-h1');
     expect(h).toContain('a');
+    expect(h).toContain('<p>');
     expect(h).toContain('b');
+  });
+
+  it('coerceJournalEntryDisplayHtml upgrades empty p to scaffold', () => {
+    expect(coerceJournalEntryDisplayHtml('')).toBe(JOURNAL_EMPTY_ENTRY_HTML);
+    expect(coerceJournalEntryDisplayHtml('<p><br></p>')).toBe(JOURNAL_EMPTY_ENTRY_HTML);
+    expect(coerceJournalEntryDisplayHtml('<p>hi</p>')).toContain('hi');
   });
 });

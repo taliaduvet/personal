@@ -4,18 +4,38 @@
 
 export const JOURNAL_DAY_VERSION = 2;
 
+/** Default HTML for a new daily entry: title line (H1) + body paragraph. */
+export const JOURNAL_EMPTY_ENTRY_HTML =
+  '<h1 class="journal-entry-h1"><br></h1><p><br></p>';
+
+/**
+ * Use structured empty scaffold, or upgrade legacy blank single &lt;p&gt; to it.
+ * Substantive legacy content is unchanged.
+ */
+export function coerceJournalEntryDisplayHtml(html) {
+  const raw = String(html || '');
+  const h = raw.trim();
+  if (!h) return JOURNAL_EMPTY_ENTRY_HTML;
+  if (/^<p[^>]*>\s*(<br\s*\/?>)?\s*<\/p>$/i.test(h)) return JOURNAL_EMPTY_ENTRY_HTML;
+  return raw;
+}
+
 function newEntryId() {
   return 'je_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
 }
 
-/** Escape plain text for safe insertion as HTML (paragraphs). */
+/** Escape plain text for safe insertion as HTML (first block = H1, rest = paragraphs). */
 export function legacyPlainTextToJournalHtml(text) {
-  const t = ( text || '').trim();
+  const t = (text || '').trim();
   if (!t) return '';
-  return t
-    .split(/\n{2,}/)
+  const parts = t.split(/\n{2,}/);
+  const first = escapeHtmlChars(parts[0]).replace(/\n/g, '<br>');
+  const h1 = '<h1 class="journal-entry-h1">' + first + '</h1>';
+  const rest = parts
+    .slice(1)
     .map((p) => '<p>' + escapeHtmlChars(p).replace(/\n/g, '<br>') + '</p>')
     .join('');
+  return h1 + (rest || '<p><br></p>');
 }
 
 function escapeHtmlChars(s) {
