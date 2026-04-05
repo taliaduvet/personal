@@ -726,6 +726,9 @@ function wireComposer() {
     prefs.__people = Array.isArray(state.people) ? state.people : [];
     if (Array.isArray(state.peopleGroups) && state.peopleGroups.length) prefs.__peopleGroups = state.peopleGroups;
     if (state.journalDaily && typeof state.journalDaily === 'object' && Object.keys(state.journalDaily).length) prefs.__journalDaily = state.journalDaily;
+    if (state.journalDailyOpenEntryByDate && typeof state.journalDailyOpenEntryByDate === 'object' && Object.keys(state.journalDailyOpenEntryByDate).length) {
+      prefs.__journalDailyOpenEntryByDate = { ...state.journalDailyOpenEntryByDate };
+    }
     if (Array.isArray(state.seedReflections) && state.seedReflections.length) prefs.__seedReflections = state.seedReflections;
     return prefs;
   }
@@ -763,6 +766,11 @@ function wireComposer() {
         state.journalDaily[dateKey] = mergeJournalDayRemote(existing, incoming);
       });
       delete prefs.__journalDaily;
+    }
+    if (prefs.__journalDailyOpenEntryByDate && typeof prefs.__journalDailyOpenEntryByDate === 'object') {
+      if (!state.journalDailyOpenEntryByDate || typeof state.journalDailyOpenEntryByDate !== 'object') state.journalDailyOpenEntryByDate = {};
+      Object.assign(state.journalDailyOpenEntryByDate, prefs.__journalDailyOpenEntryByDate);
+      delete prefs.__journalDailyOpenEntryByDate;
     }
     if (Array.isArray(prefs.__seedReflections)) {
       var existingRefl = state.seedReflections || [];
@@ -1003,16 +1011,32 @@ function wireComposer() {
   }
 
   function collectJournalDayFromDom() {
-    const wrap = document.getElementById('journal-daily-entries');
-    if (!wrap) return normalizeJournalDayValue(null);
-    const entries = [];
-    wrap.querySelectorAll('.journal-entry-card').forEach((card) => {
-      const id = card.dataset.entryId;
-      const body = card.querySelector('.journal-entry-body');
-      if (!id || !body) return;
-      entries.push({ id, html: sanitizeJournalHtml(body.innerHTML), updatedAt: Date.now() });
-    });
+    const tallyStr = getTallyDateYYYYMMDD();
+    const day = normalizeJournalDayValue(state.journalDaily && state.journalDaily[tallyStr]);
+    let entries = day.entries.length ? day.entries.map((e) => ({ ...e })) : [];
+    const slot = document.getElementById('journal-daily-active-slot');
+    const body = document.querySelector('#journal-daily-active-slot .journal-entry-body');
+    const activeId = (slot && slot.dataset.entryId) || state.journalDailyOpenEntryByDate[tallyStr];
+    if (body && activeId) {
+      const html = sanitizeJournalHtml(body.innerHTML);
+      if (entries.length === 0) {
+        entries = [{ id: activeId, html, updatedAt: Date.now() }];
+      } else {
+        const idx = entries.findIndex((e) => e.id === activeId);
+        if (idx >= 0) {
+          entries[idx] = { ...entries[idx], html, updatedAt: Date.now() };
+        }
+      }
+    }
     return normalizeJournalDayValue({ v: 2, entries });
+  }
+
+  function journalEntryPreviewLabel(html, index) {
+    const div = document.createElement('div');
+    div.innerHTML = html || '';
+    const t = (div.textContent || '').replace(/\s+/g, ' ').trim();
+    if (t) return t.length > 44 ? t.slice(0, 44) + '…' : t;
+    return 'Entry ' + (index + 1);
   }
 
   function scheduleJournalDailyPersist() {
@@ -1086,29 +1110,48 @@ function wireComposer() {
     const dateLabel = document.getElementById('journal-daily-date-label');
     if (dateLabel) dateLabel.textContent = 'Today, ' + (getTallyDate() || '').replace(/\s+\d{4}$/, '');
     const wrap = document.getElementById('journal-daily-entries');
+    const switcher = document.getElementById('journal-daily-entry-switcher');
+    const delBtn = document.getElementById('journal-daily-delete-entry');
     if (!wrap) return;
 
     const day = normalizeJournalDayValue(state.journalDaily && state.journalDaily[tallyStr]);
     let entryList = day.entries.length ? day.entries.slice() : [{ id: newEntryId(), html: '<p><br></p>', updatedAt: Date.now() }];
-    const showRemove = entryList.length > 1;
 
-    wrap.innerHTML = entryList.map((ent) => {
-      const removeRow = showRemove
-        ? '<div class="journal-entry-remove-row"><button type="button" class="journal-entry-remove journal-entry-remove--stoic" title="Remove this section">Remove section</button></div>'
-        : '';
-      return '<div class="journal-entry-card journal-entry-card--stoic" data-entry-id="' + escapeHtml(ent.id) + '">' +
-        removeRow +
-        '<div class="journal-entry-body" contenteditable="true" spellcheck="true" data-placeholder="Write here…" title="Journal entry">' + ent.html + '</div>' +
-        '</div>';
-    }).join('');
+    let selectedId = state.journalDailyOpenEntryByDate[tallyStr];
+    if (!selectedId || !entryList.some((e) => e.id === selectedId)) {
+      selectedId = entryList[0].id;
+    }
+    state.journalDailyOpenEntryByDate[tallyStr] = selectedId;
+    const selected = entryList.find((e) => e.id === selectedId) || entryList[0];
 
-    wrap.querySelectorAll('.journal-entry-body').forEach((el) => {
-      journalSyncPlaceholderClass(el);
-      el.addEventListener('input', () => journalSyncPlaceholderClass(el));
-      el.addEventListener('focusin', () => { journalStoicLastBody = el; });
-    });
-    const firstBody = wrap.querySelector('.journal-entry-body');
-    if (firstBody) journalStoicLastBody = firstBody;
+    if (switcher) {
+      if (entryList.length > 1) {
+        switcher.style.display = 'flex';
+        switcher.innerHTML = entryList.map((ent, i) => {
+          const label = journalEntryPreviewLabel(ent.html, i);
+          const active = ent.id === selectedId;
+          return '<button type="button" role="tab" class="journal-entry-tab' + (active ? ' journal-entry-tab--active' : '') + '" data-entry-id="' + escapeHtml(ent.id) + '" aria-selected="' + (active ? 'true' : 'false') + '">' + escapeHtml(label) + '</button>';
+        }).join('');
+      } else {
+        switcher.style.display = 'none';
+        switcher.innerHTML = '';
+      }
+    }
+
+    if (delBtn) delBtn.hidden = entryList.length < 2;
+
+    wrap.innerHTML =
+      '<div id="journal-daily-active-slot" class="journal-daily-active-slot" data-entry-id="' + escapeHtml(selected.id) + '">' +
+      '<div class="journal-entry-body" contenteditable="true" spellcheck="true" data-placeholder="Write here…" title="Journal entry">' + selected.html + '</div>' +
+      '</div>';
+
+    const body = wrap.querySelector('.journal-entry-body');
+    if (body) {
+      journalSyncPlaceholderClass(body);
+      body.addEventListener('input', () => journalSyncPlaceholderClass(body));
+      body.addEventListener('focusin', () => { journalStoicLastBody = body; });
+      journalStoicLastBody = body;
+    }
 
     const journalPanel = document.getElementById('journal-panel');
     if (journalPanel && !journalPanel._journalStoicToolbarBound) {
@@ -1122,10 +1165,9 @@ function wireComposer() {
           const btn = e.target.closest('.journal-stoic-cmd');
           if (!btn) return;
           e.preventDefault();
-          const entries = document.getElementById('journal-daily-entries');
-          const body = journalStoicLastBody || (entries && entries.querySelector('.journal-entry-body'));
-          if (!body) return;
-          body.focus();
+          const b = journalStoicLastBody || document.querySelector('#journal-daily-active-slot .journal-entry-body');
+          if (!b) return;
+          b.focus();
           const cmd = btn.dataset.cmd;
           try {
             document.execCommand(cmd, false, null);
@@ -1137,34 +1179,24 @@ function wireComposer() {
       }
     }
 
-    wrap.querySelectorAll('.journal-entry-remove').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const card = btn.closest('.journal-entry-card');
-        if (card && wrap.querySelectorAll('.journal-entry-card').length > 1) {
-          card.remove();
-          scheduleJournalDailyPersist();
-          flushJournalDailySave();
-        }
-      });
-    });
-
-    wrap.oninput = () => scheduleJournalDailyPersist();
-
-    const addBtn = document.getElementById('journal-daily-add-entry');
-    if (addBtn && !addBtn._journalBound) {
-      addBtn._journalBound = true;
-      addBtn.addEventListener('click', () => {
+    const dailyView = document.getElementById('journal-daily-view');
+    if (dailyView && !dailyView._journalEntryTabsBound) {
+      dailyView._journalEntryTabsBound = true;
+      dailyView.addEventListener('click', (e) => {
+        const tab = e.target.closest('.journal-entry-tab');
+        if (!tab || !tab.dataset.entryId) return;
+        const id = tab.dataset.entryId;
+        const ts = getTallyDateYYYYMMDD();
+        if (id === state.journalDailyOpenEntryByDate[ts]) return;
         flushJournalDailySave();
-        if (!state.journalDaily) state.journalDaily = {};
-        const current = normalizeJournalDayValue(state.journalDaily[tallyStr]);
-        current.entries.push({ id: newEntryId(), html: '<p><br></p>', updatedAt: Date.now() });
-        state.journalDaily[tallyStr] = current;
+        state.journalDailyOpenEntryByDate[ts] = id;
         renderJournalDaily();
-        const bodies = wrap.querySelectorAll('.journal-entry-body');
-        const last = bodies[bodies.length - 1];
-        if (last) last.focus();
+        const nb = document.querySelector('#journal-daily-active-slot .journal-entry-body');
+        if (nb) nb.focus();
       });
     }
+
+    wrap.oninput = () => scheduleJournalDailyPersist();
 
     setJournalFocusMode(state.journalFocusMode);
   }
@@ -2402,6 +2434,42 @@ function wireComposer() {
       flushJournalDailySave();
       showToast('Saved');
     });
+
+    const journalDailyNewEntry = document.getElementById('journal-daily-new-entry');
+    if (journalDailyNewEntry) {
+      journalDailyNewEntry.addEventListener('click', function() {
+        const tallyStr = getTallyDateYYYYMMDD();
+        flushJournalDailySave();
+        if (!state.journalDaily) state.journalDaily = {};
+        const current = normalizeJournalDayValue(state.journalDaily[tallyStr]);
+        const nid = newEntryId();
+        current.entries.push({ id: nid, html: '<p><br></p>', updatedAt: Date.now() });
+        state.journalDaily[tallyStr] = current;
+        state.journalDailyOpenEntryByDate[tallyStr] = nid;
+        saveState();
+        renderJournalDaily();
+        const nb = document.querySelector('#journal-daily-active-slot .journal-entry-body');
+        if (nb) nb.focus();
+      });
+    }
+
+    const journalDailyDeleteEntry = document.getElementById('journal-daily-delete-entry');
+    if (journalDailyDeleteEntry) {
+      journalDailyDeleteEntry.addEventListener('click', function() {
+        const tallyStr = getTallyDateYYYYMMDD();
+        const day = normalizeJournalDayValue(state.journalDaily && state.journalDaily[tallyStr]);
+        if (day.entries.length < 2) return;
+        if (!window.confirm('Delete this entry? This cannot be undone.')) return;
+        flushJournalDailySave();
+        const sel = state.journalDailyOpenEntryByDate[tallyStr];
+        const next = day.entries.filter((e) => e.id !== sel);
+        state.journalDaily[tallyStr] = normalizeJournalDayValue({ v: 2, entries: next });
+        state.journalDailyOpenEntryByDate[tallyStr] = next[0].id;
+        saveState();
+        renderJournalDaily();
+        showToast('Entry removed');
+      });
+    }
 
     const journalAddReflBtn = document.getElementById('journal-add-reflection-btn');
     const journalAddReflForm = document.getElementById('journal-add-reflection-form');

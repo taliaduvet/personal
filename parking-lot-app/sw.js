@@ -1,4 +1,4 @@
-const CACHE_NAME = 'parking-lot-v20';
+const CACHE_NAME = 'parking-lot-v21';
 const STATIC_ASSETS = [
   './',
   './index.html',

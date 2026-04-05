@@ -45,6 +45,8 @@ export const state = {
   habits: [],
   habitCompletions: [],
   journalDaily: {},
+  /** Which entry id is open per YYYY-MM-DD tally day (daily tab). */
+  journalDailyOpenEntryByDate: {},
   journalActiveTab: 'daily',
   journalFocusMode: false,
   journalDailySaveTimeout: null,

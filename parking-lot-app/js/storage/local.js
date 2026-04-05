@@ -71,6 +71,9 @@ export function loadState() {
       if (Array.isArray(parsed.seedReflections)) state.seedReflections = parsed.seedReflections;
       if (Array.isArray(parsed.habits)) state.habits = parsed.habits;
       if (Array.isArray(parsed.habitCompletions)) state.habitCompletions = parsed.habitCompletions;
+      if (parsed.journalDailyOpenEntryByDate && typeof parsed.journalDailyOpenEntryByDate === 'object') {
+        state.journalDailyOpenEntryByDate = { ...parsed.journalDailyOpenEntryByDate };
+      }
       if (parsed.journalDaily && typeof parsed.journalDaily === 'object') {
         state.journalDaily = {};
         const keyRe = /^\d{4}-\d{2}-\d{2}$/;
@@ -99,6 +102,9 @@ export function loadState() {
     }
     seedPeopleGroupsIfEmpty();
     if (!state.journalDaily || typeof state.journalDaily !== 'object') state.journalDaily = {};
+    if (!state.journalDailyOpenEntryByDate || typeof state.journalDailyOpenEntryByDate !== 'object') {
+      state.journalDailyOpenEntryByDate = {};
+    }
     if (!Array.isArray(state.people)) state.people = [];
     const peopleIds = (state.people || []).map(function(p) { return p.id; });
     state.items = (state.items || []).map(i => ({
@@ -138,6 +144,7 @@ export function saveState(skipCloudSync, useRemoteTallyDate) {
       habits: state.habits || [],
       habitCompletions: state.habitCompletions || [],
       journalDaily: state.journalDaily || {},
+      journalDailyOpenEntryByDate: state.journalDailyOpenEntryByDate || {},
       people: state.people || [],
       peopleGroups: state.peopleGroups || []
     }));
