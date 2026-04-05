@@ -2050,11 +2050,19 @@ function wireComposer() {
     if (closeShortcutsBtn) closeShortcutsBtn.addEventListener('click', closeShortcutsOverlay);
     if (shortcutsOverlay) shortcutsOverlay.addEventListener('click', (e) => { if (e.target === shortcutsOverlay) closeShortcutsOverlay(); });
 
+    function isTypingInFormField(target) {
+      if (!target || target.nodeType !== Node.ELEMENT_NODE) return false;
+      if (target.matches('input, textarea, select')) return true;
+      if (target.isContentEditable) return true;
+      return !!(target.closest && target.closest('[contenteditable="true"]'));
+    }
+
     document.addEventListener('keydown', (e) => {
       const mainApp = document.getElementById('main-app');
       if (!mainApp || mainApp.style.display === 'none') return;
-      if (e.target.matches('input, textarea, select')) return;
+      const inFormOrRichText = isTypingInFormField(e.target);
       if (e.key === 'n' || e.key === 'N') {
+        if (inFormOrRichText) return;
         e.preventDefault();
         openAddModal();
       } else if (e.key === 'Escape') {
@@ -2109,6 +2117,7 @@ function wireComposer() {
           }
         }
       } else if (e.key === '?' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        if (inFormOrRichText) return;
         e.preventDefault();
         if (shortcutsOverlay && shortcutsOverlay.style.display === 'flex') closeShortcutsOverlay();
         else openShortcutsOverlay();
