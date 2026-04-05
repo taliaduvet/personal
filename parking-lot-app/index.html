@@ -571,14 +571,23 @@
       </nav>
       <main class="journal-main">
         <div id="journal-daily-view" class="journal-view journal-view-daily journal-view-visible">
-          <p id="journal-daily-date-label" class="journal-daily-date-label"></p>
-          <div id="journal-daily-wrap" class="journal-daily-wrap">
-            <div id="journal-daily-entries" class="journal-daily-entries"></div>
+          <div class="journal-daily-stoic-top">
+            <p id="journal-daily-date-label" class="journal-daily-date-label"></p>
+            <div id="journal-stoic-toolbar" class="journal-stoic-toolbar" role="toolbar" aria-label="Text formatting">
+              <button type="button" class="journal-stoic-btn journal-stoic-cmd" data-cmd="bold" title="Bold"><b>B</b></button>
+              <button type="button" class="journal-stoic-btn journal-stoic-cmd" data-cmd="italic" title="Italic"><i>I</i></button>
+              <button type="button" class="journal-stoic-btn journal-stoic-cmd" data-cmd="underline" title="Underline"><u>U</u></button>
+              <button type="button" class="journal-stoic-btn journal-stoic-cmd" data-cmd="insertUnorderedList" title="Bullets">•</button>
+              <button type="button" class="journal-stoic-btn journal-stoic-cmd" data-cmd="insertOrderedList" title="Numbered list">1.</button>
+            </div>
           </div>
-          <div class="journal-daily-actions">
-            <button type="button" id="journal-daily-add-entry" class="btn-secondary btn-sm">Add entry</button>
-            <button type="button" id="journal-daily-save" class="btn-secondary btn-sm">Save</button>
-            <span class="journal-daily-autosave-hint">Saves as you type</span>
+          <div id="journal-daily-wrap" class="journal-daily-wrap journal-daily-wrap--stoic">
+            <div id="journal-daily-entries" class="journal-daily-entries journal-daily-entries--stoic"></div>
+          </div>
+          <div class="journal-daily-actions journal-daily-actions--stoic">
+            <button type="button" id="journal-daily-add-entry" class="journal-stoic-textbtn">Add section</button>
+            <button type="button" id="journal-daily-save" class="journal-stoic-textbtn">Save now</button>
+            <span class="journal-daily-autosave-hint">Autosaves as you type</span>
           </div>
           <button type="button" id="journal-focus-close" class="journal-focus-close" aria-label="Exit focus" style="display:none">×</button>
         </div>

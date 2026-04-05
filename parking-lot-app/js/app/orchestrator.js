@@ -102,6 +102,9 @@ import { createEmailTriageUI } from '../features/email-triage.js';
 
 wirePersist(() => saveState());
 
+/** Last focused journal body (for shared Stoic toolbar). */
+let journalStoicLastBody = null;
+
 let tfApi;
 let talkApi;
 let emailTriageApi;
@@ -1090,15 +1093,11 @@ function wireComposer() {
     const showRemove = entryList.length > 1;
 
     wrap.innerHTML = entryList.map((ent) => {
-      return '<div class="journal-entry-card" data-entry-id="' + escapeHtml(ent.id) + '">' +
-        '<div class="journal-entry-toolbar" role="toolbar" aria-label="Text formatting">' +
-        '<button type="button" class="btn-secondary btn-sm journal-cmd" data-cmd="bold" title="Bold"><b>B</b></button>' +
-        '<button type="button" class="btn-secondary btn-sm journal-cmd" data-cmd="italic" title="Italic"><i>I</i></button>' +
-        '<button type="button" class="btn-secondary btn-sm journal-cmd" data-cmd="underline" title="Underline"><u>U</u></button>' +
-        '<button type="button" class="btn-secondary btn-sm journal-cmd" data-cmd="insertUnorderedList" title="Bullets">•</button>' +
-        '<button type="button" class="btn-secondary btn-sm journal-cmd" data-cmd="insertOrderedList" title="Numbered list">1.</button>' +
-        (showRemove ? '<button type="button" class="btn-secondary btn-sm journal-entry-remove" title="Remove this entry">Remove</button>' : '') +
-        '</div>' +
+      const removeRow = showRemove
+        ? '<div class="journal-entry-remove-row"><button type="button" class="journal-entry-remove journal-entry-remove--stoic" title="Remove this section">Remove section</button></div>'
+        : '';
+      return '<div class="journal-entry-card journal-entry-card--stoic" data-entry-id="' + escapeHtml(ent.id) + '">' +
+        removeRow +
         '<div class="journal-entry-body" contenteditable="true" spellcheck="true" data-placeholder="Write here…" title="Journal entry">' + ent.html + '</div>' +
         '</div>';
     }).join('');
@@ -1106,25 +1105,37 @@ function wireComposer() {
     wrap.querySelectorAll('.journal-entry-body').forEach((el) => {
       journalSyncPlaceholderClass(el);
       el.addEventListener('input', () => journalSyncPlaceholderClass(el));
+      el.addEventListener('focusin', () => { journalStoicLastBody = el; });
     });
+    const firstBody = wrap.querySelector('.journal-entry-body');
+    if (firstBody) journalStoicLastBody = firstBody;
 
-    wrap.querySelectorAll('.journal-cmd').forEach((btn) => {
-      btn.addEventListener('mousedown', (e) => e.preventDefault());
-      btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        const card = btn.closest('.journal-entry-card');
-        const body = card && card.querySelector('.journal-entry-body');
-        if (!body) return;
-        body.focus();
-        const cmd = btn.dataset.cmd;
-        try {
-          document.execCommand(cmd, false, null);
-        } catch (err) {
-          console.warn('execCommand', cmd, err);
-        }
-        scheduleJournalDailyPersist();
-      });
-    });
+    const journalPanel = document.getElementById('journal-panel');
+    if (journalPanel && !journalPanel._journalStoicToolbarBound) {
+      journalPanel._journalStoicToolbarBound = true;
+      const stoicTb = document.getElementById('journal-stoic-toolbar');
+      if (stoicTb) {
+        stoicTb.addEventListener('mousedown', (e) => {
+          if (e.target.closest('.journal-stoic-cmd')) e.preventDefault();
+        });
+        stoicTb.addEventListener('click', (e) => {
+          const btn = e.target.closest('.journal-stoic-cmd');
+          if (!btn) return;
+          e.preventDefault();
+          const entries = document.getElementById('journal-daily-entries');
+          const body = journalStoicLastBody || (entries && entries.querySelector('.journal-entry-body'));
+          if (!body) return;
+          body.focus();
+          const cmd = btn.dataset.cmd;
+          try {
+            document.execCommand(cmd, false, null);
+          } catch (err) {
+            console.warn('execCommand', cmd, err);
+          }
+          scheduleJournalDailyPersist();
+        });
+      }
+    }
 
     wrap.querySelectorAll('.journal-entry-remove').forEach((btn) => {
       btn.addEventListener('click', () => {
