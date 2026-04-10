@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Managing Expectations — Pitch Demo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&family=Source+Sans+3:ital,wght@0,400;0,500;0,600;1,400&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#spectrum-panel">Skip to briefing</a>
+
+    <header class="hero" id="top">
+      <p class="hero__eyebrow">Concept prototype · ME-2026-04-DEMO</p>
+      <h1 class="hero__title">Managing Expectations</h1>
+      <p class="hero__tagline">
+        For people who see the grey in a world of black and white.
+      </p>
+      <p class="hero__lede">
+        We separate what the internet is shouting from what actually checks out—short briefings you can use, not another hot take.
+      </p>
+      <a class="hero__cta" href="#dashboard">See today’s briefing (demo)</a>
+    </header>
+
+    <section class="dashboard" id="dashboard" aria-labelledby="dashboard-heading">
+      <div class="dashboard__head">
+        <h2 id="dashboard-heading" class="dashboard__title">Stories you’d pull from the open web</h2>
+        <p class="dashboard__note">
+          Demo only — these meters are static. In production, tools like OpenClaw could help gather headlines and takes from allowed sources; a human still writes the call.
+        </p>
+      </div>
+      <div class="dashboard__grid">
+        <article class="card card--meter" data-meter data-hype="78" data-ledger="41">
+          <h3 class="card__headline">New tariffs on imports: will prices at the store really spike?</h3>
+          <div class="meter">
+            <div class="meter__row">
+              <span class="meter__label">How loud the debate is</span>
+              <span class="meter__value" data-meter-hype>0%</span>
+            </div>
+            <div class="meter__track" role="presentation">
+              <div class="meter__fill meter__fill--hype" data-meter-hype-bar style="width: 0%"></div>
+            </div>
+          </div>
+          <div class="meter">
+            <div class="meter__row">
+              <span class="meter__label">Reality check</span>
+              <span class="meter__value" data-meter-ledger>0%</span>
+            </div>
+            <div class="meter__track" role="presentation">
+              <div class="meter__fill meter__fill--ledger" data-meter-ledger-bar style="width: 0%"></div>
+            </div>
+          </div>
+        </article>
+        <article class="card card--meter card--featured" data-meter data-hype="86" data-ledger="52">
+          <h3 class="card__headline">Every company says it’s “doing AI”—but a lot of workers barely touch it</h3>
+          <div class="meter">
+            <div class="meter__row">
+              <span class="meter__label">How loud the debate is</span>
+              <span class="meter__value" data-meter-hype>0%</span>
+            </div>
+            <div class="meter__track" role="presentation">
+              <div class="meter__fill meter__fill--hype" data-meter-hype-bar style="width: 0%"></div>
+            </div>
+          </div>
+          <div class="meter">
+            <div class="meter__row">
+              <span class="meter__label">Reality check</span>
+              <span class="meter__value" data-meter-ledger>0%</span>
+            </div>
+            <div class="meter__track" role="presentation">
+              <div class="meter__fill meter__fill--ledger" data-meter-ledger-bar style="width: 0%"></div>
+            </div>
+          </div>
+          <p class="card__pin">Deep dive below</p>
+        </article>
+        <article class="card card--meter" data-meter data-hype="71" data-ledger="38">
+          <h3 class="card__headline">The Fed cut rates—so why doesn’t your rent or mortgage feel cheaper?</h3>
+          <div class="meter">
+            <div class="meter__row">
+              <span class="meter__label">How loud the debate is</span>
+              <span class="meter__value" data-meter-hype>0%</span>
+            </div>
+            <div class="meter__track" role="presentation">
+              <div class="meter__fill meter__fill--hype" data-meter-hype-bar style="width: 0%"></div>
+            </div>
+          </div>
+          <div class="meter">
+            <div class="meter__row">
+              <span class="meter__label">Reality check</span>
+              <span class="meter__value" data-meter-ledger>0%</span>
+            </div>
+            <div class="meter__track" role="presentation">
+              <div class="meter__fill meter__fill--ledger" data-meter-ledger-bar style="width: 0%"></div>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="spectrum" aria-labelledby="spectrum-heading">
+      <div class="spectrum__intro">
+        <h2 id="spectrum-heading" class="spectrum__title">Spectrum</h2>
+        <p class="spectrum__lede">
+          The two sides are made-up voices—like the kinds of posts and cable segments you’d see in a real scrape—not real quotes. Slide to the middle to read the briefing, or use the tabs.
+        </p>
+      </div>
+
+      <div class="spectrum__controls" role="group" aria-label="Choose perspective">
+        <div class="tabs" role="tablist">
+          <button type="button" class="tabs__btn" role="tab" id="tab-alarm" aria-selected="false" aria-controls="panel-alarm" data-tab="alarm" tabindex="-1">
+            Alarm
+          </button>
+          <button type="button" class="tabs__btn" role="tab" id="tab-briefing" aria-selected="true" aria-controls="spectrum-panel" data-tab="briefing">
+            Briefing
+          </button>
+          <button type="button" class="tabs__btn" role="tab" id="tab-assurance" aria-selected="false" aria-controls="panel-assurance" data-tab="assurance" tabindex="-1">
+            Assurance
+          </button>
+        </div>
+        <label class="slider-label" for="spectrum-range">
+          <span class="slider-label__left">Alarm</span>
+          <span class="slider-label__right">Assurance</span>
+        </label>
+        <input
+          id="spectrum-range"
+          class="spectrum__range"
+          type="range"
+          min="0"
+          max="100"
+          value="50"
+          aria-describedby="spectrum-hint"
+        />
+        <p class="spectrum__hint" id="spectrum-hint">Center the slider to reveal the briefing—or use the tabs.</p>
+      </div>
+
+      <div class="spectrum__panels">
+        <div class="panel panel--alarm" id="panel-alarm" role="tabpanel" aria-labelledby="tab-alarm" hidden>
+          <p class="panel__kicker">Story A · Alarm</p>
+          <blockquote class="panel__quote">
+            If your company isn’t all-in on AI yesterday, you’re finished. Your competitors are automating everything while you’re still in meetings. Buy now, ask questions later—speed is the only strategy that survives.
+          </blockquote>
+        </div>
+
+        <div class="panel panel--assurance" id="panel-assurance" role="tabpanel" aria-labelledby="tab-assurance" hidden>
+          <p class="panel__kicker">Story B · Assurance</p>
+          <blockquote class="panel__quote">
+            It’s mostly hype. Half the “AI rollouts” are press releases; employees quietly go back to the old tools. Wait five years, let the bubble pop, and don’t waste budget on vaporware your team won’t adopt.
+          </blockquote>
+        </div>
+
+        <article class="panel panel--briefing panel--briefing-active" id="spectrum-panel" role="tabpanel" aria-labelledby="tab-briefing">
+          <div class="briefing__meta">
+            <span class="briefing__ref">Briefing ME-2026-04-DEMO</span>
+            <span class="briefing__topic">Topic · AI at work (what’s real vs. what’s theater)</span>
+          </div>
+          <div class="briefing__scrim" data-briefing-scrim>
+            <div class="briefing__inner">
+              <h3 class="briefing__title">The briefing</h3>
+              <div class="briefing__sections">
+                <section>
+                  <h4>What happened</h4>
+                  <p>
+                    Headlines and vendor ads push the same idea: drop AI into the workplace and productivity soars. Inside many orgs, the picture is messier—lots of pilots announced, uneven day-to-day use, and IT teams racing to catch up with “shadow” tools employees already found on their own.
+                  </p>
+                </section>
+                <section>
+                  <h4>What’s contested</h4>
+                  <p>
+                    Whether off-the-shelf chatbots actually save money in <em>your</em> workflows, and how fast informal use is creating real risk—wrong answers, leaked data, compliance headaches—before policies exist.
+                  </p>
+                </section>
+                <section>
+                  <h4>What’s knowable</h4>
+                  <p>
+                    Starting small is easy; making something stick is not. The hard parts are wiring tools into real processes, cleaning up data, training people, and deciding what “good” looks like. Results vary wildly by team, even inside the same company.
+                  </p>
+                </section>
+                <section>
+                  <h4>If you get this wrong</h4>
+                  <p>
+                    Throw money at licenses nobody uses and you’ve bought expensive theater. Ignore the shift entirely and you may lose speed to competitors—or to your own employees, who will adopt tools with or without you. The usual mistake isn’t picking “fast” or “slow”; it’s spending without a clear definition of success.
+                  </p>
+                </section>
+              </div>
+              <section class="business-lens">
+                <h4>If you run something</h4>
+                <ul>
+                  <li>Pick <em>one</em> job to improve (fewer errors, faster replies, less copy-paste) and a date to decide: keep, fix, or stop.</li>
+                  <li>Get security and legal in the room <em>before</em> a dozen departments each sign up for something different.</li>
+                  <li>Count the real cost: not just the monthly fee, but setup time, checking outputs, and retraining people.</li>
+                  <li>Treat big productivity claims as half promise, half hope—plan for the slower, messier middle.</li>
+                </ul>
+              </section>
+              <p class="briefing__signoff">— M.E. · Seal of protocol, not personality</p>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <footer class="site-footer">
+      <h2 class="site-footer__title">Methodology (demo)</h2>
+      <p>
+        This page is a <strong>demo</strong>. A human still edits every briefing. In a live setup, OpenClaw-style tooling could help pull headlines, articles, and posts from sources you’re allowed to use—then a person decides what belongs on the page. The Alarm and Assurance voices here are invented examples, not scraped quotes.
+      </p>
+      <p class="site-footer__back"><a href="#top">Back to top</a></p>
+    </footer>
+
+    <script src="demo.js"></script>
+  </body>
+</html>
