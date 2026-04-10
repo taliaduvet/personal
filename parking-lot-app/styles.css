@@ -1095,6 +1095,15 @@ body.sidebar-open .sidebar-overlay {
   padding: 0.35rem 0;
 }
 
+.unified-today-focus-hint,
+.focus-pile-hint {
+  margin: 0.15rem 0 0.5rem;
+  padding: 0 0.1rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
 .badge-count {
   display: inline-block;
   margin-left: 0.35rem;

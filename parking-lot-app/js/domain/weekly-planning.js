@@ -282,6 +282,29 @@ export function getFocusPileTasks(items, todayKey, dayEntry) {
 }
 
 /**
+ * Reorder within the Today / focus-pile list (full display order = ordered ids + rest of pile).
+ * @param {import('./tasks.js').Item[]} items
+ * @param {string} todayKey YYYY-MM-DD
+ * @param {{ pileId: string | null, orderedTaskIds: string[] }} dayEntry
+ * @param {string} taskId
+ * @param {'up'|'down'} direction
+ * @returns {string[] | null} new orderedTaskIds for the day, or null if unchanged
+ */
+export function swapFocusPileAdjacent(items, todayKey, dayEntry, taskId, direction) {
+  if (!dayEntry || !dayEntry.pileId) return null;
+  const displayIds = getFocusPileTasks(items, todayKey, dayEntry).map((i) => i.id);
+  const idx = displayIds.indexOf(taskId);
+  if (idx < 0) return null;
+  const j = direction === 'up' ? idx - 1 : idx + 1;
+  if (j < 0 || j >= displayIds.length) return null;
+  const next = [...displayIds];
+  const t = next[idx];
+  next[idx] = next[j];
+  next[j] = t;
+  return next;
+}
+
+/**
  * When the stored anchor week is not this calendar week, move plan forward and keep a read-only copy for "Last week" in the overlay.
  * @param {WeekPlan | null | undefined} weekPlan
  * @param {string} currentMonday YYYY-MM-DD

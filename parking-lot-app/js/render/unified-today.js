@@ -7,10 +7,12 @@ import { getPileName } from '../domain/piles-people.js';
 import {
   getTodayLayoutMode,
   normalizeWeekPlan,
+  pruneWeekPlan,
   getFocusPileTasks,
   getOtherBlockTasks,
   getSingleListNoPlanItems,
-  getMondayYYYYMMDD
+  getMondayYYYYMMDD,
+  swapFocusPileAdjacent
 } from '../domain/weekly-planning.js';
 
 /**
@@ -20,8 +22,13 @@ import {
  * @param {(id: string) => void} d.markDone
  * @param {() => void} d.renderColumns
  * @param {(opts?: { scrollToDate?: string }) => void} d.openPlanningEntry
+ * @param {() => void} [d.onWeekPlanChanged] sync prefs after week plan edits from Today
  */
 export function createUnifiedTodayRenderer(d) {
+  function refreshTodayAndFocus() {
+    renderTodayList();
+    renderFocusUnified();
+  }
   function taskRowHtml(item, extraClass = '', orderOpt) {
     const accent = getColumnColor(item.category);
     const order =
@@ -39,7 +46,25 @@ export function createUnifiedTodayRenderer(d) {
     </div>`;
   }
 
-  function bindTodayListEvents(root, { removeFromToday, reorderExplicit }) {
+  function applyFocusPileReorder(todayStr, taskId, direction) {
+    const wp = normalizeWeekPlan(d.state.weekPlan);
+    const dayEntry = wp.days[todayStr];
+    if (!dayEntry || !dayEntry.pileId) return;
+    const next = swapFocusPileAdjacent(d.state.items, todayStr, dayEntry, taskId, direction);
+    if (!next) return;
+    if (!d.state.weekPlan.days[todayStr]) {
+      d.state.weekPlan.days[todayStr] = { pileId: dayEntry.pileId, orderedTaskIds: [] };
+    }
+    d.state.weekPlan.days[todayStr].pileId = dayEntry.pileId;
+    d.state.weekPlan.days[todayStr].orderedTaskIds = next;
+    d.state.weekPlan = pruneWeekPlan(d.state.items, d.state.weekPlan);
+    d.saveState();
+    if (typeof d.onWeekPlanChanged === 'function') d.onWeekPlanChanged();
+    refreshTodayAndFocus();
+    d.renderColumns();
+  }
+
+  function bindTodayListEvents(root, { removeFromToday, reorderExplicit, focusPileReorderTodayStr }) {
     root.querySelectorAll('.btn-done').forEach(btn => {
       btn.addEventListener('click', () => {
         const id = btn.closest('.today-item')?.dataset.id;
@@ -70,9 +95,20 @@ export function createUnifiedTodayRenderer(d) {
             d.state.todaySuggestionIds[idx] = t;
           }
           d.saveState();
-          renderTodayList();
-          if (typeof d.renderFocusUnified === 'function') d.renderFocusUnified();
+          refreshTodayAndFocus();
           d.renderColumns();
+        });
+      });
+    }
+    if (focusPileReorderTodayStr) {
+      const todayStr = focusPileReorderTodayStr;
+      root.querySelectorAll('.btn-order').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const row = e.target.closest('.today-item');
+          const id = row && row.dataset.id;
+          if (!id) return;
+          const dir = e.target.dataset.action === 'up' ? 'up' : 'down';
+          applyFocusPileReorder(todayStr, id, dir);
         });
       });
     }
@@ -81,8 +117,7 @@ export function createUnifiedTodayRenderer(d) {
   function removeFromToday(id) {
     d.state.todaySuggestionIds = d.state.todaySuggestionIds.filter(x => x !== id);
     d.saveState();
-    renderTodayList();
-    if (typeof d.renderFocusUnified === 'function') d.renderFocusUnified();
+    refreshTodayAndFocus();
     d.renderColumns();
   }
 
@@ -149,7 +184,12 @@ export function createUnifiedTodayRenderer(d) {
       <div class="unified-today-with-plan">
         <details class="unified-today-details unified-today-focus" open data-section="focus">
           <summary>Today: ${escapeHtml(pileLabel)}</summary>
-          <div class="unified-today-section-body">${focusItems.length ? focusItems.map(i => taskRowHtml(i)).join('') : '<div class="empty-state">No tasks in this pile — add on the board</div>'}</div>
+          <p class="unified-today-focus-hint">↑ ↓ = order you’ll tackle first in this pile. <button type="button" class="btn-link unified-today-review-plan-btn">Review week</button></p>
+          <div class="unified-today-section-body">${focusItems.length ? focusItems.map((i, idx) => {
+            const canUp = idx > 0;
+            const canDown = idx < focusItems.length - 1;
+            return taskRowHtml(i, '', { show: true, canUp, canDown });
+          }).join('') : '<div class="empty-state">No tasks in this pile — add on the board</div>'}</div>
         </details>
         <details class="unified-today-details" ${otherOpen ? 'open' : ''} data-section="other">
           <summary>Other <span class="badge-count">${otherItems.length}</span></summary>
@@ -157,7 +197,8 @@ export function createUnifiedTodayRenderer(d) {
         </details>
       </div>`;
 
-    bindTodayListEvents(root, { removeFromToday });
+    bindTodayListEvents(root, { removeFromToday, focusPileReorderTodayStr: todayStr });
+    root.querySelector('.unified-today-review-plan-btn')?.addEventListener('click', () => d.openPlanningEntry({ scrollToDate: todayStr }));
     const otherDet = root.querySelector('details[data-section="other"]');
     otherDet?.addEventListener('toggle', () => {
       if (!otherDet.open) d.state.otherCollapsedOnDate = todayStr;
@@ -205,11 +246,17 @@ export function createUnifiedTodayRenderer(d) {
     list.innerHTML = `
       <p class="focus-banner"><button type="button" class="btn-secondary plan-focus-btn">Plan</button></p>
       <h2 class="focus-sub">Today: ${escapeHtml(pileLabel)}</h2>
-      <div class="focus-pile">${focusItems.map(i => taskRowHtml(i, 'task-card')).join('') || '<div class="empty-state">No tasks in this pile</div>'}</div>
+      <p class="focus-pile-hint">↑ ↓ = your focus order. <button type="button" class="btn-link focus-review-plan-btn">Review week</button></p>
+      <div class="focus-pile">${focusItems.length ? focusItems.map((i, idx) => {
+        const canUp = idx > 0;
+        const canDown = idx < focusItems.length - 1;
+        return taskRowHtml(i, 'task-card', { show: true, canUp, canDown });
+      }).join('') : '<div class="empty-state">No tasks in this pile</div>'}</div>
       <h3 class="focus-sub">Other</h3>
       <div class="focus-other">${otherItems.map(i => taskRowHtml(i, 'task-card')).join('') || '<div class="empty-state">Nothing else</div>'}</div>`;
-    bindTodayListEvents(list, { removeFromToday });
+    bindTodayListEvents(list, { removeFromToday, focusPileReorderTodayStr: todayStr });
     list.querySelector('.plan-focus-btn')?.addEventListener('click', () => d.openPlanningEntry({}));
+    list.querySelector('.focus-review-plan-btn')?.addEventListener('click', () => d.openPlanningEntry({ scrollToDate: todayStr }));
   }
 
   return { renderTodayList, renderFocusUnified, removeFromToday };

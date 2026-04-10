@@ -192,7 +192,11 @@ function wireComposer() {
     saveState,
     markDone,
     renderColumns,
-    openPlanningEntry: (opts) => weekPlanningApi.openPlanningEntry(opts)
+    openPlanningEntry: (opts) => weekPlanningApi.openPlanningEntry(opts),
+    onWeekPlanChanged: () => {
+      if (typeof renderWeekStrip === 'function') renderWeekStrip();
+      if (window.talkAbout && state.deviceSyncId) saveDevicePreferencesToSupabase();
+    }
   });
 
   renderTodayList = () => unifiedApi.renderTodayList();
