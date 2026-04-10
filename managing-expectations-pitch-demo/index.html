@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Managing Expectations — Pitch Demo</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -13,10 +13,29 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <a class="skip-link" href="#walkthrough">Skip to walkthrough</a>
+    <a class="skip-link" href="#concept-plain">Skip to summary</a>
+
+    <button
+      type="button"
+      class="menu-toggle"
+      id="menu-toggle"
+      aria-expanded="false"
+      aria-controls="site-sidebar"
+      aria-label="Open feed and navigation"
+    >
+      <span class="menu-toggle__bars" aria-hidden="true"></span>
+    </button>
+
+    <div class="sidebar-backdrop" id="sidebar-backdrop" aria-hidden="true"></div>
 
     <div class="page">
-      <aside class="sidebar" aria-label="Demo sidebar — today, hot topics, and updates">
+      <aside class="sidebar" id="site-sidebar" aria-label="Demo sidebar — today, hot topics, and updates">
+        <div class="sidebar__drawer-head">
+          <p class="sidebar__drawer-title">Feed &amp; nav</p>
+          <button type="button" class="sidebar__close" id="sidebar-close" aria-label="Close menu">
+            <span aria-hidden="true">×</span>
+          </button>
+        </div>
         <nav class="sidebar__walkthrough" aria-label="Walkthrough jumps">
           <p class="sidebar__walkthrough-label">Jump to step</p>
           <ul class="sidebar__walkthrough-list">
@@ -130,18 +149,42 @@
         For people who see the grey in a world of black and white.
       </p>
       <p class="hero__lede">
-        This page is a <strong>guided tour</strong> of a content system: ingest what the open web is saying, show where the noise outruns the facts, force readers past worst- and best-case poles into a sober briefing, then open a full topic view that amalgamates every source on an issue. Scroll in order—or use <strong>Jump to step</strong> in the left rail.
+        You’re looking at a <strong>demo</strong> of how a real site could work—not live data here, but the shape of the thing. Read the short summary below (plain English), then scroll through the walkthrough to see each part.
       </p>
       <p class="hero__actions">
-        <a class="hero__cta" href="#walkthrough">Start the walkthrough</a>
-        <a class="hero__cta hero__cta--secondary" href="#step-dashboard">Skip to expectation gap</a>
+        <a class="hero__cta" href="#concept-plain">Read the plain-English summary</a>
+        <a class="hero__cta hero__cta--secondary" href="#walkthrough">Start the walkthrough</a>
       </p>
     </header>
+
+    <section class="concept-plain" id="concept-plain" aria-labelledby="concept-plain-heading">
+      <h2 id="concept-plain-heading" class="concept-plain__title">The idea, in plain English</h2>
+      <div class="concept-plain__body">
+        <p>
+          On almost any big story—work, money, politics, tech—the internet gives you <strong>loud, opposite versions</strong> of what’s going on. One corner yells that everything is falling apart. Another says it’s all fine. It’s hard to see the middle, and it’s easy to feel like you have to pick a team.
+        </p>
+        <p>
+          <strong>Managing Expectations</strong> is the opposite of that. The point isn’t to feed you one more hot take. It’s to <strong>pull in what’s actually being published</strong> (headlines and articles from sources you’re allowed to use), <strong>show where the hype is louder than the facts so far</strong>, and <strong>lay out the scary version and the rosy version side by side</strong>—each tied to real examples when we can—so you can see the stretch in both directions.
+        </p>
+        <p>
+          Then it gives you a <strong>calmer brief in the middle</strong>: what seems to be happening, what people still disagree on, what’s actually knowable, and—when it fits—what that might mean for someone running a business or just trying to decide what to trust.
+        </p>
+        <p>
+          For topics you care about, there’s also a <strong>bigger view</strong> that pulls together <strong>many sources on the same topic</strong> in one place, so you’re not opening twenty tabs to understand one issue.
+        </p>
+        <p class="concept-plain__note">
+          What follows is a <strong>walkthrough of that idea in fake form</strong>—sample headlines, static meters, and demo links—so you can feel how it would work before we hook up real tools and editorial workflow.
+        </p>
+      </div>
+      <p class="concept-plain__cta">
+        <a class="concept-plain__link" href="#walkthrough">Continue to the walkthrough →</a>
+      </p>
+    </section>
 
     <section class="walkthrough-toc" id="walkthrough" aria-labelledby="walkthrough-heading">
       <h2 id="walkthrough-heading" class="walkthrough-toc__title">What you’re about to see</h2>
       <p class="walkthrough-toc__intro">
-        Five stops. Each one maps to a part of the product story—feed → gap → spectrum → full corpus → roles and tooling.
+        Five stops. Each one shows a piece of the product—feed, “expectation gap,” spectrum, full topic view, then how it would be built. Use <strong>Jump to step</strong> in the feed <span class="hero__hint-desktop">(left rail)</span><span class="hero__hint-mobile">(menu, top-left)</span> anytime.
       </p>
       <ol class="walkthrough-toc__list">
         <li>
@@ -166,7 +209,7 @@
       <p class="walkthrough-step__badge">Step 1 of 5</p>
       <h2 id="step-sidebar-heading" class="walkthrough-step__title">The feed at left</h2>
       <p class="walkthrough-step__lead">
-        Glance at the sidebar: <strong>Today</strong> mimics what you’d pull from wires and feeds; <strong>Hot topics</strong> is what’s catching fire; <strong>Recently updated</strong> is standing briefings we revisit when new data lands. In production, tools like OpenClaw help gather from <em>allowed</em> sources; an editor still decides what surfaces here.
+        Open the <strong>feed</strong> (left on desktop · <strong>menu</strong> on phone): <strong>Today</strong> mimics what you’d pull from wires and feeds; <strong>Hot topics</strong> is what’s catching fire; <strong>Recently updated</strong> is standing briefings we revisit when new data lands. In production, tools like OpenClaw help gather from <em>allowed</em> sources; an editor still decides what surfaces here.
       </p>
       <p class="walkthrough-step__next"><a href="#step-dashboard">Next: Expectation gap →</a></p>
     </div>

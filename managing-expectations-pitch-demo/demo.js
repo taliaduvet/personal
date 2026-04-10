@@ -167,15 +167,6 @@
 
     setAriaRange(Number(range.value));
     onInput();
-
-    document.querySelectorAll(".skip-link").forEach(function (link) {
-      link.addEventListener("click", function () {
-        range.value = "50";
-        setAriaRange(50);
-        showMode("briefing");
-        tabBriefing.focus();
-      });
-    });
   }
 
   function initSidebarSearch() {
@@ -192,7 +183,65 @@
     });
   }
 
+  /** Mobile: off-canvas sidebar + hamburger */
+  function initMobileDrawer() {
+    var toggle = document.getElementById("menu-toggle");
+    var sidebar = document.getElementById("site-sidebar");
+    var backdrop = document.getElementById("sidebar-backdrop");
+    var closeBtn = document.getElementById("sidebar-close");
+    if (!toggle || !sidebar || !backdrop) return;
+
+    function openDrawer() {
+      sidebar.classList.add("is-open");
+      document.body.classList.add("drawer-open");
+      backdrop.setAttribute("aria-hidden", "false");
+      toggle.setAttribute("aria-expanded", "true");
+      toggle.setAttribute("aria-label", "Close feed and navigation");
+    }
+
+    function closeDrawer() {
+      sidebar.classList.remove("is-open");
+      document.body.classList.remove("drawer-open");
+      backdrop.setAttribute("aria-hidden", "true");
+      toggle.setAttribute("aria-expanded", "false");
+      toggle.setAttribute("aria-label", "Open feed and navigation");
+    }
+
+    function isMobile() {
+      return window.matchMedia("(max-width: 959px)").matches;
+    }
+
+    toggle.addEventListener("click", function () {
+      if (sidebar.classList.contains("is-open")) {
+        closeDrawer();
+      } else {
+        openDrawer();
+      }
+    });
+
+    backdrop.addEventListener("click", closeDrawer);
+    if (closeBtn) {
+      closeBtn.addEventListener("click", closeDrawer);
+    }
+
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") closeDrawer();
+    });
+
+    window.addEventListener("resize", function () {
+      if (!isMobile()) closeDrawer();
+    });
+
+    sidebar.addEventListener("click", function (e) {
+      var a = e.target.closest && e.target.closest("a[href]");
+      if (!a) return;
+      var href = a.getAttribute("href") || "";
+      if (href.charAt(0) === "#") closeDrawer();
+    });
+  }
+
   initMeters();
   initSpectrum();
   initSidebarSearch();
+  initMobileDrawer();
 })();
