@@ -164,16 +164,15 @@ function wireComposer() {
     renderColumns,
     saveDevicePreferencesToSupabase
   });
-  const {
-    renderConsistencySmall,
-    updateTally,
-    updateAddToSuggestionsBtn: tfUpdateAddToSuggestionsBtn,
-    clearAddToSuggestionsSelection,
-    removeFromSuggestions,
-    suggestNext,
-    showSuggestNextStrip,
-    hideSuggestNextStrip
-  } = tfApi;
+  /* Must assign module-level lets — destructuring alone only shadowed locals and left updateTally/renderConsistencySmall undefined for markDone/showMainApp */
+  renderConsistencySmall = tfApi.renderConsistencySmall;
+  updateTally = tfApi.updateTally;
+  const tfUpdateAddToSuggestionsBtn = tfApi.updateAddToSuggestionsBtn;
+  clearAddToSuggestionsSelection = tfApi.clearAddToSuggestionsSelection;
+  removeFromSuggestions = tfApi.removeFromSuggestions;
+  suggestNext = tfApi.suggestNext;
+  showSuggestNextStrip = tfApi.showSuggestNextStrip;
+  hideSuggestNextStrip = tfApi.hideSuggestNextStrip;
 
   weekPlanningApi = createWeekPlanningUI({
     state,
@@ -1854,14 +1853,14 @@ function wireComposer() {
     const focusMode = document.getElementById('focus-mode');
     const overview = document.getElementById('overview');
     const todayPanelWrap = document.getElementById('today-panel-wrap');
-    if (!focusMode) return;
+    /* Never bail early: if #focus-mode is missing we must still restore overview/today strip when exiting focus */
     if (state.boardFocusMode) {
-      focusMode.style.display = 'block';
+      if (focusMode) focusMode.style.display = 'block';
       if (overview) overview.style.display = 'none';
       if (todayPanelWrap) todayPanelWrap.style.display = 'none';
       renderFocusList();
     } else {
-      focusMode.style.display = 'none';
+      if (focusMode) focusMode.style.display = 'none';
       if (overview) overview.style.display = '';
       if (todayPanelWrap) todayPanelWrap.style.display = '';
     }
