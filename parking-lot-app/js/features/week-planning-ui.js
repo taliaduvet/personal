@@ -11,7 +11,13 @@ import {
   clearWeekDaysForAnchor
 } from '../domain/weekly-planning.js';
 import { getPileName } from '../domain/piles-people.js';
-import { getTodayLocalYYYYMMDD, parseLocalDate } from '../domain/tasks.js';
+import {
+  getTodayLocalYYYYMMDD,
+  parseLocalDate,
+  getActiveItems,
+  sortByTimeBandsAndFriction
+} from '../domain/tasks.js';
+import { renderTaskCard } from '../render/task-card.js';
 
 /** @param {string[]} keys Mon..Sun YYYY-MM-DD */
 function formatWeekRangeHeading(keys) {
@@ -165,32 +171,54 @@ export function createWeekPlanningUI(d) {
     const ref = document.getElementById('week-planning-piles-ref');
     if (!ref) return;
     const piles = d.state.piles || [];
+    const todayIdSet = new Set(d.state.todaySuggestionIds || []);
+    const withoutToday = (items) => items.filter((i) => !todayIdSet.has(i.id));
+    const active = getActiveItems();
+
     if (!piles.length) {
       ref.innerHTML =
         '<h3 class="week-planning-ref-title">Your piles & tasks</h3>' +
-        '<p class="plan-ref-empty">No piles yet — add piles in Settings, then assign them to days above.</p>';
+        '<p class="plan-ref-empty">No piles yet — add piles in Settings, then tap a pile button on each day above.</p>';
       return;
     }
-    const items = d.state.items || [];
-    const sections = piles.map((p) => {
-      const inPile = items.filter((it) => !it.archived && (it.pileId || null) === p.id);
-      const lis = inPile.length
-        ? `<ul class="plan-ref-task-list">${inPile.map((it) => `<li>${escapeHtml(it.text)}</li>`).join('')}</ul>`
-        : '<p class="plan-ref-empty">No tasks in this pile</p>';
-      return `<section class="plan-ref-pile"><h4>${escapeHtml(p.name)}</h4>${lis}</section>`;
-    });
-    ref.innerHTML = '<h3 class="week-planning-ref-title">Your piles & tasks</h3>' + sections.join('');
+
+    const pileColumns = piles.map((p) => ({ id: p.id, label: p.name, pileId: p.id }));
+    pileColumns.push({ id: '__uncategorized', label: 'Uncategorized', pileId: null });
+
+    const cols = pileColumns
+      .map((col) => {
+        const items = withoutToday(active.filter((i) => (i.pileId || null) === (col.pileId || null)));
+        const sorted = sortByTimeBandsAndFriction(items);
+        const pileIdAttr =
+          col.pileId != null ? ` data-pile-id="${escapeHtml(col.pileId)}"` : ' data-uncategorized="true"';
+        const body = sorted.length
+          ? sorted.map((item) => renderTaskCard(item, { showLifeAreaAsTag: true })).join('')
+          : '<div class="empty-state column-add-hint">No tasks in this pile</div>';
+        return `<div class="column column-accent" data-category="${escapeHtml(col.id)}"${pileIdAttr} style="--column-accent: #6b7280">
+            <div class="column-header" role="none">${escapeHtml(col.label)} <span class="count">(${sorted.length})</span></div>
+            <div class="column-items">${body}</div>
+          </div>`;
+      })
+      .join('');
+
+    ref.innerHTML =
+      '<h3 class="week-planning-ref-title">Your piles & tasks</h3>' +
+      `<div class="columns piles-view week-plan-ref-board" role="region" aria-label="Piles">${cols}</div>`;
   }
 
   function pileQuickRowHtml(dateKey, entry) {
     const piles = d.state.piles || [];
     const top3 = piles.slice(0, 3);
     const rest = piles.slice(3);
-    const btns = top3
-      .map(
-        (p) => `
-      <button type="button" class="plan-pile-quick ${entry.pileId === p.id ? 'is-selected' : ''}" data-pile-id="${escapeHtml(p.id)}" data-date="${dateKey}">${escapeHtml(p.name)}</button>`
-      )
+    const dk = escapeHtml(dateKey);
+    const three = [0, 1, 2]
+      .map((i) => {
+        const p = top3[i];
+        if (!p) {
+          return `<span class="plan-pile-slot-empty" title="Add piles in Settings if you need a third column">—</span>`;
+        }
+        return `<button type="button" class="plan-pile-quick ${entry.pileId === p.id ? 'is-selected' : ''}" data-pile-id="${escapeHtml(p.id)}" data-date="${dk}">${escapeHtml(p.name)}</button>`;
+      })
       .join('');
     const selectedInRest = entry.pileId && rest.some((p) => p.id === entry.pileId);
     const more =
@@ -202,18 +230,21 @@ export function createWeekPlanningUI(d) {
         ${rest
           .map(
             (p) =>
-              `<button type="button" class="plan-pile-quick plan-pile-quick-more ${entry.pileId === p.id ? 'is-selected' : ''}" data-pile-id="${escapeHtml(p.id)}" data-date="${dateKey}">${escapeHtml(p.name)}</button>`
+              `<button type="button" class="plan-pile-quick plan-pile-quick-more ${entry.pileId === p.id ? 'is-selected' : ''}" data-pile-id="${escapeHtml(p.id)}" data-date="${dk}">${escapeHtml(p.name)}</button>`
           )
           .join('')}
       </div>
     </details>`
         : '';
-    const clearBtn = `<button type="button" class="plan-pile-clear" data-date="${dateKey}">Clear day</button>`;
+    const clearBtn = `<button type="button" class="plan-pile-clear" data-date="${dk}">Clear day</button>`;
     const noPilesHint =
-      top3.length === 0
-        ? '<p class="plan-ref-empty" style="font-size:0.65rem;margin:0">Add piles in Settings</p>'
-        : '';
-    return `<div class="plan-pile-quick-row">${noPilesHint}${btns}${clearBtn}</div>${more}`;
+      piles.length === 0 ? '<p class="plan-pile-no-piles-msg">Add piles in Settings to assign them here.</p>' : '';
+    return `<div class="plan-pile-picker">
+      ${noPilesHint}
+      <div class="plan-pile-picker-label">Tap a pile</div>
+      <div class="plan-pile-quick-row">${three}</div>
+      ${clearBtn}
+    </div>${more}`;
   }
 
   function setDayPile(dateKey, pileId) {
