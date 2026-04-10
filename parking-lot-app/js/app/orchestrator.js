@@ -2064,6 +2064,9 @@ function wireComposer() {
     document.getElementById('main-app').style.display = 'block';
     document.getElementById('floating-buttons').style.display = 'flex';
     exitBoardFocusMode();
+    if (weekPlanningApi && typeof weekPlanningApi.forceCloseAllPlanningUI === 'function') {
+      weekPlanningApi.forceCloseAllPlanningUI();
+    }
     const badge = document.getElementById('pair-badge');
     const talkSection = document.getElementById('talk-about-section');
     const linkPartnerBtn = document.getElementById('link-partner-btn');
@@ -2158,6 +2161,9 @@ function wireComposer() {
     const viewPilesBtn = document.getElementById('view-piles-btn');
     if (viewColumnsBtn) viewColumnsBtn.addEventListener('click', () => {
       state.viewMode = 'columns';
+      state.drillDownCategory = null;
+      const back = document.getElementById('back-btn');
+      if (back) back.style.display = 'none';
       saveState();
       if (window.talkAbout && state.deviceSyncId) saveDevicePreferencesToSupabase();
       renderColumns();
@@ -2270,9 +2276,9 @@ function wireComposer() {
     const sidebarOverlay = document.getElementById('sidebar-overlay');
     const closeSidebarBtn = document.getElementById('close-sidebar');
     function openSidebar() {
-      if (sidebar) sidebar.classList.add('open');
-      if (sidebarOverlay) sidebarOverlay.style.display = 'block';
       document.body.classList.add('sidebar-open');
+      if (sidebarOverlay) sidebarOverlay.style.display = 'block';
+      if (sidebar) sidebar.classList.add('open');
       if (menuBtn) menuBtn.setAttribute('aria-expanded', 'true');
     }
     function closeSidebar() {

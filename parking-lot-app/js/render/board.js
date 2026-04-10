@@ -46,7 +46,13 @@ export function createBoardRenderer(d) {
     if (!container) return;
 
     const isPilesView = d.state.viewMode === 'piles';
-    const cats = d.state.drillDownCategory ? [d.state.drillDownCategory] : getOrderedCategoryIds();
+    const categoryIds = getOrderedCategoryIds();
+    if (d.state.drillDownCategory && !categoryIds.includes(d.state.drillDownCategory)) {
+      d.state.drillDownCategory = null;
+      const back = document.getElementById('back-btn');
+      if (back) back.style.display = 'none';
+    }
+    const cats = d.state.drillDownCategory ? [d.state.drillDownCategory] : categoryIds;
     container.classList.toggle('single-column', !!d.state.drillDownCategory);
     container.classList.toggle('piles-view', isPilesView);
 
@@ -178,6 +184,7 @@ export function createBoardRenderer(d) {
     let columnDragHappened = false;
     container.querySelectorAll('.column-header').forEach(el => {
       el.addEventListener('click', () => {
+        if (d.state.viewMode === 'piles') return;
         if (columnDragHappened) { columnDragHappened = false; return; }
         if (d.state.drillDownCategory) {
           d.state.drillDownCategory = null;

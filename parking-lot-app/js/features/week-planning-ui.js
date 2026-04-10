@@ -570,5 +570,21 @@ export function createWeekPlanningUI(d) {
 
   bindStatic();
 
-  return { openPlanningEntry, askTopOrBottom, renderWeekStrip, renderWeekViewPanel };
+  /** Close every planning surface (modals + fullscreen). Safe to call on load if DOM was left inconsistent. */
+  function forceCloseAllPlanningUI() {
+    closePlanningOverlay();
+    closePrePlanModal();
+    closeFourBlockReview();
+    closePositionModal();
+    const wvp = document.getElementById('week-view-panel');
+    if (wvp) wvp.style.display = 'none';
+  }
+
+  return {
+    openPlanningEntry,
+    askTopOrBottom,
+    renderWeekStrip,
+    renderWeekViewPanel,
+    forceCloseAllPlanningUI
+  };
 }

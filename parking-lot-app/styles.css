@@ -577,10 +577,13 @@ body {
   z-index: 100;
   opacity: 0;
   transition: opacity 0.2s ease;
+  /* Avoid invisible hit-target if display:block ever desyncs from body.sidebar-open */
+  pointer-events: none;
 }
 
 body.sidebar-open .sidebar-overlay {
   opacity: 1;
+  pointer-events: auto;
 }
 
 .sidebar {
