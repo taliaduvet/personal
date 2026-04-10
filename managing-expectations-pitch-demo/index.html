@@ -13,10 +13,21 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <a class="skip-link" href="#spectrum-panel">Skip to briefing</a>
+    <a class="skip-link" href="#walkthrough">Skip to walkthrough</a>
 
     <div class="page">
       <aside class="sidebar" aria-label="Demo sidebar — today, hot topics, and updates">
+        <nav class="sidebar__walkthrough" aria-label="Walkthrough jumps">
+          <p class="sidebar__walkthrough-label">Jump to step</p>
+          <ul class="sidebar__walkthrough-list">
+            <li><a href="#walkthrough">Overview</a></li>
+            <li><a href="#step-sidebar">1 · Feed</a></li>
+            <li><a href="#step-dashboard">2 · Gap</a></li>
+            <li><a href="#step-spectrum">3 · Spectrum</a></li>
+            <li><a href="#topic-full-view">4 · Full view</a></li>
+            <li><a href="#methodology">5 · How it’s built</a></li>
+          </ul>
+        </nav>
         <div class="sidebar__search-block">
           <label class="sidebar__search-label" for="sidebar-search">Search</label>
           <input
@@ -42,20 +53,20 @@
               </p>
             </div>
             <ul class="sidebar__list" id="sidebar-list-today">
-              <li class="sidebar__item" data-search-blob="gaza aid corridor ceasefire ships">
-                <a class="sidebar__link" href="#dashboard">Aid ships turned back: what diplomats are saying today</a>
+              <li class="sidebar__item" data-search-blob="reuters gaza aid corridor ceasefire ships">
+                <a class="sidebar__link" href="#dashboard"><span class="card__source">Reuters ·</span> Aid ships turned back: what diplomats are saying today</a>
               </li>
-              <li class="sidebar__item" data-search-blob="amazon aws outage cloud">
-                <a class="sidebar__link" href="#dashboard">Major cloud outage: which services are still flaky</a>
+              <li class="sidebar__item" data-search-blob="cnn amazon aws outage cloud">
+                <a class="sidebar__link" href="#dashboard"><span class="card__source">CNN ·</span> Major cloud outage: which services are still flaky</a>
               </li>
-              <li class="sidebar__item" data-search-blob="opec oil prices gas pump">
-                <a class="sidebar__link" href="#dashboard">Oil jumps after OPEC surprise—will gas follow?</a>
+              <li class="sidebar__item" data-search-blob="financial times opec oil prices gas pump">
+                <a class="sidebar__link" href="#dashboard"><span class="card__source">Financial Times ·</span> Oil jumps after OPEC surprise—will gas follow?</a>
               </li>
-              <li class="sidebar__item" data-search-blob="supreme court social media">
-                <a class="sidebar__link" href="#dashboard">High court takes up social media and government pressure</a>
+              <li class="sidebar__item" data-search-blob="npr supreme court social media">
+                <a class="sidebar__link" href="#dashboard"><span class="card__source">NPR ·</span> High court takes up social media and government pressure</a>
               </li>
-              <li class="sidebar__item" data-search-blob="midwest floods evacuations weather">
-                <a class="sidebar__link" href="#dashboard">Midwest floods: evacuations and aid requests spread</a>
+              <li class="sidebar__item" data-search-blob="washington post midwest floods evacuations weather">
+                <a class="sidebar__link" href="#dashboard"><span class="card__source">The Washington Post ·</span> Midwest floods: evacuations and aid requests spread</a>
               </li>
             </ul>
           </section>
@@ -68,20 +79,20 @@
               </p>
             </div>
             <ul class="sidebar__list" id="sidebar-list-hot">
-              <li class="sidebar__item" data-search-blob="ai office workplace chatgpt enterprise">
-                <a class="sidebar__link" href="#spectrum-heading">AI at work: pilots vs. real daily use</a>
+              <li class="sidebar__item" data-search-blob="the verge ai office workplace chatgpt enterprise">
+                <a class="sidebar__link" href="#spectrum-heading"><span class="card__source">The Verge ·</span> AI at work: pilots vs. real daily use</a>
               </li>
-              <li class="sidebar__item" data-search-blob="tariffs imports prices grocery store">
-                <a class="sidebar__link" href="#dashboard">Tariffs and your receipt: what economists disagree on</a>
+              <li class="sidebar__item" data-search-blob="bloomberg tariffs imports prices grocery store">
+                <a class="sidebar__link" href="#dashboard"><span class="card__source">Bloomberg ·</span> Tariffs and your receipt: what economists disagree on</a>
               </li>
-              <li class="sidebar__item" data-search-blob="fed mortgage rent rates housing">
-                <a class="sidebar__link" href="#dashboard">The Fed moved—why housing barely blinked</a>
+              <li class="sidebar__item" data-search-blob="cnbc fed mortgage rent rates housing">
+                <a class="sidebar__link" href="#dashboard"><span class="card__source">CNBC ·</span> The Fed moved—why housing barely blinked</a>
               </li>
-              <li class="sidebar__item" data-search-blob="ev electric vehicle sales tesla">
-                <a class="sidebar__link" href="#dashboard">EV sales cool: inventory, incentives, or fatigue?</a>
+              <li class="sidebar__item" data-search-blob="wired ev electric vehicle sales tesla">
+                <a class="sidebar__link" href="#dashboard"><span class="card__source">Wired ·</span> EV sales cool: inventory, incentives, or fatigue?</a>
               </li>
-              <li class="sidebar__item" data-search-blob="tiktok ban deadline sell">
-                <a class="sidebar__link" href="#dashboard">Platform ban deadlines: who gains if it sticks?</a>
+              <li class="sidebar__item" data-search-blob="axios tiktok ban deadline sell">
+                <a class="sidebar__link" href="#dashboard"><span class="card__source">Axios ·</span> Platform ban deadlines: who gains if it sticks?</a>
               </li>
             </ul>
           </section>
@@ -94,17 +105,17 @@
               </p>
             </div>
             <ul class="sidebar__list" id="sidebar-list-recent">
-              <li class="sidebar__item" data-search-blob="me-2026-03 climate fund pledges">
-                <a class="sidebar__link" href="#dashboard"><span class="sidebar__badge">ME-2026-03</span> Climate pledges vs. money actually moved</a>
+              <li class="sidebar__item" data-search-blob="financial times me-2026-03 climate fund pledges">
+                <a class="sidebar__link" href="#dashboard"><span class="card__source">Financial Times ·</span> <span class="sidebar__badge">ME-2026-03</span> Climate pledges vs. money actually moved</a>
               </li>
-              <li class="sidebar__item" data-search-blob="me-2026-02 social security trust fund">
-                <a class="sidebar__link" href="#dashboard"><span class="sidebar__badge">ME-2026-02</span> Social Security: new CBO timeline</a>
+              <li class="sidebar__item" data-search-blob="associated press me-2026-02 social security trust fund">
+                <a class="sidebar__link" href="#dashboard"><span class="card__source">Associated Press ·</span> <span class="sidebar__badge">ME-2026-02</span> Social Security: new CBO timeline</a>
               </li>
-              <li class="sidebar__item" data-search-blob="me-2026-01 manufacturing jobs midwest">
-                <a class="sidebar__link" href="#dashboard"><span class="sidebar__badge">ME-2026-01</span> Midwest factory jobs—revised county data</a>
+              <li class="sidebar__item" data-search-blob="bloomberg me-2026-01 manufacturing jobs midwest">
+                <a class="sidebar__link" href="#dashboard"><span class="card__source">Bloomberg ·</span> <span class="sidebar__badge">ME-2026-01</span> Midwest factory jobs—revised county data</a>
               </li>
-              <li class="sidebar__item" data-search-blob="me-2025-11 crypto etf flows">
-                <a class="sidebar__link" href="#dashboard"><span class="sidebar__badge">ME-2025-11</span> ETF flows follow-up after the ruling</a>
+              <li class="sidebar__item" data-search-blob="reuters me-2025-11 crypto etf flows">
+                <a class="sidebar__link" href="#dashboard"><span class="card__source">Reuters ·</span> <span class="sidebar__badge">ME-2025-11</span> ETF flows follow-up after the ruling</a>
               </li>
             </ul>
           </section>
@@ -113,27 +124,69 @@
 
       <div class="page__main">
     <header class="hero" id="top">
-      <p class="hero__eyebrow">Concept prototype · ME-2026-04-DEMO</p>
+      <p class="hero__eyebrow">Partner pitch · interactive walkthrough · ME-2026-04-DEMO</p>
       <h1 class="hero__title">Managing Expectations</h1>
       <p class="hero__tagline">
         For people who see the grey in a world of black and white.
       </p>
       <p class="hero__lede">
-        We separate what the internet is shouting from what actually checks out—short briefings you can use, not another hot take.
+        This page is a <strong>guided tour</strong> of a content system: ingest what the open web is saying, show where the noise outruns the facts, force readers past worst- and best-case poles into a sober briefing, then open a full topic view that amalgamates every source on an issue. Scroll in order—or use <strong>Jump to step</strong> in the left rail.
       </p>
-      <a class="hero__cta" href="#dashboard">See today’s briefing (demo)</a>
+      <p class="hero__actions">
+        <a class="hero__cta" href="#walkthrough">Start the walkthrough</a>
+        <a class="hero__cta hero__cta--secondary" href="#step-dashboard">Skip to expectation gap</a>
+      </p>
     </header>
 
+    <section class="walkthrough-toc" id="walkthrough" aria-labelledby="walkthrough-heading">
+      <h2 id="walkthrough-heading" class="walkthrough-toc__title">What you’re about to see</h2>
+      <p class="walkthrough-toc__intro">
+        Five stops. Each one maps to a part of the product story—feed → gap → spectrum → full corpus → roles and tooling.
+      </p>
+      <ol class="walkthrough-toc__list">
+        <li>
+          <a href="#step-sidebar"><strong>The feed</strong></a> — the left rail: today’s headlines, what’s hot, what we’ve updated (simulated).
+        </li>
+        <li>
+          <a href="#step-dashboard"><strong>Expectation gap</strong></a> — three cards: how loud the story is vs. how much matches the facts (illustrative meters).
+        </li>
+        <li>
+          <a href="#step-spectrum"><strong>Spectrum</strong></a> — worst case vs. best case with real-style receipts, then the briefing in the middle.
+        </li>
+        <li>
+          <a href="#topic-full-view"><strong>Full topic view</strong></a> — amalgamation across many sources + tagged source library (same topic, bigger picture).
+        </li>
+        <li>
+          <a href="#methodology"><strong>How it’s built</strong></a> — humans in the loop, OpenClaw-style ingestion as assist, not autopilot.
+        </li>
+      </ol>
+    </section>
+
+    <div class="walkthrough-step" id="step-sidebar" aria-labelledby="step-sidebar-heading">
+      <p class="walkthrough-step__badge">Step 1 of 5</p>
+      <h2 id="step-sidebar-heading" class="walkthrough-step__title">The feed at left</h2>
+      <p class="walkthrough-step__lead">
+        Glance at the sidebar: <strong>Today</strong> mimics what you’d pull from wires and feeds; <strong>Hot topics</strong> is what’s catching fire; <strong>Recently updated</strong> is standing briefings we revisit when new data lands. In production, tools like OpenClaw help gather from <em>allowed</em> sources; an editor still decides what surfaces here.
+      </p>
+      <p class="walkthrough-step__next"><a href="#step-dashboard">Next: Expectation gap →</a></p>
+    </div>
+
     <section class="dashboard" id="dashboard" aria-labelledby="dashboard-heading">
-      <div class="dashboard__head">
-        <h2 id="dashboard-heading" class="dashboard__title">Stories you’d pull from the open web</h2>
-        <p class="dashboard__note">
-          Demo only — these meters are static. In production, tools like OpenClaw could help gather headlines and takes from allowed sources; a human still writes the call.
+      <div class="walkthrough-step walkthrough-step--inline" id="step-dashboard">
+        <p class="walkthrough-step__badge">Step 2 of 5</p>
+        <h2 id="dashboard-heading" class="dashboard__title">Expectation gap</h2>
+        <p class="dashboard__subtitle">Stories you’d pull from the open web</p>
+        <p class="walkthrough-step__lead">
+          Each card is a real-world headline (with outlet). The two bars ask: <strong>how loud is the story</strong> vs. <strong>how much the facts support it so far</strong>—the gap between hype and grounding. These percentages are static in the demo; live, they’d come from editorial scoring or models you trust.
         </p>
+        <p class="dashboard__note">
+          Demo only — meters are illustrative. The middle card ties to the spectrum and full topic view below (AI at work).
+        </p>
+        <p class="walkthrough-step__next"><a href="#step-spectrum">Next: Spectrum →</a></p>
       </div>
       <div class="dashboard__grid">
         <article class="card card--meter" data-meter data-hype="78" data-ledger="41">
-          <h3 class="card__headline">New tariffs on imports: will prices at the store really spike?</h3>
+          <h3 class="card__headline"><span class="card__source">Bloomberg ·</span> New tariffs on imports: will prices at the store really spike?</h3>
           <div class="meter">
             <div class="meter__row">
               <span class="meter__label">How loud the story is</span>
@@ -154,7 +207,7 @@
           </div>
         </article>
         <article class="card card--meter card--featured" data-meter data-hype="86" data-ledger="52">
-          <h3 class="card__headline">Every company says it’s “doing AI”—but a lot of workers barely touch it</h3>
+          <h3 class="card__headline"><span class="card__source">The Wall Street Journal ·</span> Every company says it’s “doing AI”—but a lot of workers barely touch it</h3>
           <div class="meter">
             <div class="meter__row">
               <span class="meter__label">How loud the story is</span>
@@ -176,7 +229,7 @@
           <p class="card__pin">Deep dive below</p>
         </article>
         <article class="card card--meter" data-meter data-hype="71" data-ledger="38">
-          <h3 class="card__headline">The Fed cut rates—so why doesn’t your rent or mortgage feel cheaper?</h3>
+          <h3 class="card__headline"><span class="card__source">Associated Press ·</span> The Fed cut rates—so why doesn’t your rent or mortgage feel cheaper?</h3>
           <div class="meter">
             <div class="meter__row">
               <span class="meter__label">How loud the story is</span>
@@ -199,29 +252,31 @@
       </div>
     </section>
 
-    <section class="spectrum" aria-labelledby="spectrum-heading">
+    <section class="spectrum" id="step-spectrum" aria-labelledby="spectrum-heading">
       <div class="spectrum__intro">
-        <h2 id="spectrum-heading" class="spectrum__title">Spectrum</h2>
+        <p class="walkthrough-step__badge">Step 3 of 5</p>
+        <h2 id="spectrum-heading" class="spectrum__title">Spectrum — worst case, best case, then the briefing</h2>
         <p class="spectrum__lede">
-          The two sides are made-up voices—like the kinds of posts and cable segments you’d see in a real scrape—not real quotes. Slide to the middle to read the briefing, or use the tabs.
+          Drag the slider (or use tabs): <strong>Worst case</strong> and <strong>best case</strong> each show a paraphrase plus a <strong>named exemplar</strong> with a receipt link—so the stance is checkable. The <strong>briefing</strong> in the middle is your synthesis: what happened, what’s contested, what’s knowable, and a practical lens. After this, the <a href="#topic-full-view">full topic view</a> widens to the whole corpus on the same issue.
         </p>
+        <p class="walkthrough-step__next walkthrough-step__next--tight"><a href="#topic-full-view">Next: Full topic view →</a></p>
       </div>
 
       <div class="spectrum__controls" role="group" aria-label="Choose perspective">
         <div class="tabs" role="tablist">
-          <button type="button" class="tabs__btn" role="tab" id="tab-alarm" aria-selected="false" aria-controls="panel-alarm" data-tab="alarm" tabindex="-1">
-            Alarm
+          <button type="button" class="tabs__btn" role="tab" id="tab-worst" aria-selected="false" aria-controls="panel-worst" data-tab="worst" tabindex="-1">
+            Worst case
           </button>
           <button type="button" class="tabs__btn" role="tab" id="tab-briefing" aria-selected="true" aria-controls="spectrum-panel" data-tab="briefing">
             Briefing
           </button>
-          <button type="button" class="tabs__btn" role="tab" id="tab-assurance" aria-selected="false" aria-controls="panel-assurance" data-tab="assurance" tabindex="-1">
-            Assurance
+          <button type="button" class="tabs__btn" role="tab" id="tab-best" aria-selected="false" aria-controls="panel-best" data-tab="best" tabindex="-1">
+            Best case
           </button>
         </div>
         <label class="slider-label" for="spectrum-range">
-          <span class="slider-label__left">Alarm</span>
-          <span class="slider-label__right">Assurance</span>
+          <span class="slider-label__left">Worst case</span>
+          <span class="slider-label__right">Best case</span>
         </label>
         <input
           id="spectrum-range"
@@ -236,18 +291,34 @@
       </div>
 
       <div class="spectrum__panels">
-        <div class="panel panel--alarm" id="panel-alarm" role="tabpanel" aria-labelledby="tab-alarm" hidden>
-          <p class="panel__kicker">Story A · Alarm</p>
+        <div class="panel panel--worst" id="panel-worst" role="tabpanel" aria-labelledby="tab-worst" hidden data-pole="worst">
+          <p class="panel__kicker">Worst case · Paraphrase of exemplar (demo)</p>
           <blockquote class="panel__quote">
             If your company isn’t all-in on AI yesterday, you’re finished. Your competitors are automating everything while you’re still in meetings. Buy now, ask questions later—speed is the only strategy that survives.
           </blockquote>
+          <div class="panel__receipt">
+            <p class="panel__receipt-label">Exemplar source</p>
+            <a class="panel__receipt-link" href="https://example.com/managing-expectations-demo-wsj" target="_blank" rel="noopener noreferrer">The Wall Street Journal — “Every company says it’s ‘doing AI’—but a lot of workers barely touch it”</a>
+            <p class="panel__receipt-note">Demo URL only. Production: link to the real article; quote length follows your rights policy.</p>
+          </div>
+          <p class="panel__more">
+            <a href="#topic-full-view">See 6 more pieces scored <em>worst-case lean</em> in the source library →</a>
+          </p>
         </div>
 
-        <div class="panel panel--assurance" id="panel-assurance" role="tabpanel" aria-labelledby="tab-assurance" hidden>
-          <p class="panel__kicker">Story B · Assurance</p>
+        <div class="panel panel--best" id="panel-best" role="tabpanel" aria-labelledby="tab-best" hidden data-pole="best">
+          <p class="panel__kicker">Best case · Paraphrase of exemplar (demo)</p>
           <blockquote class="panel__quote">
             It’s mostly hype. Half the “AI rollouts” are press releases; employees quietly go back to the old tools. Wait five years, let the bubble pop, and don’t waste budget on vaporware your team won’t adopt.
           </blockquote>
+          <div class="panel__receipt">
+            <p class="panel__receipt-label">Exemplar source</p>
+            <a class="panel__receipt-link" href="https://example.com/managing-expectations-demo-wired" target="_blank" rel="noopener noreferrer">Wired — “Enterprise AI adoption hits a wall of apathy”</a>
+            <p class="panel__receipt-note">Demo URL only. Opposite pole uses a different scoring bucket, not “the other article on the same day.”</p>
+          </div>
+          <p class="panel__more">
+            <a href="#topic-full-view">See 5 more pieces scored <em>best-case lean</em> in the source library →</a>
+          </p>
         </div>
 
         <article class="panel panel--briefing panel--briefing-active" id="spectrum-panel" role="tabpanel" aria-labelledby="tab-briefing">
@@ -294,18 +365,88 @@
                 </ul>
               </section>
               <p class="briefing__signoff">— M.E. · Seal of protocol, not personality</p>
+              <p class="briefing__downstream">
+                <a href="#topic-full-view">Full topic view →</a> amalgamates every ingested source on this issue (not just the two exemplars above).
+              </p>
             </div>
           </div>
         </article>
       </div>
     </section>
 
-    <footer class="site-footer">
-      <h2 class="site-footer__title">Methodology (demo)</h2>
-      <p>
-        This page is a <strong>demo</strong>. A human still edits every briefing. In a live setup, OpenClaw-style tooling could help pull headlines, articles, and posts from sources you’re allowed to use—then a person decides what belongs on the page. The Alarm and Assurance voices here are invented examples, not scraped quotes.
+    <section class="topic-view" id="topic-full-view" aria-labelledby="topic-view-heading">
+      <p class="walkthrough-step__badge">Step 4 of 5</p>
+      <h2 id="topic-view-heading" class="topic-view__title">Full topic view · AI at work</h2>
+      <p class="topic-view__lede">
+        The spectrum showed <strong>one receipt per pole</strong>. Here you see the <strong>whole orchestra</strong>: amalgamation (how coverage clusters across many pieces) and a <strong>source library</strong> with stance tags. In production this page grows as new items are ingested.
       </p>
-      <p class="site-footer__back"><a href="#top">Back to top</a></p>
+
+      <div class="topic-view__amalgam">
+        <h3 class="topic-view__subhead">Amalgamation · how coverage clusters (demo copy)</h3>
+        <p>
+          Across two dozen pieces we ingested on enterprise AI this month, <strong>worst-case–leaning</strong> coverage repeats a survival story: fall behind on deployment and you lose the talent war, the customer, or both. Urgency sells software and consulting hours; specifics on <em>which</em> workflows pay back first are thinner.
+        </p>
+        <p>
+          <strong>Best-case–leaning</strong> coverage clusters around fatigue and skepticism: pilots stalling, tools unused, ROI reports delayed. The through-line is “wait—let someone else fund the learning curve”—which can be prudent or can understate how fast informal use is spreading without IT’s sign-off.
+        </p>
+        <p class="topic-view__bridge">
+          The spectrum above shows <em>one receipt per pole</em>; this section shows the <em>field</em>. The briefing in the middle is where we weigh both against what’s knowable from filings, surveys, and your own runway.
+        </p>
+      </div>
+
+      <div class="topic-view__library">
+        <h3 class="topic-view__subhead">Source library · same topic, every ingested piece (sample)</h3>
+        <p class="topic-view__library-note">Demo: placeholder links. Production: sort/filter by date, outlet, stance score.</p>
+        <ul class="source-list">
+          <li class="source-list__row">
+            <span class="source-list__tag source-list__tag--worst">Worst-case lean</span>
+            <a class="source-list__link" href="https://example.com/demo-1" target="_blank" rel="noopener noreferrer">WSJ — “Every company says it’s ‘doing AI’…”</a>
+          </li>
+          <li class="source-list__row">
+            <span class="source-list__tag source-list__tag--worst">Worst-case lean</span>
+            <a class="source-list__link" href="https://example.com/demo-2" target="_blank" rel="noopener noreferrer">Bloomberg — “Boards press CEOs on AI spend as rivals automate”</a>
+          </li>
+          <li class="source-list__row">
+            <span class="source-list__tag source-list__tag--mixed">Mixed</span>
+            <a class="source-list__link" href="https://example.com/demo-3" target="_blank" rel="noopener noreferrer">Reuters — “Enterprise AI pilots multiply; evidence of savings still patchy”</a>
+          </li>
+          <li class="source-list__row">
+            <span class="source-list__tag source-list__tag--best">Best-case lean</span>
+            <a class="source-list__link" href="https://example.com/demo-4" target="_blank" rel="noopener noreferrer">Wired — “Enterprise AI adoption hits a wall of apathy”</a>
+          </li>
+          <li class="source-list__row">
+            <span class="source-list__tag source-list__tag--best">Best-case lean</span>
+            <a class="source-list__link" href="https://example.com/demo-5" target="_blank" rel="noopener noreferrer">The Verge — “Most ‘AI features’ go unused in internal tests”</a>
+          </li>
+          <li class="source-list__row">
+            <span class="source-list__tag source-list__tag--mixed">Mixed</span>
+            <a class="source-list__link" href="https://example.com/demo-6" target="_blank" rel="noopener noreferrer">Financial Times — “Vendors promise productivity; buyers demand proof”</a>
+          </li>
+          <li class="source-list__row">
+            <span class="source-list__tag source-list__tag--worst">Worst-case lean</span>
+            <a class="source-list__link" href="https://example.com/demo-7" target="_blank" rel="noopener noreferrer">CNBC — “AI ‘arms race’ shifts from hype to headcount”</a>
+          </li>
+          <li class="source-list__row">
+            <span class="source-list__tag source-list__tag--mixed">Mixed</span>
+            <a class="source-list__link" href="https://example.com/demo-8" target="_blank" rel="noopener noreferrer">Associated Press — “Regulators eye AI in regulated industries”</a>
+          </li>
+        </ul>
+      </div>
+      <p class="walkthrough-step__next walkthrough-step__next--after-library">
+        <a href="#methodology">Next: How it’s built →</a>
+      </p>
+    </section>
+
+    <footer class="site-footer" id="methodology">
+      <p class="walkthrough-step__badge walkthrough-step__badge--footer">Step 5 of 5</p>
+      <h2 class="site-footer__title">How it’s built (methodology)</h2>
+      <p>
+        This page is a <strong>demo</strong>. A human still edits amalgamation and briefings. OpenClaw-style tooling can ingest allowed sources; editors pick exemplars for the spectrum poles and curate the library. Poles use <strong>individual receipts</strong>; the full topic view <strong>amalgamates the corpus</strong> on the same issue.
+      </p>
+      <p class="site-footer__done">
+        That’s the walkthrough. Questions welcome—then we talk scope, sources, and what “allowed” means for your operation.
+      </p>
+      <p class="site-footer__back"><a href="#walkthrough">Walkthrough list</a> · <a href="#top">Top</a></p>
     </footer>
       </div>
     </div>

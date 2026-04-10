@@ -53,20 +53,20 @@
     });
   }
 
-  /** Spectrum: slider + tabs */
+  /** Spectrum: slider + tabs (worst case ↔ best case, center = briefing) */
   function initSpectrum() {
     var range = document.getElementById("spectrum-range");
     var hint = document.getElementById("spectrum-hint");
     var scrim = document.querySelector("[data-briefing-scrim]");
-    var tabAlarm = document.getElementById("tab-alarm");
+    var tabWorst = document.getElementById("tab-worst");
     var tabBriefing = document.getElementById("tab-briefing");
-    var tabAssurance = document.getElementById("tab-assurance");
-    var panelAlarm = document.getElementById("panel-alarm");
-    var panelAssurance = document.getElementById("panel-assurance");
+    var tabBest = document.getElementById("tab-best");
+    var panelWorst = document.getElementById("panel-worst");
+    var panelBest = document.getElementById("panel-best");
     var panelBriefing = document.getElementById("spectrum-panel");
     var tabs = document.querySelectorAll(".tabs__btn[data-tab]");
 
-    if (!range || !scrim || !panelAlarm || !panelAssurance || !panelBriefing) return;
+    if (!range || !scrim || !panelWorst || !panelBest || !panelBriefing) return;
 
     function setAriaRange(val) {
       var inCenter = val >= CENTER_LO && val <= CENTER_HI;
@@ -74,19 +74,19 @@
       if (inCenter) {
         range.setAttribute("aria-valuetext", "Center: briefing unlocked");
       } else if (val < CENTER_LO) {
-        range.setAttribute("aria-valuetext", "Toward alarm narrative");
+        range.setAttribute("aria-valuetext", "Toward worst-case framing");
       } else {
-        range.setAttribute("aria-valuetext", "Toward assurance narrative");
+        range.setAttribute("aria-valuetext", "Toward best-case framing");
       }
     }
 
     function showMode(mode) {
-      var isAlarm = mode === "alarm";
-      var isAssurance = mode === "assurance";
+      var isWorst = mode === "worst";
+      var isBest = mode === "best";
       var isBriefing = mode === "briefing";
 
-      panelAlarm.hidden = !isAlarm;
-      panelAssurance.hidden = !isAssurance;
+      panelWorst.hidden = !isWorst;
+      panelBest.hidden = !isBest;
       panelBriefing.hidden = !isBriefing;
 
       if (panelBriefing.classList) {
@@ -102,10 +102,10 @@
 
       if (hint) {
         hint.textContent = isBriefing
-          ? "Briefing open. Drag toward Alarm or Assurance to see the two loud takes side by side."
-          : isAlarm
-            ? "Alarm side showing. Slide toward the middle—or tap Briefing—for the calmer read."
-            : "Assurance side showing. Slide toward the middle—or tap Briefing—for the calmer read.";
+          ? "Briefing open. Drag toward Worst case or Best case to compare how sources frame the story."
+          : isWorst
+            ? "Worst-case side showing. Slide toward the middle—or tap Briefing—for the balanced read."
+            : "Best-case side showing. Slide toward the middle—or tap Briefing—for the balanced read.";
       }
 
       if (isBriefing) {
@@ -117,13 +117,13 @@
 
     function valueToMode(val) {
       if (val >= CENTER_LO && val <= CENTER_HI) return "briefing";
-      if (val < CENTER_LO) return "alarm";
-      return "assurance";
+      if (val < CENTER_LO) return "worst";
+      return "best";
     }
 
     function modeToValue(mode) {
-      if (mode === "alarm") return 12;
-      if (mode === "assurance") return 88;
+      if (mode === "worst") return 12;
+      if (mode === "best") return 88;
       return 50;
     }
 
@@ -150,7 +150,7 @@
     var tablist = document.querySelector(".tabs[role='tablist']");
     if (tablist) {
       tablist.addEventListener("keydown", function (e) {
-        var order = [tabAlarm, tabBriefing, tabAssurance];
+        var order = [tabWorst, tabBriefing, tabBest];
         var focusIndex = order.indexOf(document.activeElement);
         if (focusIndex < 0) return;
         if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
