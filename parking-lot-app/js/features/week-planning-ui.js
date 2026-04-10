@@ -192,7 +192,16 @@ export function createWeekPlanningUI(d) {
         const pileIdAttr =
           col.pileId != null ? ` data-pile-id="${escapeHtml(col.pileId)}"` : ' data-uncategorized="true"';
         const body = sorted.length
-          ? sorted.map((item) => renderTaskCard(item, { showLifeAreaAsTag: true })).join('')
+          ? sorted
+              .map((item) => {
+                try {
+                  return renderTaskCard(item, { showLifeAreaAsTag: true });
+                } catch (e) {
+                  console.warn('plan ref task card', item && item.id, e);
+                  return `<div class="task-card"><div class="task-content"><div class="task-text">${escapeHtml((item && item.text) || '(task)')}</div><div class="task-meta">Preview unavailable</div></div></div>`;
+                }
+              })
+              .join('')
           : '<div class="empty-state column-add-hint">No tasks in this pile</div>';
         return `<div class="column column-accent" data-category="${escapeHtml(col.id)}"${pileIdAttr} style="--column-accent: #6b7280">
             <div class="column-header" role="none">${escapeHtml(col.label)} <span class="count">(${sorted.length})</span></div>
@@ -204,6 +213,20 @@ export function createWeekPlanningUI(d) {
     ref.innerHTML =
       '<h3 class="week-planning-ref-title">Your piles & tasks</h3>' +
       `<div class="columns piles-view week-plan-ref-board" role="region" aria-label="Piles">${cols}</div>`;
+  }
+
+  function renderPilesReferenceSafe() {
+    try {
+      renderPilesReference();
+    } catch (err) {
+      console.error('renderPilesReference', err);
+      const ref = document.getElementById('week-planning-piles-ref');
+      if (ref) {
+        ref.innerHTML =
+          '<h3 class="week-planning-ref-title">Your piles & tasks</h3>' +
+          '<p class="plan-ref-empty">Could not load the pile preview. The week row above still works — try again or refresh.</p>';
+      }
+    }
   }
 
   function pileQuickRowHtml(dateKey, entry) {
@@ -264,6 +287,8 @@ export function createWeekPlanningUI(d) {
     draft.anchorWeekStart = mon;
     const keys = getWeekDateKeys(mon);
     const wrap = document.getElementById('week-planning-days');
+    if (!wrap) return;
+
     const lastWeekEl = document.getElementById('week-planning-last-week');
     if (lastWeekEl) {
       const prev = d.state.previousWeekPlanSnapshot;
@@ -280,8 +305,6 @@ export function createWeekPlanningUI(d) {
     if (rangeEl && keys.length) {
       rangeEl.textContent = formatWeekRangeHeading(keys);
     }
-    renderPilesReference();
-    if (!wrap) return;
 
     const todayStr = getTodayLocalYYYYMMDD();
     wrap.innerHTML = keys
@@ -421,6 +444,8 @@ export function createWeekPlanningUI(d) {
         renderPlanningDays();
       });
     });
+
+    renderPilesReferenceSafe();
   }
 
   function formatLastWeekPreview(prev) {

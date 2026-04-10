@@ -750,10 +750,12 @@ body.sidebar-open .sidebar-overlay {
 }
 
 .week-planning-calendar-wrap {
+  flex-shrink: 0;
   margin: 0 0 1.25rem;
   overflow-x: auto;
   overflow-y: visible;
   -webkit-overflow-scrolling: touch;
+  min-height: 8rem;
 }
 
 .week-planning-calendar-row {
@@ -767,6 +769,8 @@ body.sidebar-open .sidebar-overlay {
 }
 
 .week-planning-piles-ref {
+  flex: 1 1 auto;
+  min-height: 0;
   margin-top: 0.5rem;
   padding: 1rem;
   border-radius: var(--radius);
