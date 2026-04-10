@@ -15,6 +15,103 @@
   <body>
     <a class="skip-link" href="#spectrum-panel">Skip to briefing</a>
 
+    <div class="page">
+      <aside class="sidebar" aria-label="Demo sidebar — today, hot topics, and updates">
+        <div class="sidebar__search-block">
+          <label class="sidebar__search-label" for="sidebar-search">Search</label>
+          <input
+            id="sidebar-search"
+            class="sidebar__search"
+            type="search"
+            name="q"
+            placeholder="Topics, briefings…"
+            autocomplete="off"
+            aria-describedby="sidebar-search-hint"
+          />
+          <p class="sidebar__search-hint" id="sidebar-search-hint">
+            Demo: filters the lists below. A full site would search the whole archive, tags, and gap scores.
+          </p>
+        </div>
+
+        <nav class="sidebar__nav" aria-label="Curated demo lists">
+          <section class="sidebar__section">
+            <div class="sidebar__head">
+              <h3 class="sidebar__title" tabindex="0">Today</h3>
+              <p id="sidebar-tip-today" class="sidebar__tooltip" role="tooltip">
+                In production: each day, allowed sources (news APIs, RSS, optional social via compliant pipelines) are scanned automatically. Editors choose what becomes a card, a briefing, or background only—nothing publishes without a human sign-off.
+              </p>
+            </div>
+            <ul class="sidebar__list" id="sidebar-list-today">
+              <li class="sidebar__item" data-search-blob="gaza aid corridor ceasefire ships">
+                <a class="sidebar__link" href="#dashboard">Aid ships turned back: what diplomats are saying today</a>
+              </li>
+              <li class="sidebar__item" data-search-blob="amazon aws outage cloud">
+                <a class="sidebar__link" href="#dashboard">Major cloud outage: which services are still flaky</a>
+              </li>
+              <li class="sidebar__item" data-search-blob="opec oil prices gas pump">
+                <a class="sidebar__link" href="#dashboard">Oil jumps after OPEC surprise—will gas follow?</a>
+              </li>
+              <li class="sidebar__item" data-search-blob="supreme court social media">
+                <a class="sidebar__link" href="#dashboard">High court takes up social media and government pressure</a>
+              </li>
+              <li class="sidebar__item" data-search-blob="midwest floods evacuations weather">
+                <a class="sidebar__link" href="#dashboard">Midwest floods: evacuations and aid requests spread</a>
+              </li>
+            </ul>
+          </section>
+
+          <section class="sidebar__section">
+            <div class="sidebar__head">
+              <h3 class="sidebar__title" tabindex="0">Hot topics</h3>
+              <p id="sidebar-tip-hot" class="sidebar__tooltip" role="tooltip">
+                In production: topics rank by a mix of mention velocity, cross-platform spread, and how far the story is drifting from what we verified last time—so a loud day doesn’t automatically bury slower, heavier stories.
+              </p>
+            </div>
+            <ul class="sidebar__list" id="sidebar-list-hot">
+              <li class="sidebar__item" data-search-blob="ai office workplace chatgpt enterprise">
+                <a class="sidebar__link" href="#spectrum-heading">AI at work: pilots vs. real daily use</a>
+              </li>
+              <li class="sidebar__item" data-search-blob="tariffs imports prices grocery store">
+                <a class="sidebar__link" href="#dashboard">Tariffs and your receipt: what economists disagree on</a>
+              </li>
+              <li class="sidebar__item" data-search-blob="fed mortgage rent rates housing">
+                <a class="sidebar__link" href="#dashboard">The Fed moved—why housing barely blinked</a>
+              </li>
+              <li class="sidebar__item" data-search-blob="ev electric vehicle sales tesla">
+                <a class="sidebar__link" href="#dashboard">EV sales cool: inventory, incentives, or fatigue?</a>
+              </li>
+              <li class="sidebar__item" data-search-blob="tiktok ban deadline sell">
+                <a class="sidebar__link" href="#dashboard">Platform ban deadlines: who gains if it sticks?</a>
+              </li>
+            </ul>
+          </section>
+
+          <section class="sidebar__section">
+            <div class="sidebar__head">
+              <h3 class="sidebar__title" tabindex="0">Recently updated</h3>
+              <p id="sidebar-tip-recent" class="sidebar__tooltip" role="tooltip">
+                In production: standing briefings get a new timestamp when data changes—CPI, earnings, court orders, casualty counts, election calls. You see what shifted and why the page came back, not a duplicate post for SEO.
+              </p>
+            </div>
+            <ul class="sidebar__list" id="sidebar-list-recent">
+              <li class="sidebar__item" data-search-blob="me-2026-03 climate fund pledges">
+                <a class="sidebar__link" href="#dashboard"><span class="sidebar__badge">ME-2026-03</span> Climate pledges vs. money actually moved</a>
+              </li>
+              <li class="sidebar__item" data-search-blob="me-2026-02 social security trust fund">
+                <a class="sidebar__link" href="#dashboard"><span class="sidebar__badge">ME-2026-02</span> Social Security: new CBO timeline</a>
+              </li>
+              <li class="sidebar__item" data-search-blob="me-2026-01 manufacturing jobs midwest">
+                <a class="sidebar__link" href="#dashboard"><span class="sidebar__badge">ME-2026-01</span> Midwest factory jobs—revised county data</a>
+              </li>
+              <li class="sidebar__item" data-search-blob="me-2025-11 crypto etf flows">
+                <a class="sidebar__link" href="#dashboard"><span class="sidebar__badge">ME-2025-11</span> ETF flows follow-up after the ruling</a>
+              </li>
+            </ul>
+          </section>
+        </nav>
+      </aside>
+
+      <div class="page__main">
     <header class="hero" id="top">
       <p class="hero__eyebrow">Concept prototype · ME-2026-04-DEMO</p>
       <h1 class="hero__title">Managing Expectations</h1>
@@ -210,6 +307,8 @@
       </p>
       <p class="site-footer__back"><a href="#top">Back to top</a></p>
     </footer>
+      </div>
+    </div>
 
     <script src="demo.js"></script>
   </body>

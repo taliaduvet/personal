@@ -178,6 +178,21 @@
     });
   }
 
+  function initSidebarSearch() {
+    var input = document.getElementById("sidebar-search");
+    if (!input) return;
+    var items = document.querySelectorAll(".sidebar__item[data-search-blob]");
+    input.addEventListener("input", function () {
+      var q = input.value.trim().toLowerCase();
+      items.forEach(function (el) {
+        var blob = (el.getAttribute("data-search-blob") || "").toLowerCase();
+        var match = q === "" || blob.indexOf(q) !== -1;
+        el.style.display = match ? "" : "none";
+      });
+    });
+  }
+
   initMeters();
   initSpectrum();
+  initSidebarSearch();
 })();
