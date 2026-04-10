@@ -2180,15 +2180,7 @@ function wireComposer() {
       });
     }
 
-    const planWeekHeaderBtn = document.getElementById('plan-week-header-btn');
-    if (planWeekHeaderBtn) planWeekHeaderBtn.addEventListener('click', () => weekPlanningApi.openPlanningEntry({}));
-    const sidebarPlanWeek = document.getElementById('sidebar-plan-week');
-    if (sidebarPlanWeek) sidebarPlanWeek.addEventListener('click', () => {
-      document.getElementById('sidebar')?.classList.remove('open');
-      document.getElementById('sidebar-overlay') && (document.getElementById('sidebar-overlay').style.display = 'none');
-      document.body.classList.remove('sidebar-open');
-      weekPlanningApi.openPlanningEntry({});
-    });
+    /* Plan (header + sidebar): handled by delegated listener after wireComposer() so clicks always reach openPlanningEntry */
     const sidebarWeekView = document.getElementById('sidebar-week-view');
     if (sidebarWeekView) sidebarWeekView.addEventListener('click', () => {
       document.getElementById('sidebar')?.classList.remove('open');
@@ -3344,6 +3336,25 @@ function wireComposer() {
   }
 
   wireComposer();
+
+  document.addEventListener('click', (e) => {
+    const headerPlan = e.target.closest('#plan-week-header-btn');
+    const sidebarPlan = e.target.closest('#sidebar-plan-week');
+    if (!headerPlan && !sidebarPlan) return;
+    e.preventDefault();
+    if (sidebarPlan) {
+      document.getElementById('sidebar')?.classList.remove('open');
+      const ov = document.getElementById('sidebar-overlay');
+      if (ov) ov.style.display = 'none';
+      document.body.classList.remove('sidebar-open');
+    }
+    try {
+      weekPlanningApi.openPlanningEntry({});
+    } catch (err) {
+      console.error('openPlanningEntry', err);
+      showToast('Could not open planning — try refreshing the page');
+    }
+  });
 
   bindLinkPartnerModal();
 
