@@ -7,10 +7,27 @@ describe('backup-export contract', () => {
     const state = {
       items: [{ id: 'id_1', text: 'hello', category: 'life', archived: false, parkedAt: 1 }],
       todaySuggestionIds: ['id_1'],
+      weekPlan: { anchorWeekStart: null, days: {} },
+      lastPlanCommittedAt: null,
+      lastCommittedPlanSnapshot: null,
+      previousWeekPlanSnapshot: null,
+      showWeekStrip: false,
+      otherCollapsedOnDate: null,
     };
     const data = buildBackupPayload(state);
     expect(Object.keys(data).sort()).toEqual(
-      ['backupVersion', 'exportedAt', 'items', 'todaySuggestionIds'].sort()
+      [
+        'backupVersion',
+        'exportedAt',
+        'items',
+        'lastCommittedPlanSnapshot',
+        'lastPlanCommittedAt',
+        'otherCollapsedOnDate',
+        'previousWeekPlanSnapshot',
+        'showWeekStrip',
+        'todaySuggestionIds',
+        'weekPlan',
+      ].sort()
     );
     expect(data.backupVersion).toBe(BACKUP_EXPORT_VERSION);
     expect(Array.isArray(data.items)).toBe(true);
