@@ -1,0 +1,40 @@
+# Full Playwright suite — does not block GitHub Pages deploy (see deploy-couples-pages.yml).
+name: Parking Lot E2E (Playwright)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'parking-lot-app/**'
+      - '.github/workflows/e2e-parking-lot.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-parking-lot
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: parking-lot-app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: parking-lot-app/package-lock.json
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: parking-lot-playwright-results
+          path: parking-lot-app/test-results/
+          if-no-files-found: ignore
