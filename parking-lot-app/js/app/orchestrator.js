@@ -1829,22 +1829,41 @@ function wireComposer() {
     renderColumns();
   }
 
-  function toggleFocusMode() {
+  function applyBoardFocusMode(on) {
+    state.boardFocusMode = !!on;
     const focusMode = document.getElementById('focus-mode');
     const overview = document.getElementById('overview');
     const todayPanelWrap = document.getElementById('today-panel-wrap');
-    if (focusMode && overview && todayPanelWrap) {
-      if (focusMode.style.display === 'none') {
-        focusMode.style.display = 'block';
-        overview.style.display = 'none';
-        todayPanelWrap.style.display = 'none';
-        renderFocusList();
-      } else {
-        focusMode.style.display = 'none';
-        overview.style.display = 'block';
-        todayPanelWrap.style.display = '';
-      }
+    if (!focusMode) return;
+    if (state.boardFocusMode) {
+      focusMode.style.display = 'block';
+      if (overview) overview.style.display = 'none';
+      if (todayPanelWrap) todayPanelWrap.style.display = 'none';
+      renderFocusList();
+    } else {
+      focusMode.style.display = 'none';
+      if (overview) overview.style.display = '';
+      if (todayPanelWrap) todayPanelWrap.style.display = '';
     }
+  }
+
+  function toggleFocusMode() {
+    applyBoardFocusMode(!state.boardFocusMode);
+  }
+
+  function exitBoardFocusMode() {
+    applyBoardFocusMode(false);
+  }
+
+  const floatingRoot = document.getElementById('floating-buttons');
+  if (floatingRoot) {
+    floatingRoot.addEventListener('click', (e) => {
+      const t = e.target;
+      if (t && t.closest && t.closest('#focus-btn')) {
+        e.preventDefault();
+        toggleFocusMode();
+      }
+    });
   }
 
   function exportBackup() {
@@ -2025,6 +2044,7 @@ function wireComposer() {
     document.getElementById('pair-setup').style.display = 'none';
     document.getElementById('main-app').style.display = 'block';
     document.getElementById('floating-buttons').style.display = 'flex';
+    exitBoardFocusMode();
     const badge = document.getElementById('pair-badge');
     const talkSection = document.getElementById('talk-about-section');
     const linkPartnerBtn = document.getElementById('link-partner-btn');
@@ -2289,6 +2309,8 @@ function wireComposer() {
           closeShortcutsOverlay();
         } else if (document.body.classList.contains('sidebar-open')) {
           closeSidebar();
+        } else if (state.boardFocusMode) {
+          exitBoardFocusMode();
         } else {
           const modals = ['add-modal', 'edit-modal', 'add-from-talk-modal', 'archive-modal', 'settings-modal', 'link-partner-modal', 'seed-render-modal'];
           const panels = ['analytics-panel', 'email-triage-section'];
@@ -2343,8 +2365,7 @@ function wireComposer() {
       }
     });
 
-    const focusBtn = document.getElementById('focus-btn');
-    if (focusBtn) focusBtn.addEventListener('click', toggleFocusMode);
+    /* #focus-btn: click handled by delegation on #floating-buttons (wireComposer) so it works even if bindEvents never ran */
     const seedFab = document.getElementById('seed-fab');
     if (seedFab) seedFab.addEventListener('click', openSeedRenderModal);
 

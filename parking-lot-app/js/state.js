@@ -49,6 +49,8 @@ export const state = {
   journalDailyOpenEntryByDate: {},
   journalActiveTab: 'daily',
   journalFocusMode: false,
+  /** Board view: ◎ FAB hides Today strip + columns, shows #focus-mode only (not persisted). */
+  boardFocusMode: false,
   journalDailySaveTimeout: null,
   people: [],
   /** @type {{ id: string, label: string }[] | null} */
