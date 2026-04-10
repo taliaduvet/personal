@@ -92,9 +92,9 @@ export function createTodayFocusRenderer(d) {
 
   function renderConsistencySmall() {
     const block = document.getElementById('consistency-small');
+    if (!block) return;
     const metricsEl = block?.querySelector('.consistency-small-metrics');
     const habitsEl = document.getElementById('consistency-small-habits');
-    if (!block) return;
     const habits = getHabits();
     if (habits.length === 0) {
       block.style.display = 'none';

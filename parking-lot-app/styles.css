@@ -473,8 +473,13 @@ body {
   text-decoration: underline;
 }
 
-/* Sticky Today's Suggestions bar — thin accent at top only */
-.sticky-bar {
+/* Today: only the header + week strip stick; task list scrolls with the page (no overlay on columns). */
+.today-panel-wrap {
+  background: var(--bg-soft);
+  border-bottom: 1px solid var(--border);
+}
+
+.today-bar-sticky.sticky-bar {
   position: sticky;
   top: 0;
   z-index: 10;
@@ -482,6 +487,21 @@ body {
   border-top: 4px solid var(--header-accent, var(--accent-coral));
   border-bottom: 1px solid var(--border);
   padding: 1rem 1.5rem;
+}
+
+.today-panel-body {
+  padding: 0 1.5rem 1rem;
+  background: var(--bg-soft);
+}
+
+.focus-banner .plan-focus-btn {
+  margin-right: 0.35rem;
+}
+
+.focus-banner-hint {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin: 0 0.25rem;
 }
 
 .today-header {
@@ -3331,8 +3351,12 @@ body.week-planning-open {
     padding: 0.35rem 0.6rem;
   }
 
-  .sticky-bar {
+  .today-bar-sticky.sticky-bar {
     padding: 0.75rem 1rem;
+  }
+
+  .today-panel-body {
+    padding: 0 1rem 0.75rem;
   }
 
   .today-header h2 {

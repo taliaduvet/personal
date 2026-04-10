@@ -59,42 +59,39 @@
 
     <!-- Main app (hidden until pair connected) -->
     <div id="main-app" style="display:none">
-      <header id="today-bar" class="sticky-bar">
-        <div class="today-header">
-          <div class="today-header-main">
-            <h2>Today</h2>
-            <label class="week-strip-toggle-label"><input type="checkbox" id="show-week-strip-toggle" title="Show week row"> Week row</label>
-            <button type="button" id="plan-week-header-btn" class="btn-secondary btn-sm">Plan the week</button>
-          </div>
-          <span id="completed-tally" class="tally">Completed today: 0</span>
-          <div class="today-header-actions">
-            <button id="menu-btn" class="btn-icon btn-hamburger" title="Menu" aria-label="Open menu" aria-expanded="false" aria-controls="sidebar"><span class="hamburger-line"></span><span class="hamburger-line"></span><span class="hamburger-line"></span></button>
-            <button id="email-triage-btn" class="btn-secondary btn-sm btn-email-triage" title="Email triage">Email triage</button>
-            <div id="email-triage-section" class="email-triage-dropdown" style="display:none">
-              <div class="email-triage-dropdown-content">
-                <h3 class="email-triage-header">Email Triage <button type="button" class="btn-icon close-email-triage-btn" title="Close" aria-label="Close">×</button></h3>
-                <div class="email-triage-header-actions">
-                  <button type="button" id="email-triage-run-btn" class="btn-primary btn-sm">Run triage</button>
+      <div id="today-panel-wrap" class="today-panel-wrap">
+        <header id="today-bar" class="sticky-bar today-bar-sticky">
+          <div class="today-header">
+            <div class="today-header-main">
+              <h2>Today</h2>
+              <label class="week-strip-toggle-label"><input type="checkbox" id="show-week-strip-toggle" title="Show week row"> Week row</label>
+              <button type="button" id="plan-week-header-btn" class="btn-secondary btn-sm">Plan</button>
+            </div>
+            <span id="completed-tally" class="tally">Completed today: 0</span>
+            <div class="today-header-actions">
+              <button id="menu-btn" class="btn-icon btn-hamburger" title="Menu" aria-label="Open menu" aria-expanded="false" aria-controls="sidebar"><span class="hamburger-line"></span><span class="hamburger-line"></span><span class="hamburger-line"></span></button>
+              <button id="email-triage-btn" class="btn-secondary btn-sm btn-email-triage" title="Email triage">Email triage</button>
+              <div id="email-triage-section" class="email-triage-dropdown" style="display:none">
+                <div class="email-triage-dropdown-content">
+                  <h3 class="email-triage-header">Email Triage <button type="button" class="btn-icon close-email-triage-btn" title="Close" aria-label="Close">×</button></h3>
+                  <div class="email-triage-header-actions">
+                    <button type="button" id="email-triage-run-btn" class="btn-primary btn-sm">Run triage</button>
+                  </div>
+                  <p id="email-triage-status" class="email-triage-status"></p>
+                  <div id="email-triage-list" class="email-triage-list"></div>
+                  <p id="email-triage-empty" class="email-triage-empty" style="display:none"></p>
+                  <button type="button" class="btn-secondary close-email-triage-btn">Close</button>
                 </div>
-                <p id="email-triage-status" class="email-triage-status"></p>
-                <div id="email-triage-list" class="email-triage-list"></div>
-                <p id="email-triage-empty" class="email-triage-empty" style="display:none"></p>
-                <button type="button" class="btn-secondary close-email-triage-btn">Close</button>
               </div>
             </div>
           </div>
+          <div id="week-strip-row" class="week-strip-row" style="display:none" aria-label="This week"></div>
+        </header>
+        <div class="today-panel-body">
+          <div id="today-list" class="today-list unified-today"></div>
+          <div id="suggest-next-strip" class="suggest-next-strip" aria-live="polite"></div>
         </div>
-        <div id="week-strip-row" class="week-strip-row" style="display:none" aria-label="This week"></div>
-        <div id="today-list" class="today-list unified-today"></div>
-        <div id="suggest-next-strip" class="suggest-next-strip" aria-live="polite"></div>
-        <div id="consistency-small" class="consistency-small" style="display:none">
-          <div class="consistency-small-header">
-            <span class="consistency-small-metrics"></span>
-            <button type="button" id="consistency-open-full" class="btn-secondary btn-sm">View full dashboard</button>
-          </div>
-          <div id="consistency-small-habits" class="consistency-small-habits"></div>
-        </div>
-      </header>
+      </div>
 
       <main id="main-content">
         <div id="overview" class="overview">
@@ -763,7 +760,7 @@
     </div>
     <nav class="sidebar-nav">
       <button id="link-partner-btn" class="sidebar-item sidebar-link-partner" style="display:none">Link partner</button>
-      <button type="button" id="sidebar-plan-week" class="sidebar-item">Plan the week</button>
+      <button type="button" id="sidebar-plan-week" class="sidebar-item">Plan</button>
       <button type="button" id="sidebar-week-view" class="sidebar-item">Week</button>
       <button id="settings-btn" class="sidebar-item" data-action="settings">Settings</button>
       <button id="consistency-btn" class="sidebar-item" data-action="consistency">Consistency</button>

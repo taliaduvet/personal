@@ -19,11 +19,7 @@ import {
  * @param {() => void} d.saveState
  * @param {(id: string) => void} d.markDone
  * @param {() => void} d.renderColumns
- * @param {() => void} [d.renderConsistencySmall]
- * @param {() => void} [d.saveDevicePreferencesToSupabase]
  * @param {(opts?: { scrollToDate?: string }) => void} d.openPlanningEntry
- * @param {(ids: string[]) => void} d.requestAddToTodayWithRouting
- * @param {() => void} [d.onReviewWeekClick]
  */
 export function createUnifiedTodayRenderer(d) {
   function taskRowHtml(item, extraClass = '', orderOpt) {
@@ -103,15 +99,11 @@ export function createUnifiedTodayRenderer(d) {
     }
 
     const mode = getTodayLayoutMode(weekAligned, todayStr);
-    const dayEntry = weekAligned.days[todayStr] || { pileId: null, orderedTaskIds: [] };
-
-    const reviewBlock = renderReviewMyWeekSection();
 
     if (mode === 'no_week') {
       const items = getSingleListNoPlanItems(d.state.items, todayStr, d.state.todaySuggestionIds);
       root.innerHTML = `
         <div class="unified-today-no-plan">
-          <p class="unified-today-hint"><button type="button" class="btn-link plan-week-cta">Plan the week</button> to set a daily theme — or keep using dated tasks and Add to Today below.</p>
           <div class="unified-today-section-body" data-section="single">${items.length ? items.map((i) => {
             const idx = d.state.todaySuggestionIds.indexOf(i.id);
             const inExp = idx >= 0;
@@ -119,12 +111,8 @@ export function createUnifiedTodayRenderer(d) {
             const canDown = inExp && idx < d.state.todaySuggestionIds.length - 1;
             return taskRowHtml(i, '', inExp ? { show: true, canUp, canDown } : null);
           }).join('') : '<div class="empty-state">Nothing dated for today — add tasks below or drag them here</div>'}</div>
-        </div>
-        ${reviewBlock}`;
+        </div>`;
       bindTodayListEvents(root, { removeFromToday, reorderExplicit: true });
-      root.querySelector('.plan-week-cta')?.addEventListener('click', () => d.openPlanningEntry({}));
-      wireReviewWeek(root);
-      if (d.renderConsistencySmall) d.renderConsistencySmall();
       return;
     }
 
@@ -138,8 +126,7 @@ export function createUnifiedTodayRenderer(d) {
             <summary>Other <span class="badge-count" data-other-count>${otherItems.length}</span></summary>
             <div class="unified-today-section-body">${otherItems.length ? otherItems.map(i => taskRowHtml(i)).join('') : '<div class="empty-state">Nothing here yet</div>'}</div>
           </details>
-        </div>
-        ${reviewBlock}`;
+        </div>`;
       bindTodayListEvents(root, { removeFromToday });
       root.querySelector('.set-plan-today-btn')?.addEventListener('click', () => d.openPlanningEntry({ scrollToDate: todayStr }));
       const det = root.querySelector('details[data-section="other"]');
@@ -148,11 +135,10 @@ export function createUnifiedTodayRenderer(d) {
         else d.state.otherCollapsedOnDate = null;
         d.saveState();
       });
-      wireReviewWeek(root);
-      if (d.renderConsistencySmall) d.renderConsistencySmall();
       return;
     }
 
+    const dayEntry = weekAligned.days[todayStr] || { pileId: null, orderedTaskIds: [] };
     const pileId = dayEntry.pileId;
     const pileLabel = pileId ? (getPileName(pileId) || pileId) : '—';
     const focusItems = getFocusPileTasks(d.state.items, todayStr, dayEntry);
@@ -169,8 +155,7 @@ export function createUnifiedTodayRenderer(d) {
           <summary>Other <span class="badge-count">${otherItems.length}</span></summary>
           <div class="unified-today-section-body">${otherItems.length ? otherItems.map(i => taskRowHtml(i)).join('') : '<div class="empty-state">Nothing else dated or pinned for today</div>'}</div>
         </details>
-      </div>
-      ${reviewBlock}`;
+      </div>`;
 
     bindTodayListEvents(root, { removeFromToday });
     const otherDet = root.querySelector('details[data-section="other"]');
@@ -178,49 +163,6 @@ export function createUnifiedTodayRenderer(d) {
       if (!otherDet.open) d.state.otherCollapsedOnDate = todayStr;
       else d.state.otherCollapsedOnDate = null;
       d.saveState();
-    });
-    wireReviewWeek(root);
-    if (d.renderConsistencySmall) d.renderConsistencySmall();
-  }
-
-  function renderReviewMyWeekSection() {
-    const snap = d.state.lastCommittedPlanSnapshot;
-    const hasSnap = snap && snap.anchorWeekStart;
-    if (!hasSnap) {
-      return `<div class="review-my-week-wrap">
-        <button type="button" class="btn-secondary review-my-week-btn">Review my week</button>
-        <div class="review-my-week-dropdown" style="display:none" role="region">
-          <p class="review-empty">No saved plan to review yet.</p>
-          <button type="button" class="btn-primary plan-week-from-review">Plan the week</button>
-        </div>
-      </div>`;
-    }
-    return `<div class="review-my-week-wrap">
-      <button type="button" class="btn-secondary review-my-week-btn">Review my week</button>
-      <div class="review-my-week-dropdown" style="display:none" role="region">
-        <p class="review-drop-hint">Last saved plan — open full review before editing.</p>
-        <button type="button" class="btn-secondary edit-plan-btn">Edit plan</button>
-      </div>
-    </div>`;
-  }
-
-  function wireReviewWeek(root) {
-    const wrap = root.querySelector('.review-my-week-wrap');
-    if (!wrap) return;
-    const btn = wrap.querySelector('.review-my-week-btn');
-    const drop = wrap.querySelector('.review-my-week-dropdown');
-    btn?.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const open = drop.style.display !== 'none';
-      drop.style.display = open ? 'none' : 'block';
-    });
-    wrap.querySelector('.plan-week-from-review')?.addEventListener('click', () => {
-      drop.style.display = 'none';
-      d.openPlanningEntry({});
-    });
-    wrap.querySelector('.edit-plan-btn')?.addEventListener('click', () => {
-      drop.style.display = 'none';
-      d.openPlanningEntry({});
     });
   }
 
@@ -232,29 +174,25 @@ export function createUnifiedTodayRenderer(d) {
     const wp = normalizeWeekPlan(d.state.weekPlan);
     const weekAligned = wp.anchorWeekStart && wp.anchorWeekStart !== mon ? { anchorWeekStart: mon, days: {} } : wp;
     const mode = getTodayLayoutMode(weekAligned, todayStr);
-    const reviewHtml = `<div class="focus-review-footer">${renderReviewMyWeekSection()}</div>`;
 
     if (mode === 'no_week') {
       const items = getSingleListNoPlanItems(d.state.items, todayStr, d.state.todaySuggestionIds);
-      list.innerHTML = `<p class="focus-banner"><button type="button" class="btn-link plan-week-cta">Plan the week</button></p>
+      list.innerHTML = `<p class="focus-banner"><button type="button" class="btn-secondary plan-focus-btn">Plan</button></p>
         <div class="focus-single">${items.map(i => taskRowHtml(i, 'task-card')).join('') ||
         '<div class="empty-state">Add items from the overview</div>'}</div>`;
-      list.innerHTML += reviewHtml;
       bindTodayListEvents(list, { removeFromToday });
-      list.querySelector('.plan-week-cta')?.addEventListener('click', () => d.openPlanningEntry({}));
-      wireReviewWeek(list);
+      list.querySelector('.plan-focus-btn')?.addEventListener('click', () => d.openPlanningEntry({}));
       return;
     }
 
     if (mode === 'blank_today') {
       const otherItems = getSingleListNoPlanItems(d.state.items, todayStr, d.state.todaySuggestionIds);
       list.innerHTML = `
-        <p class="focus-banner"><button type="button" class="btn-link set-plan-today-btn">Set plan for today</button></p>
-        <div class="focus-other">${otherItems.map(i => taskRowHtml(i, 'task-card')).join('') || '<div class="empty-state">Nothing here yet</div>'}</div>
-        ${reviewHtml}`;
+        <p class="focus-banner"><button type="button" class="btn-secondary plan-focus-btn">Plan</button> <span class="focus-banner-hint">or</span> <button type="button" class="btn-link set-plan-today-btn">Set plan for today</button></p>
+        <div class="focus-other">${otherItems.map(i => taskRowHtml(i, 'task-card')).join('') || '<div class="empty-state">Nothing here yet</div>'}</div>`;
       bindTodayListEvents(list, { removeFromToday });
+      list.querySelector('.plan-focus-btn')?.addEventListener('click', () => d.openPlanningEntry({}));
       list.querySelector('.set-plan-today-btn')?.addEventListener('click', () => d.openPlanningEntry({ scrollToDate: todayStr }));
-      wireReviewWeek(list);
       return;
     }
 
@@ -265,13 +203,13 @@ export function createUnifiedTodayRenderer(d) {
     const otherItems = getOtherBlockTasks(d.state.items, todayStr, pileId, d.state.todaySuggestionIds);
 
     list.innerHTML = `
+      <p class="focus-banner"><button type="button" class="btn-secondary plan-focus-btn">Plan</button></p>
       <h2 class="focus-sub">Today: ${escapeHtml(pileLabel)}</h2>
       <div class="focus-pile">${focusItems.map(i => taskRowHtml(i, 'task-card')).join('') || '<div class="empty-state">No tasks in this pile</div>'}</div>
       <h3 class="focus-sub">Other</h3>
-      <div class="focus-other">${otherItems.map(i => taskRowHtml(i, 'task-card')).join('') || '<div class="empty-state">Nothing else</div>'}</div>
-      ${reviewHtml}`;
+      <div class="focus-other">${otherItems.map(i => taskRowHtml(i, 'task-card')).join('') || '<div class="empty-state">Nothing else</div>'}</div>`;
     bindTodayListEvents(list, { removeFromToday });
-    wireReviewWeek(list);
+    list.querySelector('.plan-focus-btn')?.addEventListener('click', () => d.openPlanningEntry({}));
   }
 
   return { renderTodayList, renderFocusUnified, removeFromToday };

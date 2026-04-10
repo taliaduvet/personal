@@ -192,8 +192,6 @@ function wireComposer() {
     saveState,
     markDone,
     renderColumns,
-    renderConsistencySmall,
-    saveDevicePreferencesToSupabase,
     openPlanningEntry: (opts) => weekPlanningApi.openPlanningEntry(opts)
   });
 
@@ -1830,17 +1828,17 @@ function wireComposer() {
   function toggleFocusMode() {
     const focusMode = document.getElementById('focus-mode');
     const overview = document.getElementById('overview');
-    const todayBar = document.getElementById('today-bar');
-    if (focusMode && overview && todayBar) {
+    const todayPanelWrap = document.getElementById('today-panel-wrap');
+    if (focusMode && overview && todayPanelWrap) {
       if (focusMode.style.display === 'none') {
         focusMode.style.display = 'block';
         overview.style.display = 'none';
-        todayBar.style.display = 'none';
+        todayPanelWrap.style.display = 'none';
         renderFocusList();
       } else {
         focusMode.style.display = 'none';
         overview.style.display = 'block';
-        todayBar.style.display = 'block';
+        todayPanelWrap.style.display = '';
       }
     }
   }
