@@ -11,7 +11,37 @@ import {
   clearWeekDaysForAnchor
 } from '../domain/weekly-planning.js';
 import { getPileName } from '../domain/piles-people.js';
-import { getTodayLocalYYYYMMDD } from '../domain/tasks.js';
+import { getTodayLocalYYYYMMDD, parseLocalDate } from '../domain/tasks.js';
+
+/** @param {string[]} keys Mon..Sun YYYY-MM-DD */
+function formatWeekRangeHeading(keys) {
+  if (keys.length < 7) return '';
+  const a = parseLocalDate(keys[0]);
+  const b = parseLocalDate(keys[6]);
+  if (!a || !b) return '';
+  const monthLong = new Intl.DateTimeFormat('en-US', { month: 'long' });
+  const ma = monthLong.format(a);
+  const mb = monthLong.format(b);
+  const da = a.getDate();
+  const db = b.getDate();
+  if (ma === mb && a.getFullYear() === b.getFullYear()) {
+    return `${ma} ${da}–${db}`;
+  }
+  return `${ma} ${da} – ${mb} ${db}`;
+}
+
+/** @param {string} dateKey */
+function weekdayLong(dateKey) {
+  const d = parseLocalDate(dateKey);
+  if (!d) return '';
+  return new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(d);
+}
+
+/** @param {string} dateKey */
+function dayOfMonthNum(dateKey) {
+  const d = parseLocalDate(dateKey);
+  return d ? d.getDate() : '';
+}
 
 /**
  * @param {object} d
@@ -96,8 +126,8 @@ export function createWeekPlanningUI(d) {
     document.body.classList.add('week-planning-open');
     const wrap = document.getElementById('week-planning-days');
     if (pendingScrollDate && wrap) {
-      const row = wrap.querySelector(`[data-date="${pendingScrollDate}"]`);
-      row?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      const row = wrap.querySelector(`.plan-day-card[data-date="${pendingScrollDate}"]`);
+      row?.scrollIntoView({ block: 'nearest', behavior: 'smooth', inline: 'center' });
       pendingScrollDate = null;
     }
   }
@@ -131,6 +161,73 @@ export function createWeekPlanningUI(d) {
     }
   }
 
+  function renderPilesReference() {
+    const ref = document.getElementById('week-planning-piles-ref');
+    if (!ref) return;
+    const piles = d.state.piles || [];
+    if (!piles.length) {
+      ref.innerHTML =
+        '<h3 class="week-planning-ref-title">Your piles & tasks</h3>' +
+        '<p class="plan-ref-empty">No piles yet — add piles in Settings, then assign them to days above.</p>';
+      return;
+    }
+    const items = d.state.items || [];
+    const sections = piles.map((p) => {
+      const inPile = items.filter((it) => !it.archived && (it.pileId || null) === p.id);
+      const lis = inPile.length
+        ? `<ul class="plan-ref-task-list">${inPile.map((it) => `<li>${escapeHtml(it.text)}</li>`).join('')}</ul>`
+        : '<p class="plan-ref-empty">No tasks in this pile</p>';
+      return `<section class="plan-ref-pile"><h4>${escapeHtml(p.name)}</h4>${lis}</section>`;
+    });
+    ref.innerHTML = '<h3 class="week-planning-ref-title">Your piles & tasks</h3>' + sections.join('');
+  }
+
+  function pileQuickRowHtml(dateKey, entry) {
+    const piles = d.state.piles || [];
+    const top3 = piles.slice(0, 3);
+    const rest = piles.slice(3);
+    const btns = top3
+      .map(
+        (p) => `
+      <button type="button" class="plan-pile-quick ${entry.pileId === p.id ? 'is-selected' : ''}" data-pile-id="${escapeHtml(p.id)}" data-date="${dateKey}">${escapeHtml(p.name)}</button>`
+      )
+      .join('');
+    const selectedInRest = entry.pileId && rest.some((p) => p.id === entry.pileId);
+    const more =
+      rest.length > 0
+        ? `
+    <details class="plan-pile-more"${selectedInRest ? ' open' : ''}>
+      <summary>More piles</summary>
+      <div class="plan-pile-more-list">
+        ${rest
+          .map(
+            (p) =>
+              `<button type="button" class="plan-pile-quick plan-pile-quick-more ${entry.pileId === p.id ? 'is-selected' : ''}" data-pile-id="${escapeHtml(p.id)}" data-date="${dateKey}">${escapeHtml(p.name)}</button>`
+          )
+          .join('')}
+      </div>
+    </details>`
+        : '';
+    const clearBtn = `<button type="button" class="plan-pile-clear" data-date="${dateKey}">Clear day</button>`;
+    const noPilesHint =
+      top3.length === 0
+        ? '<p class="plan-ref-empty" style="font-size:0.65rem;margin:0">Add piles in Settings</p>'
+        : '';
+    return `<div class="plan-pile-quick-row">${noPilesHint}${btns}${clearBtn}</div>${more}`;
+  }
+
+  function setDayPile(dateKey, pileId) {
+    if (!draft.days[dateKey]) draft.days[dateKey] = { pileId: null, orderedTaskIds: [] };
+    const v = pileId || null;
+    draft.days[dateKey].pileId = v;
+    draft.days[dateKey].orderedTaskIds = (draft.days[dateKey].orderedTaskIds || []).filter((id) => {
+      const it = d.state.items.find((x) => x.id === id);
+      return it && !it.archived && (it.pileId || null) === v;
+    });
+    draftDirty = true;
+    renderPlanningDays();
+  }
+
   function renderPlanningDays() {
     const mon = draft.anchorWeekStart || getMondayYYYYMMDD();
     draft.anchorWeekStart = mon;
@@ -141,7 +238,8 @@ export function createWeekPlanningUI(d) {
       const prev = d.state.previousWeekPlanSnapshot;
       if (prev && prev.anchorWeekStart) {
         lastWeekEl.style.display = 'block';
-        lastWeekEl.innerHTML = '<summary>Last week (reference)</summary><div class="last-week-inner">' + formatLastWeekPreview(prev) + '</div>';
+        lastWeekEl.innerHTML =
+          '<summary>Last week (reference)</summary><div class="last-week-inner">' + formatLastWeekPreview(prev) + '</div>';
       } else {
         lastWeekEl.style.display = 'none';
         lastWeekEl.innerHTML = '';
@@ -149,55 +247,66 @@ export function createWeekPlanningUI(d) {
     }
     const rangeEl = document.getElementById('week-planning-range');
     if (rangeEl && keys.length) {
-      rangeEl.textContent = keys[0].replace(/^\d{4}-(\d{2})-(\d{2})$/, '$1-$2') + ' … ' + keys[6].replace(/^\d{4}-(\d{2})-(\d{2})$/, '$1-$2');
+      rangeEl.textContent = formatWeekRangeHeading(keys);
     }
+    renderPilesReference();
     if (!wrap) return;
 
-    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    wrap.innerHTML = keys.map((dateKey, i) => {
-      if (!draft.days[dateKey]) draft.days[dateKey] = { pileId: null, orderedTaskIds: [] };
-      const entry = draft.days[dateKey];
-      const pileOpts = (d.state.piles || []).map(p =>
-        `<option value="${escapeHtml(p.id)}" ${entry.pileId === p.id ? 'selected' : ''}>${escapeHtml(p.name)}</option>`
-      ).join('');
-      const inPile = (d.state.items || []).filter(
-        it => !it.archived && entry.pileId && (it.pileId || null) === entry.pileId
-      );
-      const orderedFirst = (entry.orderedTaskIds || []).map(id => d.state.items.find(x => x.id === id)).filter(Boolean);
-      const rest = inPile.filter(it => !(entry.orderedTaskIds || []).includes(it.id));
-      const rows = [...orderedFirst, ...rest];
-      const listHtml = rows.map((it, idx) => `
+    const todayStr = getTodayLocalYYYYMMDD();
+    wrap.innerHTML = keys
+      .map((dateKey) => {
+        if (!draft.days[dateKey]) draft.days[dateKey] = { pileId: null, orderedTaskIds: [] };
+        const entry = draft.days[dateKey];
+        const inPile = (d.state.items || []).filter(
+          (it) => !it.archived && entry.pileId && (it.pileId || null) === entry.pileId
+        );
+        const orderedFirst = (entry.orderedTaskIds || []).map((id) => d.state.items.find((x) => x.id === id)).filter(Boolean);
+        const rest = inPile.filter((it) => !(entry.orderedTaskIds || []).includes(it.id));
+        const rows = [...orderedFirst, ...rest];
+        const listHtml =
+          rows
+            .map(
+              (it, idx) => `
         <div class="plan-day-task" draggable="true" data-id="${it.id}" data-date="${dateKey}">
           <span class="plan-drag">⋮</span>
           <span class="plan-task-text">${escapeHtml(it.text)}</span>
           <button type="button" class="btn-secondary btn-sm plan-move-up" ${idx === 0 ? 'disabled' : ''}>↑</button>
           <button type="button" class="btn-secondary btn-sm plan-move-down" ${idx >= rows.length - 1 ? 'disabled' : ''}>↓</button>
-        </div>
-      `).join('') || '<div class="empty-state plan-pile-empty">No tasks in this pile</div>';
+        </div>`
+            )
+            .join('') || '<div class="empty-state plan-pile-empty">No tasks in this pile</div>';
 
-      return `<div class="plan-day-card" data-date="${dateKey}">
-        <div class="plan-day-head">${dayNames[i]} · ${dateKey.slice(5)}</div>
-        <label class="plan-pile-label">Pile</label>
-        <select class="plan-pile-select" data-date="${dateKey}">
-          <option value="">— None —</option>
-          ${pileOpts}
-        </select>
+        const wd = weekdayLong(dateKey);
+        const dn = dayOfMonthNum(dateKey);
+        const todayClass = dateKey === todayStr ? ' plan-day-today' : '';
+        return `<div class="plan-day-card${todayClass}" data-date="${dateKey}">
+        <div class="plan-day-head">
+          <span class="plan-day-weekday">${escapeHtml(wd)}</span>
+          <span class="plan-day-numline">${dn}</span>
+        </div>
+        ${pileQuickRowHtml(dateKey, entry)}
         <div class="plan-day-list" data-date="${dateKey}">${listHtml}</div>
       </div>`;
-    }).join('');
+      })
+      .join('');
 
-    wrap.querySelectorAll('.plan-pile-select').forEach(sel => {
-      sel.addEventListener('change', () => {
-        const dateKey = sel.dataset.date;
-        if (!draft.days[dateKey]) draft.days[dateKey] = { pileId: null, orderedTaskIds: [] };
-        const v = sel.value || null;
-        draft.days[dateKey].pileId = v;
-        draft.days[dateKey].orderedTaskIds = (draft.days[dateKey].orderedTaskIds || []).filter(id => {
-          const it = d.state.items.find(x => x.id === id);
-          return it && !it.archived && (it.pileId || null) === v;
-        });
-        draftDirty = true;
-        renderPlanningDays();
+    wrap.querySelectorAll('.plan-pile-quick, .plan-pile-quick-more').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const dateKey = btn.dataset.date;
+        const pileId = btn.dataset.pileId || '';
+        if (!dateKey || !pileId) return;
+        const cur = draft.days[dateKey]?.pileId || null;
+        if (cur === pileId) setDayPile(dateKey, null);
+        else setDayPile(dateKey, pileId);
+      });
+    });
+
+    wrap.querySelectorAll('.plan-pile-clear').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const dateKey = btn.dataset.date;
+        if (dateKey) setDayPile(dateKey, null);
       });
     });
 

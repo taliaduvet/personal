@@ -724,7 +724,7 @@ body.sidebar-open .sidebar-overlay {
   display: flex;
   flex-direction: column;
   height: 100%;
-  max-width: 720px;
+  max-width: min(1200px, 100%);
   margin: 0 auto;
   padding: 1rem;
   box-sizing: border-box;
@@ -739,33 +739,222 @@ body.sidebar-open .sidebar-overlay {
   justify-content: space-between;
   align-items: flex-start;
   gap: 1rem;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.35rem;
 }
 
-.week-planning-days {
+.week-planning-sub {
+  margin: 0.35rem 0 0;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.week-planning-calendar-wrap {
+  margin: 0 0 1.25rem;
+  overflow: hidden;
+}
+
+.week-planning-calendar-row {
   display: flex;
-  flex-direction: column;
-  gap: 1rem;
+  flex-direction: row;
+  gap: 0.5rem;
+  align-items: stretch;
+  overflow-x: auto;
+  padding-bottom: 0.35rem;
+  scroll-snap-type: x proximity;
+}
+
+.week-planning-piles-ref {
+  margin-top: 0.5rem;
+  padding: 1rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-soft);
+}
+
+.week-planning-ref-title {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.plan-ref-pile {
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.plan-ref-pile:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.plan-ref-pile h4 {
+  margin: 0 0 0.35rem;
+  font-size: 0.95rem;
+  color: var(--accent);
+}
+
+.plan-ref-task-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.plan-ref-task-list li {
+  margin: 0.2rem 0;
+}
+
+.plan-ref-empty {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
 }
 
 .plan-day-card {
+  flex: 1 1 0;
+  min-width: 6.75rem;
+  max-width: 10rem;
+  scroll-snap-align: start;
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 0.75rem;
+  padding: 0.5rem 0.45rem;
   background: var(--bg-card);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.plan-day-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  text-align: center;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.plan-day-weekday {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+}
+
+.plan-day-numline {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.plan-day-card.plan-day-today {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.plan-pile-quick-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.plan-pile-quick {
+  width: 100%;
+  padding: 0.3rem 0.25rem;
+  font-size: 0.68rem;
+  line-height: 1.2;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-soft);
+  color: var(--text);
+  cursor: pointer;
+  text-align: center;
+  word-break: break-word;
+}
+
+.plan-pile-quick:hover {
+  border-color: var(--accent);
+  background: var(--bg-card);
+}
+
+.plan-pile-quick.is-selected {
+  border-color: var(--accent-button, var(--accent-coral));
+  background: rgba(224, 122, 95, 0.15);
+  font-weight: 600;
+}
+
+.plan-pile-more {
+  font-size: 0.7rem;
+  margin-top: 0.15rem;
+}
+
+.plan-pile-more summary {
+  cursor: pointer;
+  color: var(--accent);
+  list-style: none;
+}
+
+.plan-pile-more summary::-webkit-details-marker {
+  display: none;
+}
+
+.plan-pile-more-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin-top: 0.35rem;
+}
+
+.plan-pile-quick-more {
+  font-size: 0.65rem;
+}
+
+.plan-pile-clear {
+  margin-top: 0.15rem;
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.plan-pile-clear:hover {
+  color: var(--text);
+}
+
+.plan-day-list {
+  flex: 1;
+  min-height: 1.5rem;
+  max-height: 11rem;
+  overflow-y: auto;
+  margin-top: 0.15rem;
 }
 
 .plan-day-task {
   display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.25rem 0;
+  align-items: flex-start;
+  gap: 0.2rem;
+  padding: 0.2rem 0;
   border-bottom: 1px solid var(--border);
-  font-size: 0.9rem;
+  font-size: 0.72rem;
 }
 
 .plan-task-text {
   flex: 1;
+}
+
+.plan-day-task .btn-sm {
+  padding: 0.08rem 0.2rem;
+  font-size: 0.65rem;
+  flex-shrink: 0;
 }
 
 .week-planning-last-week {
