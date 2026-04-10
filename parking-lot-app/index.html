@@ -714,19 +714,17 @@
   <div id="week-planning-overlay" class="week-plan-fullscreen" style="display:none" role="dialog" aria-modal="true" aria-labelledby="week-planning-title">
     <div class="week-plan-fullscreen-inner week-planning-layout">
       <header class="week-planning-header">
-        <div>
+        <div class="week-planning-header-text">
           <h2 id="week-planning-title">Plan the week</h2>
           <p id="week-planning-range" class="week-planning-sub"></p>
         </div>
         <div class="week-planning-header-actions">
+          <button type="button" id="week-planning-clear" class="btn-danger btn-sm">Clear week</button>
           <button type="button" id="week-planning-back" class="btn-secondary">Back</button>
           <button type="button" id="week-planning-done" class="btn-primary">Done</button>
         </div>
       </header>
       <details id="week-planning-last-week" class="week-planning-last-week" style="display:none"></details>
-      <div class="week-planning-toolbar">
-        <button type="button" id="week-planning-clear" class="btn-danger btn-sm">Clear week</button>
-      </div>
       <div class="week-planning-calendar-wrap">
         <div id="week-planning-days" class="week-planning-calendar-row" role="group" aria-label="Week at a glance"></div>
       </div>

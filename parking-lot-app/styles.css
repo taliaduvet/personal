@@ -734,35 +734,58 @@ body.sidebar-open .sidebar-overlay {
 .week-plan-fullscreen-inner.week-planning-layout {
   overflow: hidden;
   min-height: 0;
-}
-
-.week-planning-toolbar {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  flex-shrink: 0;
-  margin-bottom: 0.5rem;
+  padding: 0.45rem 0.65rem 0.65rem;
 }
 
 .week-planning-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  gap: 1rem;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
   margin-bottom: 0.35rem;
 }
 
+.week-planning-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  min-width: 0;
+}
+
+.week-planning-header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  line-height: 1.25;
+  font-weight: 700;
+}
+
+.week-planning-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
 .week-planning-sub {
-  margin: 0.35rem 0 0;
-  font-size: 1.15rem;
+  margin: 0;
+  font-size: 0.9rem;
   font-weight: 600;
-  color: var(--text);
+  color: var(--text-muted);
+  line-height: 1.2;
+}
+
+.week-planning-layout .week-planning-last-week {
+  margin-bottom: 0.35rem;
+  padding: 0.35rem 0.5rem;
 }
 
 .week-planning-calendar-wrap {
   flex-shrink: 0;
-  margin: 0 0 0.75rem;
-  max-height: min(48vh, 26rem);
+  margin: 0 0 0.5rem;
+  max-height: min(58vh, 32rem);
   overflow-x: auto;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
