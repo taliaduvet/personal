@@ -40,7 +40,7 @@ export function createUnifiedTodayRenderer(d) {
           <button type="button" class="btn-order" data-action="down" ${!orderOpt.canDown ? 'disabled' : ''} title="Move down">↓</button>
         </div>`
         : '';
-    return `<div class="today-item today-item-accent ${extraClass}" data-id="${item.id}" style="--today-accent: ${accent}">
+    return `<div class="today-item today-item-accent ${extraClass}" data-id="${escapeHtml(item.id)}" style="--today-accent: ${accent}">
       ${order}
       <span class="task-text">${escapeHtml(item.text)}</span>
       <button type="button" class="btn-done btn-done-check" title="Done">✓</button>
@@ -67,18 +67,7 @@ export function createUnifiedTodayRenderer(d) {
   }
 
   function bindTodayListEvents(root, { removeFromToday, reorderExplicit, focusPileReorderTodayStr }) {
-    root.querySelectorAll('.btn-done').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const id = btn.closest('.today-item')?.dataset.id;
-        if (id) d.markDone(id);
-      });
-    });
-    root.querySelectorAll('.btn-remove').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const id = btn.closest('.today-item')?.dataset.id;
-        if (id) removeFromToday(id);
-      });
-    });
+    /* Done / Remove: delegated on #main-app in orchestrator (wireComposer) so clicks always fire after innerHTML repaints */
     if (reorderExplicit) {
       root.querySelectorAll('.btn-order').forEach(btn => {
         btn.addEventListener('click', (e) => {

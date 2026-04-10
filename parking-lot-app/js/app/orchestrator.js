@@ -203,6 +203,26 @@ function wireComposer() {
   renderFocusList = () => unifiedApi.renderFocusUnified();
   renderWeekStrip = () => weekPlanningApi.renderWeekStrip(document.getElementById('week-strip-row'));
 
+  const mainAppEl = document.getElementById('main-app');
+  if (mainAppEl) {
+    mainAppEl.addEventListener('click', (e) => {
+      const t = e.target;
+      const el = t && t.nodeType === Node.ELEMENT_NODE ? t : t && t.parentElement;
+      if (!el || !el.closest) return;
+      const doneBtn = el.closest('#today-list .btn-done, #focus-list .btn-done');
+      const removeBtn = el.closest('#today-list .btn-remove, #focus-list .btn-remove');
+      const btn = doneBtn || removeBtn;
+      if (!btn) return;
+      const row = btn.closest('.today-item');
+      if (!row) return;
+      const id = row.getAttribute('data-id') || row.dataset.id;
+      if (!id) return;
+      e.preventDefault();
+      if (doneBtn) markDone(id);
+      else unifiedApi.removeFromToday(id);
+    });
+  }
+
   processAddToTodayQueue = function processAddToTodayQueueInner(ids) {
     if (!ids.length) {
       tfUpdateAddToSuggestionsBtn();
