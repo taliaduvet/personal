@@ -2,6 +2,12 @@ import { STORAGE_PREFIX } from '../constants.js';
 import { state } from '../state.js';
 import { normalizeJournalDayValue } from '../domain/journal-daily.js';
 import { seedPeopleGroupsIfEmpty } from '../domain/piles-people.js';
+import {
+  getMondayYYYYMMDD,
+  rollWeekPlanIfStale,
+  normalizeWeekPlan,
+  pruneWeekPlan
+} from '../domain/weekly-planning.js';
 
 let storageNotify = (msg) => {
   console.warn(msg);
@@ -99,6 +105,22 @@ export function loadState() {
         });
       }
       if (Array.isArray(parsed.people)) state.people = parsed.people;
+      if (parsed.weekPlan && typeof parsed.weekPlan === 'object') {
+        state.weekPlan = normalizeWeekPlan(parsed.weekPlan);
+      }
+      if (typeof parsed.lastPlanCommittedAt === 'string' || parsed.lastPlanCommittedAt === null) {
+        state.lastPlanCommittedAt = parsed.lastPlanCommittedAt;
+      }
+      if (parsed.lastCommittedPlanSnapshot && typeof parsed.lastCommittedPlanSnapshot === 'object') {
+        state.lastCommittedPlanSnapshot = normalizeWeekPlan(parsed.lastCommittedPlanSnapshot);
+      }
+      if (parsed.previousWeekPlanSnapshot && typeof parsed.previousWeekPlanSnapshot === 'object') {
+        state.previousWeekPlanSnapshot = normalizeWeekPlan(parsed.previousWeekPlanSnapshot);
+      }
+      if (typeof parsed.showWeekStrip === 'boolean') state.showWeekStrip = parsed.showWeekStrip;
+      if (typeof parsed.otherCollapsedOnDate === 'string') {
+        state.otherCollapsedOnDate = parsed.otherCollapsedOnDate;
+      }
     }
     seedPeopleGroupsIfEmpty();
     if (!state.journalDaily || typeof state.journalDaily !== 'object') state.journalDaily = {};
@@ -115,6 +137,21 @@ export function loadState() {
       personId: (i.personId && peopleIds.indexOf(i.personId) >= 0) ? i.personId : null
     }));
     state.completedTodayCount = countCompletedInTallyDay();
+
+    const mon = getMondayYYYYMMDD();
+    const rolled = rollWeekPlanIfStale(state.weekPlan, mon);
+    if (rolled.rolled) {
+      state.weekPlan = rolled.weekPlan;
+      if (rolled.previousWeekPlanSnapshot) {
+        state.previousWeekPlanSnapshot = normalizeWeekPlan(rolled.previousWeekPlanSnapshot);
+      }
+    }
+    state.weekPlan = pruneWeekPlan(state.items, state.weekPlan);
+
+    if (!localStorage.getItem(STORAGE_PREFIX + 'suggestNextOffMigrated')) {
+      state.showSuggestNext = false;
+      localStorage.setItem(STORAGE_PREFIX + 'suggestNextOffMigrated', '1');
+    }
   } catch (e) {
     console.warn('Load failed', e);
     storageNotify('Could not load saved data — starting fresh');
@@ -137,7 +174,7 @@ export function saveState(skipCloudSync, useRemoteTallyDate) {
       tallyResetHour: state.tallyResetHour != null ? state.tallyResetHour : 3,
       piles: state.piles || [],
       viewMode: state.viewMode || 'columns',
-      showSuggestNext: state.showSuggestNext !== false,
+      showSuggestNext: !!state.showSuggestNext,
       columnNotes: state.columnNotes || {},
       lastSeed: state.lastSeed || null,
       seedReflections: state.seedReflections || [],
@@ -146,7 +183,13 @@ export function saveState(skipCloudSync, useRemoteTallyDate) {
       journalDaily: state.journalDaily || {},
       journalDailyOpenEntryByDate: state.journalDailyOpenEntryByDate || {},
       people: state.people || [],
-      peopleGroups: state.peopleGroups || []
+      peopleGroups: state.peopleGroups || [],
+      weekPlan: state.weekPlan || { anchorWeekStart: null, days: {} },
+      lastPlanCommittedAt: state.lastPlanCommittedAt != null ? state.lastPlanCommittedAt : null,
+      lastCommittedPlanSnapshot: state.lastCommittedPlanSnapshot || null,
+      previousWeekPlanSnapshot: state.previousWeekPlanSnapshot || null,
+      showWeekStrip: !!state.showWeekStrip,
+      otherCollapsedOnDate: state.otherCollapsedOnDate || null
     }));
     const tallyDate = useRemoteTallyDate && state.lastCompletedDate ? state.lastCompletedDate : getTallyDate();
     localStorage.setItem(STORAGE_PREFIX + 'tally', JSON.stringify({

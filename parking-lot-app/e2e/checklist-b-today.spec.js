@@ -89,7 +89,7 @@ test.describe('Checklist B — Today bar & suggestions', () => {
       .toEqual(['qa-b6-second', 'qa-b6-first']);
   });
 
-  test('B7 Clear all suggestions', async ({ page }) => {
+  test('B7 Remove from Today', async ({ page }) => {
     await resetApp(page);
     await chooseSolo(page);
     await quickAddLines(page, 'qa-b7-one');
@@ -101,7 +101,7 @@ test.describe('Checklist B — Today bar & suggestions', () => {
     await expect(page.locator('#add-to-suggestions-float.visible')).toHaveCount(1);
     await page.locator('#add-to-suggestions-btn').click();
     await expect(page.locator('#today-list .today-item')).toHaveCount(1);
-    await page.locator('#clear-suggestions').click();
+    await page.locator('#today-list .today-item .btn-remove').click();
     await expect(page.locator('#today-list .empty-state')).toBeVisible();
   });
 });

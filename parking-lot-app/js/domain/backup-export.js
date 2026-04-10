@@ -6,6 +6,12 @@ export function buildBackupPayload(state) {
     backupVersion: BACKUP_EXPORT_VERSION,
     items: state.items,
     todaySuggestionIds: state.todaySuggestionIds,
+    weekPlan: state.weekPlan || { anchorWeekStart: null, days: {} },
+    lastPlanCommittedAt: state.lastPlanCommittedAt ?? null,
+    lastCommittedPlanSnapshot: state.lastCommittedPlanSnapshot ?? null,
+    previousWeekPlanSnapshot: state.previousWeekPlanSnapshot ?? null,
+    showWeekStrip: !!state.showWeekStrip,
+    otherCollapsedOnDate: state.otherCollapsedOnDate ?? null,
     exportedAt: new Date().toISOString(),
   };
 }

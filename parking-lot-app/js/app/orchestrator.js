@@ -96,8 +96,17 @@ import { applyThemeColors } from '../ui/theme.js';
 import { showToast } from '../features/toast.js';
 import { updateOfflineBanner } from '../features/offline-banner.js';
 import { buildBackupPayload } from '../domain/backup-export.js';
+import {
+  normalizeWeekPlan,
+  pruneWeekPlan,
+  removeTaskIdFromAllDays,
+  getMondayYYYYMMDD,
+  insertTaskInDayOrder
+} from '../domain/weekly-planning.js';
 import { createBoardRenderer } from '../render/board.js';
 import { createTodayFocusRenderer } from '../render/today-focus.js';
+import { createUnifiedTodayRenderer } from '../render/unified-today.js';
+import { createWeekPlanningUI } from '../features/week-planning-ui.js';
 import { attachMainAppRealtime, attachDevicePreferencesRealtime } from '../sync/realtime.js';
 import { createTalkAboutUI } from '../features/talk-about.js';
 import { createEmailTriageUI } from '../features/email-triage.js';
@@ -108,6 +117,11 @@ wirePersist(() => saveState());
 let journalStoicLastBody = null;
 
 let tfApi;
+let unifiedApi;
+let weekPlanningApi;
+let renderWeekStrip;
+/** @type {(ids: string[]) => void} */
+let processAddToTodayQueue;
 let talkApi;
 let emailTriageApi;
 let renderColumns;
@@ -150,19 +164,97 @@ function wireComposer() {
     renderColumns,
     saveDevicePreferencesToSupabase
   });
-  ({
-    renderTodayList,
-    renderFocusList,
+  const {
     renderConsistencySmall,
     updateTally,
-    updateAddToSuggestionsBtn,
-    addToSuggestions,
+    updateAddToSuggestionsBtn: tfUpdateAddToSuggestionsBtn,
     clearAddToSuggestionsSelection,
     removeFromSuggestions,
     suggestNext,
     showSuggestNextStrip,
     hideSuggestNextStrip
-  } = tfApi);
+  } = tfApi;
+
+  weekPlanningApi = createWeekPlanningUI({
+    state,
+    saveState,
+    saveDevicePreferencesToSupabase,
+    onCommitted: () => {
+      unifiedApi.renderTodayList();
+      unifiedApi.renderFocusUnified();
+      renderWeekStrip();
+      renderColumns();
+    }
+  });
+
+  unifiedApi = createUnifiedTodayRenderer({
+    state,
+    saveState,
+    markDone,
+    renderColumns,
+    renderConsistencySmall,
+    saveDevicePreferencesToSupabase,
+    openPlanningEntry: (opts) => weekPlanningApi.openPlanningEntry(opts)
+  });
+
+  renderTodayList = () => unifiedApi.renderTodayList();
+  renderFocusList = () => unifiedApi.renderFocusUnified();
+  renderWeekStrip = () => weekPlanningApi.renderWeekStrip(document.getElementById('week-strip-row'));
+
+  processAddToTodayQueue = function processAddToTodayQueueInner(ids) {
+    if (!ids.length) {
+      tfUpdateAddToSuggestionsBtn();
+      renderColumns();
+      return;
+    }
+    const id = ids[0];
+    const rest = ids.slice(1);
+    const item = state.items.find(i => i.id === id);
+    if (!item) {
+      processAddToTodayQueueInner(rest);
+      return;
+    }
+    const todayStr = getTodayLocalYYYYMMDD();
+    const mon = getMondayYYYYMMDD();
+    let wp = normalizeWeekPlan(state.weekPlan);
+    if (!wp.anchorWeekStart || wp.anchorWeekStart !== mon) {
+      if (!state.todaySuggestionIds.includes(id)) state.todaySuggestionIds.push(id);
+      saveState();
+      renderTodayList();
+      renderFocusList();
+      renderColumns();
+      processAddToTodayQueueInner(rest);
+      return;
+    }
+    const day = wp.days[todayStr];
+    const plannedPile = day && day.pileId;
+    const itemPile = item.pileId || null;
+    if (plannedPile && itemPile === plannedPile) {
+      weekPlanningApi.askTopOrBottom((pos) => {
+        state.weekPlan = insertTaskInDayOrder(state.weekPlan, todayStr, id, pos);
+        state.weekPlan = pruneWeekPlan(state.items, state.weekPlan);
+        saveState();
+        renderTodayList();
+        renderFocusList();
+        renderColumns();
+        processAddToTodayQueueInner(rest);
+      });
+      return;
+    }
+    if (!state.todaySuggestionIds.includes(id)) state.todaySuggestionIds.push(id);
+    saveState();
+    renderTodayList();
+    renderFocusList();
+    renderColumns();
+    processAddToTodayQueueInner(rest);
+  };
+
+  updateAddToSuggestionsBtn = tfUpdateAddToSuggestionsBtn;
+  addToSuggestions = () => {
+    const ids = [...state.selectedIds];
+    state.selectedIds.clear();
+    processAddToTodayQueue(ids);
+  };
 
   talkApi = createTalkAboutUI({
     state,
@@ -216,6 +308,7 @@ function wireComposer() {
     renderColumns();
     restoreColumnNoteFocus(noteSnap);
     renderTodayList();
+    renderWeekStrip();
     updateTally();
     updateAddToSuggestionsBtn();
   }
@@ -255,6 +348,7 @@ function wireComposer() {
     item.archivedAt = item.archivedAt || Date.now();
     item.completedAt = Date.now();
     state.todaySuggestionIds = state.todaySuggestionIds.filter(x => x !== id);
+    state.weekPlan = removeTaskIdFromAllDays(state.weekPlan, id);
     const respawnedId = item.recurrence ? respawnRecurring(item) : null;
     const todayStr = getTodayLocalYYYYMMDD();
     (state.habits || []).forEach(h => {
@@ -283,7 +377,7 @@ function wireComposer() {
     if (state.undoDoneTimeout) clearTimeout(state.undoDoneTimeout);
     state.undoDoneTimeout = setTimeout(() => { /* toast hides */ }, 5000);
 
-    if (state.showSuggestNext !== false) {
+    if (state.showSuggestNext) {
       const nextTask = suggestNext(item);
       if (nextTask) showSuggestNextStrip(nextTask, item);
     }
@@ -298,6 +392,7 @@ function wireComposer() {
     const item = state.items[idx];
     state.items.splice(idx, 1);
     state.todaySuggestionIds = state.todaySuggestionIds.filter(x => x !== id);
+    state.weekPlan = removeTaskIdFromAllDays(state.weekPlan, id);
     state.selectedIds.delete(id);
     saveState();
     renderTodayList();
@@ -563,7 +658,7 @@ function wireComposer() {
     if (tallyResetEl) tallyResetEl.value = String(state.tallyResetHour != null ? state.tallyResetHour : 3);
 
     const showSuggestNextEl = document.getElementById('settings-show-suggest-next');
-    if (showSuggestNextEl) showSuggestNextEl.checked = state.showSuggestNext !== false;
+    if (showSuggestNextEl) showSuggestNextEl.checked = !!state.showSuggestNext;
 
     const presetRadios = document.querySelectorAll('input[name="category-preset"]');
     presetRadios.forEach(r => {
@@ -732,6 +827,17 @@ function wireComposer() {
       prefs.__journalDailyOpenEntryByDate = { ...state.journalDailyOpenEntryByDate };
     }
     if (Array.isArray(state.seedReflections) && state.seedReflections.length) prefs.__seedReflections = state.seedReflections;
+    const wk = normalizeWeekPlan(state.weekPlan);
+    if (wk.anchorWeekStart || Object.keys(wk.days).length) prefs.__weekPlan = wk;
+    if (state.lastPlanCommittedAt) prefs.__lastPlanCommittedAt = state.lastPlanCommittedAt;
+    if (state.lastCommittedPlanSnapshot && state.lastCommittedPlanSnapshot.anchorWeekStart) {
+      prefs.__lastCommittedPlanSnapshot = normalizeWeekPlan(state.lastCommittedPlanSnapshot);
+    }
+    if (state.previousWeekPlanSnapshot && state.previousWeekPlanSnapshot.anchorWeekStart) {
+      prefs.__previousWeekPlanSnapshot = normalizeWeekPlan(state.previousWeekPlanSnapshot);
+    }
+    if (state.showWeekStrip) prefs.__showWeekStrip = true;
+    if (state.otherCollapsedOnDate) prefs.__otherCollapsedOnDate = state.otherCollapsedOnDate;
     return prefs;
   }
 
@@ -784,6 +890,27 @@ function wireComposer() {
       });
       state.seedReflections = Object.values(byTime).sort(function(a, b) { return (a.reflectedAt || 0) - (b.reflectedAt || 0); });
       delete prefs.__seedReflections;
+    }
+    if (prefs.__weekPlan && typeof prefs.__weekPlan === 'object') {
+      state.weekPlan = normalizeWeekPlan(prefs.__weekPlan);
+      delete prefs.__weekPlan;
+    }
+    if (typeof prefs.__lastPlanCommittedAt === 'string') {
+      state.lastPlanCommittedAt = prefs.__lastPlanCommittedAt;
+      delete prefs.__lastPlanCommittedAt;
+    }
+    if (prefs.__lastCommittedPlanSnapshot && typeof prefs.__lastCommittedPlanSnapshot === 'object') {
+      state.lastCommittedPlanSnapshot = normalizeWeekPlan(prefs.__lastCommittedPlanSnapshot);
+      delete prefs.__lastCommittedPlanSnapshot;
+    }
+    if (prefs.__previousWeekPlanSnapshot && typeof prefs.__previousWeekPlanSnapshot === 'object') {
+      state.previousWeekPlanSnapshot = normalizeWeekPlan(prefs.__previousWeekPlanSnapshot);
+      delete prefs.__previousWeekPlanSnapshot;
+    }
+    if (prefs.__showWeekStrip === true) { state.showWeekStrip = true; delete prefs.__showWeekStrip; }
+    if (typeof prefs.__otherCollapsedOnDate === 'string') {
+      state.otherCollapsedOnDate = prefs.__otherCollapsedOnDate;
+      delete prefs.__otherCollapsedOnDate;
     }
     if (Object.keys(prefs).length) state.columnColors = prefs;
     saveState(true, true);
@@ -1754,6 +1881,21 @@ function wireComposer() {
           const validIds = new Set(state.items.map(i => i.id));
           state.todaySuggestionIds = data.todaySuggestionIds.filter(id => typeof id === 'string' && validIds.has(id));
         }
+        if (data.weekPlan && typeof data.weekPlan === 'object') {
+          state.weekPlan = normalizeWeekPlan(data.weekPlan);
+        }
+        if (typeof data.lastPlanCommittedAt === 'string' || data.lastPlanCommittedAt === null) {
+          state.lastPlanCommittedAt = data.lastPlanCommittedAt;
+        }
+        if (data.lastCommittedPlanSnapshot && typeof data.lastCommittedPlanSnapshot === 'object') {
+          state.lastCommittedPlanSnapshot = normalizeWeekPlan(data.lastCommittedPlanSnapshot);
+        }
+        if (data.previousWeekPlanSnapshot && typeof data.previousWeekPlanSnapshot === 'object') {
+          state.previousWeekPlanSnapshot = normalizeWeekPlan(data.previousWeekPlanSnapshot);
+        }
+        if (typeof data.showWeekStrip === 'boolean') state.showWeekStrip = data.showWeekStrip;
+        if (typeof data.otherCollapsedOnDate === 'string') state.otherCollapsedOnDate = data.otherCollapsedOnDate;
+        state.weekPlan = pruneWeekPlan(state.items, state.weekPlan);
         saveState();
         renderTodayList();
         renderFocusList();
@@ -1917,6 +2059,9 @@ function wireComposer() {
     ensureViewToggle();
     renderColumns();
     renderTodayList();
+    const weekStripToggle = document.getElementById('show-week-strip-toggle');
+    if (weekStripToggle) weekStripToggle.checked = !!state.showWeekStrip;
+    renderWeekStrip();
     renderTalkAbout();
     renderEmailTriage(false);
     updateTally();
@@ -2032,14 +2177,44 @@ function wireComposer() {
         const item = state.items.find(i => i.id === id);
         if (!item || item.archived) return;
         if (state.todaySuggestionIds.includes(id)) return;
-        const remaining = 5 - state.todaySuggestionIds.length;
-        if (remaining <= 0) return;
-        state.todaySuggestionIds.push(id);
-        saveState();
-        renderTodayList();
-        renderFocusList();
-        renderColumns();
+        processAddToTodayQueue([id]);
         updateAddToSuggestionsBtn();
+      });
+    }
+
+    const planWeekHeaderBtn = document.getElementById('plan-week-header-btn');
+    if (planWeekHeaderBtn) planWeekHeaderBtn.addEventListener('click', () => weekPlanningApi.openPlanningEntry({}));
+    const sidebarPlanWeek = document.getElementById('sidebar-plan-week');
+    if (sidebarPlanWeek) sidebarPlanWeek.addEventListener('click', () => {
+      document.getElementById('sidebar')?.classList.remove('open');
+      document.getElementById('sidebar-overlay') && (document.getElementById('sidebar-overlay').style.display = 'none');
+      document.body.classList.remove('sidebar-open');
+      weekPlanningApi.openPlanningEntry({});
+    });
+    const sidebarWeekView = document.getElementById('sidebar-week-view');
+    if (sidebarWeekView) sidebarWeekView.addEventListener('click', () => {
+      document.getElementById('sidebar')?.classList.remove('open');
+      document.getElementById('sidebar-overlay') && (document.getElementById('sidebar-overlay').style.display = 'none');
+      document.body.classList.remove('sidebar-open');
+      const panel = document.getElementById('week-view-panel');
+      if (panel) {
+        weekPlanningApi.renderWeekViewPanel();
+        panel.style.display = 'flex';
+      }
+    });
+    const closeWeekView = document.getElementById('close-week-view');
+    if (closeWeekView) closeWeekView.addEventListener('click', () => {
+      const panel = document.getElementById('week-view-panel');
+      if (panel) panel.style.display = 'none';
+    });
+    const weekStripToggle = document.getElementById('show-week-strip-toggle');
+    if (weekStripToggle) {
+      weekStripToggle.checked = !!state.showWeekStrip;
+      weekStripToggle.addEventListener('change', () => {
+        state.showWeekStrip = weekStripToggle.checked;
+        saveState();
+        if (window.talkAbout && state.deviceSyncId) saveDevicePreferencesToSupabase();
+        renderWeekStrip();
       });
     }
 

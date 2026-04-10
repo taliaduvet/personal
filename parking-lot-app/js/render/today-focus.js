@@ -175,16 +175,14 @@ export function createTodayFocusRenderer(d) {
     const float = document.getElementById('add-to-suggestions-float');
     if (!btn) return;
     const count = d.state.selectedIds.size;
-    const remaining = 5 - d.state.todaySuggestionIds.length;
-    const show = count > 0 && remaining > 0;
+    const show = count > 0;
     if (float) float.classList.toggle('visible', show);
     btn.disabled = !show;
-    btn.textContent = show ? `Add ${Math.min(count, remaining)} to Today` : 'Add to Today';
+    btn.textContent = show ? `Add ${count} to Today` : 'Add to Today';
   }
 
   function addToSuggestions() {
-    const remaining = 5 - d.state.todaySuggestionIds.length;
-    const toAdd = [...d.state.selectedIds].slice(0, remaining);
+    const toAdd = [...d.state.selectedIds];
     toAdd.forEach(id => {
       d.state.todaySuggestionIds.push(id);
       d.state.selectedIds.delete(id);
@@ -246,7 +244,7 @@ export function createTodayFocusRenderer(d) {
     `;
     strip.classList.add('visible');
     strip.querySelector('.suggest-next-add-today')?.addEventListener('click', () => {
-      if (!d.state.todaySuggestionIds.includes(nextTask.id) && d.state.todaySuggestionIds.length < 5) {
+      if (!d.state.todaySuggestionIds.includes(nextTask.id)) {
         d.state.todaySuggestionIds.push(nextTask.id);
         d.saveState();
         renderTodayList();

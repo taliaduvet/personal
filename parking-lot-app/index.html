@@ -62,8 +62,9 @@
       <header id="today-bar" class="sticky-bar">
         <div class="today-header">
           <div class="today-header-main">
-            <h2>Today's Suggestions</h2>
-            <button id="clear-suggestions" class="btn-secondary">Clear suggestions</button>
+            <h2>Today</h2>
+            <label class="week-strip-toggle-label"><input type="checkbox" id="show-week-strip-toggle" title="Show week row"> Week row</label>
+            <button type="button" id="plan-week-header-btn" class="btn-secondary btn-sm">Plan the week</button>
           </div>
           <span id="completed-tally" class="tally">Completed today: 0</span>
           <div class="today-header-actions">
@@ -83,7 +84,8 @@
             </div>
           </div>
         </div>
-        <div id="today-list" class="today-list"></div>
+        <div id="week-strip-row" class="week-strip-row" style="display:none" aria-label="This week"></div>
+        <div id="today-list" class="today-list unified-today"></div>
         <div id="suggest-next-strip" class="suggest-next-strip" aria-live="polite"></div>
         <div id="consistency-small" class="consistency-small" style="display:none">
           <div class="consistency-small-header">
@@ -119,7 +121,7 @@
           <div class="focus-content">
             <h1>Your Focus</h1>
             <p id="focus-tally" class="focus-tally">Completed today: 0</p>
-            <div id="focus-list" class="focus-list"></div>
+            <div id="focus-list" class="focus-list unified-today"></div>
           </div>
         </div>
       </main>
@@ -687,6 +689,72 @@
     </div>
   </div>
 
+  <!-- Weekly planning: pre-review → four-block review → fullscreen overlay -->
+  <div id="pre-plan-review-modal" class="modal week-plan-modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="pre-plan-review-title">
+    <div class="modal-content modal-content-narrow">
+      <h3 id="pre-plan-review-title">Review your last plan before planning?</h3>
+      <p class="modal-hint">See what you committed last time, or skip straight into the planner.</p>
+      <div class="modal-actions">
+        <button type="button" id="pre-plan-review-open" class="btn-primary">Review</button>
+        <button type="button" id="pre-plan-review-skip" class="btn-secondary">Skip</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="plan-review-screen" class="week-plan-fullscreen" style="display:none" role="dialog" aria-modal="true">
+    <div class="week-plan-fullscreen-inner">
+      <header class="week-plan-fullscreen-head">
+        <button type="button" id="plan-review-back" class="btn-secondary btn-sm">← Back</button>
+        <h2>Your last plan</h2>
+      </header>
+      <div id="plan-review-four-blocks" class="plan-review-four-blocks"></div>
+      <footer class="week-plan-fullscreen-foot">
+        <button type="button" id="plan-review-continue" class="btn-primary">Continue to planning</button>
+      </footer>
+    </div>
+  </div>
+
+  <div id="week-planning-overlay" class="week-plan-fullscreen" style="display:none" role="dialog" aria-modal="true" aria-labelledby="week-planning-title">
+    <div class="week-plan-fullscreen-inner week-planning-scroll">
+      <header class="week-planning-header">
+        <div>
+          <h2 id="week-planning-title">Plan the week</h2>
+          <p id="week-planning-range" class="week-planning-sub"></p>
+        </div>
+        <div class="week-planning-header-actions">
+          <button type="button" id="week-planning-back" class="btn-secondary">Back</button>
+          <button type="button" id="week-planning-done" class="btn-primary">Done</button>
+        </div>
+      </header>
+      <details id="week-planning-last-week" class="week-planning-last-week" style="display:none"></details>
+      <div id="week-planning-days" class="week-planning-days"></div>
+      <footer class="week-planning-footer">
+        <button type="button" id="week-planning-clear" class="btn-danger btn-sm">Clear week</button>
+      </footer>
+    </div>
+  </div>
+
+  <div id="add-to-today-position-modal" class="modal week-plan-modal" style="display:none" role="dialog" aria-modal="true">
+    <div class="modal-content modal-content-narrow">
+      <h3>Add to today’s order</h3>
+      <p class="modal-hint">This task matches today’s focus pile. Place it at the top or bottom of today’s list?</p>
+      <div class="modal-actions">
+        <button type="button" id="add-to-today-top" class="btn-primary">Top</button>
+        <button type="button" id="add-to-today-bottom" class="btn-primary">Bottom</button>
+        <button type="button" id="add-to-today-position-close" class="btn-secondary">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="week-view-panel" class="analytics-panel week-view-panel" style="display:none">
+    <div class="analytics-content week-view-content">
+      <h3>This week</h3>
+      <p class="week-view-hint">Tap a day to edit in the planner. Light view — full drag order is in Plan the week.</p>
+      <div id="week-view-body"></div>
+      <button type="button" id="close-week-view" class="btn-secondary">Close</button>
+    </div>
+  </div>
+
   <div id="sidebar-overlay" class="sidebar-overlay" style="display:none" aria-hidden="true"></div>
   <aside id="sidebar" class="sidebar">
     <div class="sidebar-header">
@@ -695,6 +763,8 @@
     </div>
     <nav class="sidebar-nav">
       <button id="link-partner-btn" class="sidebar-item sidebar-link-partner" style="display:none">Link partner</button>
+      <button type="button" id="sidebar-plan-week" class="sidebar-item">Plan the week</button>
+      <button type="button" id="sidebar-week-view" class="sidebar-item">Week</button>
       <button id="settings-btn" class="sidebar-item" data-action="settings">Settings</button>
       <button id="consistency-btn" class="sidebar-item" data-action="consistency">Consistency</button>
       <button id="journal-btn" class="sidebar-item" data-action="journal">Journal</button>
