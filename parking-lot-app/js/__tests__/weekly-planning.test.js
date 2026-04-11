@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { swapFocusPileAdjacent } from '../domain/weekly-planning.js';
+import { swapFocusPileAdjacent, getFocusPileTasks } from '../domain/weekly-planning.js';
 
 describe('swapFocusPileAdjacent', () => {
   const todayKey = '2026-04-09';
@@ -18,5 +18,11 @@ describe('swapFocusPileAdjacent', () => {
   it('returns null at boundary', () => {
     const dayEntry = { pileId: 'p1', orderedTaskIds: ['a', 'b'] };
     expect(swapFocusPileAdjacent(items, todayKey, dayEntry, 'a', 'up')).toBeNull();
+  });
+
+  it('getFocusPileTasks excludes ids marked hidden for today', () => {
+    const dayEntry = { pileId: 'p1', orderedTaskIds: ['a', 'b'] };
+    const ids = getFocusPileTasks(items, todayKey, dayEntry, new Set(['a'])).map(i => i.id);
+    expect(ids).toEqual(['b', 'c']);
   });
 });

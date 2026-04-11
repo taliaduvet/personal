@@ -185,8 +185,13 @@ export function computePlanReview(lastCommittedSnapshot, items) {
 
 /**
  * No week plan: explicit ids first (order = `explicitIds`), then dated today/overdue (sorted), deduped.
+ * @param {Set<string>|string[]|null|undefined} [hiddenFromToday]
  */
-export function getSingleListNoPlanItems(items, todayKey, explicitIds) {
+export function getSingleListNoPlanItems(items, todayKey, explicitIds, hiddenFromToday) {
+  const hidden =
+    hiddenFromToday instanceof Set
+      ? hiddenFromToday
+      : new Set(Array.isArray(hiddenFromToday) ? hiddenFromToday : []);
   const active = (items || []).filter(i => !i.archived);
   const explicit = explicitIds || [];
   const byId = {};
@@ -200,13 +205,13 @@ export function getSingleListNoPlanItems(items, todayKey, explicitIds) {
   const explicitItems = [];
   explicit.forEach(id => {
     const item = byId[id];
-    if (!item || seen.has(id)) return;
+    if (!item || seen.has(id) || hidden.has(id)) return;
     seen.add(id);
     explicitItems.push(item);
   });
   const datedItems = [];
   active.forEach(item => {
-    if (seen.has(item.id)) return;
+    if (seen.has(item.id) || hidden.has(item.id)) return;
     const ref = getSortReferenceDate(item);
     const inDate = ref && !isNaN(ref.getTime()) && ref < end;
     if (inDate) {
@@ -239,16 +244,21 @@ export function getOtherDatedTasks(items, todayKey, plannedPileId) {
 
 /**
  * "Other" when today has a planned pile: dated (not in pile) ∪ explicit ids whose pile ≠ planned pile (or no pile).
+ * @param {Set<string>|string[]|null|undefined} [hiddenFromToday]
  */
-export function getOtherBlockTasks(items, todayKey, plannedPileId, explicitIds) {
-  const dated = getOtherDatedTasks(items, todayKey, plannedPileId);
+export function getOtherBlockTasks(items, todayKey, plannedPileId, explicitIds, hiddenFromToday) {
+  const hidden =
+    hiddenFromToday instanceof Set
+      ? hiddenFromToday
+      : new Set(Array.isArray(hiddenFromToday) ? hiddenFromToday : []);
+  const dated = getOtherDatedTasks(items, todayKey, plannedPileId).filter(i => !hidden.has(i.id));
   const active = (items || []).filter(i => !i.archived);
   const byId = {};
   active.forEach(i => { byId[i.id] = i; });
   const seen = new Set(dated.map(i => i.id));
   const out = [...dated];
   (explicitIds || []).forEach(id => {
-    if (seen.has(id)) return;
+    if (seen.has(id) || hidden.has(id)) return;
     const item = byId[id];
     if (!item) return;
     const pid = item.pileId != null ? item.pileId : null;
@@ -261,20 +271,30 @@ export function getOtherBlockTasks(items, todayKey, plannedPileId, explicitIds) 
 
 /**
  * Focus pile tasks: ordered ids first, then rest in pile sorted.
+ * @param {Set<string>|string[]|null|undefined} [hiddenFromToday] ids user removed from Today without completing
  */
-export function getFocusPileTasks(items, todayKey, dayEntry) {
+export function getFocusPileTasks(items, todayKey, dayEntry, hiddenFromToday) {
   if (!dayEntry || !dayEntry.pileId) return [];
   const pileId = dayEntry.pileId;
   const ordered = dayEntry.orderedTaskIds || [];
+  const hidden =
+    hiddenFromToday instanceof Set
+      ? hiddenFromToday
+      : new Set(Array.isArray(hiddenFromToday) ? hiddenFromToday : []);
   const byId = {};
   (items || []).forEach(i => { byId[i.id] = i; });
   const out = [];
   ordered.forEach(id => {
+    if (hidden.has(id)) return;
     const it = byId[id];
     if (it && !it.archived && (it.pileId || null) === pileId) out.push(it);
   });
   const inPile = (items || []).filter(
-    i => !i.archived && (i.pileId || null) === pileId && !ordered.includes(i.id)
+    i =>
+      !i.archived &&
+      (i.pileId || null) === pileId &&
+      !ordered.includes(i.id) &&
+      !hidden.has(i.id)
   );
   const sortedRest = sortByTimeBandsAndFriction(inPile);
   sortedRest.forEach(i => out.push(i));
@@ -290,9 +310,9 @@ export function getFocusPileTasks(items, todayKey, dayEntry) {
  * @param {'up'|'down'} direction
  * @returns {string[] | null} new orderedTaskIds for the day, or null if unchanged
  */
-export function swapFocusPileAdjacent(items, todayKey, dayEntry, taskId, direction) {
+export function swapFocusPileAdjacent(items, todayKey, dayEntry, taskId, direction, hiddenFromToday) {
   if (!dayEntry || !dayEntry.pileId) return null;
-  const displayIds = getFocusPileTasks(items, todayKey, dayEntry).map((i) => i.id);
+  const displayIds = getFocusPileTasks(items, todayKey, dayEntry, hiddenFromToday).map((i) => i.id);
   const idx = displayIds.indexOf(taskId);
   if (idx < 0) return null;
   const j = direction === 'up' ? idx - 1 : idx + 1;

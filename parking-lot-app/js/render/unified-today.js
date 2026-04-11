@@ -9,6 +9,7 @@ import {
   getTodayLayoutMode,
   normalizeWeekPlan,
   pruneWeekPlan,
+  rollWeekPlanIfStale,
   getFocusPileTasks,
   getOtherBlockTasks,
   getSingleListNoPlanItems,
@@ -26,6 +27,12 @@ import {
  * @param {() => void} [d.onWeekPlanChanged] sync prefs after week plan edits from Today
  */
 export function createUnifiedTodayRenderer(d) {
+  function hiddenSetFor(todayStr) {
+    const h = d.state.hiddenFromTodayByDate;
+    const arr = h && Array.isArray(h[todayStr]) ? h[todayStr] : [];
+    return new Set(arr);
+  }
+
   function refreshTodayAndFocus() {
     renderTodayList();
     renderFocusUnified();
@@ -52,7 +59,14 @@ export function createUnifiedTodayRenderer(d) {
     const wp = normalizeWeekPlan(d.state.weekPlan);
     const dayEntry = wp.days[todayStr];
     if (!dayEntry || !dayEntry.pileId) return;
-    const next = swapFocusPileAdjacent(d.state.items, todayStr, dayEntry, taskId, direction);
+    const next = swapFocusPileAdjacent(
+      d.state.items,
+      todayStr,
+      dayEntry,
+      taskId,
+      direction,
+      hiddenSetFor(todayStr)
+    );
     if (!next) return;
     if (!d.state.weekPlan.days[todayStr]) {
       d.state.weekPlan.days[todayStr] = { pileId: dayEntry.pileId, orderedTaskIds: [] };
@@ -105,8 +119,30 @@ export function createUnifiedTodayRenderer(d) {
     }
   }
 
+  function clearHiddenFromTodayForTask(taskId) {
+    const todayStr = getTodayLocalYYYYMMDD();
+    const h = d.state.hiddenFromTodayByDate;
+    if (!h || !h[todayStr]) return;
+    h[todayStr] = h[todayStr].filter(x => x !== taskId);
+    if (h[todayStr].length === 0) delete h[todayStr];
+  }
+
   function removeFromToday(id) {
+    const todayStr = getTodayLocalYYYYMMDD();
     d.state.todaySuggestionIds = d.state.todaySuggestionIds.filter(x => x !== id);
+    d.state.weekPlan = normalizeWeekPlan(d.state.weekPlan);
+    const day = d.state.weekPlan.days[todayStr];
+    if (day && Array.isArray(day.orderedTaskIds)) {
+      day.orderedTaskIds = day.orderedTaskIds.filter(x => x !== id);
+    }
+    if (!d.state.hiddenFromTodayByDate || typeof d.state.hiddenFromTodayByDate !== 'object') {
+      d.state.hiddenFromTodayByDate = {};
+    }
+    if (!d.state.hiddenFromTodayByDate[todayStr]) d.state.hiddenFromTodayByDate[todayStr] = [];
+    if (!d.state.hiddenFromTodayByDate[todayStr].includes(id)) {
+      d.state.hiddenFromTodayByDate[todayStr].push(id);
+    }
+    d.state.weekPlan = pruneWeekPlan(d.state.items, d.state.weekPlan);
     d.saveState();
     refreshTodayAndFocus();
     d.renderColumns();
@@ -118,16 +154,55 @@ export function createUnifiedTodayRenderer(d) {
   function paintUnifiedToday(root) {
     const todayStr = getTodayLocalYYYYMMDD();
     const mon = getMondayYYYYMMDD();
-    const wp = normalizeWeekPlan(d.state.weekPlan);
-    let weekAligned = wp;
+    let wp = normalizeWeekPlan(d.state.weekPlan);
+    const anchorBefore = wp.anchorWeekStart;
     if (wp.anchorWeekStart && wp.anchorWeekStart !== mon) {
-      weekAligned = { anchorWeekStart: mon, days: {} };
+      const rolled = rollWeekPlanIfStale(d.state.weekPlan, mon);
+      if (rolled.rolled) {
+        d.state.weekPlan = rolled.weekPlan;
+        if (rolled.previousWeekPlanSnapshot) {
+          d.state.previousWeekPlanSnapshot = normalizeWeekPlan(rolled.previousWeekPlanSnapshot);
+        }
+        d.state.weekPlan = pruneWeekPlan(d.state.items, d.state.weekPlan);
+        d.saveState();
+        if (typeof d.onWeekPlanChanged === 'function') d.onWeekPlanChanged();
+      }
+      wp = normalizeWeekPlan(d.state.weekPlan);
     }
 
-    const mode = getTodayLayoutMode(weekAligned, todayStr);
+    const mode = getTodayLayoutMode(wp, todayStr);
+
+    // #region agent log
+    fetch('http://127.0.0.1:7600/ingest/10d3e8f8-5426-4ee2-b65b-354b925dec59', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '445722' },
+      body: JSON.stringify({
+        sessionId: '445722',
+        location: 'unified-today.js:paintUnifiedToday',
+        message: 'Today layout branch',
+        data: {
+          hypothesisId: 'H1',
+          runId: 'post-fix',
+          todayStr,
+          mon,
+          anchorBefore,
+          anchorAfter: wp.anchorWeekStart,
+          wpDayKeys: Object.keys(wp.days || {}).length,
+          mode,
+          suggestionCount: (d.state.todaySuggestionIds || []).length
+        },
+        timestamp: Date.now()
+      })
+    }).catch(() => {});
+    // #endregion
 
     if (mode === 'no_week') {
-      const items = getSingleListNoPlanItems(d.state.items, todayStr, d.state.todaySuggestionIds);
+      const items = getSingleListNoPlanItems(
+        d.state.items,
+        todayStr,
+        d.state.todaySuggestionIds,
+        hiddenSetFor(todayStr)
+      );
       root.innerHTML = `
         <div class="unified-today-no-plan">
           <p class="unified-today-focus-banner"><button type="button" class="btn-secondary plan-focus-inline-btn">Plan</button> <span class="focus-banner-hint">your week</span></p>
@@ -145,7 +220,12 @@ export function createUnifiedTodayRenderer(d) {
     }
 
     if (mode === 'blank_today') {
-      const otherItems = getSingleListNoPlanItems(d.state.items, todayStr, d.state.todaySuggestionIds);
+      const otherItems = getSingleListNoPlanItems(
+        d.state.items,
+        todayStr,
+        d.state.todaySuggestionIds,
+        hiddenSetFor(todayStr)
+      );
       const otherOpen = d.state.otherCollapsedOnDate !== todayStr;
       root.innerHTML = `
         <div class="unified-today-blank">
@@ -166,11 +246,18 @@ export function createUnifiedTodayRenderer(d) {
       return;
     }
 
-    const dayEntry = weekAligned.days[todayStr] || { pileId: null, orderedTaskIds: [] };
+    const dayEntry = wp.days[todayStr] || { pileId: null, orderedTaskIds: [] };
     const pileId = dayEntry.pileId;
     const pileLabel = pileId ? (getPileName(pileId) || pileId) : '—';
-    const focusItems = getFocusPileTasks(d.state.items, todayStr, dayEntry);
-    const otherItems = getOtherBlockTasks(d.state.items, todayStr, pileId, d.state.todaySuggestionIds);
+    const hidden = hiddenSetFor(todayStr);
+    const focusItems = getFocusPileTasks(d.state.items, todayStr, dayEntry, hidden);
+    const otherItems = getOtherBlockTasks(
+      d.state.items,
+      todayStr,
+      pileId,
+      d.state.todaySuggestionIds,
+      hidden
+    );
     const otherOpen = d.state.otherCollapsedOnDate !== todayStr;
 
     root.innerHTML = `
@@ -214,5 +301,5 @@ export function createUnifiedTodayRenderer(d) {
     paintUnifiedToday(list);
   }
 
-  return { renderTodayList, renderFocusUnified, removeFromToday };
+  return { renderTodayList, renderFocusUnified, removeFromToday, clearHiddenFromTodayForTask };
 }

@@ -143,6 +143,12 @@ let closeAddFromTalkModal;
 let submitAddFromTalk;
 
 function wireComposer() {
+  /** Wired after unified Today exists so today-focus never repaints legacy HTML over unified markup. */
+  const todayUiRef = {
+    refresh: () => {},
+    removeFromToday: (id) => {}
+  };
+
   const board = createBoardRenderer({
     state,
     saveState,
@@ -162,7 +168,9 @@ function wireComposer() {
     saveState,
     markDone,
     renderColumns,
-    saveDevicePreferencesToSupabase
+    saveDevicePreferencesToSupabase,
+    refreshTodayUI: () => todayUiRef.refresh(),
+    removeFromToday: (id) => todayUiRef.removeFromToday(id)
   });
   /* Must assign module-level lets — destructuring alone only shadowed locals and left updateTally/renderConsistencySmall undefined for markDone/showMainApp */
   renderConsistencySmall = tfApi.renderConsistencySmall;
@@ -198,6 +206,12 @@ function wireComposer() {
     }
   });
 
+  todayUiRef.refresh = () => {
+    unifiedApi.renderTodayList();
+    unifiedApi.renderFocusUnified();
+  };
+  todayUiRef.removeFromToday = (id) => unifiedApi.removeFromToday(id);
+
   renderTodayList = () => unifiedApi.renderTodayList();
   renderFocusList = () => unifiedApi.renderFocusUnified();
   renderWeekStrip = () => weekPlanningApi.renderWeekStrip(document.getElementById('week-strip-row'));
@@ -208,15 +222,39 @@ function wireComposer() {
       const t = e.target;
       const el = t && t.nodeType === Node.ELEMENT_NODE ? t : t && t.parentElement;
       if (!el || !el.closest) return;
-      const doneBtn = el.closest('#today-list .btn-done, #focus-list .btn-done');
-      const removeBtn = el.closest('#today-list .btn-remove, #focus-list .btn-remove');
-      const btn = doneBtn || removeBtn;
-      if (!btn) return;
+      const todayRoot = document.getElementById('today-list');
+      const focusRoot = document.getElementById('focus-list');
+      const inToday = todayRoot && todayRoot.contains(el);
+      const inFocus = focusRoot && focusRoot.contains(el);
+      if (!inToday && !inFocus) return;
+      const doneBtn = el.closest('.btn-done');
+      const removeBtn = el.closest('.btn-remove');
+      const btn = (inToday || inFocus) && (doneBtn || removeBtn) ? (doneBtn || removeBtn) : null;
+      if (!btn || (!todayRoot?.contains(btn) && !focusRoot?.contains(btn))) return;
       const row = btn.closest('.today-item');
       if (!row) return;
       const id = row.getAttribute('data-id') || row.dataset.id;
       if (!id) return;
       e.preventDefault();
+      // #region agent log
+      fetch('http://127.0.0.1:7600/ingest/10d3e8f8-5426-4ee2-b65b-354b925dec59', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '445722' },
+        body: JSON.stringify({
+          sessionId: '445722',
+          location: 'orchestrator.js:main-app-delegated-click',
+          message: 'Today/Focus done or remove',
+          data: {
+            hypothesisId: 'H2',
+            action: doneBtn ? 'done' : 'remove',
+            inToday,
+            inFocus,
+            idLen: id ? String(id).length : 0
+          },
+          timestamp: Date.now()
+        })
+      }).catch(() => {});
+      // #endregion
       if (doneBtn) markDone(id);
       else unifiedApi.removeFromToday(id);
     });
@@ -239,7 +277,26 @@ function wireComposer() {
     const mon = getMondayYYYYMMDD();
     let wp = normalizeWeekPlan(state.weekPlan);
     if (!wp.anchorWeekStart || wp.anchorWeekStart !== mon) {
+      // #region agent log
+      fetch('http://127.0.0.1:7600/ingest/10d3e8f8-5426-4ee2-b65b-354b925dec59', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '445722' },
+        body: JSON.stringify({
+          sessionId: '445722',
+          location: 'orchestrator.js:processAddToTodayQueue',
+          message: 'Add to Today branch',
+          data: {
+            hypothesisId: 'H3',
+            branch: 'no_or_stale_anchor',
+            anchor: wp.anchorWeekStart,
+            mon
+          },
+          timestamp: Date.now()
+        })
+      }).catch(() => {});
+      // #endregion
       if (!state.todaySuggestionIds.includes(id)) state.todaySuggestionIds.push(id);
+      unifiedApi.clearHiddenFromTodayForTask(id);
       saveState();
       renderTodayList();
       renderFocusList();
@@ -251,9 +308,23 @@ function wireComposer() {
     const plannedPile = day && day.pileId;
     const itemPile = item.pileId || null;
     if (plannedPile && itemPile === plannedPile) {
+      // #region agent log
+      fetch('http://127.0.0.1:7600/ingest/10d3e8f8-5426-4ee2-b65b-354b925dec59', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '445722' },
+        body: JSON.stringify({
+          sessionId: '445722',
+          location: 'orchestrator.js:processAddToTodayQueue',
+          message: 'Add to Today branch',
+          data: { hypothesisId: 'H3', branch: 'ask_top_or_bottom_modal', plannedPile },
+          timestamp: Date.now()
+        })
+      }).catch(() => {});
+      // #endregion
       weekPlanningApi.askTopOrBottom((pos) => {
         state.weekPlan = insertTaskInDayOrder(state.weekPlan, todayStr, id, pos);
         state.weekPlan = pruneWeekPlan(state.items, state.weekPlan);
+        unifiedApi.clearHiddenFromTodayForTask(id);
         saveState();
         renderTodayList();
         renderFocusList();
@@ -263,6 +334,25 @@ function wireComposer() {
       return;
     }
     if (!state.todaySuggestionIds.includes(id)) state.todaySuggestionIds.push(id);
+    // #region agent log
+    fetch('http://127.0.0.1:7600/ingest/10d3e8f8-5426-4ee2-b65b-354b925dec59', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '445722' },
+      body: JSON.stringify({
+        sessionId: '445722',
+        location: 'orchestrator.js:processAddToTodayQueue',
+        message: 'Add to Today branch',
+        data: {
+          hypothesisId: 'H3',
+          branch: 'suggestions_only',
+          plannedPile: plannedPile || null,
+          itemPile: itemPile || null
+        },
+        timestamp: Date.now()
+      })
+    }).catch(() => {});
+    // #endregion
+    unifiedApi.clearHiddenFromTodayForTask(id);
     saveState();
     renderTodayList();
     renderFocusList();
@@ -365,23 +455,30 @@ function wireComposer() {
     const prevArchived = item.archived;
     const prevArchivedAt = item.archivedAt;
     const prevCompletedAt = item.completedAt;
-    item.archived = true;
-    item.archivedAt = item.archivedAt || Date.now();
-    item.completedAt = Date.now();
-    state.todaySuggestionIds = state.todaySuggestionIds.filter(x => x !== id);
-    state.weekPlan = removeTaskIdFromAllDays(state.weekPlan, id);
-    const respawnedId = item.recurrence ? respawnRecurring(item) : null;
-    const todayStr = getTodayLocalYYYYMMDD();
-    (state.habits || []).forEach(h => {
-      if (h.linkedCategoryId === item.category || h.linkedPileId === item.pileId) recordCompletion(h.id, todayStr, 'task', item.id);
-    });
-    saveState();
-    updateTally();
-    renderTodayList();
-    renderFocusList();
-    renderColumns();
-
-    state.processingIds.delete(id);
+    let respawnedId = null;
+    let todayStr = getTodayLocalYYYYMMDD();
+    try {
+      item.archived = true;
+      item.archivedAt = item.archivedAt || Date.now();
+      item.completedAt = Date.now();
+      state.todaySuggestionIds = state.todaySuggestionIds.filter(x => x !== id);
+      state.weekPlan = removeTaskIdFromAllDays(state.weekPlan, id);
+      if (unifiedApi && typeof unifiedApi.clearHiddenFromTodayForTask === 'function') {
+        unifiedApi.clearHiddenFromTodayForTask(id);
+      }
+      respawnedId = item.recurrence ? respawnRecurring(item) : null;
+      todayStr = getTodayLocalYYYYMMDD();
+      (state.habits || []).forEach(h => {
+        if (h.linkedCategoryId === item.category || h.linkedPileId === item.pileId) recordCompletion(h.id, todayStr, 'task', item.id);
+      });
+      saveState();
+      updateTally();
+      renderTodayList();
+      renderFocusList();
+      renderColumns();
+    } finally {
+      state.processingIds.delete(id);
+    }
     showToast('Done', () => {
       item.archived = prevArchived;
       item.archivedAt = prevArchivedAt;
@@ -411,16 +508,18 @@ function wireComposer() {
     if (idx < 0) return;
     state.processingIds.add(id);
     const item = state.items[idx];
-    state.items.splice(idx, 1);
-    state.todaySuggestionIds = state.todaySuggestionIds.filter(x => x !== id);
-    state.weekPlan = removeTaskIdFromAllDays(state.weekPlan, id);
-    state.selectedIds.delete(id);
-    saveState();
-    renderTodayList();
-    renderFocusList();
-    renderColumns();
-
-    state.processingIds.delete(id);
+    try {
+      state.items.splice(idx, 1);
+      state.todaySuggestionIds = state.todaySuggestionIds.filter(x => x !== id);
+      state.weekPlan = removeTaskIdFromAllDays(state.weekPlan, id);
+      state.selectedIds.delete(id);
+      saveState();
+      renderTodayList();
+      renderFocusList();
+      renderColumns();
+    } finally {
+      state.processingIds.delete(id);
+    }
     if (showUndo) {
       const restoreIndex = idx;
       const restoreItem = item;
@@ -1765,21 +1864,27 @@ function wireComposer() {
     if (!textEl) return;
     const text = textEl.value.trim();
     if (!text) return;
-    const category = document.getElementById('category-select').value;
-    const deadline = document.getElementById('deadline-input').value || null;
-    const doingDateEl = document.getElementById('doing-date-input');
-    const doingDate = (doingDateEl && doingDateEl.value) ? doingDateEl.value : null;
-    const priority = document.getElementById('priority-select').value;
-    const recurrenceEl = document.getElementById('recurrence-select');
-    const recurrence = (recurrenceEl && recurrenceEl.value) ? recurrenceEl.value : null;
-    const pileEl = document.getElementById('pile-select');
-    const pileId = (pileEl && pileEl.value) ? pileEl.value : null;
-    const frictionEl = document.getElementById('friction-select');
-    const friction = (frictionEl && frictionEl.value) ? frictionEl.value : null;
-    const firstStepEl = document.getElementById('first-step-input');
-    const firstStep = (firstStepEl && firstStepEl.value) ? firstStepEl.value.trim() : null;
     if (submitBtn) submitBtn.disabled = true;
     try {
+      const categoryEl = document.getElementById('category-select');
+      const priorityEl = document.getElementById('priority-select');
+      if (!categoryEl || !priorityEl) {
+        throw new Error('Add form is incomplete — refresh the page');
+      }
+      const category = categoryEl.value;
+      const deadlineEl = document.getElementById('deadline-input');
+      const deadline = (deadlineEl && deadlineEl.value) ? deadlineEl.value : null;
+      const doingDateEl = document.getElementById('doing-date-input');
+      const doingDate = (doingDateEl && doingDateEl.value) ? doingDateEl.value : null;
+      const priority = priorityEl.value;
+      const recurrenceEl = document.getElementById('recurrence-select');
+      const recurrence = (recurrenceEl && recurrenceEl.value) ? recurrenceEl.value : null;
+      const pileEl = document.getElementById('pile-select');
+      const pileId = (pileEl && pileEl.value) ? pileEl.value : null;
+      const frictionEl = document.getElementById('friction-select');
+      const friction = (frictionEl && frictionEl.value) ? frictionEl.value : null;
+      const firstStepEl = document.getElementById('first-step-input');
+      const firstStep = (firstStepEl && firstStepEl.value) ? firstStepEl.value.trim() : null;
       state.lastCategory = category;
       const personEl = document.getElementById('person-select');
       const personId = (personEl && personEl.value) ? personEl.value : null;

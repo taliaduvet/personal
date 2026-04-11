@@ -264,7 +264,10 @@ function sortByTimeBandsAndFriction(items) {
     const dateA = getSortReferenceDate(a);
     const dateB = getSortReferenceDate(b);
     if (dateA && dateB) return dateA - dateB;
-    return (a.parkedAt || 0) - (b.parkedAt || 0);
+    const pa = a.parkedAt || 0;
+    const pb = b.parkedAt || 0;
+    if (pa !== pb) return pa - pb;
+    return String(a.id).localeCompare(String(b.id));
   });
 }
 

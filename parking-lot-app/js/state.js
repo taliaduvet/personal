@@ -71,5 +71,7 @@ export const state = {
   /** Main page: show compact week row (off by default). */
   showWeekStrip: false,
   /** YYYY-MM-DD — if set to today, "Other" loads collapsed (first open of day = expanded). */
-  otherCollapsedOnDate: null
+  otherCollapsedOnDate: null,
+  /** Per calendar day: task ids explicitly removed from Today (not done) — hides pile/dated rows still in the plan. */
+  hiddenFromTodayByDate: {}
 };

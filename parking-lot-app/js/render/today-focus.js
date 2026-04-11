@@ -29,9 +29,20 @@ import { countCompletedInTallyDay } from '../storage/local.js';
  * @param {() => void} d.renderColumns
  * @param {() => void} [d.renderConsistencySmall]
  * @param {() => void} [d.saveDevicePreferencesToSupabase]
+ * @param {() => void} [d.refreshTodayUI] When set, repaints #today-list / #focus-list via unified Today (no legacy innerHTML).
+ * @param {(id: string) => void} [d.removeFromToday] Unified remove (week plan + suggestions + hidden set); overrides legacy suggestion-only remove.
  */
 export function createTodayFocusRenderer(d) {
   const saveTally = d.saveStateTally || ((skip) => d.saveState(skip));
+
+  function refreshTodayAndFocus() {
+    if (typeof d.refreshTodayUI === 'function') {
+      d.refreshTodayUI();
+      return;
+    }
+    renderTodayList();
+    renderFocusList();
+  }
 
   function moveTodayUp(id) {
     const idx = d.state.todaySuggestionIds.indexOf(id);
@@ -39,8 +50,7 @@ export function createTodayFocusRenderer(d) {
     d.state.todaySuggestionIds.splice(idx, 1);
     d.state.todaySuggestionIds.splice(idx - 1, 0, id);
     d.saveState();
-    renderTodayList();
-    renderFocusList();
+    refreshTodayAndFocus();
   }
 
   function moveTodayDown(id) {
@@ -49,8 +59,7 @@ export function createTodayFocusRenderer(d) {
     d.state.todaySuggestionIds.splice(idx, 1);
     d.state.todaySuggestionIds.splice(idx + 1, 0, id);
     d.saveState();
-    renderTodayList();
-    renderFocusList();
+    refreshTodayAndFocus();
   }
 
   function renderTodayList() {
@@ -188,7 +197,7 @@ export function createTodayFocusRenderer(d) {
       d.state.selectedIds.delete(id);
     });
     d.saveState();
-    renderTodayList();
+    refreshTodayAndFocus();
     d.renderColumns();
     updateAddToSuggestionsBtn();
   }
@@ -200,10 +209,13 @@ export function createTodayFocusRenderer(d) {
   }
 
   function removeFromSuggestions(id) {
+    if (typeof d.removeFromToday === 'function') {
+      d.removeFromToday(id);
+      return;
+    }
     d.state.todaySuggestionIds = d.state.todaySuggestionIds.filter(x => x !== id);
     d.saveState();
-    renderTodayList();
-    renderFocusList();
+    refreshTodayAndFocus();
     d.renderColumns();
   }
 
@@ -247,8 +259,7 @@ export function createTodayFocusRenderer(d) {
       if (!d.state.todaySuggestionIds.includes(nextTask.id)) {
         d.state.todaySuggestionIds.push(nextTask.id);
         d.saveState();
-        renderTodayList();
-        renderFocusList();
+        refreshTodayAndFocus();
         d.renderColumns();
       }
       hideSuggestNextStrip();
