@@ -155,7 +155,6 @@ export function createUnifiedTodayRenderer(d) {
     const todayStr = getTodayLocalYYYYMMDD();
     const mon = getMondayYYYYMMDD();
     let wp = normalizeWeekPlan(d.state.weekPlan);
-    const anchorBefore = wp.anchorWeekStart;
     if (wp.anchorWeekStart && wp.anchorWeekStart !== mon) {
       const rolled = rollWeekPlanIfStale(d.state.weekPlan, mon);
       if (rolled.rolled) {
@@ -171,30 +170,6 @@ export function createUnifiedTodayRenderer(d) {
     }
 
     const mode = getTodayLayoutMode(wp, todayStr);
-
-    // #region agent log
-    fetch('http://127.0.0.1:7600/ingest/10d3e8f8-5426-4ee2-b65b-354b925dec59', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '445722' },
-      body: JSON.stringify({
-        sessionId: '445722',
-        location: 'unified-today.js:paintUnifiedToday',
-        message: 'Today layout branch',
-        data: {
-          hypothesisId: 'H1',
-          runId: 'post-fix',
-          todayStr,
-          mon,
-          anchorBefore,
-          anchorAfter: wp.anchorWeekStart,
-          wpDayKeys: Object.keys(wp.days || {}).length,
-          mode,
-          suggestionCount: (d.state.todaySuggestionIds || []).length
-        },
-        timestamp: Date.now()
-      })
-    }).catch(() => {});
-    // #endregion
 
     if (mode === 'no_week') {
       const items = getSingleListNoPlanItems(

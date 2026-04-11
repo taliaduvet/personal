@@ -8,6 +8,7 @@ import {
   normalizeWeekPlan,
   pruneWeekPlan
 } from '../domain/weekly-planning.js';
+import { sanitizeCategoriesAndItemsAfterLoad } from '../domain/categories.js';
 
 let storageNotify = (msg) => {
   console.warn(msg);
@@ -153,35 +154,7 @@ export function loadState() {
       }
     }
     state.weekPlan = pruneWeekPlan(state.items, state.weekPlan);
-
-    // #region agent log
-    try {
-      const wp = state.weekPlan || {};
-      let orderedSum = 0;
-      if (wp.days && typeof wp.days === 'object') {
-        Object.keys(wp.days).forEach(function (k) {
-          orderedSum += ((wp.days[k] && wp.days[k].orderedTaskIds) || []).length;
-        });
-      }
-      fetch('http://127.0.0.1:7600/ingest/10d3e8f8-5426-4ee2-b65b-354b925dec59', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '445722' },
-        body: JSON.stringify({
-          sessionId: '445722',
-          location: 'local.js:loadState',
-          message: 'After load + prune week plan',
-          data: {
-            hypothesisId: 'H4',
-            anchor: wp.anchorWeekStart || null,
-            dayKeys: wp.days ? Object.keys(wp.days).length : 0,
-            orderedIdsTotal: orderedSum,
-            items: (state.items || []).length
-          },
-          timestamp: Date.now()
-        })
-      }).catch(function () {});
-    } catch (e) { /* ignore */ }
-    // #endregion
+    sanitizeCategoriesAndItemsAfterLoad();
 
     if (!localStorage.getItem(STORAGE_PREFIX + 'suggestNextOffMigrated')) {
       state.showSuggestNext = false;

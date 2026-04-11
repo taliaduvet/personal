@@ -45,25 +45,6 @@ export function createBoardRenderer(d) {
     const container = document.getElementById('columns');
     if (!container) return;
 
-    // #region agent log
-    fetch('http://127.0.0.1:7600/ingest/10d3e8f8-5426-4ee2-b65b-354b925dec59', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '445722' },
-      body: JSON.stringify({
-        sessionId: '445722',
-        location: 'board.js:renderColumns',
-        message: 'Board render',
-        data: {
-          hypothesisId: 'H5',
-          viewMode: d.state.viewMode,
-          activeCount: getActiveItems().length,
-          todaySuggestionCount: (d.state.todaySuggestionIds || []).length
-        },
-        timestamp: Date.now()
-      })
-    }).catch(() => {});
-    // #endregion
-
     const isPilesView = d.state.viewMode === 'piles';
     const categoryIds = getOrderedCategoryIds();
     if (d.state.drillDownCategory && !categoryIds.includes(d.state.drillDownCategory)) {

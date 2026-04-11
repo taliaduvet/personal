@@ -28,7 +28,14 @@ import {
   getTallyDate,
   getTallyDateYYYYMMDD,
 } from '../storage/local.js';
-import { getCategories, getOrderedCategoryIds, getCategoryLabel } from '../domain/categories.js';
+import {
+  getCategories,
+  getOrderedCategoryIds,
+  getCategoryLabel,
+  coerceCategoryId,
+  sanitizeCategoriesAndItemsAfterLoad,
+  getValidCategoryIds
+} from '../domain/categories.js';
 import {
   detectCategory,
   extractDeadline,
@@ -236,25 +243,6 @@ function wireComposer() {
       const id = row.getAttribute('data-id') || row.dataset.id;
       if (!id) return;
       e.preventDefault();
-      // #region agent log
-      fetch('http://127.0.0.1:7600/ingest/10d3e8f8-5426-4ee2-b65b-354b925dec59', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '445722' },
-        body: JSON.stringify({
-          sessionId: '445722',
-          location: 'orchestrator.js:main-app-delegated-click',
-          message: 'Today/Focus done or remove',
-          data: {
-            hypothesisId: 'H2',
-            action: doneBtn ? 'done' : 'remove',
-            inToday,
-            inFocus,
-            idLen: id ? String(id).length : 0
-          },
-          timestamp: Date.now()
-        })
-      }).catch(() => {});
-      // #endregion
       if (doneBtn) markDone(id);
       else unifiedApi.removeFromToday(id);
     });
@@ -277,24 +265,6 @@ function wireComposer() {
     const mon = getMondayYYYYMMDD();
     let wp = normalizeWeekPlan(state.weekPlan);
     if (!wp.anchorWeekStart || wp.anchorWeekStart !== mon) {
-      // #region agent log
-      fetch('http://127.0.0.1:7600/ingest/10d3e8f8-5426-4ee2-b65b-354b925dec59', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '445722' },
-        body: JSON.stringify({
-          sessionId: '445722',
-          location: 'orchestrator.js:processAddToTodayQueue',
-          message: 'Add to Today branch',
-          data: {
-            hypothesisId: 'H3',
-            branch: 'no_or_stale_anchor',
-            anchor: wp.anchorWeekStart,
-            mon
-          },
-          timestamp: Date.now()
-        })
-      }).catch(() => {});
-      // #endregion
       if (!state.todaySuggestionIds.includes(id)) state.todaySuggestionIds.push(id);
       unifiedApi.clearHiddenFromTodayForTask(id);
       saveState();
@@ -308,19 +278,6 @@ function wireComposer() {
     const plannedPile = day && day.pileId;
     const itemPile = item.pileId || null;
     if (plannedPile && itemPile === plannedPile) {
-      // #region agent log
-      fetch('http://127.0.0.1:7600/ingest/10d3e8f8-5426-4ee2-b65b-354b925dec59', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '445722' },
-        body: JSON.stringify({
-          sessionId: '445722',
-          location: 'orchestrator.js:processAddToTodayQueue',
-          message: 'Add to Today branch',
-          data: { hypothesisId: 'H3', branch: 'ask_top_or_bottom_modal', plannedPile },
-          timestamp: Date.now()
-        })
-      }).catch(() => {});
-      // #endregion
       weekPlanningApi.askTopOrBottom((pos) => {
         state.weekPlan = insertTaskInDayOrder(state.weekPlan, todayStr, id, pos);
         state.weekPlan = pruneWeekPlan(state.items, state.weekPlan);
@@ -334,24 +291,6 @@ function wireComposer() {
       return;
     }
     if (!state.todaySuggestionIds.includes(id)) state.todaySuggestionIds.push(id);
-    // #region agent log
-    fetch('http://127.0.0.1:7600/ingest/10d3e8f8-5426-4ee2-b65b-354b925dec59', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '445722' },
-      body: JSON.stringify({
-        sessionId: '445722',
-        location: 'orchestrator.js:processAddToTodayQueue',
-        message: 'Add to Today branch',
-        data: {
-          hypothesisId: 'H3',
-          branch: 'suggestions_only',
-          plannedPile: plannedPile || null,
-          itemPile: itemPile || null
-        },
-        timestamp: Date.now()
-      })
-    }).catch(() => {});
-    // #endregion
     unifiedApi.clearHiddenFromTodayForTask(id);
     saveState();
     renderTodayList();
@@ -604,8 +543,13 @@ function wireComposer() {
     const prioritySelect = document.getElementById('priority-select');
     if (prioritySelect) prioritySelect.value = 'medium';
     const categorySelect = document.getElementById('category-select');
-    if (categorySelect) categorySelect.value = presetCategory || state.lastCategory;
-    if (presetCategory) state.lastCategory = presetCategory;
+    if (categorySelect) {
+      const preferred =
+        presetCategory != null && presetCategory !== undefined ? presetCategory : state.lastCategory;
+      const coerced = coerceCategoryId(preferred);
+      categorySelect.value = coerced;
+      state.lastCategory = coerced;
+    }
     if (presetPileId == null) updatePileSelectOptions('pile-select', '');
     const frictionSelect = document.getElementById('friction-select');
     if (frictionSelect) frictionSelect.value = '';
@@ -1032,7 +976,15 @@ function wireComposer() {
       state.otherCollapsedOnDate = prefs.__otherCollapsedOnDate;
       delete prefs.__otherCollapsedOnDate;
     }
-    if (Object.keys(prefs).length) state.columnColors = prefs;
+    if (!state.columnColors || typeof state.columnColors !== 'object') state.columnColors = {};
+    getValidCategoryIds().forEach(id => {
+      const v = prefs[id];
+      if (v != null && /^#[0-9a-fA-F]{6}$/i.test(String(v).trim())) {
+        state.columnColors[id] = String(v).trim();
+      }
+      delete prefs[id];
+    });
+    sanitizeCategoriesAndItemsAfterLoad();
     saveState(true, true);
   }
 
@@ -1871,7 +1823,7 @@ function wireComposer() {
       if (!categoryEl || !priorityEl) {
         throw new Error('Add form is incomplete — refresh the page');
       }
-      const category = categoryEl.value;
+      const category = coerceCategoryId(categoryEl.value);
       const deadlineEl = document.getElementById('deadline-input');
       const deadline = (deadlineEl && deadlineEl.value) ? deadlineEl.value : null;
       const doingDateEl = document.getElementById('doing-date-input');
@@ -1930,7 +1882,7 @@ function wireComposer() {
     const item = state.items.find(i => i.id === id);
     if (!item) return;
     item.text = document.getElementById('edit-text').value.trim();
-    item.category = document.getElementById('edit-category').value;
+    item.category = coerceCategoryId(document.getElementById('edit-category').value);
     const editPileEl = document.getElementById('edit-pile');
     item.pileId = (editPileEl && editPileEl.value) ? editPileEl.value : null;
     const editPersonEl = document.getElementById('edit-person');
@@ -2302,8 +2254,10 @@ function wireComposer() {
             renderColumns();
           }
         } else {
-          const newCat = column.dataset.category;
-          if (newCat && item.category !== newCat) {
+          const raw = column.dataset.category;
+          if (!raw) return;
+          const newCat = coerceCategoryId(raw);
+          if (item.category !== newCat) {
             item.category = newCat;
             saveState();
             renderColumns();
