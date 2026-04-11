@@ -32,6 +32,7 @@ import {
   getCategories,
   getOrderedCategoryIds,
   getCategoryLabel,
+  getCategoryOptionLabel,
   coerceCategoryId,
   sanitizeCategoriesAndItemsAfterLoad,
   getValidCategoryIds
@@ -477,7 +478,7 @@ function wireComposer() {
     const sel = document.getElementById('category-select');
     if (!sel) return;
     sel.innerHTML = getCategories().map(c =>
-      `<option value="${c.id}">${escapeHtml(getCategoryLabel(c.id))}</option>`
+      `<option value="${c.id}">${escapeHtml(getCategoryOptionLabel(c.id))}</option>`
     ).join('');
   }
 
@@ -741,7 +742,7 @@ function wireComposer() {
         const current = getColumnColor(c.id);
         return `
           <div class="settings-color-row">
-            <label>${escapeHtml(getCategoryLabel(c.id))}</label>
+            <label>${escapeHtml(getCategoryOptionLabel(c.id))}</label>
             <div class="color-picker-row">
               <input type="color" data-cat="${c.id}" value="${current}" class="color-input">
               <input type="text" data-cat="${c.id}" class="color-hex-input" value="${current}" placeholder="#000000" maxlength="7">
@@ -1164,7 +1165,7 @@ function wireComposer() {
     const pileSelect = document.getElementById('consistency-habit-pile');
     if (columnSelect) {
       columnSelect.innerHTML = '<option value="">None</option>' + getCategories().map(c =>
-        '<option value="' + c.id + '">' + escapeHtml(getCategoryLabel(c.id)) + '</option>'
+        '<option value="' + c.id + '">' + escapeHtml(getCategoryOptionLabel(c.id)) + '</option>'
       ).join('');
     }
     if (pileSelect) {
@@ -1174,7 +1175,7 @@ function wireComposer() {
     }
     if (habitsListEl) {
       habitsListEl.innerHTML = habits.length ? habits.map(h => {
-        const linkDesc = [h.linkedCategoryId ? getCategoryLabel(h.linkedCategoryId) : null, h.linkedPileId ? getPileName(h.linkedPileId) : null].filter(Boolean);
+        const linkDesc = [h.linkedCategoryId ? getCategoryOptionLabel(h.linkedCategoryId) : null, h.linkedPileId ? getPileName(h.linkedPileId) : null].filter(Boolean);
         const linkText = linkDesc.length === 2 ? 'Both' : linkDesc.length === 1 ? linkDesc[0] : 'Manual only';
         return `<div class="consistency-habit-row" data-habit-id="${h.id}">
           <span class="consistency-habit-name">${escapeHtml(h.name)}</span>
@@ -1860,7 +1861,7 @@ function wireComposer() {
     state.editingId = id;
     document.getElementById('edit-text').value = item.text;
     document.getElementById('edit-category').innerHTML = getCategories().map(c =>
-      `<option value="${c.id}" ${c.id === item.category ? 'selected' : ''}>${escapeHtml(getCategoryLabel(c.id))}</option>`
+      `<option value="${c.id}" ${c.id === item.category ? 'selected' : ''}>${escapeHtml(getCategoryOptionLabel(c.id))}</option>`
     ).join('');
     updatePileSelectOptions('edit-pile', item.pileId || '');
     updatePersonSelectOptions('edit-person', item.personId || '');

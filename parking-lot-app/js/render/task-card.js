@@ -3,7 +3,7 @@ import { state } from '../state.js';
 import { escapeHtml } from '../utils/dom.js';
 import { formatDeadline, formatDuration, parseLocalDate } from '../domain/tasks.js';
 import { getPileName, getPersonName } from '../domain/piles-people.js';
-import { getCategoryLabel } from '../domain/categories.js';
+import { getCategoryOptionLabel } from '../domain/categories.js';
 
 export function formatDoingDate(iso) {
   if (!iso) return null;
@@ -37,7 +37,7 @@ export function renderTaskCard(item, opts) {
   const priorityLabel = (item.priority || 'medium').charAt(0).toUpperCase() + (item.priority || 'medium').slice(1);
   const pileName = showLifeAreaAsTag ? null : getPileName(item.pileId);
   const personName = getPersonName(item.personId);
-  const lifeAreaTag = showLifeAreaAsTag ? getCategoryLabel(item.category) : null;
+  const lifeAreaTag = showLifeAreaAsTag ? getCategoryOptionLabel(item.category) : null;
   const frictionLabel = item.friction ? (item.friction.charAt(0).toUpperCase() + item.friction.slice(1)) : null;
   const metaRow = metaExpanded
     ? `<div class="task-meta-edit" data-id="${item.id}">

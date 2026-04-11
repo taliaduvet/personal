@@ -154,7 +154,10 @@ export function loadState() {
       }
     }
     state.weekPlan = pruneWeekPlan(state.items, state.weekPlan);
-    sanitizeCategoriesAndItemsAfterLoad();
+    const sanitizeMeta = sanitizeCategoriesAndItemsAfterLoad();
+    if (sanitizeMeta.clearedUniformCustomLabels) {
+      saveState(true, true);
+    }
 
     if (!localStorage.getItem(STORAGE_PREFIX + 'suggestNextOffMigrated')) {
       state.showSuggestNext = false;

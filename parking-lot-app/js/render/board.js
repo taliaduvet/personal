@@ -12,7 +12,7 @@ import {
   createItem
 } from '../domain/tasks.js';
 import { getPiles } from '../domain/piles-people.js';
-import { getOrderedCategoryIds, getCategoryLabel, getCategories } from '../domain/categories.js';
+import { getOrderedCategoryIds, getCategoryOptionLabel, getCategories } from '../domain/categories.js';
 import { renderTaskCard } from './task-card.js';
 
 /**
@@ -87,7 +87,7 @@ export function createBoardRenderer(d) {
       const canReorder = !d.state.drillDownCategory && cats.length > 1;
       container.innerHTML = cats.map(catId => {
         const items = withoutToday(sortItems(getItemsByCategory(catId)));
-        const label = getCategoryLabel(catId);
+        const label = getCategoryOptionLabel(catId);
         const color = getColumnColor(catId);
         const noteContent = (d.state.columnNotes && d.state.columnNotes[catId]) || '';
         const noteOpen = d.state.openColumnNoteId === catId;

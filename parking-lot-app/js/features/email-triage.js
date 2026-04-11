@@ -2,7 +2,7 @@
  * Email triage section UI (tasks from agent runs).
  */
 import { escapeHtml } from '../utils/dom.js';
-import { getCategories, getCategoryLabel } from '../domain/categories.js';
+import { getCategories, getCategoryLabel, getCategoryOptionLabel } from '../domain/categories.js';
 import { createItem, detectCategory, extractDeadline, extractPriority } from '../domain/tasks.js';
 import { hasSupabaseConfig } from '../config/supabase-env.js';
 
@@ -69,7 +69,7 @@ export function createEmailTriageUI(d) {
           <input type="text" class="email-triage-task-input" data-id="${t.id}" value="${escapeHtml(text)}" placeholder="Task name (edit before adding)">
           ${draft}
           <div class="email-triage-actions">
-            <select class="email-triage-category" data-id="${t.id}">${getCategories().map(c => `<option value="${c.id}" ${c.id === t.category ? 'selected' : ''}>${escapeHtml(getCategoryLabel(c.id))}</option>`).join('')}</select>
+            <select class="email-triage-category" data-id="${t.id}">${getCategories().map(c => `<option value="${c.id}" ${c.id === t.category ? 'selected' : ''}>${escapeHtml(getCategoryOptionLabel(c.id))}</option>`).join('')}</select>
             <button class="btn-primary btn-sm email-triage-add" data-id="${t.id}">Add to column</button>
             <button class="btn-secondary btn-sm email-triage-dismiss" data-id="${t.id}">Dismiss</button>
             <a href="${gmailUrl}" target="_blank" rel="noopener" class="email-triage-link">Open in Gmail</a>

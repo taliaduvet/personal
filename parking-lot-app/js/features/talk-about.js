@@ -2,7 +2,7 @@
  * Talk about list + add-from-talk modal.
  */
 import { escapeHtml } from '../utils/dom.js';
-import { getCategories, getCategoryLabel } from '../domain/categories.js';
+import { getCategories, getCategoryOptionLabel } from '../domain/categories.js';
 import { createItem } from '../domain/tasks.js';
 
 /**
@@ -50,7 +50,7 @@ export function createTalkAboutUI(d) {
     const catSel = document.getElementById('add-from-talk-category');
     if (catSel) {
       catSel.innerHTML = getCategories().map(c =>
-        `<option value="${c.id}">${escapeHtml(getCategoryLabel(c.id))}</option>`
+        `<option value="${c.id}">${escapeHtml(getCategoryOptionLabel(c.id))}</option>`
       ).join('');
       catSel.value = d.state.lastCategory || 'life';
     }
