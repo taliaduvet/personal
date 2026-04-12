@@ -1,5 +1,49 @@
 import { STORAGE_PREFIX } from '../constants.js';
 import { state } from '../state.js';
+
+/** @deprecated Legacy prefix — migration copies into {@link STORAGE_PREFIX}. */
+const OLD_STORAGE_PREFIX = 'parkingLotCouples_';
+
+/**
+ * One-time migration: copy all `parkingLotCouples_*` keys to `parkingLot_*` when new data key is empty.
+ * Does not delete old keys (rollback window). Safe to call multiple times.
+ */
+export function migrateStoragePrefixIfNeeded() {
+  try {
+    const NEW_DATA_KEY = STORAGE_PREFIX + 'data';
+    const OLD_DATA_KEY = OLD_STORAGE_PREFIX + 'data';
+    if (typeof localStorage === 'undefined') return;
+    if (localStorage.getItem(NEW_DATA_KEY) || !localStorage.getItem(OLD_DATA_KEY)) return;
+    const keysToCopy = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith(OLD_STORAGE_PREFIX)) keysToCopy.push(key);
+    }
+    for (const key of keysToCopy) {
+      const newKey = STORAGE_PREFIX + key.slice(OLD_STORAGE_PREFIX.length);
+      if (!localStorage.getItem(newKey)) {
+        localStorage.setItem(newKey, localStorage.getItem(key));
+      }
+    }
+  } catch (e) {
+    console.warn('Storage prefix migration failed', e);
+  }
+}
+
+const NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1000;
+
+/**
+ * Drop habit completion rows older than 90 days (unbounded growth guard).
+ * @param {import('../types.js').AppState} stateRef
+ * @param {number} [nowMs] - for tests (fake timers)
+ */
+export function pruneHabitCompletions(stateRef, nowMs) {
+  const t = nowMs !== undefined ? nowMs : Date.now();
+  const cutoffDate = new Date(t - NINETY_DAYS_MS).toISOString().slice(0, 10);
+  if (Array.isArray(stateRef.habitCompletions)) {
+    stateRef.habitCompletions = stateRef.habitCompletions.filter((c) => c.date >= cutoffDate);
+  }
+}
 import { normalizeJournalDayValue } from '../domain/journal-daily.js';
 import { seedPeopleGroupsIfEmpty } from '../domain/piles-people.js';
 import {
@@ -56,6 +100,7 @@ export function countCompletedInTallyDay() {
 
 export function loadState() {
   try {
+    migrateStoragePrefixIfNeeded();
     const stored = localStorage.getItem(STORAGE_PREFIX + 'data');
     if (stored) {
       const parsed = JSON.parse(stored);
@@ -126,6 +171,7 @@ export function loadState() {
         state.hiddenFromTodayByDate = { ...parsed.hiddenFromTodayByDate };
       }
     }
+    pruneHabitCompletions(state);
     seedPeopleGroupsIfEmpty();
     if (!state.journalDaily || typeof state.journalDaily !== 'object') state.journalDaily = {};
     if (!state.journalDailyOpenEntryByDate || typeof state.journalDailyOpenEntryByDate !== 'object') {

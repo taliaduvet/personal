@@ -4,6 +4,7 @@ import { wirePersist } from '../core/persist.js';
 import { state } from '../state.js';
 import { addHabit, computeWeightedPct, compute7DayRolling, getZoneLabel, toggleHabitManual } from '../domain/habits.js';
 import { getTodayLocalYYYYMMDD } from '../domain/tasks.js';
+import { pruneHabitCompletions } from '../storage/local.js';
 
 describe('domain/habits', () => {
   beforeEach(() => {
@@ -43,6 +44,48 @@ describe('domain/habits', () => {
     expect(getZoneLabel(55)).toBe('Unstable but recoverable');
     expect(getZoneLabel(20)).toBe('Reduce volume');
     expect(getZoneLabel(90)).toBe('Check minimums');
+  });
+});
+
+describe('habitCompletions pruning', () => {
+  beforeEach(() => {
+    wirePersist(() => {});
+    state.habits = [];
+    state.habitCompletions = [];
+  });
+
+  it('removes completions older than 90 days relative to now', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-04-12T12:00:00Z'));
+    state.habitCompletions = [
+      { habitId: 'h1', date: '2025-01-01', source: 'manual' },
+      { habitId: 'h1', date: '2026-02-15', source: 'manual' },
+      { habitId: 'h1', date: '2026-04-10', source: 'task', taskId: 't1' }
+    ];
+    pruneHabitCompletions(state);
+    expect(state.habitCompletions.length).toBe(2);
+    expect(state.habitCompletions.some((c) => c.date === '2025-01-01')).toBe(false);
+    expect(state.habitCompletions.some((c) => c.date === '2026-02-15')).toBe(true);
+    expect(state.habitCompletions.some((c) => c.date === '2026-04-10')).toBe(true);
+    vi.useRealTimers();
+  });
+
+  it('keeps all completions when all are within 90 days', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-04-12T12:00:00Z'));
+    state.habitCompletions = [
+      { habitId: 'h1', date: '2026-04-01', source: 'manual' },
+      { habitId: 'h1', date: '2026-04-11', source: 'manual' }
+    ];
+    pruneHabitCompletions(state);
+    expect(state.habitCompletions.length).toBe(2);
+    vi.useRealTimers();
+  });
+
+  it('handles empty habitCompletions array', () => {
+    state.habitCompletions = [];
+    pruneHabitCompletions(state);
+    expect(state.habitCompletions).toEqual([]);
   });
 });
 

@@ -1,7 +1,9 @@
 import { STORAGE_PREFIX, HAS_CHOSEN_SOLO_KEY } from '../constants.js';
 import { state } from '../state.js';
+import { migrateStoragePrefixIfNeeded } from './local.js';
 
 export function loadPairState() {
+  migrateStoragePrefixIfNeeded();
   state.pairId = localStorage.getItem(STORAGE_PREFIX + 'pairId');
   state.addedBy = localStorage.getItem(STORAGE_PREFIX + 'addedBy') || 'Talia';
 }
@@ -20,6 +22,7 @@ export function savePairState() {
 }
 
 export function loadDeviceSyncState() {
+  migrateStoragePrefixIfNeeded();
   state.deviceSyncId = localStorage.getItem(STORAGE_PREFIX + 'deviceSyncId');
 }
 

@@ -77,7 +77,7 @@ test.describe('QA matrix — automatable surface smoke', () => {
     await page.locator('#save-settings').click();
     await expect(page.locator('#settings-modal')).toBeHidden();
     const storedName = await page.evaluate(() => {
-      const raw = localStorage.getItem('parkingLotCouples_data');
+      const raw = localStorage.getItem('parkingLot_data');
       return raw ? JSON.parse(raw).displayName : null;
     });
     expect(storedName).toBe('QA Display');

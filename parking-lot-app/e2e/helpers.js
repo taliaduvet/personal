@@ -39,8 +39,8 @@ export async function resetApp(page) {
       window.__E2E__ = true;
       localStorage.clear();
       sessionStorage.clear();
-      localStorage.setItem('parkingLotCouples_hasChosenSolo', 'true');
-      localStorage.setItem('parkingLotCouples_deviceSyncId', 'e2e' + Date.now().toString(36).slice(-6));
+      localStorage.setItem('parkingLot_hasChosenSolo', 'true');
+      localStorage.setItem('parkingLot_deviceSyncId', 'e2e' + Date.now().toString(36).slice(-6));
     } catch { /* ignore */ }
   });
   await page.goto('/', { waitUntil: 'domcontentloaded' });

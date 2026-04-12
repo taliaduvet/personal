@@ -1,3 +1,6 @@
+/**
+ * Habits and completion tracking. Shapes: {@link import('../types.js').Habit}, {@link import('../types.js').HabitCompletion}.
+ */
 import { persist } from '../core/persist.js';
 import { state } from '../state.js';
 import { getTodayLocalYYYYMMDD, parseLocalDate } from './tasks.js';

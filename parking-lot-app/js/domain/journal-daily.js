@@ -1,5 +1,6 @@
 /**
  * Daily journal storage: legacy string per day, or v2 { v: 2, entries: [{ id, html, updatedAt }] }.
+ * Normalized shape: {@link import('../types.js').JournalDayV2}.
  */
 
 export const JOURNAL_DAY_VERSION = 2;

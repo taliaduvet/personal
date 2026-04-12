@@ -1,7 +1,15 @@
+/**
+ * Task domain: parsing, sorting, and item helpers.
+ * Data shape: {@link import('../types.js').Task}.
+ */
 import { MONTHS, PRIORITY_ORDER, DEFAULT_COLUMN_COLORS } from '../constants.js';
 import { persist } from '../core/persist.js';
 import { state } from '../state.js';
 
+/**
+ * @param {string} text
+ * @returns {'daily'|'weekly'|'monthly'|null}
+ */
 function extractRecurrence(text) {
   const t = (text || '').toLowerCase();
   if (/\b(daily|every\s*day|each\s*day)\b/.test(t)) return 'daily';
@@ -10,6 +18,10 @@ function extractRecurrence(text) {
   return null;
 }
 
+/**
+ * @param {string} text
+ * @returns {'quick'|'medium'|'deep'|null}
+ */
 function extractFriction(text) {
   const t = (text || '').toLowerCase();
   if (/\b(quick|easy|fast)\b/.test(t)) return 'quick';
@@ -18,6 +30,10 @@ function extractFriction(text) {
   return null;
 }
 
+/**
+ * @param {string} text
+ * @returns {string|null}
+ */
 function extractDoingDate(text) {
   const t = (text || '').toLowerCase();
   // Prefer explicit "do/doing/on" hints when present.
@@ -32,6 +48,10 @@ function extractDoingDate(text) {
   return null;
 }
 
+/**
+ * @param {string} text
+ * @returns {string|null}
+ */
 function detectCategory(text) {
   const t = (text || '').toLowerCase();
   const preset = state.categoryPreset || 'generic';
@@ -48,6 +68,10 @@ function detectCategory(text) {
   return null;
 }
 
+/**
+ * @param {string} text
+ * @returns {string|null}
+ */
 function extractDeadline(text) {
   const t = (text || '').toLowerCase();
   const now = new Date();
@@ -127,6 +151,10 @@ function extractDeadline(text) {
   return null;
 }
 
+/**
+ * @param {string} text
+ * @returns {'critical'|'high'|'medium'|'low'|null}
+ */
 function extractPriority(text) {
   const t = (text || '').toLowerCase();
   if (/\b(critical|urgent|asap|as\s+ap|emergency|rush|top\s+priority)\b/.test(t)) return 'critical';
@@ -136,6 +164,13 @@ function extractPriority(text) {
   return null;
 }
 
+/**
+ * @param {string} text
+ * @param {string|null} category
+ * @param {string|null} deadline
+ * @param {string|null} priority
+ * @returns {string}
+ */
 function stripAutoExtractedFromText(text, category, deadline, priority) {
   let result = (text || '').trim();
   if (!result) return result;
@@ -167,6 +202,19 @@ function stripAutoExtractedFromText(text, category, deadline, priority) {
   return result.replace(/\s+/g, ' ').trim();
 }
 
+/**
+ * @param {string} text
+ * @param {string} [category]
+ * @param {string|null} [deadline]
+ * @param {string|null} [priority]
+ * @param {'daily'|'weekly'|'monthly'|null} [recurrence]
+ * @param {string|null} [reminderAt]
+ * @param {string|null} [doingDate]
+ * @param {string|null} [pileId]
+ * @param {'quick'|'medium'|'deep'|null} [friction]
+ * @param {string|null} [personId]
+ * @returns {import('../types.js').Task}
+ */
 function createItem(text, category, deadline, priority, recurrence, reminderAt, doingDate, pileId, friction, personId) {
   const cleanText = stripAutoExtractedFromText(text, category, deadline, priority) || text.trim();
   return {
@@ -187,6 +235,10 @@ function createItem(text, category, deadline, priority, recurrence, reminderAt, 
   };
 }
 
+/**
+ * @param {number} ms
+ * @returns {string}
+ */
 function formatDuration(ms) {
   const days = Math.floor(ms / 86400000);
   if (days < 1) return 'Today';
@@ -197,6 +249,10 @@ function formatDuration(ms) {
   return Math.floor(days / 365) + 'y';
 }
 
+/**
+ * @param {string} iso
+ * @returns {Date|null}
+ */
 function parseLocalDate(iso) {
   if (!iso || typeof iso !== 'string') return null;
   const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -207,11 +263,19 @@ function parseLocalDate(iso) {
   return new Date(y, mo - 1, d);
 }
 
+/**
+ * @param {import('../types.js').Task} item
+ * @returns {Date|null}
+ */
 function getSortReferenceDate(item) {
   // Doing-by date is the execution target, so it outranks due date for sorting.
   return parseLocalDate(item.doingDate) || parseLocalDate(item.deadline);
 }
 
+/**
+ * @param {string|null} iso
+ * @returns {{ text: string, overdue: boolean }|null}
+ */
 function formatDeadline(iso) {
   if (!iso) return null;
   const d = parseLocalDate(iso);
@@ -227,6 +291,9 @@ function formatDeadline(iso) {
 
 const FRICTION_ORDER = { quick: 0, medium: 1, deep: 2 };
 
+/**
+ * @returns {string} YYYY-MM-DD in local calendar
+ */
 function getTodayLocalYYYYMMDD() {
   const d = new Date();
   const y = d.getFullYear();
@@ -235,6 +302,10 @@ function getTodayLocalYYYYMMDD() {
   return y + '-' + m + '-' + day;
 }
 
+/**
+ * @param {import('../types.js').Task} item
+ * @returns {number}
+ */
 function getTimeBand(item) {
   const d = getSortReferenceDate(item);
   if (!d || isNaN(d.getTime())) return 3;
@@ -250,6 +321,10 @@ function getTimeBand(item) {
   return 4;
 }
 
+/**
+ * @param {import('../types.js').Task[]} items
+ * @returns {import('../types.js').Task[]}
+ */
 function sortByTimeBandsAndFriction(items) {
   return [...items].sort((a, b) => {
     const bandA = getTimeBand(a);
@@ -271,10 +346,17 @@ function sortByTimeBandsAndFriction(items) {
   });
 }
 
+/**
+ * @param {import('../types.js').Task[]} items
+ * @returns {import('../types.js').Task[]}
+ */
 function sortItems(items) {
   return sortByTimeBandsAndFriction(items);
 }
 
+/**
+ * @returns {boolean}
+ */
 function archivePastDoingDatesIfNeeded() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -291,10 +373,17 @@ function archivePastDoingDatesIfNeeded() {
   return changed;
 }
 
+/**
+ * @returns {import('../types.js').Task[]}
+ */
 function getActiveItems() {
   return state.items.filter(i => !i.archived);
 }
 
+/**
+ * @param {string} cat
+ * @returns {import('../types.js').Task[]}
+ */
 function getItemsByCategory(cat) {
   let items = getActiveItems().filter(i => i.category === cat);
   const q = (state.searchQuery || '').trim().toLowerCase();
@@ -302,11 +391,18 @@ function getItemsByCategory(cat) {
   return items;
 }
 
+/**
+ * @param {string} catId
+ * @returns {string|null}
+ */
 function getColumnColor(catId) {
   if (catId === '__button' || catId === '__text') return null;
   return state.columnColors[catId] || DEFAULT_COLUMN_COLORS[catId] || '#6b7280';
 }
 
+/**
+ * @returns {Record<string, string>}
+ */
 function getActiveColumnColors() {
   const out = {};
   Object.keys(state.columnColors || {}).forEach(k => {

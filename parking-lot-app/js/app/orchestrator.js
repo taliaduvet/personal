@@ -27,6 +27,7 @@ import {
   setCloudSyncHook,
   getTallyDate,
   getTallyDateYYYYMMDD,
+  migrateStoragePrefixIfNeeded
 } from '../storage/local.js';
 import {
   getCategories,
@@ -150,6 +151,19 @@ let renderEmailTriage;
 let closeAddFromTalkModal;
 let submitAddFromTalk;
 
+const IS_DEV = typeof location !== 'undefined' && (location.hostname === 'localhost' || location.hostname === '127.0.0.1');
+
+/**
+ * @param {string} name
+ * @param {unknown} fn
+ */
+function assertWired(name, fn) {
+  if (IS_DEV && typeof fn !== 'function') {
+    console.error(`[orchestrator] "${name}" called before wireComposer() ran. Check init order.`);
+  }
+  return fn;
+}
+
 function wireComposer() {
   /** Wired after unified Today exists so today-focus never repaints legacy HTML over unified markup. */
   const todayUiRef = {
@@ -197,8 +211,8 @@ function wireComposer() {
     onCommitted: () => {
       unifiedApi.renderTodayList();
       unifiedApi.renderFocusUnified();
-      renderWeekStrip();
-      renderColumns();
+      assertWired('renderWeekStrip', renderWeekStrip)?.();
+      assertWired('renderColumns', renderColumns)?.();
     }
   });
 
@@ -252,7 +266,7 @@ function wireComposer() {
   processAddToTodayQueue = function processAddToTodayQueueInner(ids) {
     if (!ids.length) {
       tfUpdateAddToSuggestionsBtn();
-      renderColumns();
+      assertWired('renderColumns', renderColumns)?.();
       return;
     }
     const id = ids[0];
@@ -269,9 +283,9 @@ function wireComposer() {
       if (!state.todaySuggestionIds.includes(id)) state.todaySuggestionIds.push(id);
       unifiedApi.clearHiddenFromTodayForTask(id);
       saveState();
-      renderTodayList();
-      renderFocusList();
-      renderColumns();
+      assertWired('renderTodayList', renderTodayList)?.();
+      assertWired('renderFocusList', renderFocusList)?.();
+      assertWired('renderColumns', renderColumns)?.();
       processAddToTodayQueueInner(rest);
       return;
     }
@@ -284,9 +298,9 @@ function wireComposer() {
         state.weekPlan = pruneWeekPlan(state.items, state.weekPlan);
         unifiedApi.clearHiddenFromTodayForTask(id);
         saveState();
-        renderTodayList();
-        renderFocusList();
-        renderColumns();
+        assertWired('renderTodayList', renderTodayList)?.();
+        assertWired('renderFocusList', renderFocusList)?.();
+        assertWired('renderColumns', renderColumns)?.();
         processAddToTodayQueueInner(rest);
       });
       return;
@@ -294,9 +308,9 @@ function wireComposer() {
     if (!state.todaySuggestionIds.includes(id)) state.todaySuggestionIds.push(id);
     unifiedApi.clearHiddenFromTodayForTask(id);
     saveState();
-    renderTodayList();
-    renderFocusList();
-    renderColumns();
+    assertWired('renderTodayList', renderTodayList)?.();
+    assertWired('renderFocusList', renderFocusList)?.();
+    assertWired('renderColumns', renderColumns)?.();
     processAddToTodayQueueInner(rest);
   };
 
@@ -2117,6 +2131,9 @@ function wireComposer() {
   }
 
   async function showMainApp() {
+    if (!renderColumns || !renderTodayList) {
+      console.error('[orchestrator] showMainApp() called before wireComposer(). Call order is: wireComposer() → showMainApp()');
+    }
     document.getElementById('entry-screen').style.display = 'none';
     document.getElementById('pair-setup').style.display = 'none';
     document.getElementById('main-app').style.display = 'block';
@@ -3349,6 +3366,8 @@ function wireComposer() {
     });
     window.addEventListener('offline', updateOfflineBanner);
     updateOfflineBanner();
+
+    migrateStoragePrefixIfNeeded();
 
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })

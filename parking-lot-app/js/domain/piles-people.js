@@ -1,3 +1,6 @@
+/**
+ * Piles and people / relationships. Shapes: {@link import('../types.js').Pile}, {@link import('../types.js').Person}.
+ */
 import { persist } from '../core/persist.js';
 import { state } from '../state.js';
 

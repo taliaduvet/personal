@@ -22,7 +22,7 @@ export const PRIORITIES = ['critical', 'high', 'medium', 'low'];
 export const PRIORITY_ORDER = { critical: 0, high: 1, medium: 2, low: 3 };
 export const MONTHS = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
 
-export const STORAGE_PREFIX = 'parkingLotCouples_';
+export const STORAGE_PREFIX = 'parkingLot_';
 export const HAS_CHOSEN_SOLO_KEY = STORAGE_PREFIX + 'hasChosenSolo';
 
 export const DEFAULT_COLUMN_COLORS = {
