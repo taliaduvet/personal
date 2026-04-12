@@ -19,3 +19,29 @@ describe('ledger-pure', () => {
     expect(s.categoryId).toBe('8910');
   });
 });
+
+describe('normalizeDate edge cases', () => {
+  it('handles ISO with time suffix', () => {
+    expect(normalizeDate('2024-03-15T00:00:00Z')).toBe('2024-03-15');
+  });
+  it('handles MM/DD/YYYY (US format)', () => {
+    expect(normalizeDate('03/15/2024')).toBe('2024-03-15');
+  });
+  it('handles DD/MM/YYYY (Canadian/EU format)', () => {
+    expect(normalizeDate('15/03/2024')).toBe('2024-03-15');
+  });
+  it('handles natural language date', () => {
+    expect(normalizeDate('Jan 5, 2024')).toBe('2024-01-05');
+  });
+  it('handles dot-separated YYYY.MM.DD', () => {
+    expect(normalizeDate('2024.03.15')).toBe('2024-03-15');
+  });
+  it('returns empty string for unparseable input', () => {
+    expect(normalizeDate('not-a-date')).toBe('');
+    expect(normalizeDate('04/05/06')).toBe('');
+  });
+  it('handles empty and null', () => {
+    expect(normalizeDate('')).toBe('');
+    expect(normalizeDate(null)).toBe('');
+  });
+});

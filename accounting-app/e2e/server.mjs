@@ -14,7 +14,7 @@ const supabaseCdn =
 const supabaseStub = '<script src="/e2e/supabase-stub.js"></script>';
 
 const e2eConfigBody =
-  "var SUPABASE_URL='https://e2e.invalid';\nvar SUPABASE_ANON_KEY='e2e-anon-key';\n";
+  "window.SUPABASE_URL='https://e2e.invalid';\nwindow.SUPABASE_ANON_KEY='e2e-anon-key';\n";
 
 const contentTypes = {
   '.html': 'text/html; charset=utf-8',

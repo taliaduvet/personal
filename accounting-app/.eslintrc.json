@@ -1,0 +1,27 @@
+{
+  "env": { "browser": true, "es2022": true },
+  "parserOptions": { "ecmaVersion": 2022, "sourceType": "module" },
+  "rules": {
+    "eqeqeq": ["error", "always", { "null": "ignore" }],
+    "no-undef": "error",
+    "no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
+    "no-console": ["warn", { "allow": ["warn", "error"] }],
+    "no-var": "warn"
+  },
+  "globals": {
+    "SUPABASE_URL": "readonly",
+    "SUPABASE_ANON_KEY": "readonly",
+    "LedgerParseCsv": "readonly",
+    "LedgerBankAmount": "readonly",
+    "JSZip": "readonly"
+  },
+  "overrides": [
+    {
+      "files": ["app.js"],
+      "rules": {
+        "no-var": "off",
+        "no-unused-vars": ["warn", { "argsIgnorePattern": "^_", "varsIgnorePattern": "^(openPlannedForm|deletePlanned|onBankIgnore|getClient)$" }]
+      }
+    }
+  ]
+}

@@ -51,6 +51,20 @@ input:focus, select:focus, textarea:focus, button:focus {
 .btn-danger { background: #fff0f0; color: var(--red); border-color: #e5b2b2; }
 .btn-sm { padding: 0.3rem 0.5rem; font-size: 0.84rem; }
 
+.inline-confirm {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 0.85rem;
+  margin-top: 0.25rem;
+  flex-wrap: wrap;
+}
+.inline-confirm-msg { color: var(--text); }
+
 .auth-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 80vh; padding: 2rem; }
 .auth-screen h1 { margin: 0 0 0.3rem 0; }
 .auth-screen p { color: var(--muted); margin: 0 0 1.2rem 0; }

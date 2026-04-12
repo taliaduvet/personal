@@ -5,6 +5,7 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
+    "lint": "eslint app.js api.js js/ledger-pure.js js/ledger-bank.js js/parse-csv.js js/ledger-constants.js js/ui-helpers.js js/ledger-api-helpers.js",
     "qa:full": "npm run test && npm run e2e",
     "e2e": "playwright test",
     "e2e:headed": "playwright test --headed",
@@ -15,6 +16,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
+    "eslint": "^8.57.0",
     "vitest": "^3.2.4"
   }
 }

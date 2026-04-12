@@ -6,7 +6,7 @@
   'use strict';
 
   function parseCsv(text) {
-    if (text == null || String(text).trim() === '') return { headers: [], rows: [] };
+    if (text === null || text === undefined || String(text).trim() === '') return { headers: [], rows: [] };
     const str = String(text).replace(/^\uFEFF/, '');
     const rows = [];
     let row = [];
@@ -87,7 +87,7 @@
       }
       const obj = {};
       headers.forEach(function (h, idx) {
-        obj[h] = (line[idx] != null ? String(line[idx]) : '').trim();
+        obj[h] = (line[idx] !== null && line[idx] !== undefined ? String(line[idx]) : '').trim();
       });
       objects.push(obj);
     }

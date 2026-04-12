@@ -6,7 +6,7 @@
   'use strict';
 
   function parseBankCsvMoneyCents(raw) {
-    if (raw == null) return 0;
+    if (raw === null || raw === undefined) return 0;
     let s = String(raw).trim();
     if (!s) return 0;
     let negate = false;
@@ -30,8 +30,8 @@
   }
 
   function signedCentsFromBankRow(row, amountCol, debitCol, creditCol) {
-    const amountCell = amountCol != null ? row[amountCol] : null;
-    const amountStr = amountCell != null ? String(amountCell).trim() : '';
+    const amountCell = amountCol !== null && amountCol !== undefined ? row[amountCol] : null;
+    const amountStr = amountCell !== null && amountCell !== undefined ? String(amountCell).trim() : '';
     if (amountStr !== '') {
       return parseBankCsvMoneyCents(amountCell);
     }
