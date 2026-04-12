@@ -16,6 +16,7 @@ import {
   getMondayYYYYMMDD,
   swapFocusPileAdjacent
 } from '../domain/weekly-planning.js';
+import { clearHiddenFromTodayForTaskState } from '../domain/task-actions.js';
 
 /**
  * @param {object} d
@@ -120,11 +121,7 @@ export function createUnifiedTodayRenderer(d) {
   }
 
   function clearHiddenFromTodayForTask(taskId) {
-    const todayStr = getTodayLocalYYYYMMDD();
-    const h = d.state.hiddenFromTodayByDate;
-    if (!h || !h[todayStr]) return;
-    h[todayStr] = h[todayStr].filter(x => x !== taskId);
-    if (h[todayStr].length === 0) delete h[todayStr];
+    clearHiddenFromTodayForTaskState(d.state, taskId);
   }
 
   function removeFromToday(id) {

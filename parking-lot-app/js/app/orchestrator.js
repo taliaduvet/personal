@@ -92,8 +92,6 @@ import {
 } from '../domain/journal-daily.js';
 import {
   getHabits,
-  recordCompletion,
-  removeCompletionsForTask,
   computeWeightedPct,
   compute7DayRolling,
   getZoneLabel,
@@ -112,6 +110,11 @@ import {
   getMondayYYYYMMDD,
   insertTaskInDayOrder
 } from '../domain/weekly-planning.js';
+import {
+  applyMarkDone,
+  revertMarkDone,
+  applyDeleteItem
+} from '../domain/task-actions.js';
 import { createBoardRenderer } from '../render/board.js';
 import { createTodayFocusRenderer } from '../render/today-focus.js';
 import { createUnifiedTodayRenderer } from '../render/unified-today.js';
@@ -378,113 +381,71 @@ function wireComposer() {
     updateAddToSuggestionsBtn();
   }
 
-  function respawnRecurring(item) {
-    const now = new Date();
-    let nextDeadline = null;
-    if (item.recurrence === 'daily') {
-      const d = new Date(now);
-      d.setDate(d.getDate() + 1);
-      nextDeadline = d.toISOString().slice(0, 10);
-    } else if (item.recurrence === 'weekly') {
-      const d = new Date(now);
-      d.setDate(d.getDate() + 7);
-      nextDeadline = d.toISOString().slice(0, 10);
-    } else if (item.recurrence === 'monthly') {
-      const d = new Date(now);
-      d.setMonth(d.getMonth() + 1);
-      nextDeadline = d.toISOString().slice(0, 10);
-    }
-    const newItem = createItem(item.text, item.category, nextDeadline, item.priority, item.recurrence, null, item.doingDate, item.pileId, item.friction, item.personId || null);
-    state.items.push(newItem);
-    return newItem.id;
-  }
-
-
   function markDone(id) {
     if (state.processingIds.has(id)) return;
     const item = state.items.find(i => i.id === id);
     if (!item) return;
     state.processingIds.add(id);
-    const wasInSuggestions = state.todaySuggestionIds.includes(id);
-    const prevArchived = item.archived;
-    const prevArchivedAt = item.archivedAt;
-    const prevCompletedAt = item.completedAt;
-    let respawnedId = null;
-    let todayStr = getTodayLocalYYYYMMDD();
     try {
-      item.archived = true;
-      item.archivedAt = item.archivedAt || Date.now();
-      item.completedAt = Date.now();
-      state.todaySuggestionIds = state.todaySuggestionIds.filter(x => x !== id);
-      state.weekPlan = removeTaskIdFromAllDays(state.weekPlan, id);
-      if (unifiedApi && typeof unifiedApi.clearHiddenFromTodayForTask === 'function') {
-        unifiedApi.clearHiddenFromTodayForTask(id);
-      }
-      respawnedId = item.recurrence ? respawnRecurring(item) : null;
-      todayStr = getTodayLocalYYYYMMDD();
-      (state.habits || []).forEach(h => {
-        if (h.linkedCategoryId === item.category || h.linkedPileId === item.pileId) recordCompletion(h.id, todayStr, 'task', item.id);
-      });
+      const result = applyMarkDone(id);
+      if (!result.mutated) return;
+      const {
+        wasInSuggestions,
+        respawnedId,
+        todayStr,
+        prev
+      } = result;
       saveState();
       updateTally();
       renderTodayList();
       renderFocusList();
       renderColumns();
-    } finally {
-      state.processingIds.delete(id);
-    }
-    showToast('Done', () => {
-      item.archived = prevArchived;
-      item.archivedAt = prevArchivedAt;
-      item.completedAt = prevCompletedAt;
-      if (wasInSuggestions) state.todaySuggestionIds.push(id);
-      if (respawnedId) state.items = state.items.filter(i => i.id !== respawnedId);
-      removeCompletionsForTask(id, todayStr);
-      saveState();
-      updateTally();
-      renderTodayList();
-      renderFocusList();
-      renderColumns();
-    });
-    if (state.undoDoneTimeout) clearTimeout(state.undoDoneTimeout);
-    state.undoDoneTimeout = setTimeout(() => { /* toast hides */ }, 5000);
-
-    if (state.showSuggestNext) {
-      const nextTask = suggestNext(item);
-      if (nextTask) showSuggestNextStrip(nextTask, item);
-    }
-    renderConsistencySmall();
-  }
-
-  function deleteItem(id, showUndo = true) {
-    if (state.processingIds.has(id)) return;
-    const idx = state.items.findIndex(i => i.id === id);
-    if (idx < 0) return;
-    state.processingIds.add(id);
-    const item = state.items[idx];
-    try {
-      state.items.splice(idx, 1);
-      state.todaySuggestionIds = state.todaySuggestionIds.filter(x => x !== id);
-      state.weekPlan = removeTaskIdFromAllDays(state.weekPlan, id);
-      state.selectedIds.delete(id);
-      saveState();
-      renderTodayList();
-      renderFocusList();
-      renderColumns();
-    } finally {
-      state.processingIds.delete(id);
-    }
-    if (showUndo) {
-      const restoreIndex = idx;
-      const restoreItem = item;
-      showToast('Removed', () => {
-        const safeIndex = Math.max(0, Math.min(restoreIndex, state.items.length));
-        state.items.splice(safeIndex, 0, restoreItem);
+      showToast('Done', () => {
+        revertMarkDone(id, prev, todayStr, wasInSuggestions, respawnedId);
         saveState();
+        updateTally();
         renderTodayList();
         renderFocusList();
         renderColumns();
       });
+      if (state.undoDoneTimeout) clearTimeout(state.undoDoneTimeout);
+      state.undoDoneTimeout = setTimeout(() => { /* toast hides */ }, 5000);
+
+      if (state.showSuggestNext) {
+        const nextTask = suggestNext(item);
+        if (nextTask) showSuggestNextStrip(nextTask, item);
+      }
+      renderConsistencySmall();
+    } finally {
+      state.processingIds.delete(id);
+    }
+  }
+
+  function deleteItem(id, showUndo = true) {
+    if (state.processingIds.has(id)) return;
+    state.processingIds.add(id);
+    try {
+      const del = applyDeleteItem(id);
+      if (!del.removed) return;
+      const { item, index: idx } = del;
+      saveState();
+      renderTodayList();
+      renderFocusList();
+      renderColumns();
+      if (showUndo) {
+        const restoreIndex = idx;
+        const restoreItem = item;
+        showToast('Removed', () => {
+          const safeIndex = Math.max(0, Math.min(restoreIndex, state.items.length));
+          state.items.splice(safeIndex, 0, restoreItem);
+          saveState();
+          renderTodayList();
+          renderFocusList();
+          renderColumns();
+        });
+      }
+    } finally {
+      state.processingIds.delete(id);
     }
   }
 
