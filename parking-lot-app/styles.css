@@ -1165,6 +1165,23 @@ body.sidebar-open .sidebar-overlay {
   border-radius: var(--radius);
 }
 
+.today-day-note-strip {
+  padding: 0.45rem 0.75rem 0.4rem;
+  border-top: 1px solid var(--border);
+  background: var(--bg-soft);
+}
+
+.today-day-note-strip-inner {
+  margin: 0;
+}
+
+.unified-today-plan-hint-muted {
+  margin: 0 0 0.6rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
 .unified-today-day-note {
   margin: 0 0 0.65rem;
   padding: 0.5rem 0.65rem;

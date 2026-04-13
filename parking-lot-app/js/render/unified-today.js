@@ -187,9 +187,15 @@ export function createUnifiedTodayRenderer(d) {
         d.state.todaySuggestionIds,
         hiddenSetFor(todayStr)
       );
+      const monToday = getMondayYYYYMMDD();
+      const noWeekDayNote =
+        wp.anchorWeekStart === monToday && wp.days[todayStr] && wp.days[todayStr].note
+          ? todayDayNoteHtml(wp.days[todayStr].note)
+          : '';
       root.innerHTML = `
         <div class="unified-today-no-plan">
-          <p class="unified-today-focus-banner"><button type="button" class="btn-secondary plan-focus-inline-btn">Plan</button> <span class="focus-banner-hint">your week</span></p>
+          ${noWeekDayNote}
+          <p class="unified-today-plan-hint-muted">Use <strong>Plan</strong> in the header when you’re ready to set this week’s focus.</p>
           <div class="unified-today-section-body" data-section="single">${items.length ? items.map((i) => {
             const idx = d.state.todaySuggestionIds.indexOf(i.id);
             const inExp = idx >= 0;
@@ -199,7 +205,6 @@ export function createUnifiedTodayRenderer(d) {
           }).join('') : '<div class="empty-state">Nothing dated for today — add tasks below or drag them here</div>'}</div>
         </div>`;
       bindTodayListEvents(root, { removeFromToday, reorderExplicit: true });
-      root.querySelector('.plan-focus-inline-btn')?.addEventListener('click', () => d.openPlanningEntry({}));
       return;
     }
 
@@ -249,7 +254,6 @@ export function createUnifiedTodayRenderer(d) {
 
     root.innerHTML = `
       <div class="unified-today-with-plan">
-        <p class="unified-today-focus-banner"><button type="button" class="btn-secondary plan-focus-inline-btn">Plan</button> <span class="focus-banner-hint">this week</span></p>
         ${withPlanDayNote}
         <details class="unified-today-details unified-today-focus" open data-section="focus">
           <summary>Today: ${escapeHtml(pileLabel)}</summary>
@@ -267,27 +271,46 @@ export function createUnifiedTodayRenderer(d) {
       </div>`;
 
     bindTodayListEvents(root, { removeFromToday, focusPileReorderTodayStr: todayStr });
-    root.querySelector('.plan-focus-inline-btn')?.addEventListener('click', () => d.openPlanningEntry({}));
     root.querySelector('.unified-today-review-plan-btn')?.addEventListener('click', () => d.openPlanningEntry({ scrollToDate: todayStr }));
     const otherDet = root.querySelector('details[data-section="other"]');
     otherDet?.addEventListener('toggle', () => {
       if (!otherDet.open) d.state.otherCollapsedOnDate = todayStr;
       else d.state.otherCollapsedOnDate = null;
       d.saveState();
-    });
+       });
+  }
+
+  function updateTodayHeaderNoteStrip() {
+    const el = document.getElementById('today-day-note-strip');
+    if (!el) return;
+    const todayStr = getTodayLocalYYYYMMDD();
+    const wp = normalizeWeekPlan(d.state.weekPlan);
+    const monToday = getMondayYYYYMMDD();
+    const aligned = wp.anchorWeekStart === monToday;
+    const day = wp.days[todayStr];
+    const note = aligned && day && typeof day.note === 'string' ? day.note.trim() : '';
+    if (!note) {
+      el.style.display = 'none';
+      el.innerHTML = '';
+      return;
+    }
+    el.style.display = 'block';
+    el.innerHTML = `<div class="today-day-note-strip-inner unified-today-day-note"><div class="unified-today-day-note-label">Today’s plan note</div><p class="unified-today-day-note-body">${escapeHtml(note)}</p></div>`;
   }
 
   function renderTodayList() {
     const root = document.getElementById('today-list');
     if (!root) return;
     paintUnifiedToday(root);
+    updateTodayHeaderNoteStrip();
   }
 
   function renderFocusUnified() {
     const list = document.getElementById('focus-list');
     if (!list) return;
     paintUnifiedToday(list);
+    updateTodayHeaderNoteStrip();
   }
 
-  return { renderTodayList, renderFocusUnified, removeFromToday, clearHiddenFromTodayForTask };
+  return { renderTodayList, renderFocusUnified, removeFromToday, clearHiddenFromTodayForTask, updateTodayHeaderNoteStrip };
 }

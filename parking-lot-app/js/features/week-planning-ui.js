@@ -131,7 +131,8 @@ export function createWeekPlanningUI(d) {
     }
     const mon = draft.anchorWeekStart || getMondayYYYYMMDD();
     draft.anchorWeekStart = mon;
-    d.state.weekPlan = pruneWeekPlan(d.state.items, { ...draft, anchorWeekStart: mon });
+    const snapshot = normalizeWeekPlan(JSON.parse(JSON.stringify({ ...draft, anchorWeekStart: mon })));
+    d.state.weekPlan = pruneWeekPlan(d.state.items, snapshot);
     if (markCommitted) {
       d.state.lastCommittedPlanSnapshot = normalizeWeekPlan(JSON.parse(JSON.stringify(d.state.weekPlan)));
       d.state.lastPlanCommittedAt = new Date().toISOString();
@@ -236,6 +237,10 @@ export function createWeekPlanningUI(d) {
   }
 
   function tryClosePlanning() {
+    if (persistDraftTimer) {
+      clearTimeout(persistDraftTimer);
+      persistDraftTimer = null;
+    }
     if (draftDirty) persistPlanningDraft({ markCommitted: false });
     closePlanningOverlay();
   }
@@ -621,7 +626,8 @@ export function createWeekPlanningUI(d) {
       markDraftDirty();
       renderPlanningDays();
     });
-    document.getElementById('week-planning-calendar-wrap')?.addEventListener('input', (e) => {
+    const calWrap = document.getElementById('week-planning-calendar-wrap');
+    calWrap?.addEventListener('input', (e) => {
       const t = e.target;
       if (!(t instanceof HTMLTextAreaElement) || !t.classList.contains('plan-day-note-input')) return;
       const dk = t.dataset.date;
@@ -629,6 +635,20 @@ export function createWeekPlanningUI(d) {
       if (!draft.days[dk]) draft.days[dk] = { pileId: null, orderedTaskIds: [], note: '', excludedTaskIds: [] };
       draft.days[dk].note = (t.value || '').slice(0, WEEK_DAY_PLAN_NOTE_MAX_LEN);
       markDraftDirty();
+    });
+    calWrap?.addEventListener('focusout', (e) => {
+      const t = e.target;
+      if (!(t instanceof HTMLTextAreaElement) || !t.classList.contains('plan-day-note-input')) return;
+      const dk = t.dataset.date;
+      if (!dk) return;
+      if (!draft.days[dk]) draft.days[dk] = { pileId: null, orderedTaskIds: [], note: '', excludedTaskIds: [] };
+      draft.days[dk].note = (t.value || '').slice(0, WEEK_DAY_PLAN_NOTE_MAX_LEN);
+      if (persistDraftTimer) {
+        clearTimeout(persistDraftTimer);
+        persistDraftTimer = null;
+      }
+      draftDirty = true;
+      persistPlanningDraft({ markCommitted: false, notify: true });
     });
     document.getElementById('week-planning-prev-week')?.addEventListener('click', () => {
       const cur = draft.anchorWeekStart || getMondayYYYYMMDD();
