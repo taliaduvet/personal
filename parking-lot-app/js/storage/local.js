@@ -47,8 +47,6 @@ export function pruneHabitCompletions(stateRef, nowMs) {
 import { normalizeJournalDayValue } from '../domain/journal-daily.js';
 import { seedPeopleGroupsIfEmpty } from '../domain/piles-people.js';
 import {
-  getMondayYYYYMMDD,
-  rollWeekPlanIfStale,
   normalizeWeekPlan,
   pruneWeekPlan
 } from '../domain/weekly-planning.js';
@@ -191,15 +189,7 @@ export function loadState() {
     }));
     state.completedTodayCount = countCompletedInTallyDay();
 
-    const mon = getMondayYYYYMMDD();
-    const rolled = rollWeekPlanIfStale(state.weekPlan, mon);
-    if (rolled.rolled) {
-      state.weekPlan = rolled.weekPlan;
-      if (rolled.previousWeekPlanSnapshot) {
-        state.previousWeekPlanSnapshot = normalizeWeekPlan(rolled.previousWeekPlanSnapshot);
-      }
-    }
-    state.weekPlan = pruneWeekPlan(state.items, state.weekPlan);
+    state.weekPlan = pruneWeekPlan(state.items, normalizeWeekPlan(state.weekPlan));
     const sanitizeMeta = sanitizeCategoriesAndItemsAfterLoad();
     if (sanitizeMeta.clearedUniformCustomLabels) {
       saveState(true, true);

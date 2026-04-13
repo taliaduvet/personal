@@ -86,7 +86,10 @@
             </div>
           </div>
           <div id="week-strip-row" class="week-strip-row" style="display:none" aria-label="This week"></div>
-          <div id="today-day-note-strip" class="today-day-note-strip" style="display:none"></div>
+          <div id="today-day-note-strip" class="today-day-note-strip">
+            <label for="today-main-note-header" class="today-main-note-label">Today’s note</label>
+            <textarea id="today-main-note-header" class="settings-name-input today-main-note-field" rows="2" maxlength="400" placeholder="Jot something for today…" aria-label="Today note"></textarea>
+          </div>
         </header>
         <div class="today-panel-body">
           <div id="today-list" class="today-list unified-today"></div>
@@ -119,6 +122,10 @@
           <div class="focus-content">
             <h1>Your Focus</h1>
             <p id="focus-tally" class="focus-tally">Completed today: 0</p>
+            <div class="focus-today-note-wrap">
+              <label for="today-main-note-focus" class="today-main-note-label">Today’s note</label>
+              <textarea id="today-main-note-focus" class="settings-name-input today-main-note-field" rows="2" maxlength="400" placeholder="Jot something for today…" aria-label="Today note"></textarea>
+            </div>
             <div id="focus-list" class="focus-list unified-today"></div>
           </div>
         </div>
@@ -712,7 +719,7 @@
     </div>
   </div>
 
-  <div id="week-planning-overlay" class="week-plan-fullscreen" style="display:none" role="dialog" aria-modal="true" aria-labelledby="week-planning-title">
+  <div id="week-planning-overlay" class="week-plan-fullscreen week-plan-fullscreen-planning" style="display:none" role="dialog" aria-modal="true" aria-labelledby="week-planning-title">
     <div class="week-plan-fullscreen-inner week-planning-layout">
       <header class="week-planning-header">
         <div class="week-planning-header-text">
@@ -737,10 +744,12 @@
         </div>
       </header>
       <details id="week-planning-last-week" class="week-planning-last-week" style="display:none"></details>
-      <div id="week-planning-calendar-wrap" class="week-planning-calendar-wrap">
-        <div id="week-planning-days" class="week-planning-calendar-row" role="group" aria-label="Week at a glance"></div>
+      <div id="week-planning-scroll" class="week-planning-scroll">
+        <div id="week-planning-calendar-wrap" class="week-planning-calendar-wrap">
+          <div id="week-planning-days" class="week-planning-calendar-row" role="group" aria-label="Week at a glance"></div>
+        </div>
+        <section id="week-planning-piles-ref" class="week-planning-piles-ref" aria-label="Piles and tasks"></section>
       </div>
-      <section id="week-planning-piles-ref" class="week-planning-piles-ref" aria-label="Piles and tasks"></section>
     </div>
   </div>
 

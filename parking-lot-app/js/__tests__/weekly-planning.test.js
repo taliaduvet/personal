@@ -7,11 +7,14 @@ import {
   addWeeksToMonday,
   normalizeWeekPlan,
   removeTaskIdFromAllDays,
-  insertTaskInDayOrder
+  insertTaskInDayOrder,
+  clearWeekDaysForAnchor,
+  extractDaysForCalendarWeek,
+  mergeWeekPlanSlice
 } from '../domain/weekly-planning.js';
 
 describe('getTodayLayoutMode', () => {
-  it('returns no_week when stored anchor is not the calendar week of todayKey', () => {
+  it('returns no_week when there is no day entry for todayKey', () => {
     expect(
       getTodayLayoutMode(
         {
@@ -23,7 +26,7 @@ describe('getTodayLayoutMode', () => {
     ).toBe('no_week');
   });
 
-  it('returns with_plan when anchor matches the week that contains todayKey', () => {
+  it('returns with_plan when todayKey has a pile, regardless of anchor week', () => {
     expect(
       getTodayLayoutMode(
         {
@@ -33,6 +36,30 @@ describe('getTodayLayoutMode', () => {
         '2026-04-09'
       )
     ).toBe('with_plan');
+  });
+
+  it('returns with_plan for today when that date is planned even if anchor points elsewhere', () => {
+    expect(
+      getTodayLayoutMode(
+        {
+          anchorWeekStart: '2026-03-30',
+          days: { '2026-04-09': { pileId: 'p1', orderedTaskIds: [] } }
+        },
+        '2026-04-09'
+      )
+    ).toBe('with_plan');
+  });
+
+  it('returns blank_today when today has an entry but no pile theme', () => {
+    expect(
+      getTodayLayoutMode(
+        {
+          anchorWeekStart: '2026-04-06',
+          days: { '2026-04-09': { pileId: null, orderedTaskIds: [], note: 'n', excludedTaskIds: [] } }
+        },
+        '2026-04-09'
+      )
+    ).toBe('blank_today');
   });
 });
 
@@ -63,24 +90,72 @@ describe('swapFocusPileAdjacent', () => {
 });
 
 describe('rollWeekPlanIfStale', () => {
-  it('keeps a future week plan (e.g. next week planned from Sunday)', () => {
+  it('is a no-op: plans stay on absolute calendar dates', () => {
     const wp = {
-      anchorWeekStart: '2026-04-13',
-      days: { '2026-04-14': { pileId: 'p1', orderedTaskIds: ['x'] } }
+      anchorWeekStart: '2026-03-30',
+      days: {
+        '2026-03-31': { pileId: 'p1', orderedTaskIds: ['t1'], note: 'dentist', excludedTaskIds: [] }
+      }
     };
     const r = rollWeekPlanIfStale(wp, '2026-04-06');
     expect(r.rolled).toBe(false);
-    expect(r.weekPlan.anchorWeekStart).toBe('2026-04-13');
-    expect(r.weekPlan.days['2026-04-14'].pileId).toBe('p1');
+    expect(r.previousWeekPlanSnapshot).toBeNull();
+    expect(r.weekPlan.anchorWeekStart).toBe('2026-03-30');
+    expect(r.weekPlan.days['2026-03-31'].note).toBe('dentist');
   });
+});
 
-  it('rolls forward when anchor is before the current Monday', () => {
-    const wp = { anchorWeekStart: '2026-03-30', days: { '2026-03-31': { pileId: 'p1', orderedTaskIds: [] } } };
-    const r = rollWeekPlanIfStale(wp, '2026-04-06');
-    expect(r.rolled).toBe(true);
-    expect(r.weekPlan.anchorWeekStart).toBe('2026-04-06');
-    expect(r.weekPlan.days).toEqual({});
-    expect(r.previousWeekPlanSnapshot?.anchorWeekStart).toBe('2026-03-30');
+describe('mergeWeekPlanSlice', () => {
+  it('replaces one calendar week and keeps other date keys', () => {
+    const existing = normalizeWeekPlan({
+      anchorWeekStart: '2026-03-30',
+      days: {
+        '2026-04-07': { pileId: 'p1', orderedTaskIds: ['a'], note: 'old', excludedTaskIds: [] },
+        '2026-04-20': { pileId: 'p2', orderedTaskIds: [], note: 'keep', excludedTaskIds: [] }
+      }
+    });
+    const slice = normalizeWeekPlan({
+      anchorWeekStart: '2026-04-06',
+      days: {
+        '2026-04-07': { pileId: 'p9', orderedTaskIds: [], note: 'new', excludedTaskIds: [] }
+      }
+    });
+    const m = mergeWeekPlanSlice(existing, slice);
+    expect(m.days['2026-04-07'].pileId).toBe('p9');
+    expect(m.days['2026-04-07'].note).toBe('new');
+    expect(m.days['2026-04-20'].note).toBe('keep');
+    expect(m.anchorWeekStart).toBe('2026-04-06');
+  });
+});
+
+describe('extractDaysForCalendarWeek', () => {
+  it('copies only keys in the given week', () => {
+    const wp = normalizeWeekPlan({
+      anchorWeekStart: '2026-04-06',
+      days: {
+        '2026-04-07': { pileId: 'p1', orderedTaskIds: [], note: 'a', excludedTaskIds: [] },
+        '2026-04-20': { pileId: 'p2', orderedTaskIds: [], note: 'b', excludedTaskIds: [] }
+      }
+    });
+    const d = extractDaysForCalendarWeek(wp, '2026-04-06');
+    expect(Object.keys(d).sort()).toEqual(['2026-04-07']);
+    expect(d['2026-04-07'].note).toBe('a');
+    expect(d['2026-04-20']).toBeUndefined();
+  });
+});
+
+describe('clearWeekDaysForAnchor', () => {
+  it('removes only days in the anchor week, not other calendar dates', () => {
+    const wp = normalizeWeekPlan({
+      anchorWeekStart: '2026-04-06',
+      days: {
+        '2026-04-07': { pileId: 'p1', orderedTaskIds: [], note: '', excludedTaskIds: [] },
+        '2026-04-20': { pileId: 'p2', orderedTaskIds: [], note: 'later', excludedTaskIds: [] }
+      }
+    });
+    const n = clearWeekDaysForAnchor(wp);
+    expect(n.days['2026-04-07']).toBeUndefined();
+    expect(n.days['2026-04-20'].note).toBe('later');
   });
 });
 

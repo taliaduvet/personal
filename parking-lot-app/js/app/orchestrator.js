@@ -300,18 +300,7 @@ function wireComposer() {
       return;
     }
     const todayStr = getTodayLocalYYYYMMDD();
-    const mon = getMondayYYYYMMDD();
-    let wp = normalizeWeekPlan(state.weekPlan);
-    if (!wp.anchorWeekStart || wp.anchorWeekStart !== mon) {
-      if (!state.todaySuggestionIds.includes(id)) state.todaySuggestionIds.push(id);
-      unifiedApi.clearHiddenFromTodayForTask(id);
-      saveState();
-      assertWired('renderTodayList', renderTodayList)?.();
-      assertWired('renderFocusList', renderFocusList)?.();
-      assertWired('renderColumns', renderColumns)?.();
-      processAddToTodayQueueInner(rest);
-      return;
-    }
+    const wp = normalizeWeekPlan(state.weekPlan);
     const day = wp.days[todayStr];
     const plannedPile = day && day.pileId;
     const itemPile = item.pileId || null;

@@ -60,6 +60,52 @@ export function addWeeksToMonday(mondayYmd, deltaWeeks) {
   return getMondayYYYYMMDD(x);
 }
 
+/**
+ * Copy only day entries that fall on the given calendar week (Mon–Sun keys).
+ * Used so opening the planner for another week does not discard other weeks’ saved days.
+ * @param {WeekPlan | null | undefined} wp
+ * @param {string} mondayStr YYYY-MM-DD Monday of the target week
+ */
+export function extractDaysForCalendarWeek(wp, mondayStr) {
+  const base = normalizeWeekPlan(wp);
+  const allow = new Set(getWeekDateKeys(mondayStr));
+  const days = {};
+  Object.keys(base.days).forEach((k) => {
+    if (!allow.has(k)) return;
+    const e = base.days[k];
+    days[k] = JSON.parse(
+      JSON.stringify({
+        pileId: e.pileId != null ? e.pileId : null,
+        orderedTaskIds: Array.isArray(e.orderedTaskIds) ? [...e.orderedTaskIds] : [],
+        note: typeof e.note === 'string' ? e.note : '',
+        excludedTaskIds: Array.isArray(e.excludedTaskIds) ? [...e.excludedTaskIds] : []
+      })
+    );
+  });
+  return days;
+}
+
+/**
+ * Replace only the calendar week in `sliceWp` inside `existingWp`, keeping all other date keys.
+ * @param {WeekPlan | null | undefined} existingWp
+ * @param {WeekPlan | null | undefined} sliceWp must have `anchorWeekStart` = Monday of the week being saved
+ */
+export function mergeWeekPlanSlice(existingWp, sliceWp) {
+  const existing = normalizeWeekPlan(existingWp);
+  const slice = normalizeWeekPlan(sliceWp);
+  const mon = slice.anchorWeekStart;
+  if (!mon) return existing;
+  const inWeek = new Set(getWeekDateKeys(mon));
+  const mergedDays = { ...existing.days };
+  Object.keys(mergedDays).forEach((k) => {
+    if (inWeek.has(k)) delete mergedDays[k];
+  });
+  Object.keys(slice.days).forEach((k) => {
+    if (inWeek.has(k)) mergedDays[k] = slice.days[k];
+  });
+  return normalizeWeekPlan({ anchorWeekStart: mon, days: mergedDays });
+}
+
 /** @param {WeekPlan | null | undefined} wp */
 export function normalizeWeekPlan(wp) {
   if (!wp || typeof wp !== 'object') return { anchorWeekStart: null, days: {} };
@@ -112,16 +158,14 @@ export function normalizeWeekPlan(wp) {
 
 /**
  * @returns {'no_week' | 'blank_today' | 'with_plan'}
+ * Uses **calendar date keys only** so advance planning and stale anchors do not hide today.
  */
 export function getTodayLayoutMode(weekPlan, todayKey) {
   const wp = normalizeWeekPlan(weekPlan);
-  if (!wp.anchorWeekStart) return 'no_week';
-  const t = parseLocalDate(todayKey);
-  if (!t) return 'no_week';
-  const todayMonday = getMondayYYYYMMDD(t);
-  if (wp.anchorWeekStart !== todayMonday) return 'no_week';
+  if (!todayKey || !/^\d{4}-\d{2}-\d{2}$/.test(todayKey)) return 'no_week';
   const day = wp.days[todayKey];
-  if (!day || day.pileId == null || day.pileId === '') return 'blank_today';
+  if (!day) return 'no_week';
+  if (day.pileId == null || day.pileId === '') return 'blank_today';
   return 'with_plan';
 }
 
@@ -394,27 +438,28 @@ export function swapFocusPileAdjacent(items, todayKey, dayEntry, taskId, directi
  * @param {WeekPlan | null | undefined} weekPlan
  * @param {string} currentMonday YYYY-MM-DD
  */
-/** Clear all day entries for the current anchor week (footer Clear week). */
+/** Remove only day keys that belong to the plan’s anchor week (footer Clear week). */
 export function clearWeekDaysForAnchor(wp) {
   const n = normalizeWeekPlan(wp);
-  n.days = {};
+  const anchor = n.anchorWeekStart;
+  if (!anchor) {
+    n.days = {};
+    return n;
+  }
+  const inWeek = new Set(getWeekDateKeys(anchor));
+  Object.keys(n.days).forEach((k) => {
+    if (inWeek.has(k)) delete n.days[k];
+  });
   return n;
 }
 
+/**
+ * Historical name kept for callers. We no longer rewrite or shift the plan when the calendar week changes —
+ * `days` stay on absolute YYYY-MM-DD keys for advance planning.
+ */
 export function rollWeekPlanIfStale(weekPlan, currentMonday) {
-  const wp = normalizeWeekPlan(weekPlan);
-  if (!wp.anchorWeekStart || wp.anchorWeekStart === currentMonday) {
-    return { weekPlan: wp, previousWeekPlanSnapshot: null, rolled: false };
-  }
-  if (wp.anchorWeekStart > currentMonday) {
-    return { weekPlan: wp, previousWeekPlanSnapshot: null, rolled: false };
-  }
-  const prev = JSON.parse(JSON.stringify(wp));
-  return {
-    weekPlan: normalizeWeekPlan({ anchorWeekStart: currentMonday, days: {} }),
-    previousWeekPlanSnapshot: prev,
-    rolled: true
-  };
+  void currentMonday;
+  return { weekPlan: normalizeWeekPlan(weekPlan), previousWeekPlanSnapshot: null, rolled: false };
 }
 
 export { getTodayLocalYYYYMMDD };

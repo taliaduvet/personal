@@ -9,12 +9,12 @@ import {
   getTodayLayoutMode,
   normalizeWeekPlan,
   pruneWeekPlan,
-  rollWeekPlanIfStale,
   getFocusPileTasks,
   getOtherBlockTasks,
   getSingleListNoPlanItems,
   getMondayYYYYMMDD,
-  swapFocusPileAdjacent
+  swapFocusPileAdjacent,
+  WEEK_DAY_PLAN_NOTE_MAX_LEN
 } from '../domain/weekly-planning.js';
 import { clearHiddenFromTodayForTaskState } from '../domain/task-actions.js';
 
@@ -28,6 +28,10 @@ import { clearHiddenFromTodayForTaskState } from '../domain/task-actions.js';
  * @param {() => void} [d.onWeekPlanChanged] sync prefs after week plan edits from Today
  */
 export function createUnifiedTodayRenderer(d) {
+  /** @type {ReturnType<typeof setTimeout>|null} */
+  let todayNoteSaveTimer = null;
+  let todayNoteInputWired = false;
+
   function hiddenSetFor(todayStr) {
     const h = d.state.hiddenFromTodayByDate;
     const arr = h && Array.isArray(h[todayStr]) ? h[todayStr] : [];
@@ -37,6 +41,63 @@ export function createUnifiedTodayRenderer(d) {
   function refreshTodayAndFocus() {
     renderTodayList();
     renderFocusUnified();
+  }
+
+  function getTodayPlanNoteText() {
+    const todayStr = getTodayLocalYYYYMMDD();
+    const wp = normalizeWeekPlan(d.state.weekPlan);
+    const day = wp.days[todayStr];
+    return day && typeof day.note === 'string' ? day.note : '';
+  }
+
+  function persistTodayNoteFromField(raw) {
+    const mon = getMondayYYYYMMDD();
+    const todayStr = getTodayLocalYYYYMMDD();
+    let note = (raw || '').replace(/\r\n/g, '\n');
+    if (note.length > WEEK_DAY_PLAN_NOTE_MAX_LEN) note = note.slice(0, WEEK_DAY_PLAN_NOTE_MAX_LEN);
+
+    d.state.weekPlan = normalizeWeekPlan(d.state.weekPlan);
+    if (!d.state.weekPlan.days[todayStr]) {
+      d.state.weekPlan.days[todayStr] = {
+        pileId: null,
+        orderedTaskIds: [],
+        note: '',
+        excludedTaskIds: []
+      };
+    }
+    d.state.weekPlan.days[todayStr].note = note;
+    d.state.weekPlan.anchorWeekStart = mon;
+    d.state.weekPlan = pruneWeekPlan(d.state.items, d.state.weekPlan);
+    d.saveState();
+    if (typeof d.onWeekPlanChanged === 'function') d.onWeekPlanChanged();
+    refreshTodayAndFocus();
+  }
+
+  function syncTodayNoteFields() {
+    const v = getTodayPlanNoteText();
+    document.querySelectorAll('.today-main-note-field').forEach((ta) => {
+      if (document.activeElement === ta) return;
+      if (ta.value !== v) ta.value = v;
+    });
+  }
+
+  function wireTodayNoteFieldsOnce() {
+    if (todayNoteInputWired) return;
+    todayNoteInputWired = true;
+    document.addEventListener(
+      'input',
+      (e) => {
+        const t = e.target;
+        if (!t || !(t instanceof HTMLTextAreaElement)) return;
+        if (!t.classList.contains('today-main-note-field')) return;
+        if (todayNoteSaveTimer) clearTimeout(todayNoteSaveTimer);
+        todayNoteSaveTimer = setTimeout(() => {
+          todayNoteSaveTimer = null;
+          persistTodayNoteFromField(t.value);
+        }, 350);
+      },
+      true
+    );
   }
 
   function taskRowHtml(item, extraClass = '', orderOpt) {
@@ -54,13 +115,6 @@ export function createUnifiedTodayRenderer(d) {
       <button type="button" class="btn-done btn-done-check" title="Done">✓</button>
       <button type="button" class="btn-remove" title="Remove from Today">Remove</button>
     </div>`;
-  }
-
-  /** @param {string | undefined} note */
-  function todayDayNoteHtml(note) {
-    const t = (note || '').trim();
-    if (!t) return '';
-    return `<div class="unified-today-day-note" role="note"><div class="unified-today-day-note-label">Day note</div><p class="unified-today-day-note-body">${escapeHtml(t)}</p></div>`;
   }
 
   function applyFocusPileReorder(todayStr, taskId, direction) {
@@ -162,21 +216,7 @@ export function createUnifiedTodayRenderer(d) {
    */
   function paintUnifiedToday(root) {
     const todayStr = getTodayLocalYYYYMMDD();
-    const mon = getMondayYYYYMMDD();
-    let wp = normalizeWeekPlan(d.state.weekPlan);
-    if (wp.anchorWeekStart && wp.anchorWeekStart !== mon) {
-      const rolled = rollWeekPlanIfStale(d.state.weekPlan, mon);
-      if (rolled.rolled) {
-        d.state.weekPlan = rolled.weekPlan;
-        if (rolled.previousWeekPlanSnapshot) {
-          d.state.previousWeekPlanSnapshot = normalizeWeekPlan(rolled.previousWeekPlanSnapshot);
-        }
-        d.state.weekPlan = pruneWeekPlan(d.state.items, d.state.weekPlan);
-        d.saveState();
-        if (typeof d.onWeekPlanChanged === 'function') d.onWeekPlanChanged();
-      }
-      wp = normalizeWeekPlan(d.state.weekPlan);
-    }
+    const wp = normalizeWeekPlan(d.state.weekPlan);
 
     const mode = getTodayLayoutMode(wp, todayStr);
 
@@ -187,14 +227,8 @@ export function createUnifiedTodayRenderer(d) {
         d.state.todaySuggestionIds,
         hiddenSetFor(todayStr)
       );
-      const monToday = getMondayYYYYMMDD();
-      const noWeekDayNote =
-        wp.anchorWeekStart === monToday && wp.days[todayStr] && wp.days[todayStr].note
-          ? todayDayNoteHtml(wp.days[todayStr].note)
-          : '';
       root.innerHTML = `
         <div class="unified-today-no-plan">
-          ${noWeekDayNote}
           <p class="unified-today-plan-hint-muted">Use <strong>Plan</strong> in the header when you’re ready to set this week’s focus.</p>
           <div class="unified-today-section-body" data-section="single">${items.length ? items.map((i) => {
             const idx = d.state.todaySuggestionIds.indexOf(i.id);
@@ -216,10 +250,8 @@ export function createUnifiedTodayRenderer(d) {
         hiddenSetFor(todayStr)
       );
       const otherOpen = d.state.otherCollapsedOnDate !== todayStr;
-      const blankDayNote = todayDayNoteHtml(wp.days[todayStr] && wp.days[todayStr].note);
       root.innerHTML = `
         <div class="unified-today-blank">
-          ${blankDayNote}
           <div class="unified-today-banner"><strong>No theme for today</strong> — <button type="button" class="btn-link set-plan-today-btn">Set / update plan for today</button></div>
           <details class="unified-today-details" ${otherOpen ? 'open' : ''} data-section="other">
             <summary>Other <span class="badge-count" data-other-count>${otherItems.length}</span></summary>
@@ -240,7 +272,6 @@ export function createUnifiedTodayRenderer(d) {
     const dayEntry = wp.days[todayStr] || { pileId: null, orderedTaskIds: [], note: '', excludedTaskIds: [] };
     const pileId = dayEntry.pileId;
     const pileLabel = pileId ? (getPileName(pileId) || pileId) : '—';
-    const withPlanDayNote = todayDayNoteHtml(dayEntry.note);
     const hidden = hiddenSetFor(todayStr);
     const focusItems = getFocusPileTasks(d.state.items, todayStr, dayEntry, hidden);
     const otherItems = getOtherBlockTasks(
@@ -254,7 +285,6 @@ export function createUnifiedTodayRenderer(d) {
 
     root.innerHTML = `
       <div class="unified-today-with-plan">
-        ${withPlanDayNote}
         <details class="unified-today-details unified-today-focus" open data-section="focus">
           <summary>Today: ${escapeHtml(pileLabel)}</summary>
           <p class="unified-today-focus-hint">↑ ↓ = order you’ll tackle first in this pile. <button type="button" class="btn-link unified-today-review-plan-btn">Review week</button></p>
@@ -280,37 +310,28 @@ export function createUnifiedTodayRenderer(d) {
        });
   }
 
-  function updateTodayHeaderNoteStrip() {
-    const el = document.getElementById('today-day-note-strip');
-    if (!el) return;
-    const todayStr = getTodayLocalYYYYMMDD();
-    const wp = normalizeWeekPlan(d.state.weekPlan);
-    const monToday = getMondayYYYYMMDD();
-    const aligned = wp.anchorWeekStart === monToday;
-    const day = wp.days[todayStr];
-    const note = aligned && day && typeof day.note === 'string' ? day.note.trim() : '';
-    if (!note) {
-      el.style.display = 'none';
-      el.innerHTML = '';
-      return;
-    }
-    el.style.display = 'block';
-    el.innerHTML = `<div class="today-day-note-strip-inner unified-today-day-note"><div class="unified-today-day-note-label">Today’s plan note</div><p class="unified-today-day-note-body">${escapeHtml(note)}</p></div>`;
-  }
-
   function renderTodayList() {
     const root = document.getElementById('today-list');
     if (!root) return;
+    wireTodayNoteFieldsOnce();
     paintUnifiedToday(root);
-    updateTodayHeaderNoteStrip();
+    syncTodayNoteFields();
   }
 
   function renderFocusUnified() {
     const list = document.getElementById('focus-list');
     if (!list) return;
+    wireTodayNoteFieldsOnce();
     paintUnifiedToday(list);
-    updateTodayHeaderNoteStrip();
+    syncTodayNoteFields();
   }
 
-  return { renderTodayList, renderFocusUnified, removeFromToday, clearHiddenFromTodayForTask, updateTodayHeaderNoteStrip };
+  return {
+    renderTodayList,
+    renderFocusUnified,
+    removeFromToday,
+    clearHiddenFromTodayForTask,
+    syncTodayNoteFields,
+    wireTodayNoteFieldsOnce
+  };
 }

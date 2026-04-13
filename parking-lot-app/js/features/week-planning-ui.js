@@ -10,6 +10,8 @@ import {
   computePlanReview,
   clearWeekDaysForAnchor,
   addWeeksToMonday,
+  extractDaysForCalendarWeek,
+  mergeWeekPlanSlice,
   WEEK_DAY_PLAN_NOTE_MAX_LEN
 } from '../domain/weekly-planning.js';
 import { showToast } from './toast.js';
@@ -89,7 +91,10 @@ export function createWeekPlanningUI(d) {
     if (base.anchorWeekStart === targetMon) {
       draft = normalizeWeekPlan(JSON.parse(JSON.stringify(base)));
     } else {
-      draft = normalizeWeekPlan({ anchorWeekStart: targetMon, days: {} });
+      draft = normalizeWeekPlan({
+        anchorWeekStart: targetMon,
+        days: extractDaysForCalendarWeek(base, targetMon)
+      });
     }
     if (persistDraftTimer) {
       clearTimeout(persistDraftTimer);
@@ -103,7 +108,10 @@ export function createWeekPlanningUI(d) {
     if (base.anchorWeekStart === targetMon) {
       draft = normalizeWeekPlan(JSON.parse(JSON.stringify(base)));
     } else {
-      draft = normalizeWeekPlan({ anchorWeekStart: targetMon, days: {} });
+      draft = normalizeWeekPlan({
+        anchorWeekStart: targetMon,
+        days: extractDaysForCalendarWeek(base, targetMon)
+      });
     }
     if (persistDraftTimer) {
       clearTimeout(persistDraftTimer);
@@ -131,8 +139,8 @@ export function createWeekPlanningUI(d) {
     }
     const mon = draft.anchorWeekStart || getMondayYYYYMMDD();
     draft.anchorWeekStart = mon;
-    const snapshot = normalizeWeekPlan(JSON.parse(JSON.stringify({ ...draft, anchorWeekStart: mon })));
-    d.state.weekPlan = pruneWeekPlan(d.state.items, snapshot);
+    const slice = normalizeWeekPlan(JSON.parse(JSON.stringify({ ...draft, anchorWeekStart: mon })));
+    d.state.weekPlan = pruneWeekPlan(d.state.items, mergeWeekPlanSlice(d.state.weekPlan, slice));
     if (markCommitted) {
       d.state.lastCommittedPlanSnapshot = normalizeWeekPlan(JSON.parse(JSON.stringify(d.state.weekPlan)));
       d.state.lastPlanCommittedAt = new Date().toISOString();
@@ -143,6 +151,14 @@ export function createWeekPlanningUI(d) {
       d.saveDevicePreferencesToSupabase();
     }
     if (notify && typeof d.onCommitted === 'function') d.onCommitted();
+  }
+
+  function flushPlanningDraftIfDirty() {
+    if (persistDraftTimer) {
+      clearTimeout(persistDraftTimer);
+      persistDraftTimer = null;
+    }
+    if (draftDirty) persistPlanningDraft({ markCommitted: false, notify: false });
   }
 
   function schedulePersistPlanningDraft() {
@@ -693,6 +709,10 @@ export function createWeekPlanningUI(d) {
       closePositionModal();
     });
     document.getElementById('add-to-today-position-close')?.addEventListener('click', closePositionModal);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') flushPlanningDraftIfDirty();
+    });
+    window.addEventListener('pagehide', flushPlanningDraftIfDirty);
   }
 
   function closePositionModal() {
@@ -714,10 +734,7 @@ export function createWeekPlanningUI(d) {
     }
     container.style.display = 'flex';
     const mon = getMondayYYYYMMDD();
-    let wp = normalizeWeekPlan(d.state.weekPlan);
-    if (!wp.anchorWeekStart || wp.anchorWeekStart !== mon) {
-      wp = { anchorWeekStart: mon, days: {} };
-    }
+    const wp = normalizeWeekPlan(d.state.weekPlan);
     const keys = getWeekDateKeys(mon);
     const todayStr = getTodayLocalYYYYMMDD();
     const dayLetters = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
@@ -740,10 +757,7 @@ export function createWeekPlanningUI(d) {
     const container = document.getElementById('week-view-body');
     if (!container) return;
     const mon = getMondayYYYYMMDD();
-    let wp = normalizeWeekPlan(d.state.weekPlan);
-    if (!wp.anchorWeekStart || wp.anchorWeekStart !== mon) {
-      wp = { anchorWeekStart: mon, days: {} };
-    }
+    const wp = normalizeWeekPlan(d.state.weekPlan);
     const keys = getWeekDateKeys(mon);
     const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
     container.innerHTML = keys
