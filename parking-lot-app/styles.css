@@ -720,23 +720,24 @@ body.sidebar-open .sidebar-overlay {
   flex-direction: column;
   align-items: stretch;
   justify-content: flex-start;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
 }
 
 .week-plan-fullscreen-inner {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  min-height: 100%;
   max-width: min(1200px, 100%);
   margin: 0 auto;
   padding: 1rem;
   box-sizing: border-box;
 }
 
-/* Week planner: header + toolbar stay put; calendar and piles each scroll inside their pane */
+/* Week planner: outer overlay scrolls when content is tall; calendar + piles keep their own scroll areas */
 .week-plan-fullscreen-inner.week-planning-layout {
-  overflow: hidden;
-  min-height: 0;
   padding: 0.45rem 0.65rem 0.65rem;
 }
 
@@ -857,8 +858,9 @@ body.sidebar-open .sidebar-overlay {
 }
 
 .week-planning-piles-ref {
-  flex: 1 1 0;
-  min-height: 0;
+  flex: 0 1 auto;
+  min-height: 8rem;
+  max-height: min(50vh, 30rem);
   margin-top: 0;
   padding: 1rem;
   border-radius: var(--radius);
