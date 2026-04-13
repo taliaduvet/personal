@@ -1165,6 +1165,31 @@ body.sidebar-open .sidebar-overlay {
   border-radius: var(--radius);
 }
 
+.unified-today-day-note {
+  margin: 0 0 0.65rem;
+  padding: 0.5rem 0.65rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-soft);
+}
+
+.unified-today-day-note-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: 0.25rem;
+}
+
+.unified-today-day-note-body {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.4;
+  color: var(--text);
+  white-space: pre-wrap;
+}
+
 .unified-today-details summary {
   cursor: pointer;
   font-weight: 600;

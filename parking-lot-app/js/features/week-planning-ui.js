@@ -56,13 +56,15 @@ function dayOfMonthNum(dateKey) {
  * @param {object} d
  * @param {import('../state.js').state} d.state
  * @param {() => void} d.saveState
- * @param {() => void} d.onCommitted
+ * @param {() => void} [d.onCommitted]
  * @param {() => void} [d.saveDevicePreferencesToSupabase]
  * @param {(presetCategory?: string, presetPileId?: string | null) => void} [d.openAddModal]
  */
 export function createWeekPlanningUI(d) {
   let draft = normalizeWeekPlan({ anchorWeekStart: null, days: {} });
   let draftDirty = false;
+  /** @type {ReturnType<typeof setTimeout>|null} */
+  let persistDraftTimer = null;
   let pendingScrollDate = null;
   let positionModalCallback = null;
   /** @type {Record<string, unknown>} */
@@ -89,6 +91,10 @@ export function createWeekPlanningUI(d) {
     } else {
       draft = normalizeWeekPlan({ anchorWeekStart: targetMon, days: {} });
     }
+    if (persistDraftTimer) {
+      clearTimeout(persistDraftTimer);
+      persistDraftTimer = null;
+    }
     draftDirty = false;
   }
 
@@ -99,17 +105,57 @@ export function createWeekPlanningUI(d) {
     } else {
       draft = normalizeWeekPlan({ anchorWeekStart: targetMon, days: {} });
     }
+    if (persistDraftTimer) {
+      clearTimeout(persistDraftTimer);
+      persistDraftTimer = null;
+    }
     draftDirty = false;
   }
 
   function tryChangePlanningWeek(newMonday) {
     if (!newMonday) return;
-    if (draftDirty && !window.confirm('Switch week? Unsaved changes for this week will be lost.')) return;
+    if (draftDirty) persistPlanningDraft({ markCommitted: false, notify: false });
     loadDraftForMonday(newMonday);
     lastPlanningOpts = { ...lastPlanningOpts, anchorWeekStart: newMonday };
     if ('scrollToDate' in lastPlanningOpts) delete lastPlanningOpts.scrollToDate;
     pendingScrollDate = null;
     renderPlanningDays();
+  }
+
+  function persistPlanningDraft(opts = {}) {
+    const markCommitted = opts.markCommitted === true;
+    const notify = opts.notify !== false;
+    if (persistDraftTimer) {
+      clearTimeout(persistDraftTimer);
+      persistDraftTimer = null;
+    }
+    const mon = draft.anchorWeekStart || getMondayYYYYMMDD();
+    draft.anchorWeekStart = mon;
+    d.state.weekPlan = pruneWeekPlan(d.state.items, { ...draft, anchorWeekStart: mon });
+    if (markCommitted) {
+      d.state.lastCommittedPlanSnapshot = normalizeWeekPlan(JSON.parse(JSON.stringify(d.state.weekPlan)));
+      d.state.lastPlanCommittedAt = new Date().toISOString();
+    }
+    draftDirty = false;
+    d.saveState();
+    if (window.talkAbout && d.state.deviceSyncId && d.saveDevicePreferencesToSupabase) {
+      d.saveDevicePreferencesToSupabase();
+    }
+    if (notify && typeof d.onCommitted === 'function') d.onCommitted();
+  }
+
+  function schedulePersistPlanningDraft() {
+    if (persistDraftTimer) clearTimeout(persistDraftTimer);
+    persistDraftTimer = setTimeout(() => {
+      persistDraftTimer = null;
+      if (!draftDirty) return;
+      persistPlanningDraft({ markCommitted: false, notify: true });
+    }, 400);
+  }
+
+  function markDraftDirty() {
+    draftDirty = true;
+    schedulePersistPlanningDraft();
   }
 
   function showEl(id, show) {
@@ -184,27 +230,14 @@ export function createWeekPlanningUI(d) {
   }
 
   function commitPlanning() {
-    d.state.weekPlan = pruneWeekPlan(d.state.items, draft);
-    d.state.lastCommittedPlanSnapshot = normalizeWeekPlan(JSON.parse(JSON.stringify(d.state.weekPlan)));
-    d.state.lastPlanCommittedAt = new Date().toISOString();
-    draftDirty = false;
-    d.saveState();
-    if (window.talkAbout && d.state.deviceSyncId && d.saveDevicePreferencesToSupabase) {
-      d.saveDevicePreferencesToSupabase();
-    }
+    persistPlanningDraft({ markCommitted: true, notify: false });
     closePlanningOverlay();
-    d.onCommitted();
+    if (typeof d.onCommitted === 'function') d.onCommitted();
   }
 
   function tryClosePlanning() {
-    if (!draftDirty) {
-      closePlanningOverlay();
-      return;
-    }
-    if (window.confirm('Discard changes?')) {
-      draftDirty = false;
-      closePlanningOverlay();
-    }
+    if (draftDirty) persistPlanningDraft({ markCommitted: false });
+    closePlanningOverlay();
   }
 
   function renderPilesReference() {
@@ -333,7 +366,7 @@ export function createWeekPlanningUI(d) {
       const it = d.state.items.find((x) => x.id === id);
       return it && !it.archived && (it.pileId || null) === v;
     });
-    draftDirty = true;
+    markDraftDirty();
     renderPlanningDays();
   }
 
@@ -445,7 +478,7 @@ export function createWeekPlanningUI(d) {
         if (!draft.days[dateKey].excludedTaskIds) draft.days[dateKey].excludedTaskIds = [];
         if (!draft.days[dateKey].excludedTaskIds.includes(id)) draft.days[dateKey].excludedTaskIds.push(id);
         draft.days[dateKey].orderedTaskIds = (draft.days[dateKey].orderedTaskIds || []).filter((x) => x !== id);
-        draftDirty = true;
+        markDraftDirty();
         renderPlanningDays();
       });
     });
@@ -479,7 +512,7 @@ export function createWeekPlanningUI(d) {
           const it = d.state.items.find(x => x.id === tid);
           return it && (it.pileId || null) === draft.days[dateKey].pileId;
         });
-        draftDirty = true;
+        markDraftDirty();
         renderPlanningDays();
       });
     });
@@ -512,7 +545,7 @@ export function createWeekPlanningUI(d) {
           });
           draft.days[toDate].excludedTaskIds = (draft.days[toDate].excludedTaskIds || []).filter(x => x !== id);
           draft.days[toDate].orderedTaskIds = [...(draft.days[toDate].orderedTaskIds || []), id];
-          draftDirty = true;
+          markDraftDirty();
           renderPlanningDays();
           return;
         }
@@ -537,7 +570,7 @@ export function createWeekPlanningUI(d) {
           const it = d.state.items.find(x => x.id === tid);
           return it && (it.pileId || null) === draft.days[toDate].pileId;
         });
-        draftDirty = true;
+        markDraftDirty();
         renderPlanningDays();
       });
     });
@@ -585,7 +618,7 @@ export function createWeekPlanningUI(d) {
     document.getElementById('week-planning-clear')?.addEventListener('click', () => {
       if (!window.confirm('Clear all planned days for this week? This cannot be undone.')) return;
       draft = clearWeekDaysForAnchor(draft);
-      draftDirty = true;
+      markDraftDirty();
       renderPlanningDays();
     });
     document.getElementById('week-planning-calendar-wrap')?.addEventListener('input', (e) => {
@@ -595,7 +628,7 @@ export function createWeekPlanningUI(d) {
       if (!dk) return;
       if (!draft.days[dk]) draft.days[dk] = { pileId: null, orderedTaskIds: [], note: '', excludedTaskIds: [] };
       draft.days[dk].note = (t.value || '').slice(0, WEEK_DAY_PLAN_NOTE_MAX_LEN);
-      draftDirty = true;
+      markDraftDirty();
     });
     document.getElementById('week-planning-prev-week')?.addEventListener('click', () => {
       const cur = draft.anchorWeekStart || getMondayYYYYMMDD();
@@ -718,6 +751,7 @@ export function createWeekPlanningUI(d) {
 
   /** Close every planning surface (modals + fullscreen). Safe to call on load if DOM was left inconsistent. */
   function forceCloseAllPlanningUI() {
+    if (draftDirty) persistPlanningDraft({ markCommitted: false, notify: true });
     closePlanningOverlay();
     closePrePlanModal();
     closeFourBlockReview();

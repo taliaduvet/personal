@@ -2,12 +2,39 @@ import { describe, it, expect } from 'vitest';
 import {
   swapFocusPileAdjacent,
   getFocusPileTasks,
+  getTodayLayoutMode,
   rollWeekPlanIfStale,
   addWeeksToMonday,
   normalizeWeekPlan,
   removeTaskIdFromAllDays,
   insertTaskInDayOrder
 } from '../domain/weekly-planning.js';
+
+describe('getTodayLayoutMode', () => {
+  it('returns no_week when stored anchor is not the calendar week of todayKey', () => {
+    expect(
+      getTodayLayoutMode(
+        {
+          anchorWeekStart: '2026-04-13',
+          days: { '2026-04-14': { pileId: 'p1', orderedTaskIds: [] } }
+        },
+        '2026-04-09'
+      )
+    ).toBe('no_week');
+  });
+
+  it('returns with_plan when anchor matches the week that contains todayKey', () => {
+    expect(
+      getTodayLayoutMode(
+        {
+          anchorWeekStart: '2026-04-06',
+          days: { '2026-04-09': { pileId: 'p1', orderedTaskIds: [] } }
+        },
+        '2026-04-09'
+      )
+    ).toBe('with_plan');
+  });
+});
 
 describe('swapFocusPileAdjacent', () => {
   const todayKey = '2026-04-09';

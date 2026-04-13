@@ -116,6 +116,10 @@ export function normalizeWeekPlan(wp) {
 export function getTodayLayoutMode(weekPlan, todayKey) {
   const wp = normalizeWeekPlan(weekPlan);
   if (!wp.anchorWeekStart) return 'no_week';
+  const t = parseLocalDate(todayKey);
+  if (!t) return 'no_week';
+  const todayMonday = getMondayYYYYMMDD(t);
+  if (wp.anchorWeekStart !== todayMonday) return 'no_week';
   const day = wp.days[todayKey];
   if (!day || day.pileId == null || day.pileId === '') return 'blank_today';
   return 'with_plan';

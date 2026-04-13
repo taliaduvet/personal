@@ -56,6 +56,13 @@ export function createUnifiedTodayRenderer(d) {
     </div>`;
   }
 
+  /** @param {string | undefined} note */
+  function todayDayNoteHtml(note) {
+    const t = (note || '').trim();
+    if (!t) return '';
+    return `<div class="unified-today-day-note" role="note"><div class="unified-today-day-note-label">Day note</div><p class="unified-today-day-note-body">${escapeHtml(t)}</p></div>`;
+  }
+
   function applyFocusPileReorder(todayStr, taskId, direction) {
     const wp = normalizeWeekPlan(d.state.weekPlan);
     const dayEntry = wp.days[todayStr];
@@ -204,8 +211,10 @@ export function createUnifiedTodayRenderer(d) {
         hiddenSetFor(todayStr)
       );
       const otherOpen = d.state.otherCollapsedOnDate !== todayStr;
+      const blankDayNote = todayDayNoteHtml(wp.days[todayStr] && wp.days[todayStr].note);
       root.innerHTML = `
         <div class="unified-today-blank">
+          ${blankDayNote}
           <div class="unified-today-banner"><strong>No theme for today</strong> — <button type="button" class="btn-link set-plan-today-btn">Set / update plan for today</button></div>
           <details class="unified-today-details" ${otherOpen ? 'open' : ''} data-section="other">
             <summary>Other <span class="badge-count" data-other-count>${otherItems.length}</span></summary>
@@ -223,9 +232,10 @@ export function createUnifiedTodayRenderer(d) {
       return;
     }
 
-    const dayEntry = wp.days[todayStr] || { pileId: null, orderedTaskIds: [] };
+    const dayEntry = wp.days[todayStr] || { pileId: null, orderedTaskIds: [], note: '', excludedTaskIds: [] };
     const pileId = dayEntry.pileId;
     const pileLabel = pileId ? (getPileName(pileId) || pileId) : '—';
+    const withPlanDayNote = todayDayNoteHtml(dayEntry.note);
     const hidden = hiddenSetFor(todayStr);
     const focusItems = getFocusPileTasks(d.state.items, todayStr, dayEntry, hidden);
     const otherItems = getOtherBlockTasks(
@@ -240,6 +250,7 @@ export function createUnifiedTodayRenderer(d) {
     root.innerHTML = `
       <div class="unified-today-with-plan">
         <p class="unified-today-focus-banner"><button type="button" class="btn-secondary plan-focus-inline-btn">Plan</button> <span class="focus-banner-hint">this week</span></p>
+        ${withPlanDayNote}
         <details class="unified-today-details unified-today-focus" open data-section="focus">
           <summary>Today: ${escapeHtml(pileLabel)}</summary>
           <p class="unified-today-focus-hint">↑ ↓ = order you’ll tackle first in this pile. <button type="button" class="btn-link unified-today-review-plan-btn">Review week</button></p>
