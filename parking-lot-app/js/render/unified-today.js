@@ -73,7 +73,8 @@ export function createUnifiedTodayRenderer(d) {
       d.state.weekPlan.days[todayStr] = {
         pileId: dayEntry.pileId,
         orderedTaskIds: [],
-        note: typeof dayEntry.note === 'string' ? dayEntry.note : ''
+        note: typeof dayEntry.note === 'string' ? dayEntry.note : '',
+        excludedTaskIds: Array.isArray(dayEntry.excludedTaskIds) ? [...dayEntry.excludedTaskIds] : []
       };
     }
     d.state.weekPlan.days[todayStr].pileId = dayEntry.pileId;

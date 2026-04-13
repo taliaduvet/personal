@@ -4,7 +4,9 @@ import {
   getFocusPileTasks,
   rollWeekPlanIfStale,
   addWeeksToMonday,
-  normalizeWeekPlan
+  normalizeWeekPlan,
+  removeTaskIdFromAllDays,
+  insertTaskInDayOrder
 } from '../domain/weekly-planning.js';
 
 describe('swapFocusPileAdjacent', () => {
@@ -71,6 +73,7 @@ describe('normalizeWeekPlan', () => {
       days: { '2026-04-07': { pileId: 'p1', orderedTaskIds: [] } }
     });
     expect(n.days['2026-04-07'].note).toBe('');
+    expect(n.days['2026-04-07'].excludedTaskIds).toEqual([]);
   });
 
   it('migrates legacy planNotes onto Monday when that day has no note', () => {
@@ -90,6 +93,59 @@ describe('normalizeWeekPlan', () => {
       planNotes: 'Legacy'
     });
     expect(n.days['2026-04-06'].note).toBe('Already');
+  });
+
+  it('normalizes excludedTaskIds per day', () => {
+    const n = normalizeWeekPlan({
+      anchorWeekStart: '2026-04-06',
+      days: { '2026-04-07': { pileId: 'p1', orderedTaskIds: ['a'], excludedTaskIds: ['b', 'b'] } }
+    });
+    expect(n.days['2026-04-07'].excludedTaskIds).toEqual(['b']);
+  });
+
+  it('drops excludedTaskIds when pile is cleared', () => {
+    const n = normalizeWeekPlan({
+      anchorWeekStart: '2026-04-06',
+      days: { '2026-04-07': { pileId: null, orderedTaskIds: [], excludedTaskIds: ['x'] } }
+    });
+    expect(n.days['2026-04-07'].excludedTaskIds).toEqual([]);
+  });
+});
+
+describe('getFocusPileTasks', () => {
+  const items = [
+    { id: 'a', pileId: 'p1', archived: false, category: 'life', parkedAt: 1 },
+    { id: 'b', pileId: 'p1', archived: false, category: 'life', parkedAt: 2 }
+  ];
+
+  it('omits tasks listed in excludedTaskIds', () => {
+    const dayEntry = { pileId: 'p1', orderedTaskIds: ['a', 'b'], excludedTaskIds: ['a'] };
+    const ids = getFocusPileTasks(items, '2026-04-09', dayEntry, null).map(t => t.id);
+    expect(ids).toEqual(['b']);
+  });
+});
+
+describe('removeTaskIdFromAllDays', () => {
+  it('removes id from excludedTaskIds too', () => {
+    const wp = normalizeWeekPlan({
+      anchorWeekStart: '2026-04-06',
+      days: { '2026-04-07': { pileId: 'p1', orderedTaskIds: ['a'], excludedTaskIds: ['a', 'b'] } }
+    });
+    const next = removeTaskIdFromAllDays(wp, 'a');
+    expect(next.days['2026-04-07'].orderedTaskIds).toEqual([]);
+    expect(next.days['2026-04-07'].excludedTaskIds).toEqual(['b']);
+  });
+});
+
+describe('insertTaskInDayOrder', () => {
+  it('clears excluded when inserting task into that day', () => {
+    const wp = normalizeWeekPlan({
+      anchorWeekStart: '2026-04-06',
+      days: { '2026-04-07': { pileId: 'p1', orderedTaskIds: [], excludedTaskIds: ['t1'] } }
+    });
+    const next = insertTaskInDayOrder(wp, '2026-04-07', 't1', 'top');
+    expect(next.days['2026-04-07'].orderedTaskIds).toEqual(['t1']);
+    expect(next.days['2026-04-07'].excludedTaskIds).toEqual([]);
   });
 });
 

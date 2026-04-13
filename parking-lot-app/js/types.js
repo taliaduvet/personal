@@ -66,7 +66,7 @@
 /**
  * @typedef {Object} WeekPlanState
  * @property {string|null} anchorWeekStart
- * @property {Record<string, { pileId: string|null, orderedTaskIds: string[], note: string }>} days — each day may include a short `note` for the planning calendar
+ * @property {Record<string, { pileId: string|null, orderedTaskIds: string[], note: string, excludedTaskIds: string[] }>} days — `excludedTaskIds` hides pile tasks from that day’s plan without removing them from the pile
  */
 
 /**

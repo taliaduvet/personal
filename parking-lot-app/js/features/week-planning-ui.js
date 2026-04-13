@@ -324,9 +324,11 @@ export function createWeekPlanningUI(d) {
   }
 
   function setDayPile(dateKey, pileId) {
-    if (!draft.days[dateKey]) draft.days[dateKey] = { pileId: null, orderedTaskIds: [], note: '' };
+    if (!draft.days[dateKey]) draft.days[dateKey] = { pileId: null, orderedTaskIds: [], note: '', excludedTaskIds: [] };
     const v = pileId || null;
+    const prev = draft.days[dateKey].pileId || null;
     draft.days[dateKey].pileId = v;
+    if (prev !== v) draft.days[dateKey].excludedTaskIds = [];
     draft.days[dateKey].orderedTaskIds = (draft.days[dateKey].orderedTaskIds || []).filter((id) => {
       const it = d.state.items.find((x) => x.id === id);
       return it && !it.archived && (it.pileId || null) === v;
@@ -364,14 +366,22 @@ export function createWeekPlanningUI(d) {
     const todayStr = getTodayLocalYYYYMMDD();
     wrap.innerHTML = keys
       .map((dateKey) => {
-        if (!draft.days[dateKey]) draft.days[dateKey] = { pileId: null, orderedTaskIds: [], note: '' };
+        if (!draft.days[dateKey]) draft.days[dateKey] = { pileId: null, orderedTaskIds: [], note: '', excludedTaskIds: [] };
         const entry = draft.days[dateKey];
+        const excluded = new Set(entry.excludedTaskIds || []);
         const inPile = (d.state.items || []).filter(
-          (it) => !it.archived && entry.pileId && (it.pileId || null) === entry.pileId
+          (it) =>
+            !it.archived &&
+            entry.pileId &&
+            (it.pileId || null) === entry.pileId &&
+            !excluded.has(it.id)
         );
         const orderedFirst = (entry.orderedTaskIds || []).map((id) => d.state.items.find((x) => x.id === id)).filter(Boolean);
         const rest = inPile.filter((it) => !(entry.orderedTaskIds || []).includes(it.id));
         const rows = [...orderedFirst, ...rest];
+        const removeBtn = entry.pileId
+          ? '<button type="button" class="btn-secondary btn-sm plan-remove-from-day" title="Remove from this day" aria-label="Remove from this day">×</button>'
+          : '';
         const listHtml =
           rows
             .map(
@@ -381,6 +391,7 @@ export function createWeekPlanningUI(d) {
           <span class="plan-task-text">${escapeHtml(it.text)}</span>
           <button type="button" class="btn-secondary btn-sm plan-move-up" ${idx === 0 ? 'disabled' : ''}>↑</button>
           <button type="button" class="btn-secondary btn-sm plan-move-down" ${idx >= rows.length - 1 ? 'disabled' : ''}>↓</button>
+          ${removeBtn}
         </div>`
             )
             .join('') || '<div class="empty-state plan-pile-empty">No tasks in this pile</div>';
@@ -424,6 +435,21 @@ export function createWeekPlanningUI(d) {
       });
     });
 
+    wrap.querySelectorAll('.plan-remove-from-day').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const row = btn.closest('.plan-day-task');
+        const dateKey = row?.dataset.date;
+        const id = row?.dataset.id;
+        if (!dateKey || !id || !draft.days[dateKey]) return;
+        if (!draft.days[dateKey].excludedTaskIds) draft.days[dateKey].excludedTaskIds = [];
+        if (!draft.days[dateKey].excludedTaskIds.includes(id)) draft.days[dateKey].excludedTaskIds.push(id);
+        draft.days[dateKey].orderedTaskIds = (draft.days[dateKey].orderedTaskIds || []).filter((x) => x !== id);
+        draftDirty = true;
+        renderPlanningDays();
+      });
+    });
+
     wrap.querySelectorAll('.plan-move-up, .plan-move-down').forEach(btn => {
       btn.addEventListener('click', () => {
         const row = btn.closest('.plan-day-task');
@@ -431,8 +457,13 @@ export function createWeekPlanningUI(d) {
         const id = row.dataset.id;
         const list = draft.days[dateKey].orderedTaskIds || [];
         const fullOrder = [...list];
+        const excl = new Set(draft.days[dateKey].excludedTaskIds || []);
         const inPile = (d.state.items || []).filter(
-          it => !it.archived && draft.days[dateKey].pileId && (it.pileId || null) === draft.days[dateKey].pileId
+          it =>
+            !it.archived &&
+            draft.days[dateKey].pileId &&
+            (it.pileId || null) === draft.days[dateKey].pileId &&
+            !excl.has(it.id)
         );
         const restIds = inPile.filter(it => !fullOrder.includes(it.id)).map(it => it.id);
         const combined = [...fullOrder, ...restIds];
@@ -473,12 +504,13 @@ export function createWeekPlanningUI(d) {
         if (fromDate !== toDate) {
           const item = d.state.items.find(x => x.id === id);
           if (!item || item.archived) return;
-          if (!draft.days[toDate]) draft.days[toDate] = { pileId: null, orderedTaskIds: [], note: '' };
+          if (!draft.days[toDate]) draft.days[toDate] = { pileId: null, orderedTaskIds: [], note: '', excludedTaskIds: [] };
           const toPile = draft.days[toDate].pileId;
           if (!toPile || (item.pileId || null) !== toPile) return;
           Object.keys(draft.days).forEach(k => {
             draft.days[k].orderedTaskIds = (draft.days[k].orderedTaskIds || []).filter(x => x !== id);
           });
+          draft.days[toDate].excludedTaskIds = (draft.days[toDate].excludedTaskIds || []).filter(x => x !== id);
           draft.days[toDate].orderedTaskIds = [...(draft.days[toDate].orderedTaskIds || []), id];
           draftDirty = true;
           renderPlanningDays();
@@ -487,8 +519,13 @@ export function createWeekPlanningUI(d) {
         const row = e.target.closest('.plan-day-task');
         if (!row) return;
         const ids = [...(draft.days[toDate].orderedTaskIds || [])];
+        const exDrop = new Set(draft.days[toDate].excludedTaskIds || []);
         const rest = (d.state.items || []).filter(
-          it => !it.archived && draft.days[toDate].pileId && (it.pileId || null) === draft.days[toDate].pileId
+          it =>
+            !it.archived &&
+            draft.days[toDate].pileId &&
+            (it.pileId || null) === draft.days[toDate].pileId &&
+            !exDrop.has(it.id)
         ).map(it => it.id).filter(i => !ids.includes(i));
         const full = [...ids, ...rest];
         const fromIdx = full.indexOf(id);
@@ -556,7 +593,7 @@ export function createWeekPlanningUI(d) {
       if (!(t instanceof HTMLTextAreaElement) || !t.classList.contains('plan-day-note-input')) return;
       const dk = t.dataset.date;
       if (!dk) return;
-      if (!draft.days[dk]) draft.days[dk] = { pileId: null, orderedTaskIds: [], note: '' };
+      if (!draft.days[dk]) draft.days[dk] = { pileId: null, orderedTaskIds: [], note: '', excludedTaskIds: [] };
       draft.days[dk].note = (t.value || '').slice(0, WEEK_DAY_PLAN_NOTE_MAX_LEN);
       draftDirty = true;
     });

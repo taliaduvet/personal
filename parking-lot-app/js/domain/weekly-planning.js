@@ -7,7 +7,7 @@ import { getPileName } from './piles-people.js';
 /** Max length for each day’s planning note (calendar column). */
 export const WEEK_DAY_PLAN_NOTE_MAX_LEN = 400;
 
-/** @typedef {{ anchorWeekStart: string | null, days: Record<string, { pileId: string | null, orderedTaskIds: string[], note: string }> }} WeekPlan */
+/** @typedef {{ anchorWeekStart: string | null, days: Record<string, { pileId: string | null, orderedTaskIds: string[], note: string, excludedTaskIds: string[] }> }} WeekPlan */
 
 /**
  * Monday (local) of the week containing `d`, as YYYY-MM-DD.
@@ -75,10 +75,16 @@ export function normalizeWeekPlan(wp) {
           note = note.slice(0, WEEK_DAY_PLAN_NOTE_MAX_LEN);
         }
       }
+      const pileId = e && e.pileId != null ? e.pileId : null;
+      let excludedTaskIds = [];
+      if (e && Array.isArray(e.excludedTaskIds)) {
+        excludedTaskIds = [...new Set(e.excludedTaskIds.filter(id => typeof id === 'string' && id.length))];
+      }
       days[k] = {
-        pileId: e && e.pileId != null ? e.pileId : null,
+        pileId,
         orderedTaskIds: Array.isArray(e && e.orderedTaskIds) ? [...e.orderedTaskIds] : [],
-        note
+        note,
+        excludedTaskIds: pileId == null ? [] : excludedTaskIds
       };
     });
   }
@@ -92,7 +98,7 @@ export function normalizeWeekPlan(wp) {
         legacy = legacy.slice(0, WEEK_DAY_PLAN_NOTE_MAX_LEN);
       }
       if (!days[monKey]) {
-        days[monKey] = { pileId: null, orderedTaskIds: [], note: legacy };
+        days[monKey] = { pileId: null, orderedTaskIds: [], note: legacy, excludedTaskIds: [] };
       } else if (!days[monKey].note) {
         days[monKey] = { ...days[monKey], note: legacy };
       }
@@ -124,6 +130,7 @@ export function removeTaskIdFromAllDays(wp, taskId) {
   const out = normalizeWeekPlan(wp);
   Object.keys(out.days).forEach(k => {
     out.days[k].orderedTaskIds = (out.days[k].orderedTaskIds || []).filter(id => id !== taskId);
+    out.days[k].excludedTaskIds = (out.days[k].excludedTaskIds || []).filter(id => id !== taskId);
   });
   return out;
 }
@@ -137,12 +144,13 @@ export function removeTaskIdFromAllDays(wp, taskId) {
 export function insertTaskInDayOrder(wp, dateKey, taskId, position) {
   let next = removeTaskIdFromAllDays(wp, taskId);
   if (!next.days[dateKey]) {
-    next.days[dateKey] = { pileId: null, orderedTaskIds: [], note: '' };
+    next.days[dateKey] = { pileId: null, orderedTaskIds: [], note: '', excludedTaskIds: [] };
   }
   const list = [...(next.days[dateKey].orderedTaskIds || [])].filter(id => id !== taskId);
   if (position === 'top') list.unshift(taskId);
   else list.push(taskId);
   next.days[dateKey].orderedTaskIds = list;
+  next.days[dateKey].excludedTaskIds = (next.days[dateKey].excludedTaskIds || []).filter(id => id !== taskId);
   return next;
 }
 
@@ -159,6 +167,12 @@ export function pruneWeekPlan(items, wp) {
     const e = norm.days[k];
     const pid = e.pileId;
     e.orderedTaskIds = (e.orderedTaskIds || []).filter(id => {
+      const it = byId[id];
+      if (!it || it.archived) return false;
+      if (pid == null) return false;
+      return (it.pileId || null) === pid;
+    });
+    e.excludedTaskIds = (e.excludedTaskIds || []).filter(id => {
       const it = byId[id];
       if (!it || it.archived) return false;
       if (pid == null) return false;
@@ -320,6 +334,7 @@ export function getFocusPileTasks(items, todayKey, dayEntry, hiddenFromToday) {
   if (!dayEntry || !dayEntry.pileId) return [];
   const pileId = dayEntry.pileId;
   const ordered = dayEntry.orderedTaskIds || [];
+  const excluded = new Set(dayEntry.excludedTaskIds || []);
   const hidden =
     hiddenFromToday instanceof Set
       ? hiddenFromToday
@@ -328,7 +343,7 @@ export function getFocusPileTasks(items, todayKey, dayEntry, hiddenFromToday) {
   (items || []).forEach(i => { byId[i.id] = i; });
   const out = [];
   ordered.forEach(id => {
-    if (hidden.has(id)) return;
+    if (hidden.has(id) || excluded.has(id)) return;
     const it = byId[id];
     if (it && !it.archived && (it.pileId || null) === pileId) out.push(it);
   });
@@ -337,7 +352,8 @@ export function getFocusPileTasks(items, todayKey, dayEntry, hiddenFromToday) {
       !i.archived &&
       (i.pileId || null) === pileId &&
       !ordered.includes(i.id) &&
-      !hidden.has(i.id)
+      !hidden.has(i.id) &&
+      !excluded.has(i.id)
   );
   const sortedRest = sortByTimeBandsAndFriction(inPile);
   sortedRest.forEach(i => out.push(i));
@@ -348,7 +364,7 @@ export function getFocusPileTasks(items, todayKey, dayEntry, hiddenFromToday) {
  * Reorder within the Today / focus-pile list (full display order = ordered ids + rest of pile).
  * @param {import('./tasks.js').Item[]} items
  * @param {string} todayKey YYYY-MM-DD
- * @param {{ pileId: string | null, orderedTaskIds: string[], note?: string }} dayEntry
+ * @param {{ pileId: string | null, orderedTaskIds: string[], note?: string, excludedTaskIds?: string[] }} dayEntry
  * @param {string} taskId
  * @param {'up'|'down'} direction
  * @returns {string[] | null} new orderedTaskIds for the day, or null if unchanged
