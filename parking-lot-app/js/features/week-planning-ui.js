@@ -9,7 +9,8 @@ import {
   getWeekDateKeys,
   computePlanReview,
   clearWeekDaysForAnchor,
-  addWeeksToMonday
+  addWeeksToMonday,
+  WEEK_PLAN_NOTES_MAX_LEN
 } from '../domain/weekly-planning.js';
 import { showToast } from './toast.js';
 import { getPileName } from '../domain/piles-people.js';
@@ -89,6 +90,7 @@ export function createWeekPlanningUI(d) {
       draft = normalizeWeekPlan({ anchorWeekStart: targetMon, days: {} });
     }
     draftDirty = false;
+    syncPlanNotesInput();
   }
 
   function loadDraftForMonday(targetMon) {
@@ -99,6 +101,13 @@ export function createWeekPlanningUI(d) {
       draft = normalizeWeekPlan({ anchorWeekStart: targetMon, days: {} });
     }
     draftDirty = false;
+    syncPlanNotesInput();
+  }
+
+  function syncPlanNotesInput() {
+    const ta = document.getElementById('week-planning-plan-notes');
+    if (!ta) return;
+    ta.value = draft.planNotes || '';
   }
 
   function tryChangePlanningWeek(newMonday) {
@@ -109,6 +118,7 @@ export function createWeekPlanningUI(d) {
     if ('scrollToDate' in lastPlanningOpts) delete lastPlanningOpts.scrollToDate;
     pendingScrollDate = null;
     renderPlanningDays();
+    syncPlanNotesInput();
   }
 
   function showEl(id, show) {
@@ -167,6 +177,7 @@ export function createWeekPlanningUI(d) {
 
   function openPlanningOverlay() {
     renderPlanningDays();
+    syncPlanNotesInput();
     showEl('week-planning-overlay', true);
     document.body.classList.add('week-planning-open');
     const wrap = document.getElementById('week-planning-days');
@@ -556,6 +567,13 @@ export function createWeekPlanningUI(d) {
       draft = clearWeekDaysForAnchor(draft);
       draftDirty = true;
       renderPlanningDays();
+      syncPlanNotesInput();
+    });
+    document.getElementById('week-planning-plan-notes')?.addEventListener('input', (e) => {
+      const t = e.target;
+      if (!(t instanceof HTMLTextAreaElement) || t.id !== 'week-planning-plan-notes') return;
+      draft.planNotes = (t.value || '').slice(0, WEEK_PLAN_NOTES_MAX_LEN);
+      draftDirty = true;
     });
     document.getElementById('week-planning-prev-week')?.addEventListener('click', () => {
       const cur = draft.anchorWeekStart || getMondayYYYYMMDD();

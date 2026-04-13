@@ -4,7 +4,10 @@
 import { parseLocalDate, getSortReferenceDate, sortByTimeBandsAndFriction, getTodayLocalYYYYMMDD } from './tasks.js';
 import { getPileName } from './piles-people.js';
 
-/** @typedef {{ anchorWeekStart: string | null, days: Record<string, { pileId: string | null, orderedTaskIds: string[] }> }} WeekPlan */
+/** Max length for {@link WeekPlan#planNotes}. */
+export const WEEK_PLAN_NOTES_MAX_LEN = 2000;
+
+/** @typedef {{ anchorWeekStart: string | null, days: Record<string, { pileId: string | null, orderedTaskIds: string[] }>, planNotes?: string }} WeekPlan */
 
 /**
  * Monday (local) of the week containing `d`, as YYYY-MM-DD.
@@ -59,7 +62,7 @@ export function addWeeksToMonday(mondayYmd, deltaWeeks) {
 
 /** @param {WeekPlan | null | undefined} wp */
 export function normalizeWeekPlan(wp) {
-  if (!wp || typeof wp !== 'object') return { anchorWeekStart: null, days: {} };
+  if (!wp || typeof wp !== 'object') return { anchorWeekStart: null, days: {}, planNotes: '' };
   const days = {};
   if (wp.days && typeof wp.days === 'object') {
     Object.keys(wp.days).forEach(k => {
@@ -71,9 +74,17 @@ export function normalizeWeekPlan(wp) {
       };
     });
   }
+  let planNotes = '';
+  if (typeof wp.planNotes === 'string') {
+    planNotes = wp.planNotes.replace(/\r\n/g, '\n');
+    if (planNotes.length > WEEK_PLAN_NOTES_MAX_LEN) {
+      planNotes = planNotes.slice(0, WEEK_PLAN_NOTES_MAX_LEN);
+    }
+  }
   return {
     anchorWeekStart: typeof wp.anchorWeekStart === 'string' ? wp.anchorWeekStart : null,
-    days
+    days,
+    planNotes
   };
 }
 
@@ -351,6 +362,7 @@ export function swapFocusPileAdjacent(items, todayKey, dayEntry, taskId, directi
 export function clearWeekDaysForAnchor(wp) {
   const n = normalizeWeekPlan(wp);
   n.days = {};
+  n.planNotes = '';
   return n;
 }
 
@@ -364,7 +376,7 @@ export function rollWeekPlanIfStale(weekPlan, currentMonday) {
   }
   const prev = JSON.parse(JSON.stringify(wp));
   return {
-    weekPlan: { anchorWeekStart: currentMonday, days: {} },
+    weekPlan: normalizeWeekPlan({ anchorWeekStart: currentMonday, days: {} }),
     previousWeekPlanSnapshot: prev,
     rolled: true
   };

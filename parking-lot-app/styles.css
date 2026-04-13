@@ -822,6 +822,30 @@ body.sidebar-open .sidebar-overlay {
   min-height: 8rem;
 }
 
+.week-planning-plan-notes-field {
+  margin-bottom: 0.5rem;
+  flex-shrink: 0;
+}
+
+.week-planning-plan-notes-label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 0.25rem;
+}
+
+.week-planning-plan-notes-input {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  resize: vertical;
+  min-height: 2.75rem;
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
 .week-planning-calendar-row {
   display: flex;
   flex-direction: row;

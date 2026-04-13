@@ -61,8 +61,8 @@ export const state = {
   buildRef: '',
   /** Optional white-label copy from `product.json`. */
   productConfig: null,
-  /** @type {{ anchorWeekStart: string | null, days: Record<string, { pileId: string | null, orderedTaskIds: string[] }> }} */
-  weekPlan: { anchorWeekStart: null, days: {} },
+  /** @type {{ anchorWeekStart: string | null, days: Record<string, { pileId: string | null, orderedTaskIds: string[] }>, planNotes?: string }} */
+  weekPlan: { anchorWeekStart: null, days: {}, planNotes: '' },
   /** ISO timestamp of last planning session Done. */
   lastPlanCommittedAt: null,
   /** Deep copy of weekPlan at last Done; powers pre-plan review. */

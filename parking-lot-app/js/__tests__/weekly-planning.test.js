@@ -3,7 +3,8 @@ import {
   swapFocusPileAdjacent,
   getFocusPileTasks,
   rollWeekPlanIfStale,
-  addWeeksToMonday
+  addWeeksToMonday,
+  normalizeWeekPlan
 } from '../domain/weekly-planning.js';
 
 describe('swapFocusPileAdjacent', () => {
@@ -50,7 +51,20 @@ describe('rollWeekPlanIfStale', () => {
     expect(r.rolled).toBe(true);
     expect(r.weekPlan.anchorWeekStart).toBe('2026-04-06');
     expect(r.weekPlan.days).toEqual({});
+    expect(r.weekPlan.planNotes).toBe('');
     expect(r.previousWeekPlanSnapshot?.anchorWeekStart).toBe('2026-03-30');
+  });
+});
+
+describe('normalizeWeekPlan', () => {
+  it('preserves planNotes with a max length', () => {
+    const long = 'x'.repeat(3000);
+    const n = normalizeWeekPlan({ anchorWeekStart: '2026-04-06', days: {}, planNotes: long });
+    expect(n.planNotes.length).toBe(2000);
+  });
+
+  it('defaults planNotes to empty string', () => {
+    expect(normalizeWeekPlan({ anchorWeekStart: null, days: {} }).planNotes).toBe('');
   });
 });
 
