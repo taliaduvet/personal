@@ -323,9 +323,6 @@ export function createWeekPlanningUI(d) {
     </details>`
         : '';
     const clearBtn = `<button type="button" class="plan-pile-clear" data-date="${dk}">Clear day</button>`;
-    const addInPileBtn = entry.pileId
-      ? `<button type="button" class="btn-link plan-day-add-task" data-pile-id="${escapeHtml(entry.pileId)}">New task in this pile</button>`
-      : '';
     const noPilesHint =
       piles.length === 0 ? '<p class="plan-pile-no-piles-msg">Add piles in Settings to assign them here.</p>' : '';
     return `<div class="plan-pile-picker">
@@ -333,7 +330,6 @@ export function createWeekPlanningUI(d) {
       <div class="plan-pile-picker-label">Tap a pile</div>
       <div class="plan-pile-quick-row">${three}</div>
       ${clearBtn}
-      ${addInPileBtn}
     </div>${more}`;
   }
 
@@ -430,14 +426,6 @@ export function createWeekPlanningUI(d) {
         e.stopPropagation();
         const dateKey = btn.dataset.date;
         if (dateKey) setDayPile(dateKey, null);
-      });
-    });
-
-    wrap.querySelectorAll('.plan-day-add-task').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const pid = btn.dataset.pileId;
-        if (d.openAddModal) d.openAddModal(d.state.lastCategory, pid || null);
       });
     });
 

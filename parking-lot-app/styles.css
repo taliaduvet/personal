@@ -885,12 +885,6 @@ body.sidebar-open .sidebar-overlay {
   min-width: 0;
 }
 
-.plan-day-add-task {
-  display: inline-block;
-  margin-top: 0.35rem;
-  font-size: 0.85rem;
-}
-
 .week-planning-ref-title {
   margin: 0 0 0.75rem;
   font-size: 1rem;
