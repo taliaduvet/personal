@@ -66,8 +66,7 @@
 /**
  * @typedef {Object} WeekPlanState
  * @property {string|null} anchorWeekStart
- * @property {Record<string, { pileId: string|null, orderedTaskIds: string[] }>} days
- * @property {string} [planNotes] — short free-text notes for this anchor week (planning overlay)
+ * @property {Record<string, { pileId: string|null, orderedTaskIds: string[], note: string }>} days — each day may include a short `note` for the planning calendar
  */
 
 /**

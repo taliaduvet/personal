@@ -10,7 +10,7 @@ import {
   computePlanReview,
   clearWeekDaysForAnchor,
   addWeeksToMonday,
-  WEEK_PLAN_NOTES_MAX_LEN
+  WEEK_DAY_PLAN_NOTE_MAX_LEN
 } from '../domain/weekly-planning.js';
 import { showToast } from './toast.js';
 import { getPileName } from '../domain/piles-people.js';
@@ -90,7 +90,6 @@ export function createWeekPlanningUI(d) {
       draft = normalizeWeekPlan({ anchorWeekStart: targetMon, days: {} });
     }
     draftDirty = false;
-    syncPlanNotesInput();
   }
 
   function loadDraftForMonday(targetMon) {
@@ -101,13 +100,6 @@ export function createWeekPlanningUI(d) {
       draft = normalizeWeekPlan({ anchorWeekStart: targetMon, days: {} });
     }
     draftDirty = false;
-    syncPlanNotesInput();
-  }
-
-  function syncPlanNotesInput() {
-    const ta = document.getElementById('week-planning-plan-notes');
-    if (!ta) return;
-    ta.value = draft.planNotes || '';
   }
 
   function tryChangePlanningWeek(newMonday) {
@@ -118,7 +110,6 @@ export function createWeekPlanningUI(d) {
     if ('scrollToDate' in lastPlanningOpts) delete lastPlanningOpts.scrollToDate;
     pendingScrollDate = null;
     renderPlanningDays();
-    syncPlanNotesInput();
   }
 
   function showEl(id, show) {
@@ -177,7 +168,6 @@ export function createWeekPlanningUI(d) {
 
   function openPlanningOverlay() {
     renderPlanningDays();
-    syncPlanNotesInput();
     showEl('week-planning-overlay', true);
     document.body.classList.add('week-planning-open');
     const wrap = document.getElementById('week-planning-days');
@@ -334,7 +324,7 @@ export function createWeekPlanningUI(d) {
   }
 
   function setDayPile(dateKey, pileId) {
-    if (!draft.days[dateKey]) draft.days[dateKey] = { pileId: null, orderedTaskIds: [] };
+    if (!draft.days[dateKey]) draft.days[dateKey] = { pileId: null, orderedTaskIds: [], note: '' };
     const v = pileId || null;
     draft.days[dateKey].pileId = v;
     draft.days[dateKey].orderedTaskIds = (draft.days[dateKey].orderedTaskIds || []).filter((id) => {
@@ -374,7 +364,7 @@ export function createWeekPlanningUI(d) {
     const todayStr = getTodayLocalYYYYMMDD();
     wrap.innerHTML = keys
       .map((dateKey) => {
-        if (!draft.days[dateKey]) draft.days[dateKey] = { pileId: null, orderedTaskIds: [] };
+        if (!draft.days[dateKey]) draft.days[dateKey] = { pileId: null, orderedTaskIds: [], note: '' };
         const entry = draft.days[dateKey];
         const inPile = (d.state.items || []).filter(
           (it) => !it.archived && entry.pileId && (it.pileId || null) === entry.pileId
@@ -398,10 +388,15 @@ export function createWeekPlanningUI(d) {
         const wd = weekdayLong(dateKey);
         const dn = dayOfMonthNum(dateKey);
         const todayClass = dateKey === todayStr ? ' plan-day-today' : '';
+        const noteId = `plan-day-note-${dateKey}`;
         return `<div class="plan-day-card${todayClass}" data-date="${dateKey}">
         <div class="plan-day-head">
           <span class="plan-day-weekday">${escapeHtml(wd)}</span>
           <span class="plan-day-numline">${dn}</span>
+        </div>
+        <div class="plan-day-note-wrap">
+          <label class="plan-day-note-label" for="${noteId}">Note</label>
+          <textarea id="${noteId}" class="plan-day-note-input settings-name-input" data-date="${dateKey}" rows="2" maxlength="${WEEK_DAY_PLAN_NOTE_MAX_LEN}" placeholder="Jot something…" aria-label="Plan note for ${escapeHtml(wd)} ${dn}">${escapeHtml(entry.note || '')}</textarea>
         </div>
         ${pileQuickRowHtml(dateKey, entry)}
         <div class="plan-day-list" data-date="${dateKey}">${listHtml}</div>
@@ -478,7 +473,7 @@ export function createWeekPlanningUI(d) {
         if (fromDate !== toDate) {
           const item = d.state.items.find(x => x.id === id);
           if (!item || item.archived) return;
-          if (!draft.days[toDate]) draft.days[toDate] = { pileId: null, orderedTaskIds: [] };
+          if (!draft.days[toDate]) draft.days[toDate] = { pileId: null, orderedTaskIds: [], note: '' };
           const toPile = draft.days[toDate].pileId;
           if (!toPile || (item.pileId || null) !== toPile) return;
           Object.keys(draft.days).forEach(k => {
@@ -555,12 +550,14 @@ export function createWeekPlanningUI(d) {
       draft = clearWeekDaysForAnchor(draft);
       draftDirty = true;
       renderPlanningDays();
-      syncPlanNotesInput();
     });
-    document.getElementById('week-planning-plan-notes')?.addEventListener('input', (e) => {
+    document.getElementById('week-planning-calendar-wrap')?.addEventListener('input', (e) => {
       const t = e.target;
-      if (!(t instanceof HTMLTextAreaElement) || t.id !== 'week-planning-plan-notes') return;
-      draft.planNotes = (t.value || '').slice(0, WEEK_PLAN_NOTES_MAX_LEN);
+      if (!(t instanceof HTMLTextAreaElement) || !t.classList.contains('plan-day-note-input')) return;
+      const dk = t.dataset.date;
+      if (!dk) return;
+      if (!draft.days[dk]) draft.days[dk] = { pileId: null, orderedTaskIds: [], note: '' };
+      draft.days[dk].note = (t.value || '').slice(0, WEEK_DAY_PLAN_NOTE_MAX_LEN);
       draftDirty = true;
     });
     document.getElementById('week-planning-prev-week')?.addEventListener('click', () => {

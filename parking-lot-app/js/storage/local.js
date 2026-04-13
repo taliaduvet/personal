@@ -241,7 +241,7 @@ export function saveState(skipCloudSync, useRemoteTallyDate) {
       journalDailyOpenEntryByDate: state.journalDailyOpenEntryByDate || {},
       people: state.people || [],
       peopleGroups: state.peopleGroups || [],
-      weekPlan: state.weekPlan || { anchorWeekStart: null, days: {}, planNotes: '' },
+      weekPlan: state.weekPlan || { anchorWeekStart: null, days: {} },
       lastPlanCommittedAt: state.lastPlanCommittedAt != null ? state.lastPlanCommittedAt : null,
       lastCommittedPlanSnapshot: state.lastCommittedPlanSnapshot || null,
       previousWeekPlanSnapshot: state.previousWeekPlanSnapshot || null,

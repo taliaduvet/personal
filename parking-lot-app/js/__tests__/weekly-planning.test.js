@@ -51,20 +51,45 @@ describe('rollWeekPlanIfStale', () => {
     expect(r.rolled).toBe(true);
     expect(r.weekPlan.anchorWeekStart).toBe('2026-04-06');
     expect(r.weekPlan.days).toEqual({});
-    expect(r.weekPlan.planNotes).toBe('');
     expect(r.previousWeekPlanSnapshot?.anchorWeekStart).toBe('2026-03-30');
   });
 });
 
 describe('normalizeWeekPlan', () => {
-  it('preserves planNotes with a max length', () => {
-    const long = 'x'.repeat(3000);
-    const n = normalizeWeekPlan({ anchorWeekStart: '2026-04-06', days: {}, planNotes: long });
-    expect(n.planNotes.length).toBe(2000);
+  it('truncates per-day note', () => {
+    const long = 'x'.repeat(500);
+    const n = normalizeWeekPlan({
+      anchorWeekStart: '2026-04-06',
+      days: { '2026-04-07': { pileId: null, orderedTaskIds: [], note: long } }
+    });
+    expect(n.days['2026-04-07'].note.length).toBe(400);
   });
 
-  it('defaults planNotes to empty string', () => {
-    expect(normalizeWeekPlan({ anchorWeekStart: null, days: {} }).planNotes).toBe('');
+  it('defaults day note to empty string', () => {
+    const n = normalizeWeekPlan({
+      anchorWeekStart: '2026-04-06',
+      days: { '2026-04-07': { pileId: 'p1', orderedTaskIds: [] } }
+    });
+    expect(n.days['2026-04-07'].note).toBe('');
+  });
+
+  it('migrates legacy planNotes onto Monday when that day has no note', () => {
+    const n = normalizeWeekPlan({
+      anchorWeekStart: '2026-04-06',
+      days: {},
+      planNotes: 'Hello week'
+    });
+    expect(n.days['2026-04-06'].note).toBe('Hello week');
+    expect('planNotes' in n).toBe(false);
+  });
+
+  it('does not overwrite Monday note with legacy planNotes', () => {
+    const n = normalizeWeekPlan({
+      anchorWeekStart: '2026-04-06',
+      days: { '2026-04-06': { pileId: null, orderedTaskIds: [], note: 'Already' } },
+      planNotes: 'Legacy'
+    });
+    expect(n.days['2026-04-06'].note).toBe('Already');
   });
 });
 

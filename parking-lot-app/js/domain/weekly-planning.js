@@ -4,10 +4,10 @@
 import { parseLocalDate, getSortReferenceDate, sortByTimeBandsAndFriction, getTodayLocalYYYYMMDD } from './tasks.js';
 import { getPileName } from './piles-people.js';
 
-/** Max length for {@link WeekPlan#planNotes}. */
-export const WEEK_PLAN_NOTES_MAX_LEN = 2000;
+/** Max length for each day’s planning note (calendar column). */
+export const WEEK_DAY_PLAN_NOTE_MAX_LEN = 400;
 
-/** @typedef {{ anchorWeekStart: string | null, days: Record<string, { pileId: string | null, orderedTaskIds: string[] }>, planNotes?: string }} WeekPlan */
+/** @typedef {{ anchorWeekStart: string | null, days: Record<string, { pileId: string | null, orderedTaskIds: string[], note: string }> }} WeekPlan */
 
 /**
  * Monday (local) of the week containing `d`, as YYYY-MM-DD.
@@ -62,29 +62,45 @@ export function addWeeksToMonday(mondayYmd, deltaWeeks) {
 
 /** @param {WeekPlan | null | undefined} wp */
 export function normalizeWeekPlan(wp) {
-  if (!wp || typeof wp !== 'object') return { anchorWeekStart: null, days: {}, planNotes: '' };
+  if (!wp || typeof wp !== 'object') return { anchorWeekStart: null, days: {} };
   const days = {};
   if (wp.days && typeof wp.days === 'object') {
     Object.keys(wp.days).forEach(k => {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(k)) return;
       const e = wp.days[k];
+      let note = '';
+      if (e && typeof e.note === 'string') {
+        note = e.note.replace(/\r\n/g, '\n');
+        if (note.length > WEEK_DAY_PLAN_NOTE_MAX_LEN) {
+          note = note.slice(0, WEEK_DAY_PLAN_NOTE_MAX_LEN);
+        }
+      }
       days[k] = {
         pileId: e && e.pileId != null ? e.pileId : null,
-        orderedTaskIds: Array.isArray(e && e.orderedTaskIds) ? [...e.orderedTaskIds] : []
+        orderedTaskIds: Array.isArray(e && e.orderedTaskIds) ? [...e.orderedTaskIds] : [],
+        note
       };
     });
   }
-  let planNotes = '';
-  if (typeof wp.planNotes === 'string') {
-    planNotes = wp.planNotes.replace(/\r\n/g, '\n');
-    if (planNotes.length > WEEK_PLAN_NOTES_MAX_LEN) {
-      planNotes = planNotes.slice(0, WEEK_PLAN_NOTES_MAX_LEN);
+  const anchor = typeof wp.anchorWeekStart === 'string' ? wp.anchorWeekStart : null;
+  if (typeof wp.planNotes === 'string' && wp.planNotes.trim() && anchor) {
+    const weekKeys = getWeekDateKeys(anchor);
+    const monKey = weekKeys[0];
+    if (monKey) {
+      let legacy = wp.planNotes.replace(/\r\n/g, '\n');
+      if (legacy.length > WEEK_DAY_PLAN_NOTE_MAX_LEN) {
+        legacy = legacy.slice(0, WEEK_DAY_PLAN_NOTE_MAX_LEN);
+      }
+      if (!days[monKey]) {
+        days[monKey] = { pileId: null, orderedTaskIds: [], note: legacy };
+      } else if (!days[monKey].note) {
+        days[monKey] = { ...days[monKey], note: legacy };
+      }
     }
   }
   return {
-    anchorWeekStart: typeof wp.anchorWeekStart === 'string' ? wp.anchorWeekStart : null,
-    days,
-    planNotes
+    anchorWeekStart: anchor,
+    days
   };
 }
 
@@ -121,7 +137,7 @@ export function removeTaskIdFromAllDays(wp, taskId) {
 export function insertTaskInDayOrder(wp, dateKey, taskId, position) {
   let next = removeTaskIdFromAllDays(wp, taskId);
   if (!next.days[dateKey]) {
-    next.days[dateKey] = { pileId: null, orderedTaskIds: [] };
+    next.days[dateKey] = { pileId: null, orderedTaskIds: [], note: '' };
   }
   const list = [...(next.days[dateKey].orderedTaskIds || [])].filter(id => id !== taskId);
   if (position === 'top') list.unshift(taskId);
@@ -332,7 +348,7 @@ export function getFocusPileTasks(items, todayKey, dayEntry, hiddenFromToday) {
  * Reorder within the Today / focus-pile list (full display order = ordered ids + rest of pile).
  * @param {import('./tasks.js').Item[]} items
  * @param {string} todayKey YYYY-MM-DD
- * @param {{ pileId: string | null, orderedTaskIds: string[] }} dayEntry
+ * @param {{ pileId: string | null, orderedTaskIds: string[], note?: string }} dayEntry
  * @param {string} taskId
  * @param {'up'|'down'} direction
  * @returns {string[] | null} new orderedTaskIds for the day, or null if unchanged
@@ -362,7 +378,6 @@ export function swapFocusPileAdjacent(items, todayKey, dayEntry, taskId, directi
 export function clearWeekDaysForAnchor(wp) {
   const n = normalizeWeekPlan(wp);
   n.days = {};
-  n.planNotes = '';
   return n;
 }
 

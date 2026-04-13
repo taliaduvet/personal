@@ -70,7 +70,11 @@ export function createUnifiedTodayRenderer(d) {
     );
     if (!next) return;
     if (!d.state.weekPlan.days[todayStr]) {
-      d.state.weekPlan.days[todayStr] = { pileId: dayEntry.pileId, orderedTaskIds: [] };
+      d.state.weekPlan.days[todayStr] = {
+        pileId: dayEntry.pileId,
+        orderedTaskIds: [],
+        note: typeof dayEntry.note === 'string' ? dayEntry.note : ''
+      };
     }
     d.state.weekPlan.days[todayStr].pileId = dayEntry.pileId;
     d.state.weekPlan.days[todayStr].orderedTaskIds = next;
