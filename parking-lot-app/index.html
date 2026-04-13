@@ -717,6 +717,16 @@
         <div class="week-planning-header-text">
           <h2 id="week-planning-title">Plan the week</h2>
           <p id="week-planning-range" class="week-planning-sub"></p>
+          <div class="week-planning-week-nav" role="group" aria-label="Choose which week to plan">
+            <button type="button" id="week-planning-prev-week" class="btn-secondary btn-sm" aria-label="Previous week">←</button>
+            <button type="button" id="week-planning-this-week" class="btn-secondary btn-sm" aria-label="Week containing today">This week</button>
+            <button type="button" id="week-planning-next-week" class="btn-secondary btn-sm" aria-label="Next week">→</button>
+          </div>
+          <div class="week-planning-jump-week">
+            <label for="week-planning-jump-date" class="week-planning-jump-label">Jump to week of</label>
+            <input type="date" id="week-planning-jump-date" class="settings-name-input week-planning-jump-input" autocomplete="off">
+            <button type="button" id="week-planning-jump-go" class="btn-secondary btn-sm">Go</button>
+          </div>
         </div>
         <div class="week-planning-header-actions">
           <button type="button" id="week-planning-clear" class="btn-danger btn-sm">Clear week</button>

@@ -8,8 +8,10 @@ import {
   getMondayYYYYMMDD,
   getWeekDateKeys,
   computePlanReview,
-  clearWeekDaysForAnchor
+  clearWeekDaysForAnchor,
+  addWeeksToMonday
 } from '../domain/weekly-planning.js';
+import { showToast } from './toast.js';
 import { getPileName } from '../domain/piles-people.js';
 import {
   getTodayLocalYYYYMMDD,
@@ -61,15 +63,51 @@ export function createWeekPlanningUI(d) {
   let draftDirty = false;
   let pendingScrollDate = null;
   let positionModalCallback = null;
+  /** @type {Record<string, unknown>} */
+  let lastPlanningOpts = {};
 
-  function ensureDraftFromState() {
-    const mon = getMondayYYYYMMDD();
-    let base = normalizeWeekPlan(d.state.weekPlan);
-    if (!base.anchorWeekStart || base.anchorWeekStart !== mon) {
-      base = { anchorWeekStart: mon, days: {} };
+  /**
+   * @param {Record<string, unknown>} [opts]
+   * @param {string} [opts.anchorWeekStart] YYYY-MM-DD (any day in the week; normalized to Monday)
+   * @param {string} [opts.scrollToDate] YYYY-MM-DD — week containing this day becomes the draft anchor
+   */
+  function ensureDraftFromState(opts = {}) {
+    const calMon = getMondayYYYYMMDD();
+    let targetMon = calMon;
+    if (opts.anchorWeekStart && typeof opts.anchorWeekStart === 'string') {
+      const anchorD = parseLocalDate(opts.anchorWeekStart);
+      if (anchorD) targetMon = getMondayYYYYMMDD(anchorD);
+    } else if (opts.scrollToDate && typeof opts.scrollToDate === 'string') {
+      const scrollD = parseLocalDate(opts.scrollToDate);
+      if (scrollD) targetMon = getMondayYYYYMMDD(scrollD);
     }
-    draft = normalizeWeekPlan(JSON.parse(JSON.stringify(base)));
+    const base = normalizeWeekPlan(d.state.weekPlan);
+    if (base.anchorWeekStart === targetMon) {
+      draft = normalizeWeekPlan(JSON.parse(JSON.stringify(base)));
+    } else {
+      draft = normalizeWeekPlan({ anchorWeekStart: targetMon, days: {} });
+    }
     draftDirty = false;
+  }
+
+  function loadDraftForMonday(targetMon) {
+    const base = normalizeWeekPlan(d.state.weekPlan);
+    if (base.anchorWeekStart === targetMon) {
+      draft = normalizeWeekPlan(JSON.parse(JSON.stringify(base)));
+    } else {
+      draft = normalizeWeekPlan({ anchorWeekStart: targetMon, days: {} });
+    }
+    draftDirty = false;
+  }
+
+  function tryChangePlanningWeek(newMonday) {
+    if (!newMonday) return;
+    if (draftDirty && !window.confirm('Switch week? Unsaved changes for this week will be lost.')) return;
+    loadDraftForMonday(newMonday);
+    lastPlanningOpts = { ...lastPlanningOpts, anchorWeekStart: newMonday };
+    if ('scrollToDate' in lastPlanningOpts) delete lastPlanningOpts.scrollToDate;
+    pendingScrollDate = null;
+    renderPlanningDays();
   }
 
   function showEl(id, show) {
@@ -85,13 +123,14 @@ export function createWeekPlanningUI(d) {
   }
 
   function openPlanningEntry(opts) {
-    pendingScrollDate = (opts && opts.scrollToDate) || null;
+    lastPlanningOpts = opts && typeof opts === 'object' ? { ...opts } : {};
+    pendingScrollDate = lastPlanningOpts.scrollToDate || null;
     const snap = d.state.lastCommittedPlanSnapshot;
     const hasSnap = snap && snap.anchorWeekStart;
     if (hasSnap) {
       showEl('pre-plan-review-modal', true);
     } else {
-      ensureDraftFromState();
+      ensureDraftFromState(lastPlanningOpts);
       openPlanningOverlay();
     }
   }
@@ -126,7 +165,6 @@ export function createWeekPlanningUI(d) {
   }
 
   function openPlanningOverlay() {
-    ensureDraftFromState();
     renderPlanningDays();
     showEl('week-planning-overlay', true);
     document.body.classList.add('week-planning-open');
@@ -305,6 +343,8 @@ export function createWeekPlanningUI(d) {
     if (rangeEl && keys.length) {
       rangeEl.textContent = formatWeekRangeHeading(keys);
     }
+    const jumpInput = document.getElementById('week-planning-jump-date');
+    if (jumpInput && mon) jumpInput.value = mon;
 
     const todayStr = getTodayLocalYYYYMMDD();
     wrap.innerHTML = keys
@@ -461,7 +501,7 @@ export function createWeekPlanningUI(d) {
   function bindStatic() {
     document.getElementById('pre-plan-review-skip')?.addEventListener('click', () => {
       closePrePlanModal();
-      ensureDraftFromState();
+      ensureDraftFromState(lastPlanningOpts);
       openPlanningOverlay();
     });
     document.getElementById('pre-plan-review-open')?.addEventListener('click', () => {
@@ -470,7 +510,7 @@ export function createWeekPlanningUI(d) {
     });
     document.getElementById('plan-review-continue')?.addEventListener('click', () => {
       closeFourBlockReview();
-      ensureDraftFromState();
+      ensureDraftFromState(lastPlanningOpts);
       openPlanningOverlay();
     });
     document.getElementById('plan-review-back')?.addEventListener('click', () => {
@@ -484,6 +524,30 @@ export function createWeekPlanningUI(d) {
       draft = clearWeekDaysForAnchor(draft);
       draftDirty = true;
       renderPlanningDays();
+    });
+    document.getElementById('week-planning-prev-week')?.addEventListener('click', () => {
+      const cur = draft.anchorWeekStart || getMondayYYYYMMDD();
+      const prev = addWeeksToMonday(cur, -1);
+      if (prev) tryChangePlanningWeek(prev);
+    });
+    document.getElementById('week-planning-next-week')?.addEventListener('click', () => {
+      const cur = draft.anchorWeekStart || getMondayYYYYMMDD();
+      const next = addWeeksToMonday(cur, 1);
+      if (next) tryChangePlanningWeek(next);
+    });
+    document.getElementById('week-planning-this-week')?.addEventListener('click', () => {
+      tryChangePlanningWeek(getMondayYYYYMMDD());
+    });
+    document.getElementById('week-planning-jump-go')?.addEventListener('click', () => {
+      const inp = document.getElementById('week-planning-jump-date');
+      const v = inp && inp.value;
+      if (!v) {
+        showToast('Pick a date first');
+        return;
+      }
+      const day = parseLocalDate(v);
+      if (!day) return;
+      tryChangePlanningWeek(getMondayYYYYMMDD(day));
     });
     document.getElementById('add-to-today-top')?.addEventListener('click', () => {
       if (positionModalCallback) positionModalCallback('top');

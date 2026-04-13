@@ -41,6 +41,22 @@ export function getWeekDateKeys(mondayStr) {
   return out;
 }
 
+/**
+ * Move a Monday anchor by whole weeks (local calendar).
+ * @param {string} mondayYmd YYYY-MM-DD (should be a Monday; normalized if not)
+ * @param {number} deltaWeeks
+ * @returns {string | null}
+ */
+export function addWeeksToMonday(mondayYmd, deltaWeeks) {
+  const d = parseLocalDate(mondayYmd);
+  if (!d || !Number.isFinite(deltaWeeks)) return null;
+  const mon = getMondayYYYYMMDD(d);
+  const x = parseLocalDate(mon);
+  if (!x) return null;
+  x.setDate(x.getDate() + 7 * deltaWeeks);
+  return getMondayYYYYMMDD(x);
+}
+
 /** @param {WeekPlan | null | undefined} wp */
 export function normalizeWeekPlan(wp) {
   if (!wp || typeof wp !== 'object') return { anchorWeekStart: null, days: {} };
@@ -325,7 +341,9 @@ export function swapFocusPileAdjacent(items, todayKey, dayEntry, taskId, directi
 }
 
 /**
- * When the stored anchor week is not this calendar week, move plan forward and keep a read-only copy for "Last week" in the overlay.
+ * When the stored anchor week is **before** the current calendar week, roll forward to this Monday
+ * and keep a read-only copy for "Last week" in the overlay.
+ * Plans for a **future** week (e.g. next week planned from Sunday) are left unchanged.
  * @param {WeekPlan | null | undefined} weekPlan
  * @param {string} currentMonday YYYY-MM-DD
  */
@@ -339,6 +357,9 @@ export function clearWeekDaysForAnchor(wp) {
 export function rollWeekPlanIfStale(weekPlan, currentMonday) {
   const wp = normalizeWeekPlan(weekPlan);
   if (!wp.anchorWeekStart || wp.anchorWeekStart === currentMonday) {
+    return { weekPlan: wp, previousWeekPlanSnapshot: null, rolled: false };
+  }
+  if (wp.anchorWeekStart > currentMonday) {
     return { weekPlan: wp, previousWeekPlanSnapshot: null, rolled: false };
   }
   const prev = JSON.parse(JSON.stringify(wp));

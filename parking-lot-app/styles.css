@@ -780,6 +780,33 @@ body.sidebar-open .sidebar-overlay {
   line-height: 1.2;
 }
 
+.week-planning-week-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+}
+
+.week-planning-jump-week {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+}
+
+.week-planning-jump-label {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.week-planning-jump-input {
+  max-width: 11rem;
+  margin: 0;
+}
+
 .week-planning-layout .week-planning-last-week {
   margin-bottom: 0.35rem;
   padding: 0.35rem 0.5rem;
