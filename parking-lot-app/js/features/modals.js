@@ -27,6 +27,7 @@ import {
  * @property {() => void} updateCategorySelectOptions
  * @property {(selectIdOrEl: string|HTMLElement, selectedPileId?: string) => void} updatePileSelectOptions
  * @property {(selectIdOrEl: string|HTMLElement, selectedPersonId?: string) => void} updatePersonSelectOptions
+ * @property {() => void} [onAfterItemsChange] — e.g. refresh week planner when it is open
  */
 
 /**
@@ -41,7 +42,8 @@ export function createModalController(deps) {
     getRenderFocusList,
     updateCategorySelectOptions,
     updatePileSelectOptions,
-    updatePersonSelectOptions
+    updatePersonSelectOptions,
+    onAfterItemsChange = () => {}
   } = deps;
 
   function renderColumns() {
@@ -132,6 +134,7 @@ export function createModalController(deps) {
     saveState();
     closeAddModal();
     renderColumns();
+    onAfterItemsChange();
     showToast('Added ' + lines.length + ' items');
     if (submitBtn) submitBtn.disabled = false;
   }
@@ -157,6 +160,7 @@ export function createModalController(deps) {
     if (transcriptEl) transcriptEl.textContent = '';
     closeAddModal();
     renderColumns();
+    onAfterItemsChange();
     showToast('Added ' + lines.length + ' items');
     if (submitBtn) submitBtn.disabled = false;
   }
@@ -319,6 +323,7 @@ export function createModalController(deps) {
       saveState();
       closeAddModal();
       renderColumns();
+      onAfterItemsChange();
     } catch (e) {
       console.warn('Add single failed', e);
       showToast('Could not add task — ' + (e?.message || 'try again'));
@@ -381,6 +386,7 @@ export function createModalController(deps) {
     renderTodayList();
     renderFocusList();
     renderColumns();
+    onAfterItemsChange();
   }
 
   function submitAddTask() {

@@ -57,6 +57,7 @@ function dayOfMonthNum(dateKey) {
  * @param {() => void} d.saveState
  * @param {() => void} d.onCommitted
  * @param {() => void} [d.saveDevicePreferencesToSupabase]
+ * @param {(presetCategory?: string, presetPileId?: string | null) => void} [d.openAddModal]
  */
 export function createWeekPlanningUI(d) {
   let draft = normalizeWeekPlan({ anchorWeekStart: null, days: {} });
@@ -216,7 +217,13 @@ export function createWeekPlanningUI(d) {
     if (!piles.length) {
       ref.innerHTML =
         '<h3 class="week-planning-ref-title">Your piles & tasks</h3>' +
-        '<p class="plan-ref-empty">No piles yet — add piles in Settings, then tap a pile button on each day above.</p>';
+        '<p class="plan-ref-empty">No piles yet — add piles in Settings, then tap a pile button on each day above.</p>' +
+        (d.openAddModal
+          ? '<p class="plan-ref-empty plan-ref-add-line"><button type="button" class="btn-secondary btn-sm week-plan-ref-add-first">Add task</button></p>'
+          : '');
+      ref.querySelector('.week-plan-ref-add-first')?.addEventListener('click', () => {
+        d.openAddModal(d.state.lastCategory, null);
+      });
       return;
     }
 
@@ -241,8 +248,15 @@ export function createWeekPlanningUI(d) {
               })
               .join('')
           : '<div class="empty-state column-add-hint">No tasks in this pile</div>';
+        const addBtnAttr =
+          col.pileId != null
+            ? ` data-pile-id="${escapeHtml(col.pileId)}"`
+            : ' data-uncategorized="true"';
         return `<div class="column column-accent" data-category="${escapeHtml(col.id)}"${pileIdAttr} style="--column-accent: #6b7280">
-            <div class="column-header" role="none">${escapeHtml(col.label)} <span class="count">(${sorted.length})</span></div>
+            <div class="column-header plan-ref-column-head" role="none">
+              <span class="plan-ref-column-title">${escapeHtml(col.label)} <span class="count">(${sorted.length})</span></span>
+              <button type="button" class="btn-secondary btn-sm week-plan-ref-add"${addBtnAttr}>+ Add</button>
+            </div>
             <div class="column-items">${body}</div>
           </div>`;
       })
@@ -298,6 +312,9 @@ export function createWeekPlanningUI(d) {
     </details>`
         : '';
     const clearBtn = `<button type="button" class="plan-pile-clear" data-date="${dk}">Clear day</button>`;
+    const addInPileBtn = entry.pileId
+      ? `<button type="button" class="btn-link plan-day-add-task" data-pile-id="${escapeHtml(entry.pileId)}">New task in this pile</button>`
+      : '';
     const noPilesHint =
       piles.length === 0 ? '<p class="plan-pile-no-piles-msg">Add piles in Settings to assign them here.</p>' : '';
     return `<div class="plan-pile-picker">
@@ -305,6 +322,7 @@ export function createWeekPlanningUI(d) {
       <div class="plan-pile-picker-label">Tap a pile</div>
       <div class="plan-pile-quick-row">${three}</div>
       ${clearBtn}
+      ${addInPileBtn}
     </div>${more}`;
   }
 
@@ -404,6 +422,14 @@ export function createWeekPlanningUI(d) {
       });
     });
 
+    wrap.querySelectorAll('.plan-day-add-task').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const pid = btn.dataset.pileId;
+        if (d.openAddModal) d.openAddModal(d.state.lastCategory, pid || null);
+      });
+    });
+
     wrap.querySelectorAll('.plan-move-up, .plan-move-down').forEach(btn => {
       btn.addEventListener('click', () => {
         const row = btn.closest('.plan-day-task');
@@ -498,6 +524,12 @@ export function createWeekPlanningUI(d) {
     }).join('');
   }
 
+  function refreshOpenPlanner() {
+    const el = document.getElementById('week-planning-overlay');
+    if (!el || el.style.display !== 'flex') return;
+    renderPlanningDays();
+  }
+
   function bindStatic() {
     document.getElementById('pre-plan-review-skip')?.addEventListener('click', () => {
       closePrePlanModal();
@@ -548,6 +580,16 @@ export function createWeekPlanningUI(d) {
       const day = parseLocalDate(v);
       if (!day) return;
       tryChangePlanningWeek(getMondayYYYYMMDD(day));
+    });
+    document.getElementById('week-planning-add-task')?.addEventListener('click', () => {
+      if (d.openAddModal) d.openAddModal(d.state.lastCategory, null);
+    });
+    document.getElementById('week-planning-piles-ref')?.addEventListener('click', (e) => {
+      const btn = e.target.closest('.week-plan-ref-add');
+      if (!btn || !d.openAddModal) return;
+      e.preventDefault();
+      const unc = btn.hasAttribute('data-uncategorized');
+      d.openAddModal(d.state.lastCategory, unc ? null : (btn.dataset.pileId || null));
     });
     document.getElementById('add-to-today-top')?.addEventListener('click', () => {
       if (positionModalCallback) positionModalCallback('top');
@@ -649,6 +691,7 @@ export function createWeekPlanningUI(d) {
     askTopOrBottom,
     renderWeekStrip,
     renderWeekViewPanel,
-    forceCloseAllPlanningUI
+    forceCloseAllPlanningUI,
+    refreshOpenPlanner
   };
 }

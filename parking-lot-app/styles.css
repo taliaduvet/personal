@@ -849,6 +849,24 @@ body.sidebar-open .sidebar-overlay {
   margin-bottom: 0;
 }
 
+.plan-ref-column-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+}
+
+.plan-ref-column-title {
+  min-width: 0;
+}
+
+.plan-day-add-task {
+  display: inline-block;
+  margin-top: 0.35rem;
+  font-size: 0.85rem;
+}
+
 .week-planning-ref-title {
   margin: 0 0 0.75rem;
   font-size: 1rem;
@@ -1185,6 +1203,11 @@ body.sidebar-open .sidebar-overlay {
 
 body.week-planning-open {
   overflow: hidden;
+}
+
+/* Add-task modal must sit above the fullscreen week planner (z-index 4000) */
+body.week-planning-open .modal {
+  z-index: 4500;
 }
 
 .today-item-accent {
