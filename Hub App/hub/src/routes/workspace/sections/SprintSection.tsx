@@ -13,6 +13,11 @@ export function SprintSection({ tasks, productId, sprintLabel, onUpdate }: Props
   const [adding, setAdding] = useState(false)
   const [newTitle, setNewTitle] = useState('')
 
+  async function deleteTask(task: Task) {
+    await supabase.from('workspace_tasks').delete().eq('id', task.id)
+    onUpdate(tasks.filter(t => t.id !== task.id))
+  }
+
   async function cycleStatus(task: Task) {
     const next = task.status === 'todo' ? 'doing' : task.status === 'doing' ? 'done' : 'todo'
     await supabase.from('workspace_tasks').update({ status: next }).eq('id', task.id)
@@ -51,13 +56,10 @@ export function SprintSection({ tasks, productId, sprintLabel, onUpdate }: Props
 
         {sorted.map(task => (
           <div key={task.id} className={`ws-sprint-row ws-sprint-row--${task.status}`}>
-            <button
-              className="ws-sprint-check"
-              onClick={() => cycleStatus(task)}
-              title="cycle status"
-            />
+            <button className="ws-sprint-check" onClick={() => cycleStatus(task)} title="cycle status" />
             <span className="ws-sprint-text">{task.title}</span>
             {task.tag && <span className="ws-sprint-tag">{task.tag}</span>}
+            <button className="ws-sprint-del" onClick={() => deleteTask(task)} title="delete task">×</button>
           </div>
         ))}
 

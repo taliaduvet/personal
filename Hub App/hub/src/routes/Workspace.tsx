@@ -110,7 +110,7 @@ export default function Workspace() {
             onUpdate={setSpecContent}
           />
 
-          <MilestonesSection milestones={milestones} />
+          <MilestonesSection milestones={milestones} productId={productId} onUpdate={setMilestones} />
 
           <div id="inbox" style={{ marginTop: 48 }}>
             <div className="ws-sec-eyebrow">— § inbox</div>
