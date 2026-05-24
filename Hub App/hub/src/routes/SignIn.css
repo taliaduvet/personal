@@ -1,0 +1,98 @@
+.signin-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.signin-topbar {
+  display: flex;
+  align-items: center;
+  padding: 12px 28px;
+  border-bottom: 1px solid var(--bg-paper-3);
+  flex-shrink: 0;
+}
+
+.signin-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  flex: 1;
+}
+
+.signin-form-side {
+  padding: 48px 48px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  max-width: 480px;
+}
+
+.signin-heading {
+  font-size: var(--text-3xl);
+  line-height: var(--leading-tight);
+  margin: 0 0 var(--space-3);
+}
+
+.signin-poster {
+  position: relative;
+  overflow: hidden;
+  padding: 40px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.signin-star {
+  position: absolute;
+  border-radius: 50%;
+  opacity: 0.7;
+}
+
+.signin-poster-eyebrow {
+  margin: 0;
+  color: var(--cream-muted);
+  font-size: 10px;
+  position: relative;
+}
+
+.signin-poster-quote {
+  margin: 0;
+  position: relative;
+}
+
+.signin-poster-quote .t-display {
+  font-size: var(--text-2xl);
+  line-height: var(--leading-snug);
+}
+
+.signin-poster-attr {
+  display: block;
+  margin-top: var(--space-3);
+  color: var(--cream-muted);
+  font-size: 10px;
+}
+
+.signin-poster-note {
+  margin: 0;
+  color: var(--cream-faint);
+  font-size: 10px;
+  position: relative;
+}
+
+/* mobile: stack vertically, hide poster */
+@media (max-width: 768px) {
+  .signin-body {
+    grid-template-columns: 1fr;
+  }
+  .signin-poster {
+    display: none;
+  }
+  .signin-form-side {
+    padding: 32px 24px;
+    max-width: 100%;
+    justify-content: flex-start;
+    padding-top: 48px;
+  }
+  .signin-heading {
+    font-size: var(--text-xl);
+  }
+}

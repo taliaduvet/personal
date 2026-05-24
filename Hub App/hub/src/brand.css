@@ -1,0 +1,443 @@
+/* ─────────────────────────────────────────────────────────────────
+   talia duvet · tools · brand tokens v1
+   the single source of truth for color, type, spacing, components.
+   every page imports this.
+   ──────────────────────────────────────────────────────────────── */
+
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Caveat:wght@500;700&display=swap');
+
+:root {
+  /* ── Color · cosmic surface (public hub) ─────────────────────── */
+  --bg-cosmic:    #0c0e1a;
+  --bg-cosmic-2:  #141731;
+  --bg-cosmic-3:  #1b1e3a;
+  --fog-violet:   rgba(120, 90, 200, 0.16);
+  --fog-coral:    rgba(220, 130, 95, 0.12);
+
+  /* ── Color · paper surface (admin / workspace) ───────────────── */
+  --bg-paper:    #f6f0e3;
+  --bg-paper-2:  #ece4d2;
+  --bg-paper-3:  #e2d8c2;
+
+  /* ── Color · ink (on paper) ──────────────────────────────────── */
+  --ink:        #1a1816;
+  --ink-2:      #3d3833;
+  --ink-muted:  #7a7268;
+  --ink-faint:  #aea69a;
+
+  /* ── Color · cream (on cosmic) ───────────────────────────────── */
+  --cream:        #f6f0e3;
+  --cream-muted:  rgba(246, 240, 227, 0.7);
+  --cream-faint:  rgba(246, 240, 227, 0.45);
+  --cream-line:   rgba(246, 240, 227, 0.12);
+
+  /* ── Color · accent · violet (the house accent) ──────────────── */
+  --accent:       #9b6cff;
+  --accent-deep:  #7a4ce0;
+  --accent-soft:  #b89cff;
+  --accent-glow:  rgba(155, 108, 255, 0.25);
+
+  /* ── Color · star (warm gold accent) ─────────────────────────── */
+  --star:         #fcd47a;
+  --star-glow:    rgba(252, 212, 122, 0.32);
+
+  /* ── Color · palette (pulled from talia's promo photos · 4 tones used freely) ── */
+  --periwinkle: #b0cdfd;  /* cool blue   · alone in the field */
+  --mauve:      #b198b1;  /* dusty purple · haunted, in-between */
+  --peach:      #fbcb94;  /* warm cream  · performance / firelight */
+  --sage:       #8bcba6;  /* mint green  · brief harmony */
+
+  /* ── Color · status ──────────────────────────────────────────── */
+  --status-live: var(--accent);
+  --status-beta: var(--star);
+  --status-soon: var(--ink-faint);
+
+  /* ── Color · semantic ────────────────────────────────────────── */
+  --positive: #7ba88e;
+  --warning:  #d4a64e;
+  --negative: #c46556;
+
+  /* ── Type · families ─────────────────────────────────────────── */
+  --font-display: "Instrument Serif", "Cormorant Garamond", Georgia, serif;
+  --font-body:    "Inter", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-mono:    "JetBrains Mono", ui-monospace, "Menlo", monospace;
+  --font-sketch:  "Caveat", "Patrick Hand", cursive;
+
+  /* ── Type · scale ────────────────────────────────────────────── */
+  --text-xs:   11px;
+  --text-sm:   13px;
+  --text-base: 15px;
+  --text-md:   17px;
+  --text-lg:   20px;
+  --text-xl:   26px;
+  --text-2xl:  34px;
+  --text-3xl:  48px;
+  --text-4xl:  72px;
+  --text-5xl:  104px;
+
+  /* ── Type · misc ─────────────────────────────────────────────── */
+  --leading-tight:  1.05;
+  --leading-snug:   1.2;
+  --leading-normal: 1.5;
+  --tracking-wide:  0.18em;
+  --tracking-mono:  0.05em;
+
+  /* ── Spacing scale ───────────────────────────────────────────── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --space-9: 96px;
+  --space-10: 144px;
+
+  /* ── Radius ──────────────────────────────────────────────────── */
+  --r-sm:   4px;
+  --r-md:   8px;
+  --r-lg:   14px;
+  --r-xl:   20px;
+  --r-pill: 999px;
+
+  /* ── Border ──────────────────────────────────────────────────── */
+  --border-cream: 1px solid var(--cream-line);
+  --border-ink:   1px solid var(--ink-2);
+  --border-faint: 1px solid var(--ink-faint);
+
+  /* ── Shadow ──────────────────────────────────────────────────── */
+  --shadow-paper-sm:  0 1px 2px rgba(26, 24, 22, 0.06);
+  --shadow-paper-md:  0 6px 18px rgba(26, 24, 22, 0.08);
+  --shadow-paper-lg:  0 14px 40px rgba(26, 24, 22, 0.12);
+  --shadow-cosmic-md: 0 6px 22px rgba(0, 0, 0, 0.4);
+  --shadow-glow-accent: 0 0 24px var(--accent-glow);
+  --shadow-glow-star:  0 0 18px var(--star-glow);
+
+  /* ── Motion ──────────────────────────────────────────────────── */
+  --ease-out: cubic-bezier(0.2, 0.7, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --dur-fast: 120ms;
+  --dur-base: 220ms;
+  --dur-slow: 420ms;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   Base reset + body
+   ──────────────────────────────────────────────────────────────── */
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  color: var(--ink);
+  background: var(--bg-paper);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   Surface helpers — apply to <section> or wrapper divs
+   ──────────────────────────────────────────────────────────────── */
+
+.surface-cosmic {
+  background:
+    radial-gradient(ellipse at 20% 25%, var(--fog-violet) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 75%, var(--fog-coral) 0%, transparent 60%),
+    linear-gradient(180deg, var(--bg-cosmic) 0%, var(--bg-cosmic-2) 100%);
+  color: var(--cream);
+}
+.surface-cosmic .muted { color: var(--cream-muted); }
+.surface-cosmic .faint { color: var(--cream-faint); }
+.surface-cosmic hr { border-color: var(--cream-line); }
+
+.surface-paper {
+  background: var(--bg-paper);
+  color: var(--ink);
+}
+.surface-paper-2 { background: var(--bg-paper-2); color: var(--ink); }
+.surface-paper .muted { color: var(--ink-muted); }
+.surface-paper .faint { color: var(--ink-faint); }
+
+/* ─────────────────────────────────────────────────────────────────
+   Typography utilities
+   ──────────────────────────────────────────────────────────────── */
+
+.t-display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.015em;
+  line-height: var(--leading-tight);
+}
+.t-display-italic {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+.t-body { font-family: var(--font-body); font-weight: 400; }
+.t-body-strong { font-family: var(--font-body); font-weight: 600; }
+.t-mono {
+  font-family: var(--font-mono);
+  font-weight: 400;
+  letter-spacing: var(--tracking-mono);
+}
+.t-mono-cap {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+}
+.t-sketch { font-family: var(--font-sketch); font-weight: 500; }
+
+/* ─────────────────────────────────────────────────────────────────
+   Buttons — stamped / double-border. Sharp rectangles, mono caps.
+   Double border (border + outline w/ offset) is the brand signature
+   for any "action" — primary fills + adds a star, ghost drops the
+   outer outline for a subtler hit.
+   ──────────────────────────────────────────────────────────────── */
+
+.btn {
+  display: inline-block;
+  padding: 11px 22px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid var(--ink);
+  border-radius: 0;
+  outline: 1px solid var(--ink);
+  outline-offset: 3px;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background var(--dur-fast) var(--ease-out),
+              color var(--dur-fast) var(--ease-out),
+              border-color var(--dur-fast) var(--ease-out),
+              outline-color var(--dur-fast) var(--ease-out);
+}
+.btn:hover {
+  background: var(--ink);
+  color: var(--bg-paper);
+}
+
+/* Primary — filled accent + outer outline + star sigil */
+.btn-primary {
+  background: var(--accent);
+  color: var(--cream);
+  border-color: var(--accent);
+  outline-color: var(--accent);
+}
+.btn-primary::before {
+  content: '★';
+  font-size: 0.95em;
+  margin-right: 6px;
+  color: inherit;
+}
+.btn-primary:hover {
+  background: var(--accent-deep);
+  border-color: var(--accent-deep);
+  outline-color: var(--accent-deep);
+  color: var(--cream);
+}
+
+/* Ghost — single border, accent text, no outer outline at rest */
+.btn-ghost {
+  background: transparent;
+  color: var(--accent);
+  border-color: var(--accent);
+  outline: none;
+}
+.btn-ghost:hover {
+  background: rgba(155, 108, 255, 0.08);
+  color: var(--accent-deep);
+  border-color: var(--accent-deep);
+  outline: 1px solid var(--accent-deep);
+  outline-offset: 3px;
+}
+
+/* On cosmic — flip neutrals to cream, brighten violet */
+.surface-cosmic .btn {
+  color: var(--cream);
+  border-color: var(--cream-muted);
+  outline-color: var(--cream-muted);
+}
+.surface-cosmic .btn:hover {
+  background: var(--cream);
+  color: var(--bg-cosmic);
+  border-color: var(--cream);
+  outline-color: var(--cream);
+}
+.surface-cosmic .btn-primary {
+  background: var(--accent);
+  color: var(--cream);
+  border-color: var(--accent);
+  outline-color: var(--accent);
+}
+.surface-cosmic .btn-primary:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent-soft);
+  outline-color: var(--accent-soft);
+  color: var(--bg-cosmic);
+}
+.surface-cosmic .btn-ghost {
+  background: transparent;
+  color: var(--accent-soft);
+  border-color: var(--accent-soft);
+  outline: none;
+}
+.surface-cosmic .btn-ghost:hover {
+  background: rgba(155, 108, 255, 0.14);
+  color: var(--cream);
+  border-color: var(--accent-soft);
+  outline: 1px solid var(--accent-soft);
+  outline-offset: 3px;
+}
+
+/* btn-text — inline text-link variant, mono caps with single underline */
+.btn-text {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--accent);
+  border-bottom: 1px solid var(--accent);
+  padding-bottom: 2px;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color var(--dur-fast), border-color var(--dur-fast);
+}
+.btn-text:hover {
+  color: var(--accent-deep);
+  border-bottom-color: var(--accent-deep);
+}
+.surface-cosmic .btn-text {
+  color: var(--accent-soft);
+  border-bottom-color: var(--accent-soft);
+}
+.surface-cosmic .btn-text:hover { color: #d4c2ff; border-bottom-color: #d4c2ff; }
+
+/* ─────────────────────────────────────────────────────────────────
+   Pills / status badges
+   ──────────────────────────────────────────────────────────────── */
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  border-radius: var(--r-pill);
+  border: 1px solid currentColor;
+  background: transparent;
+  white-space: nowrap;
+}
+.pill-live { color: var(--accent); }
+.pill-beta { color: var(--star); }
+.pill-soon { color: var(--ink-faint); }
+.surface-cosmic .pill-soon { color: var(--cream-faint); }
+
+.pill-filled { background: var(--accent); color: var(--cream); border-color: var(--accent); }
+
+/* ─────────────────────────────────────────────────────────────────
+   Star primitive — used in constellations
+   ──────────────────────────────────────────────────────────────── */
+
+.star-dot {
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--star);
+  box-shadow: var(--shadow-glow-star);
+}
+.star-dot--lg {
+  width: 14px;
+  height: 14px;
+  background: var(--accent);
+  box-shadow: 0 0 24px var(--accent-glow), 0 0 0 6px rgba(155, 108, 255, 0.12);
+}
+.star-dot--ring {
+  width: 14px;
+  height: 14px;
+  background: transparent;
+  border: 1.5px solid var(--star);
+  box-shadow: 0 0 16px var(--star-glow);
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   Section dividers + ornamental
+   ──────────────────────────────────────────────────────────────── */
+
+.rule {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--ink-muted);
+}
+.rule::before, .rule::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.3;
+}
+.surface-cosmic .rule { color: var(--cream-faint); }
+
+/* ─────────────────────────────────────────────────────────────────
+   Cards
+   ──────────────────────────────────────────────────────────────── */
+
+.card {
+  background: var(--bg-paper);
+  border: var(--border-faint);
+  border-radius: var(--r-lg);
+  padding: var(--space-5);
+}
+.surface-cosmic .card {
+  background: rgba(20, 23, 49, 0.6);
+  border: var(--border-cream);
+  backdrop-filter: blur(6px);
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   Form inputs
+   ──────────────────────────────────────────────────────────────── */
+
+.input {
+  display: block;
+  width: 100%;
+  padding: 10px 14px;
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: var(--ink);
+  background: var(--bg-paper);
+  border: 1px solid var(--ink-faint);
+  border-radius: var(--r-md);
+  transition: border-color var(--dur-fast);
+}
+.input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+.input::placeholder { color: var(--ink-faint); }
+.surface-cosmic .input {
+  background: rgba(20, 23, 49, 0.6);
+  color: var(--cream);
+  border-color: var(--cream-line);
+}
+.surface-cosmic .input::placeholder { color: var(--cream-faint); }
