@@ -1,9 +1,20 @@
+import { useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import './Home.css'
 
+const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL as string
+
 export default function Home() {
   const { session } = useAuth()
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    if (session?.user.email === ADMIN_EMAIL) {
+      navigate('/workspace/vein', { replace: true })
+    }
+  }, [session, navigate])
 
   async function signOut() {
     await supabase.auth.signOut()
