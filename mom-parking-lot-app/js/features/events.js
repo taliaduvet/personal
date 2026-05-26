@@ -955,6 +955,10 @@ export function wireMainEvents(deps) {
 
     var relationshipsBtn = document.getElementById('relationships-btn');
     if (relationshipsBtn) relationshipsBtn.addEventListener('click', openRelationshipsPanel);
+    const headerPeopleBtn = document.getElementById('header-people-btn');
+    if (headerPeopleBtn) headerPeopleBtn.addEventListener('click', openRelationshipsPanel);
+    const headerArchiveBtn = document.getElementById('header-archive-btn');
+    if (headerArchiveBtn) headerArchiveBtn.addEventListener('click', () => d.openArchiveModal());
 
     const analyticsBtn = document.getElementById('analytics-btn');
     if (analyticsBtn) analyticsBtn.addEventListener('click', d.openAnalytics);

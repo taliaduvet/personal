@@ -130,6 +130,7 @@ import { createModalController } from '../features/modals.js';
 import { wireMainEvents } from '../features/events.js';
 import { IS_MOM_APP } from '../config/app-profile.js';
 import { wireMomTodayAndFocus } from './mom-wire.js';
+import { wireInlineEntityCreates } from '../features/inline-entity-create.js';
 import { migrateLegacyNotesToUnified } from '../domain/notes.js';
 
 wirePersist(() => saveState());
@@ -2006,19 +2007,31 @@ function wireComposer() {
       updateAddToSuggestionsBtn,
       weekPlanningApi
     });
+    if (IS_MOM_APP) {
+      wireInlineEntityCreates({
+        addPile,
+        addPerson,
+        updatePileSelectOptions,
+        updatePersonSelectOptions,
+        showToast
+      });
+      document.querySelectorAll('.mom-sidebar-moved').forEach((el) => {
+        el.style.display = 'none';
+      });
+    }
     if (IS_MOM_APP && momNotesApi) {
-      const notesBtn = document.getElementById('sidebar-notes-btn');
       const notesBack = document.getElementById('notes-back-board');
-      const closeSidebar = () => {
-        document.getElementById('sidebar')?.classList.remove('open');
-        const ov = document.getElementById('sidebar-overlay');
-        if (ov) ov.style.display = 'none';
-        document.body.classList.remove('sidebar-open');
-      };
-      if (notesBtn) {
-        notesBtn.addEventListener('click', () => {
-          closeSidebar();
-          momNotesApi.showNotesView();
+      const openNotes = () => momNotesApi.showNotesView();
+      const headerNotes = document.getElementById('header-notes-btn');
+      const sidebarNotes = document.getElementById('sidebar-notes-btn');
+      if (headerNotes) headerNotes.addEventListener('click', openNotes);
+      if (sidebarNotes) {
+        sidebarNotes.addEventListener('click', () => {
+          document.getElementById('sidebar')?.classList.remove('open');
+          const ov = document.getElementById('sidebar-overlay');
+          if (ov) ov.style.display = 'none';
+          document.body.classList.remove('sidebar-open');
+          openNotes();
         });
       }
       if (notesBack) {

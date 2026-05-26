@@ -1,4 +1,73 @@
-/* Mom's Parking Lot — layout overrides */
+/* Mom's Parking Lot — layout + hub-adjacent polish */
+
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&display=swap');
+
+:root {
+  --mom-paper: #f6f0e3;
+  --mom-ink: #1a1816;
+  --mom-accent: #9b6cff;
+  --mom-sage: #8bcba6;
+  --mom-peach: #fbcb94;
+}
+
+#today-bar .today-header h2 {
+  font-family: 'Instrument Serif', Georgia, serif;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+}
+
+.header-tool-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  margin-right: 0.25rem;
+}
+
+.btn-header-tool {
+  color: var(--mom-ink, #1a1816);
+  opacity: 0.72;
+  border-radius: 8px;
+}
+
+.btn-header-tool:hover,
+.btn-header-tool:focus-visible {
+  opacity: 1;
+  background: rgba(155, 108, 255, 0.12);
+  color: var(--mom-accent, #9b6cff);
+}
+
+.header-tool-icon {
+  display: block;
+}
+
+.select-with-new {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.select-with-new select {
+  flex: 1;
+  min-width: 0;
+}
+
+.btn-inline-new {
+  flex-shrink: 0;
+  white-space: nowrap;
+  font-size: 0.8rem;
+  padding: 0.35rem 0.55rem;
+}
+
+@media (max-width: 480px) {
+  .header-tool-nav {
+    gap: 0;
+  }
+  .btn-header-tool {
+    width: 2rem;
+    height: 2rem;
+  }
+}
 
 .focus-split {
   display: grid;

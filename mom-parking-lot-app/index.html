@@ -70,6 +70,17 @@
             </div>
             <span id="completed-tally" class="tally">Completed today: 0</span>
             <div class="today-header-actions">
+              <nav class="header-tool-nav" id="header-tool-nav" aria-label="Quick tools">
+                <button type="button" id="header-notes-btn" class="btn-icon btn-header-tool" title="Notes" aria-label="Notes">
+                  <svg class="header-tool-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 2 5 5h-5V4zM8 13h8v2H8v-2zm0-4h8v2H8V9z"/></svg>
+                </button>
+                <button type="button" id="header-people-btn" class="btn-icon btn-header-tool" title="People" aria-label="People">
+                  <svg class="header-tool-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+                </button>
+                <button type="button" id="header-archive-btn" class="btn-icon btn-header-tool" title="Archive" aria-label="Archive">
+                  <svg class="header-tool-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M19 4h-1V2H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zm0-12H5V6h14v2zM7 12h2v2H7v-2zm4 0h6v2h-6v-2z"/></svg>
+                </button>
+              </nav>
               <button id="menu-btn" class="btn-icon btn-hamburger" title="Menu" aria-label="Open menu" aria-expanded="false" aria-controls="sidebar"><span class="hamburger-line"></span><span class="hamburger-line"></span><span class="hamburger-line"></span></button>
               <button id="email-triage-btn" class="btn-secondary btn-sm btn-email-triage" title="Email triage" style="display:none">Email triage</button>
               <div id="email-triage-section" class="email-triage-dropdown" style="display:none">
@@ -200,13 +211,19 @@
             <input id="first-step-input" type="text" placeholder="e.g. Open the file and add the title" maxlength="200" title="What's the one tiny thing that would get you started?">
             <p class="settings-hint" style="margin-top:-0.25rem">Tip: For big tasks, set the deadline for the first small step.</p>
             <label>Project (optional)</label>
-            <select id="pile-select">
-              <option value="">None</option>
-            </select>
+            <div class="select-with-new">
+              <select id="pile-select">
+                <option value="">None</option>
+              </select>
+              <button type="button" id="pile-select-new" class="btn-secondary btn-sm btn-inline-new">+ New</button>
+            </div>
             <label>Person (optional)</label>
-            <select id="person-select">
-              <option value="">None</option>
-            </select>
+            <div class="select-with-new">
+              <select id="person-select">
+                <option value="">None</option>
+              </select>
+              <button type="button" id="person-select-new" class="btn-secondary btn-sm btn-inline-new">+ New</button>
+            </div>
             <label>Friction (optional)</label>
             <select id="friction-select">
               <option value="">None</option>
@@ -253,14 +270,20 @@
           <select id="edit-category"></select>
           <label>First step (optional)</label>
           <input id="edit-first-step" type="text" placeholder="e.g. Open the file and add the title" maxlength="200" title="What's the one tiny thing that would get you started?">
-          <label>Pile (optional)</label>
-          <select id="edit-pile">
-            <option value="">None</option>
-          </select>
+          <label>Project (optional)</label>
+          <div class="select-with-new">
+            <select id="edit-pile">
+              <option value="">None</option>
+            </select>
+            <button type="button" id="edit-pile-new" class="btn-secondary btn-sm btn-inline-new">+ New</button>
+          </div>
           <label>Person (optional)</label>
-          <select id="edit-person">
-            <option value="">None</option>
-          </select>
+          <div class="select-with-new">
+            <select id="edit-person">
+              <option value="">None</option>
+            </select>
+            <button type="button" id="edit-person-new" class="btn-secondary btn-sm btn-inline-new">+ New</button>
+          </div>
           <label>Friction (optional)</label>
           <select id="edit-friction">
             <option value="">None</option>
@@ -811,12 +834,12 @@
     <nav class="sidebar-nav">
       <button id="link-partner-btn" class="sidebar-item sidebar-link-partner" style="display:none">Link partner</button>
       <button type="button" id="sidebar-week-view" class="sidebar-item" style="display:none">Week</button>
-      <button type="button" id="sidebar-notes-btn" class="sidebar-item">Notes</button>
+      <button type="button" id="sidebar-notes-btn" class="sidebar-item mom-sidebar-moved">Notes</button>
       <button id="settings-btn" class="sidebar-item" data-action="settings">Settings</button>
       <button id="consistency-btn" class="sidebar-item" data-action="consistency" style="display:none">Consistency</button>
       <button id="journal-btn" class="sidebar-item" data-action="journal" style="display:none">Journal</button>
-      <button id="relationships-btn" class="sidebar-item" data-action="relationships">People</button>
-      <button id="archive-btn" class="sidebar-item" data-action="archive">View archive</button>
+      <button id="relationships-btn" class="sidebar-item mom-sidebar-moved" data-action="relationships">People</button>
+      <button id="archive-btn" class="sidebar-item mom-sidebar-moved" data-action="archive">View archive</button>
       <button id="analytics-btn" class="sidebar-item" data-action="analytics">Analytics</button>
       <button id="export-btn" class="sidebar-item" data-action="export">Export backup</button>
       <input type="file" id="import-input" accept=".json" style="display:none">
