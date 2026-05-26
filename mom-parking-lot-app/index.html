@@ -102,7 +102,7 @@
         <div class="today-panel-body">
           <div id="today-notes-panel" class="today-notes-panel" aria-label="Today's notes"></div>
           <div id="today-list" class="today-list unified-today"></div>
-          <div id="suggest-next-strip" class="suggest-next-strip" aria-live="polite" style="display:none"></div>
+          <div id="suggest-next-strip" class="suggest-next-strip mom-ui-omit" aria-live="polite" style="display:none"></div>
         </div>
       </div>
 
@@ -423,12 +423,6 @@
         <h4 class="settings-section-title">Your name</h4>
         <p class="settings-hint">Shown next to the pair code in the menu.</p>
         <input id="settings-display-name" type="text" placeholder="e.g. Talia" class="settings-name-input" value="">
-        <h4 class="settings-section-title">Suggest next</h4>
-        <p class="settings-hint">After marking a task done, show a strip suggesting the next task (same pile or list).</p>
-        <label class="settings-checkbox-row">
-          <input type="checkbox" id="settings-show-suggest-next" checked>
-          <span>Show suggest next after completing a task</span>
-        </label>
         <h4 class="settings-section-title">Day resets at</h4>
         <p class="settings-hint">"Completed today" resets at this time (local time). Default 3am.</p>
         <select id="settings-tally-reset-hour" class="settings-select" aria-label="Time when your day resets">
@@ -457,40 +451,37 @@
           <option value="22">10pm</option>
           <option value="23">11pm</option>
         </select>
-        <h4 class="settings-section-title">Category preset</h4>
-        <p class="settings-hint">Choose your column structure. You can rename columns below.</p>
-        <div class="settings-preset-btns">
-          <label class="preset-option"><input type="radio" name="category-preset" value="generic"> Generic (Work, Hobbies, Life, Other)</label>
-          <label class="preset-option"><input type="radio" name="category-preset" value="creative"> Creative (Misfit, Stop 2030 Barclay, Cycles, Life)</label>
-        </div>
-        <h4 class="settings-section-title">Column names</h4>
+        <h4 id="settings-column-names-title" class="settings-section-title">Column names</h4>
         <p class="settings-hint">Customize what each column is called.</p>
         <div id="settings-column-inputs" class="settings-column-inputs"></div>
         <h4 class="settings-section-title">Column colors</h4>
         <p class="settings-hint">Pick a color for each column (color wheel or hex). Syncs across your devices.</p>
         <div id="settings-column-colors" class="settings-column-colors"></div>
-        <h4 class="settings-section-title">Manage piles</h4>
-        <p class="settings-hint">Piles are tags for type of work (e.g. Admin, Creative). Tasks can be assigned to a pile in Add/Edit.</p>
+        <h4 class="settings-section-title">Manage projects</h4>
+        <p class="settings-hint">Projects group your tasks (e.g. Kitchen Reno, Taxes). Assign a project when you add or edit a task.</p>
         <div id="settings-piles-list" class="settings-piles-list"></div>
         <div class="settings-piles-add">
-          <input id="settings-pile-name" type="text" placeholder="New pile name" class="settings-name-input" maxlength="80">
-          <button id="settings-pile-add-btn" type="button" class="btn-secondary btn-sm">Add pile</button>
+          <input id="settings-pile-name" type="text" placeholder="New project name" class="settings-name-input" maxlength="80">
+          <button id="settings-pile-add-btn" type="button" class="btn-secondary btn-sm">Add project</button>
         </div>
+        <h4 class="settings-section-title">People &amp; relationships</h4>
+        <p class="settings-hint">Add people, set reconnect reminders, and see tasks linked to each person. Tasks in the <strong>People</strong> column can be tied to someone when you add or edit them.</p>
+        <button type="button" id="settings-open-people-btn" class="btn-secondary btn-sm">Open People</button>
         <h4 class="settings-section-title">Theme colors</h4>
-        <p class="settings-hint">Button and text accent colors.</p>
+        <p class="settings-hint">Button and text accent colors for this device.</p>
         <div class="settings-theme-colors">
           <div class="settings-color-row">
             <label>Button color</label>
             <div class="color-picker-row">
-              <input type="color" id="settings-button-color" class="color-input" value="#e07a5f">
-              <input type="text" id="settings-button-hex" class="color-hex-input" placeholder="#e07a5f" maxlength="7">
+              <input type="color" id="settings-button-color" class="color-input" value="#2d3748">
+              <input type="text" id="settings-button-hex" class="color-hex-input" placeholder="#2d3748" maxlength="7">
             </div>
           </div>
           <div class="settings-color-row">
             <label>Text color</label>
             <div class="color-picker-row">
-              <input type="color" id="settings-text-color" class="color-input" value="#e8e6e3">
-              <input type="text" id="settings-text-hex" class="color-hex-input" placeholder="#e8e6e3" maxlength="7">
+              <input type="color" id="settings-text-color" class="color-input" value="#1a1d21">
+              <input type="text" id="settings-text-hex" class="color-hex-input" placeholder="#1a1d21" maxlength="7">
             </div>
           </div>
         </div>
@@ -692,8 +683,8 @@
   <div id="relationships-panel" class="relationships-panel" style="display:none">
     <div class="relationships-panel-content">
       <div id="relationships-header" class="relationships-panel-header">
-        <button type="button" id="relationships-back" class="btn-back" style="display:none">← Relationships</button>
-        <h3>Relationships</h3>
+        <button type="button" id="relationships-back" class="btn-back" style="display:none">← People</button>
+        <h3>People</h3>
         <button id="close-relationships" class="btn-close" aria-label="Close">×</button>
       </div>
       <div id="relationships-list-view" class="relationships-list-view">

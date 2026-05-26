@@ -1,4 +1,5 @@
 import { PRIORITIES } from '../constants.js';
+import { IS_MOM_APP } from '../config/app-profile.js';
 import { state } from '../state.js';
 import { escapeHtml } from '../utils/dom.js';
 import { formatDeadline, formatDuration, parseLocalDate } from '../domain/tasks.js';
@@ -51,8 +52,8 @@ export function renderTaskCard(item, opts) {
     : `<div class="task-meta task-meta-clickable" data-id="${item.id}" title="Click to edit priority and dates">
           <span>Parked ${duration}</span>
           ${lifeAreaTag ? `<span class="life-area-tag" title="Life area">${escapeHtml(lifeAreaTag)}</span>` : ''}
-          ${pileName ? `<span class="pile-tag" title="Pile: ${escapeHtml(pileName)}">${escapeHtml(pileName)}</span>` : ''}
-          ${personName ? `<span class="person-tag" title="For: ${escapeHtml(personName)}">For ${escapeHtml(personName)}</span>` : ''}
+          ${pileName ? `<span class="pile-tag" title="${IS_MOM_APP ? 'Project' : 'Pile'}: ${escapeHtml(pileName)}">${escapeHtml(pileName)}</span>` : ''}
+          ${personName ? `<span class="person-tag" title="Person: ${escapeHtml(personName)}">${escapeHtml(personName)}</span>` : ''}
           ${frictionLabel ? `<span class="friction-badge" title="Friction: ${escapeHtml(frictionLabel)}">${escapeHtml(frictionLabel)}</span>` : ''}
           <span class="priority-badge">${escapeHtml(priorityLabel)}</span>
           ${item.doingDate ? `<span class="doing-badge">${escapeHtml((doingFd && doingFd.text) || item.doingDate)}</span>` : ''}

@@ -826,10 +826,11 @@ export function wireMainEvents(deps) {
         '<label class="relationships-history-add-label">Add to history</label>' +
         '<textarea id="relationships-history-new" class="settings-name-input" rows="2" placeholder="e.g. Video call, sent a card, deep talk about…"></textarea>' +
         '<button type="button" id="relationships-history-add" class="btn-secondary btn-sm">Add note</button>' +
-        '<h4>Linked tasks</h4>' +
+        '<h4>Tasks for this person</h4>' +
+        '<p class="settings-hint">Shows active tasks that have this person selected when you add or edit them.</p>' +
         (linked.length ? '<ul class="relationships-linked-tasks">' + linked.map(function(i) {
           return '<li><button type="button" class="btn-link relationships-open-task" data-id="' + escapeHtml(i.id) + '">' + escapeHtml((i.text || '').slice(0, 60)) + (i.text && i.text.length > 60 ? '…' : '') + '</button></li>';
-        }).join('') + '</ul>' : '<p class="empty-state">No tasks linked.</p>') +
+        }).join('') + '</ul>' : '<p class="empty-state">No tasks linked yet — edit a task and choose this person.</p>') +
         '<div class="relationships-detail-actions">' +
         '<button type="button" id="relationships-delete-person" class="btn-secondary btn-sm" data-person-id="' + escapeHtml(personId) + '">Delete person</button></div>';
       fillRelationshipGroupSelect(document.getElementById('relationships-detail-group'), person.group);
@@ -957,6 +958,14 @@ export function wireMainEvents(deps) {
     if (relationshipsBtn) relationshipsBtn.addEventListener('click', openRelationshipsPanel);
     const headerPeopleBtn = document.getElementById('header-people-btn');
     if (headerPeopleBtn) headerPeopleBtn.addEventListener('click', openRelationshipsPanel);
+    const settingsOpenPeopleBtn = document.getElementById('settings-open-people-btn');
+    if (settingsOpenPeopleBtn) {
+      settingsOpenPeopleBtn.addEventListener('click', () => {
+        const settingsModal = document.getElementById('settings-modal');
+        if (settingsModal) settingsModal.style.display = 'none';
+        openRelationshipsPanel();
+      });
+    }
     const headerArchiveBtn = document.getElementById('header-archive-btn');
     if (headerArchiveBtn) headerArchiveBtn.addEventListener('click', () => d.openArchiveModal());
 

@@ -456,7 +456,7 @@ function wireComposer() {
       if (state.undoDoneTimeout) clearTimeout(state.undoDoneTimeout);
       state.undoDoneTimeout = setTimeout(() => { /* toast hides */ }, 5000);
 
-      if (state.showSuggestNext) {
+      if (!IS_MOM_APP && state.showSuggestNext) {
         const nextTask = suggestNext(item);
         if (nextTask) showSuggestNextStrip(nextTask, item);
       }
@@ -527,6 +527,7 @@ function wireComposer() {
   }
 
   function ensureSettingsAccordion() {
+    if (IS_MOM_APP) return;
     const modalBody = document.querySelector('#settings-modal .modal-body');
     if (!modalBody || modalBody.dataset.accordionized === 'true') return;
     const saveBtn = document.getElementById('save-settings');
@@ -601,13 +602,6 @@ function wireComposer() {
     const tallyResetEl = document.getElementById('settings-tally-reset-hour');
     if (tallyResetEl) tallyResetEl.value = String(state.tallyResetHour != null ? state.tallyResetHour : 3);
 
-    const showSuggestNextEl = document.getElementById('settings-show-suggest-next');
-    if (showSuggestNextEl) showSuggestNextEl.checked = !!state.showSuggestNext;
-
-    const presetRadios = document.querySelectorAll('input[name="category-preset"]');
-    presetRadios.forEach(r => {
-      r.checked = (r.value === (state.categoryPreset || 'generic'));
-    });
     const container = document.getElementById('settings-column-inputs');
     if (!container) return;
     container.innerHTML = getCategories().map(c => {
@@ -658,8 +652,8 @@ function wireComposer() {
     const btnHexEl = document.getElementById('settings-button-hex');
     const textColorEl = document.getElementById('settings-text-color');
     const textHexEl = document.getElementById('settings-text-hex');
-    const defaultBtn = '#e07a5f';
-    const defaultText = '#e8e6e3';
+    const defaultBtn = IS_MOM_APP ? '#2d3748' : '#e07a5f';
+    const defaultText = IS_MOM_APP ? '#1a1d21' : '#e8e6e3';
     if (btnColorEl) btnColorEl.value = state.buttonColor || defaultBtn;
     if (btnHexEl) btnHexEl.value = state.buttonColor || defaultBtn;
     if (textColorEl) textColorEl.value = state.textColor || defaultText;
@@ -697,7 +691,7 @@ function wireComposer() {
         addPile(name);
         pileNameInput.value = '';
         renderSettingsPilesList();
-        showToast('Pile added');
+        showToast(IS_MOM_APP ? 'Project added' : 'Pile added');
       });
     }
 
@@ -716,17 +710,17 @@ function wireComposer() {
         <button type="button" class="btn-secondary btn-sm settings-pile-rename" data-pile-id="${p.id}">Rename</button>
         <button type="button" class="btn-secondary btn-sm settings-pile-delete" data-pile-id="${p.id}" data-count="${count}">Delete</button>
       </div>`;
-    }).join('') : '<p class="settings-hint">No piles yet. Add one below.</p>';
+    }).join('') : `<p class="settings-hint">No ${IS_MOM_APP ? 'projects' : 'piles'} yet. Add one below.</p>`;
 
     container.querySelectorAll('.settings-pile-rename').forEach(btn => {
       btn.addEventListener('click', () => {
         const id = btn.dataset.pileId;
         const current = getPileName(id) || '';
-        const name = window.prompt('Rename pile:', current);
+        const name = window.prompt(IS_MOM_APP ? 'Rename project:' : 'Rename pile:', current);
         if (name != null && name.trim()) {
           updatePile(id, name.trim());
           renderSettingsPilesList();
-          showToast('Pile renamed');
+          showToast(IS_MOM_APP ? 'Project renamed' : 'Pile renamed');
         }
       });
     });
@@ -734,14 +728,15 @@ function wireComposer() {
       btn.addEventListener('click', () => {
         const id = btn.dataset.pileId;
         const count = parseInt(btn.dataset.count, 10) || 0;
+        const noun = IS_MOM_APP ? 'project' : 'pile';
         const msg = count > 0
-          ? count + ' task' + (count !== 1 ? 's' : '') + ' will become uncategorized. Delete this pile?'
-          : 'Delete this pile?';
+          ? count + ' task' + (count !== 1 ? 's' : '') + ` will become uncategorized. Delete this ${noun}?`
+          : `Delete this ${noun}?`;
         if (window.confirm(msg)) {
           deletePile(id);
           renderSettingsPilesList();
           renderColumns();
-          showToast('Pile deleted');
+          showToast(IS_MOM_APP ? 'Project deleted' : 'Pile deleted');
         }
       });
     });
@@ -1534,6 +1529,7 @@ function wireComposer() {
 
   async function saveSettingsAndClose() {
     try {
+      if (!IS_MOM_APP) {
       const newPreset = (document.querySelector('input[name="category-preset"]:checked') || {}).value || 'generic';
       const oldPreset = state.categoryPreset || 'generic';
       if (newPreset !== oldPreset) {
@@ -1562,6 +1558,9 @@ function wireComposer() {
           state.lastCategory = (newCats && newCats[0]) ? newCats[0].id : 'life';
         }
       }
+      } else {
+        state.categoryPreset = 'mom';
+      }
       const displayNameInp = document.getElementById('settings-display-name');
       if (displayNameInp) state.displayName = displayNameInp.value.trim();
 
@@ -1571,8 +1570,12 @@ function wireComposer() {
         if (!isNaN(h) && h >= 0 && h <= 23) state.tallyResetHour = h;
       }
 
-      const showSuggestNextInp = document.getElementById('settings-show-suggest-next');
-      if (showSuggestNextInp) state.showSuggestNext = showSuggestNextInp.checked;
+      if (!IS_MOM_APP) {
+        const showSuggestNextInp = document.getElementById('settings-show-suggest-next');
+        if (showSuggestNextInp) state.showSuggestNext = showSuggestNextInp.checked;
+      } else {
+        state.showSuggestNext = false;
+      }
 
       const btnColorInp = document.getElementById('settings-button-color');
       const textColorInp = document.getElementById('settings-text-color');

@@ -119,6 +119,7 @@ export function loadState() {
       if (Array.isArray(parsed.piles)) state.piles = parsed.piles;
       if (parsed.viewMode === 'piles' || parsed.viewMode === 'columns') state.viewMode = parsed.viewMode;
       if (typeof parsed.showSuggestNext === 'boolean') state.showSuggestNext = parsed.showSuggestNext;
+      if (IS_MOM_APP) state.showSuggestNext = false;
       if (parsed.columnNotes && typeof parsed.columnNotes === 'object') state.columnNotes = parsed.columnNotes;
       if (typeof parsed.lastSeed === 'string') state.lastSeed = parsed.lastSeed;
       if (Array.isArray(parsed.seedReflections)) state.seedReflections = parsed.seedReflections;
