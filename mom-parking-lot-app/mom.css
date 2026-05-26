@@ -1,75 +1,435 @@
-/* Mom's Parking Lot — layout + hub-adjacent polish */
+/* ─────────────────────────────────────────────────────────────
+   Mom's Parking Lot · sleek / modern / minimal
+   Scoped to html.mom-app — overrides couples dark theme in styles.css
+   Design principles: quiet surfaces, one accent, sans only, hairline borders
+   ───────────────────────────────────────────────────────────── */
 
-@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap');
 
-:root {
-  --mom-paper: #f6f0e3;
-  --mom-ink: #1a1816;
-  --mom-accent: #9b6cff;
-  --mom-sage: #8bcba6;
-  --mom-peach: #fbcb94;
+html.mom-app {
+  color-scheme: light;
+
+  /* Surfaces */
+  --mom-bg: #f7f8fa;
+  --mom-surface: #ffffff;
+  --mom-surface-2: #f1f3f5;
+  --mom-ink: #1a1d21;
+  --mom-muted: #6b7280;
+  --mom-faint: #9ca3af;
+  --mom-line: #e5e7eb;
+  --mom-line-soft: #f0f1f3;
+
+  /* Accent — single restrained charcoal-slate */
+  --mom-accent: #2d3748;
+  --mom-accent-hover: #1a202c;
+  --mom-accent-soft: rgba(45, 55, 72, 0.08);
+
+  /* Map onto app variables (styles.css) */
+  --bg: var(--mom-bg);
+  --bg-soft: var(--mom-surface);
+  --bg-card: var(--mom-surface);
+  --text: var(--mom-ink);
+  --text-muted: var(--mom-muted);
+  --border: var(--mom-line);
+  --accent-coral: var(--mom-accent);
+  --accent-sage: #6d8f7b;
+  --accent-amber: #b45309;
+  --accent-warm: var(--mom-muted);
+  --accent-button: var(--mom-accent);
+  --header-accent: var(--mom-accent);
+  --radius: 10px;
+  --shadow: 0 1px 2px rgba(26, 32, 44, 0.04), 0 4px 16px rgba(26, 32, 44, 0.06);
+
+  --mom-font: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --mom-radius-sm: 6px;
+  --mom-radius-md: 10px;
+  --mom-radius-lg: 14px;
+  --mom-ease: cubic-bezier(0.2, 0.7, 0.3, 1);
 }
 
-#today-bar .today-header h2 {
-  font-family: 'Instrument Serif', Georgia, serif;
-  font-weight: 400;
-  letter-spacing: -0.02em;
+html.mom-app body {
+  font-family: var(--mom-font);
+  font-size: 15px;
+  background: var(--mom-bg);
+  color: var(--mom-ink);
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: -0.01em;
 }
 
-.header-tool-nav {
+/* ── Typography ─────────────────────────────────────────────── */
+
+html.mom-app h1,
+html.mom-app h2,
+html.mom-app h3,
+html.mom-app .entry-screen h1,
+html.mom-app .pair-setup h1 {
+  font-family: var(--mom-font);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  color: var(--mom-ink);
+}
+
+html.mom-app #today-bar .today-header h2 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+html.mom-app .tally,
+html.mom-app .entry-hint,
+html.mom-app .settings-hint,
+html.mom-app .focus-pane-title,
+html.mom-app .unified-today-section-label {
+  font-weight: 500;
+  color: var(--mom-muted);
+  opacity: 1;
+}
+
+/* ── Today bar & header tools ─────────────────────────────── */
+
+html.mom-app .today-panel-wrap {
+  background: var(--mom-surface);
+  border-bottom: 1px solid var(--mom-line);
+}
+
+html.mom-app .today-bar-sticky.sticky-bar {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: none;
+  border-bottom: 1px solid var(--mom-line);
+  padding: 0.85rem 1.25rem;
+  box-shadow: none;
+}
+
+html.mom-app .today-panel-body {
+  background: var(--mom-bg);
+  padding: 0 1.25rem 1rem;
+}
+
+html.mom-app .header-tool-nav {
   display: flex;
   align-items: center;
-  gap: 0.15rem;
-  margin-right: 0.25rem;
+  gap: 0.1rem;
+  margin-right: 0.35rem;
 }
 
-.btn-header-tool {
-  color: var(--mom-ink, #1a1816);
-  opacity: 0.72;
-  border-radius: 8px;
-}
-
-.btn-header-tool:hover,
-.btn-header-tool:focus-visible {
+html.mom-app .btn-header-tool {
+  color: var(--mom-muted);
   opacity: 1;
-  background: rgba(155, 108, 255, 0.12);
-  color: var(--mom-accent, #9b6cff);
+  border-radius: var(--mom-radius-sm);
+  transition: color var(--mom-ease) 0.15s, background var(--mom-ease) 0.15s;
 }
 
-.header-tool-icon {
-  display: block;
+html.mom-app .btn-header-tool:hover,
+html.mom-app .btn-header-tool:focus-visible {
+  color: var(--mom-ink);
+  background: var(--mom-accent-soft);
 }
 
-.select-with-new {
+html.mom-app .btn-hamburger .hamburger-line {
+  background: var(--mom-ink);
+}
+
+/* ── Buttons ──────────────────────────────────────────────── */
+
+html.mom-app .btn-primary {
+  background: var(--mom-accent);
+  color: #fff;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  border-radius: var(--mom-radius-md);
+  box-shadow: none;
+  transition: background 0.15s var(--mom-ease);
+}
+
+html.mom-app .btn-primary:hover:not(:disabled) {
+  background: var(--mom-accent-hover);
+}
+
+html.mom-app .btn-secondary {
+  background: var(--mom-surface);
+  color: var(--mom-ink);
+  border: 1px solid var(--mom-line);
+  font-weight: 500;
+}
+
+html.mom-app .btn-secondary:hover {
+  background: var(--mom-surface-2);
+  border-color: #d1d5db;
+}
+
+html.mom-app .btn-inline-new {
+  font-size: 0.75rem;
+  padding: 0.4rem 0.65rem;
+  border-radius: var(--mom-radius-sm);
+}
+
+/* ── Columns & task cards ─────────────────────────────────── */
+
+html.mom-app .columns-wrap,
+html.mom-app #columns-container {
+  background: transparent;
+}
+
+html.mom-app .column {
+  background: var(--mom-surface);
+  border: 1px solid var(--mom-line);
+  border-radius: var(--mom-radius-lg);
+  box-shadow: var(--shadow);
+  padding: 0.85rem;
+}
+
+html.mom-app .column-header {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--mom-muted);
+  border-bottom: 1px solid var(--mom-line-soft);
+  padding-bottom: 0.65rem;
+  margin-bottom: 0.65rem;
+}
+
+html.mom-app .column-header:hover {
+  color: var(--mom-ink);
+}
+
+html.mom-app .column-header .count {
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+html.mom-app .task-card {
+  background: var(--mom-surface-2);
+  border: 1px solid transparent;
+  border-left: 2px solid var(--column-accent, var(--mom-line));
+  border-radius: var(--mom-radius-md);
+  padding: 0.65rem 0.75rem;
+  transition: border-color 0.12s var(--mom-ease), box-shadow 0.12s var(--mom-ease);
+}
+
+html.mom-app .task-card:hover {
+  border-color: var(--mom-line);
+  box-shadow: 0 1px 4px rgba(26, 32, 44, 0.05);
+}
+
+html.mom-app .task-card.selected {
+  border-left-color: var(--column-accent, var(--mom-accent));
+  background: var(--mom-surface);
+  box-shadow: 0 0 0 1px var(--mom-line);
+}
+
+html.mom-app .column-add-btn {
+  color: var(--mom-muted);
+  border: 1px dashed var(--mom-line);
+  background: transparent;
+  border-radius: var(--mom-radius-sm);
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+html.mom-app .column-add-btn:hover {
+  color: var(--mom-ink);
+  border-color: var(--mom-muted);
+  background: var(--mom-surface-2);
+}
+
+/* ── Today / focus lists ──────────────────────────────────── */
+
+html.mom-app .today-item,
+html.mom-app .focus-list .task-card {
+  background: var(--mom-surface);
+  border: 1px solid var(--mom-line);
+  border-left-width: 2px;
+}
+
+html.mom-app .today-notes-panel {
+  background: var(--mom-surface);
+  border: 1px solid var(--mom-line);
+  border-radius: var(--mom-radius-md);
+}
+
+html.mom-app .focus-split {
+  gap: 1.25rem;
+}
+
+html.mom-app .focus-pane-title {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* ── FAB ──────────────────────────────────────────────────── */
+
+html.mom-app .floating-buttons .btn-primary,
+html.mom-app #fab-add,
+html.mom-app .fab {
+  background: var(--mom-accent);
+  box-shadow: 0 4px 14px rgba(45, 55, 72, 0.25);
+}
+
+html.mom-app .floating-buttons .btn-primary:hover {
+  background: var(--mom-accent-hover);
+}
+
+/* ── Modals & panels ──────────────────────────────────────── */
+
+html.mom-app .modal {
+  background: rgba(26, 29, 33, 0.35);
+  backdrop-filter: blur(4px);
+}
+
+html.mom-app .modal-content {
+  background: var(--mom-surface);
+  border: 1px solid var(--mom-line);
+  border-radius: var(--mom-radius-lg);
+  box-shadow: 0 24px 48px rgba(26, 32, 44, 0.12);
+  color: var(--mom-ink);
+}
+
+html.mom-app .modal-header {
+  border-bottom: 1px solid var(--mom-line-soft);
+}
+
+html.mom-app .modal-header h3 {
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+html.mom-app input[type="text"],
+html.mom-app input[type="date"],
+html.mom-app input[type="search"],
+html.mom-app input[type="datetime-local"],
+html.mom-app select,
+html.mom-app textarea {
+  background: var(--mom-surface);
+  border: 1px solid var(--mom-line);
+  color: var(--mom-ink);
+  border-radius: var(--mom-radius-sm);
+}
+
+html.mom-app input:focus,
+html.mom-app select:focus,
+html.mom-app textarea:focus {
+  outline: none;
+  border-color: var(--mom-muted);
+  box-shadow: 0 0 0 3px var(--mom-accent-soft);
+}
+
+html.mom-app .select-with-new {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   margin-bottom: 0.5rem;
 }
 
-.select-with-new select {
+html.mom-app .select-with-new select {
   flex: 1;
   min-width: 0;
 }
 
-.btn-inline-new {
-  flex-shrink: 0;
-  white-space: nowrap;
-  font-size: 0.8rem;
-  padding: 0.35rem 0.55rem;
+/* ── Entry & sidebar ──────────────────────────────────────── */
+
+html.mom-app .entry-screen,
+html.mom-app .pair-setup {
+  background: var(--mom-surface);
+  border: 1px solid var(--mom-line);
+  border-radius: var(--mom-radius-lg);
+  box-shadow: var(--shadow);
+  margin-top: 3rem;
+  padding: 2.5rem 2rem;
 }
 
-@media (max-width: 480px) {
-  .header-tool-nav {
-    gap: 0;
-  }
-  .btn-header-tool {
-    width: 2rem;
-    height: 2rem;
-  }
+html.mom-app .sidebar {
+  background: var(--mom-surface);
+  border-left: 1px solid var(--mom-line);
+  box-shadow: -8px 0 32px rgba(26, 32, 44, 0.08);
 }
 
-.focus-split {
+html.mom-app .sidebar-item {
+  font-weight: 500;
+  color: var(--mom-ink);
+  border-radius: var(--mom-radius-sm);
+}
+
+html.mom-app .sidebar-item:hover {
+  background: var(--mom-surface-2);
+}
+
+html.mom-app .offline-banner {
+  background: var(--mom-ink);
+  color: #fff;
+  font-size: 0.85rem;
+}
+
+html.mom-app .search-input {
+  background: var(--mom-surface);
+  border: 1px solid var(--mom-line);
+}
+
+html.mom-app .view-toggle button {
+  font-weight: 500;
+  color: var(--mom-muted);
+  border: 1px solid transparent;
+}
+
+html.mom-app .view-toggle button.active {
+  color: var(--mom-ink);
+  background: var(--mom-surface);
+  border-color: var(--mom-line);
+  box-shadow: 0 1px 2px rgba(26, 32, 44, 0.04);
+}
+
+html.mom-app .relationships-panel,
+html.mom-app .relationships-panel-content {
+  background: var(--mom-bg);
+  color: var(--mom-ink);
+}
+
+/* ── Notes & archive ──────────────────────────────────────── */
+
+html.mom-app .notes-view {
+  background: var(--mom-bg);
+  max-width: 42rem;
+}
+
+html.mom-app .notes-view-header h2 {
+  font-size: 1.25rem;
+}
+
+html.mom-app .notes-tab-item {
+  border: 1px solid var(--mom-line);
+  border-radius: var(--mom-radius-md);
+  background: var(--mom-surface);
+  transition: border-color 0.12s var(--mom-ease);
+}
+
+html.mom-app .notes-tab-item:hover {
+  border-color: #d1d5db;
+}
+
+html.mom-app .archive-cal-cell {
+  border: 1px solid var(--mom-line);
+  border-radius: var(--mom-radius-sm);
+  background: var(--mom-surface);
+}
+
+html.mom-app .archive-cal-cell.has-data {
+  background: var(--mom-accent-soft);
+  border-color: #c5cdd8;
+  color: var(--mom-accent);
+  font-weight: 500;
+}
+
+html.mom-app .archive-cat-chip {
+  background: var(--mom-surface-2);
+  color: var(--mom-muted);
+  border-radius: var(--mom-radius-sm);
+  font-weight: 500;
+}
+
+html.mom-app .focus-split {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1rem;
@@ -77,131 +437,38 @@
 }
 
 @media (max-width: 640px) {
-  .focus-split {
+  html.mom-app .focus-split {
     grid-template-columns: 1fr;
   }
 }
 
-.focus-pane-title {
-  font-size: 1rem;
-  margin: 0 0 0.5rem;
-  font-weight: 600;
-}
-
-.focus-pane-body .today-item {
+html.mom-app .focus-pane-body .today-item {
   margin-bottom: 0.5rem;
 }
 
-.today-notes-panel {
-  margin-bottom: 0.75rem;
-  padding: 0.5rem 0.75rem;
-  background: var(--surface-muted, #f5f5f4);
-  border-radius: 8px;
-  font-size: 0.9rem;
+html.mom-app .today-note-snippet {
+  border-bottom-color: var(--mom-line-soft);
 }
 
-.today-note-snippet {
-  padding: 0.25rem 0;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+html.mom-app .archive-cal-nav,
+html.mom-app .archive-day-detail {
+  border-color: var(--mom-line);
 }
 
-.notes-view {
-  padding: 1rem;
-  max-width: 48rem;
-  margin: 0 auto;
-}
-
-.notes-view-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-
-.notes-tab-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  margin: 1rem 0;
-}
-
-.notes-tab-item {
-  text-align: left;
-  padding: 0.75rem;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  border-radius: 8px;
-  background: #fff;
-  cursor: pointer;
-}
-
-.notes-tab-date {
-  display: block;
-  font-size: 0.75rem;
-  opacity: 0.7;
-}
-
-.archive-calendar-grid {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 4px;
-  margin: 1rem 0;
-}
-
-.archive-cal-dow {
-  font-size: 0.7rem;
-  text-align: center;
-  font-weight: 600;
-}
-
-.archive-cal-cell {
-  aspect-ratio: 1;
-  min-height: 2.5rem;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 6px;
-  background: #fff;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.85rem;
-}
-
-.archive-cal-cell.has-data {
-  background: #e8f4ea;
-}
-
-.archive-cal-nav {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.archive-day-detail {
-  margin-top: 1rem;
-  padding-top: 1rem;
-  border-top: 1px solid rgba(0, 0, 0, 0.1);
-}
-
-.archive-cat-chip {
-  display: inline-block;
-  margin-right: 0.5rem;
-  font-size: 0.85rem;
-  padding: 0.15rem 0.5rem;
-  background: #f0f0f0;
-  border-radius: 4px;
-}
-
-.note-turn-popover,
-.column-note-turn-popover {
+html.mom-app .note-turn-popover,
+html.mom-app .column-note-turn-popover {
   margin-top: 0.25rem;
 }
 
-.unified-today-section-label {
-  font-size: 0.8rem;
-  font-weight: 600;
-  margin: 0.75rem 0 0.35rem;
-  opacity: 0.75;
+@media (max-width: 480px) {
+  html.mom-app .header-tool-nav {
+    gap: 0;
+  }
+  html.mom-app .btn-header-tool {
+    width: 2rem;
+    height: 2rem;
+  }
+  html.mom-app .today-bar-sticky.sticky-bar {
+    padding: 0.75rem 1rem;
+  }
 }

@@ -30,10 +30,11 @@ export const MONTHS = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, 
 export const STORAGE_PREFIX = 'momParkingLot_';
 export const HAS_CHOSEN_SOLO_KEY = STORAGE_PREFIX + 'hasChosenSolo';
 
+/** Muted, modern column accents — sleek/minimal (not couples warm palette). */
 export const DEFAULT_COLUMN_COLORS = {
-  people: '#c9a0dc',
-  todos: '#6b9bd1',
-  repeating: '#81b29a',
+  people: '#8e9aaf',
+  todos: '#5c6b7a',
+  repeating: '#6d8f7b',
   work: '#e07a5f',
   hobbies: '#81b29a',
   life: '#f2cc8f',

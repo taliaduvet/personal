@@ -48,18 +48,30 @@ How the **Claude Designs** folder fits this app, and a practical path to a nicer
 3. Paste static HTML from `mom-parking-lot-app/index.html` fragments, or simplified mock markup.
 4. Tune `brand.css` imports on the artboard wrapper only — then port winning tokens into `mom.css` (we started with Instrument Serif on Today + header icon hover).
 
-## Already applied in the live Mom fork
+## Mom aesthetic (vs Talia’s couples app)
 
-- Header tool icons (Notes, People, Archive) in the today bar
-- `mom.css` paper/ink/accent variables + serif Today title
+| | **Couples Parking Lot** | **Mom’s Parking Lot** |
+|--|-------------------------|-------------------------|
+| Mood | Dark, warm, coral accents | Light, airy, minimal |
+| Type | System sans | DM Sans — clean geometric |
+| Accent | Coral / expressive | Charcoal slate `#2d3748` |
+| Columns | Saturated | Desaturated blue-gray / sage |
+| Chrome | Soft shadows, 12px radius | Hairline borders, subtle shadow |
+
+Implemented in `mom.css` under `html.mom-app` so the couples fork stays unchanged.
+
+## Already applied
+
+- Full light minimal theme (`mom.css`)
+- Header tool icons (Notes, People, Archive)
 - Inline **+ New** on project/person in add/edit task
+- PWA manifest colors (light gray + charcoal icon)
 
-## Next design → code steps (when you approve)
+## Next design → code steps (optional)
 
-1. Add a `Mom Parking Lot` section to the design canvas with Phase A mock.
-2. Align column header colors to brand semantic tones (people = mauve, repeating = sage, todos = periwinkle).
-3. Soften modals: paper background, rounded 12px, violet primary button from `--accent`.
-4. Optional dark-on-cosmic variant only if Mom ever gets a “night mode” (default stays paper for readability).
+1. Add a `Mom Parking Lot` artboard in `design-canvas.jsx` matching `mom.css` tokens.
+2. Optional: one alternate accent swatch (soft teal) as a Settings picker preset for Mom only.
+3. Relationships panel pass — same minimal cards as Notes.
 
 ## Plain English
 
