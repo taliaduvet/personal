@@ -1818,12 +1818,12 @@ function wireComposer() {
   }
 
   /** Avoid blocking main UI on slow/missing Supabase (E2E + flaky networks). */
-  async function safeGetDevicePreferences(deviceSyncId) {
+  async function safeGetDevicePreferences(deviceSyncId, timeoutMs) {
     if (typeof window !== 'undefined' && window.__E2E__) {
       return { __skipped: true };
     }
-    if (!window.talkAbout || !deviceSyncId) return { __skipped: true };
-    const ms = 12000;
+    if (!hasSupabaseConfig() || !window.talkAbout || !deviceSyncId) return { __skipped: true };
+    const ms = timeoutMs ?? (IS_MOM_APP ? 5000 : 12000);
     return new Promise((resolve) => {
       const timer = setTimeout(() => {
         console.warn('getDevicePreferences timed out after', ms, 'ms');
@@ -1868,22 +1868,6 @@ function wireComposer() {
     loadState();
     if (IS_MOM_APP && ensureMomStorageIsolation()) {
       showToast("Fresh start — Mom's board is separate from yours.");
-    }
-    await runDeviceSyncMigration();
-    try {
-      if (window.talkAbout && state.deviceSyncId) {
-        const prefs = await safeGetDevicePreferences(state.deviceSyncId);
-        if (prefs?.__skipped) {
-          /* E2E or no-op */
-        } else if (prefs?.error) {
-          showToast('Could not load preferences — using local settings');
-        } else {
-          applyDevicePreferencesToState(prefs);
-        }
-      }
-    } catch (e) {
-      console.warn('Preferences fetch failed', e);
-      showToast('Using local settings');
     }
     applyThemeColors();
     updateCategorySelectOptions();
@@ -1932,6 +1916,29 @@ function wireComposer() {
       renderTalkAbout,
       renderEmailTriage
     });
+
+    void syncCloudAfterMainUiShown();
+  }
+
+  /** Cloud sync after the board is visible — avoids blocking Get started on slow Supabase. */
+  async function syncCloudAfterMainUiShown() {
+    try {
+      await runDeviceSyncMigration();
+      if (!hasSupabaseConfig() || !window.talkAbout || !state.deviceSyncId) return;
+      const prefs = await safeGetDevicePreferences(state.deviceSyncId);
+      if (prefs?.__skipped) return;
+      if (prefs?.error) {
+        if (!IS_MOM_APP || state.items.length > 0) {
+          showToast('Could not sync from cloud — saved on this device');
+        }
+        return;
+      }
+      const hadItems = state.items.length > 0;
+      applyDevicePreferencesToState(prefs);
+      if (!hadItems && state.items.length > 0) refreshUIAfterRemotePrefs();
+    } catch (e) {
+      console.warn('Cloud sync after load failed', e);
+    }
   }
 
 
@@ -2266,10 +2273,9 @@ function wireComposer() {
           ? generateMomDeviceSyncId(window.talkAbout)
           : (window.talkAbout ? window.talkAbout.generatePairId() : 'solo' + Date.now().toString(36).slice(-6));
         saveDeviceSyncState();
-        if (window.talkAbout) {
-          try {
-            await window.talkAbout.saveDevicePreferences(state.deviceSyncId, getPreferencesForDevice());
-          } catch (e) { console.warn('Seed failed', e); }
+        if (window.talkAbout && hasSupabaseConfig()) {
+          window.talkAbout.saveDevicePreferences(state.deviceSyncId, getPreferencesForDevice())
+            .catch((e) => { console.warn('Seed failed', e); });
         }
       }
       document.getElementById('entry-screen').style.display = 'none';

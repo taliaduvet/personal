@@ -60,6 +60,10 @@ jobs:
             echo "::error::Ledger config empty (same secrets as Parking Lot)."
             exit 1
           fi
+          if grep -q 'csvumbaxopiolwvyevum' deploy/parking-lot-app/config.js; then
+            echo "::error::SUPABASE_URL still points at the old PAUSED project. Set secrets to Talia Duvet Hub: https://feodlwvjcayfgujkxcxm.supabase.co and the Hub anon key."
+            exit 1
+          fi
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
