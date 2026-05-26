@@ -1,0 +1,2279 @@
+import {
+  CATEGORY_PRESETS,
+  PRESET_MIGRATION,
+  PRIORITY_ORDER,
+  MONTHS,
+  STORAGE_PREFIX,
+  HAS_CHOSEN_SOLO_KEY,
+  DEFAULT_COLUMN_COLORS
+} from '../constants.js';
+import { state } from '../state.js';
+import { hasSupabaseConfig } from '../config/supabase-env.js';
+import { escapeHtml } from '../utils/dom.js';
+import { wirePersist } from '../core/persist.js';
+import {
+  loadPairState,
+  savePairState,
+  hasChosenSolo,
+  setChosenSolo,
+  loadDeviceSyncState,
+  saveDeviceSyncState
+} from '../storage/pair-device.js';
+import {
+  loadState,
+  saveState,
+  setStorageNotify,
+  setCloudSyncHook,
+  getTallyDate,
+  getTallyDateYYYYMMDD,
+  migrateStoragePrefixIfNeeded
+} from '../storage/local.js';
+import {
+  getCategories,
+  getOrderedCategoryIds,
+  getCategoryLabel,
+  getCategoryOptionLabel,
+  coerceCategoryId,
+  sanitizeCategoriesAndItemsAfterLoad,
+  getValidCategoryIds
+} from '../domain/categories.js';
+import {
+  detectCategory,
+  extractDeadline,
+  extractDoingDate,
+  extractFriction,
+  extractRecurrence,
+  extractPriority,
+  stripAutoExtractedFromText,
+  createItem,
+  formatDuration,
+  parseLocalDate,
+  getSortReferenceDate,
+  formatDeadline,
+  getTodayLocalYYYYMMDD,
+  getTimeBand,
+  sortByTimeBandsAndFriction,
+  sortItems,
+  archivePastDoingDatesIfNeeded,
+  getActiveItems,
+  getItemsByCategory,
+  getColumnColor,
+  getActiveColumnColors
+} from '../domain/tasks.js';
+import {
+  getPiles,
+  getPileName,
+  getPeopleGroups,
+  addPeopleGroup,
+  renamePeopleGroup,
+  deletePeopleGroup,
+  getPeople,
+  getPerson,
+  getPersonName,
+  addPerson,
+  updatePerson,
+  appendPersonHistory,
+  deletePerson,
+  getReconnectIntervalMs,
+  isOverdueToReconnect,
+  addPile,
+  updatePile,
+  deletePile
+} from '../domain/piles-people.js';
+import {
+  mergeJournalDayRemote,
+  normalizeJournalDayValue,
+  sanitizeJournalHtml,
+  newEntryId,
+  journalDayHasContent,
+  coerceJournalEntryDisplayHtml,
+  JOURNAL_EMPTY_ENTRY_HTML
+} from '../domain/journal-daily.js';
+import {
+  getHabits,
+  computeWeightedPct,
+  compute7DayRolling,
+  getZoneLabel,
+  addHabit,
+  updateHabit,
+  deleteHabit
+} from '../domain/habits.js';
+import { applyThemeColors } from '../ui/theme.js';
+import { showToast } from '../features/toast.js';
+import { updateOfflineBanner } from '../features/offline-banner.js';
+import { buildBackupPayload } from '../domain/backup-export.js';
+import {
+  normalizeWeekPlan,
+  pruneWeekPlan,
+  removeTaskIdFromAllDays,
+  getMondayYYYYMMDD,
+  insertTaskInDayOrder
+} from '../domain/weekly-planning.js';
+import {
+  applyMarkDone,
+  revertMarkDone,
+  applyDeleteItem
+} from '../domain/task-actions.js';
+import { createBoardRenderer } from '../render/board.js';
+import { createTodayFocusRenderer } from '../render/today-focus.js';
+import { createUnifiedTodayRenderer } from '../render/unified-today.js';
+import { createWeekPlanningUI } from '../features/week-planning-ui.js';
+import { attachMainAppRealtime, attachDevicePreferencesRealtime } from '../sync/realtime.js';
+import { createTalkAboutUI } from '../features/talk-about.js';
+import { createEmailTriageUI } from '../features/email-triage.js';
+import { createModalController } from '../features/modals.js';
+import { wireMainEvents } from '../features/events.js';
+import { IS_MOM_APP } from '../config/app-profile.js';
+import { wireMomTodayAndFocus } from './mom-wire.js';
+import { migrateLegacyNotesToUnified } from '../domain/notes.js';
+
+wirePersist(() => saveState());
+
+/** @type {ReturnType<typeof import('../features/notes-ui.js').createNotesUI>|null} */
+let momNotesApi = null;
+/** @type {ReturnType<typeof import('../features/archive-calendar.js').createArchiveCalendar>|null} */
+let momArchiveApi = null;
+
+/** Last focused journal body (for shared Stoic toolbar). */
+let journalStoicLastBody = null;
+
+let tfApi;
+let unifiedApi;
+let weekPlanningApi;
+let renderWeekStrip;
+/** @type {(ids: string[]) => void} */
+let processAddToTodayQueue;
+let talkApi;
+let emailTriageApi;
+let renderColumns;
+let updateColumnNoteTurnPopover;
+let renderTodayList;
+let renderFocusList;
+let renderConsistencySmall;
+let updateTally;
+let updateAddToSuggestionsBtn;
+let addToSuggestions;
+let clearAddToSuggestionsSelection;
+let removeFromSuggestions;
+let suggestNext;
+let showSuggestNextStrip;
+let hideSuggestNextStrip;
+let renderTalkAbout;
+let renderEmailTriage;
+let closeAddFromTalkModal;
+let submitAddFromTalk;
+
+/** Set in {@link wireComposer} — add/edit modal + voice/quick handlers. */
+let modalApi;
+
+const IS_DEV = typeof location !== 'undefined' && (location.hostname === 'localhost' || location.hostname === '127.0.0.1');
+
+/**
+ * @param {string} name
+ * @param {unknown} fn
+ */
+function assertWired(name, fn) {
+  if (IS_DEV && typeof fn !== 'function') {
+    console.error(`[orchestrator] "${name}" called before wireComposer() ran. Check init order.`);
+  }
+  return fn;
+}
+
+function wireComposer() {
+  const planningItemHooks = { afterItemsChange: () => {} };
+  modalApi = createModalController({
+    state,
+    saveState,
+    showToast,
+    getRenderColumns: () => renderColumns,
+    getRenderTodayList: () => renderTodayList,
+    getRenderFocusList: () => renderFocusList,
+    updateCategorySelectOptions,
+    updatePileSelectOptions,
+    updatePersonSelectOptions,
+    onAfterItemsChange: () => planningItemHooks.afterItemsChange()
+  });
+
+  /** Wired after unified Today exists so today-focus never repaints legacy HTML over unified markup. */
+  const todayUiRef = {
+    refresh: () => {},
+    removeFromToday: (id) => {}
+  };
+
+  const board = createBoardRenderer({
+    state,
+    saveState,
+    showToast,
+    saveDevicePreferencesToSupabase,
+    openAddModal: modalApi.openAddModal,
+    openEditModal: modalApi.openEditModal,
+    deleteItem,
+    markDone,
+    updateAddToSuggestionsBtn: () => tfApi.updateAddToSuggestionsBtn()
+  });
+  renderColumns = board.renderColumns;
+  updateColumnNoteTurnPopover = board.updateColumnNoteTurnPopover;
+
+  tfApi = createTodayFocusRenderer({
+    state,
+    saveState,
+    markDone,
+    renderColumns,
+    saveDevicePreferencesToSupabase,
+    refreshTodayUI: () => todayUiRef.refresh(),
+    removeFromToday: (id) => todayUiRef.removeFromToday(id)
+  });
+  /* Must assign module-level lets — destructuring alone only shadowed locals and left updateTally/renderConsistencySmall undefined for markDone/showMainApp */
+  renderConsistencySmall = tfApi.renderConsistencySmall;
+  updateTally = tfApi.updateTally;
+  const tfUpdateAddToSuggestionsBtn = tfApi.updateAddToSuggestionsBtn;
+  clearAddToSuggestionsSelection = tfApi.clearAddToSuggestionsSelection;
+  removeFromSuggestions = tfApi.removeFromSuggestions;
+  suggestNext = tfApi.suggestNext;
+  showSuggestNextStrip = tfApi.showSuggestNextStrip;
+  hideSuggestNextStrip = tfApi.hideSuggestNextStrip;
+
+  if (IS_MOM_APP) {
+    const mom = wireMomTodayAndFocus({
+      state,
+      saveState,
+      markDone,
+      renderColumns,
+      showToast,
+      updateTally: () => tfApi.updateTally(),
+      todayUiRef
+    });
+    weekPlanningApi = mom.weekPlanningApi;
+    renderTodayList = mom.renderTodayList;
+    renderFocusList = mom.renderFocusList;
+    unifiedApi = { removeFromToday: mom.removeFromToday, clearHiddenFromTodayForTask: () => {} };
+    renderWeekStrip = mom.renderWeekStrip;
+    momNotesApi = mom.notesApi;
+    momArchiveApi = mom.archiveApi;
+    planningItemHooks.afterItemsChange = () => {};
+    momNotesApi.bindNotesTabControls();
+    momArchiveApi.bindArchiveControls();
+  } else {
+    weekPlanningApi = createWeekPlanningUI({
+      state,
+      saveState,
+      saveDevicePreferencesToSupabase,
+      openAddModal: (presetCategory, presetPileId) => modalApi.openAddModal(presetCategory, presetPileId),
+      onCommitted: () => {
+        unifiedApi.renderTodayList();
+        unifiedApi.renderFocusUnified();
+        assertWired('renderWeekStrip', renderWeekStrip)?.();
+        assertWired('renderColumns', renderColumns)?.();
+      }
+    });
+    planningItemHooks.afterItemsChange = () => weekPlanningApi.refreshOpenPlanner();
+
+    unifiedApi = createUnifiedTodayRenderer({
+      state,
+      saveState,
+      markDone,
+      renderColumns,
+      openPlanningEntry: (opts) => weekPlanningApi.openPlanningEntry(opts),
+      onWeekPlanChanged: () => {
+        if (typeof renderWeekStrip === 'function') renderWeekStrip();
+        if (window.talkAbout && state.deviceSyncId) saveDevicePreferencesToSupabase();
+      }
+    });
+
+    todayUiRef.refresh = () => {
+      unifiedApi.renderTodayList();
+      unifiedApi.renderFocusUnified();
+    };
+    todayUiRef.removeFromToday = (id) => unifiedApi.removeFromToday(id);
+
+    renderTodayList = () => unifiedApi.renderTodayList();
+    renderFocusList = () => unifiedApi.renderFocusUnified();
+    renderWeekStrip = () => weekPlanningApi.renderWeekStrip(document.getElementById('week-strip-row'));
+  }
+
+  const mainAppEl = document.getElementById('main-app');
+  if (mainAppEl) {
+    mainAppEl.addEventListener('click', (e) => {
+      const t = e.target;
+      const el = t && t.nodeType === Node.ELEMENT_NODE ? t : t && t.parentElement;
+      if (!el || !el.closest) return;
+      const todayRoot = document.getElementById('today-list');
+      const focusRoot = document.getElementById('focus-list');
+      const inToday = todayRoot && todayRoot.contains(el);
+      const inFocus = focusRoot && focusRoot.contains(el);
+      if (!inToday && !inFocus) return;
+      const doneBtn = el.closest('.btn-done');
+      const removeBtn = el.closest('.btn-remove');
+      const btn = (inToday || inFocus) && (doneBtn || removeBtn) ? (doneBtn || removeBtn) : null;
+      if (!btn || (!todayRoot?.contains(btn) && !focusRoot?.contains(btn))) return;
+      const row = btn.closest('.today-item');
+      if (!row) return;
+      const id = row.getAttribute('data-id') || row.dataset.id;
+      if (!id) return;
+      e.preventDefault();
+      if (doneBtn) markDone(id);
+      else unifiedApi.removeFromToday(id);
+    });
+  }
+
+  processAddToTodayQueue = function processAddToTodayQueueInner(ids) {
+    if (!ids.length) {
+      tfUpdateAddToSuggestionsBtn();
+      assertWired('renderColumns', renderColumns)?.();
+      return;
+    }
+    const id = ids[0];
+    const rest = ids.slice(1);
+    const item = state.items.find(i => i.id === id);
+    if (!item) {
+      processAddToTodayQueueInner(rest);
+      return;
+    }
+    const todayStr = getTodayLocalYYYYMMDD();
+    const wp = normalizeWeekPlan(state.weekPlan);
+    const day = wp.days[todayStr];
+    const plannedPile = day && day.pileId;
+    const itemPile = item.pileId || null;
+    if (!IS_MOM_APP && plannedPile && itemPile === plannedPile) {
+      weekPlanningApi.askTopOrBottom((pos) => {
+        state.weekPlan = insertTaskInDayOrder(state.weekPlan, todayStr, id, pos);
+        state.weekPlan = pruneWeekPlan(state.items, state.weekPlan);
+        unifiedApi.clearHiddenFromTodayForTask(id);
+        saveState();
+        assertWired('renderTodayList', renderTodayList)?.();
+        assertWired('renderFocusList', renderFocusList)?.();
+        assertWired('renderColumns', renderColumns)?.();
+        processAddToTodayQueueInner(rest);
+      });
+      return;
+    }
+    if (!state.todaySuggestionIds.includes(id)) state.todaySuggestionIds.push(id);
+    unifiedApi.clearHiddenFromTodayForTask(id);
+    saveState();
+    assertWired('renderTodayList', renderTodayList)?.();
+    assertWired('renderFocusList', renderFocusList)?.();
+    assertWired('renderColumns', renderColumns)?.();
+    processAddToTodayQueueInner(rest);
+  };
+
+  updateAddToSuggestionsBtn = tfUpdateAddToSuggestionsBtn;
+  addToSuggestions = () => {
+    const ids = [...state.selectedIds];
+    state.selectedIds.clear();
+    processAddToTodayQueue(ids);
+  };
+
+  talkApi = createTalkAboutUI({
+    state,
+    showToast,
+    saveState,
+    renderColumns,
+    updatePileSelectOptions
+  });
+  renderTalkAbout = () => talkApi.renderTalkAbout();
+  closeAddFromTalkModal = () => talkApi.closeAddFromTalkModal();
+  submitAddFromTalk = () => talkApi.submitAddFromTalk();
+
+  emailTriageApi = createEmailTriageUI({
+    state,
+    showToast,
+    saveState,
+    renderColumns
+  });
+  renderEmailTriage = (showPanel) => emailTriageApi.renderEmailTriage(showPanel);
+}
+
+  function getColumnNoteFocusSnapshot() {
+    const el = document.activeElement;
+    if (!el || !el.classList || !el.classList.contains('column-note-textarea')) return null;
+    return {
+      category: el.dataset.category,
+      start: el.selectionStart,
+      end: el.selectionEnd,
+      scrollTop: el.scrollTop
+    };
+  }
+
+  function restoreColumnNoteFocus(snap) {
+    if (!snap) return;
+    requestAnimationFrame(() => {
+      const el = document.querySelector('.column-note-textarea[data-category="' + snap.category + '"]');
+      if (!el) return;
+      el.focus();
+      try {
+        const max = el.value.length;
+        el.setSelectionRange(Math.min(snap.start, max), Math.min(snap.end, max));
+      } catch (e) { /* selection may be invalid on first paint */ }
+      el.scrollTop = snap.scrollTop;
+    });
+  }
+
+  function refreshUIAfterRemotePrefs() {
+    const noteSnap = getColumnNoteFocusSnapshot();
+    applyThemeColors();
+    updateCategorySelectOptions();
+    renderColumns();
+    restoreColumnNoteFocus(noteSnap);
+    renderTodayList();
+    renderWeekStrip();
+    updateTally();
+    updateAddToSuggestionsBtn();
+  }
+
+  function markDone(id) {
+    if (state.processingIds.has(id)) return;
+    const item = state.items.find(i => i.id === id);
+    if (!item) return;
+    state.processingIds.add(id);
+    try {
+      const result = applyMarkDone(id);
+      if (!result.mutated) return;
+      const {
+        wasInSuggestions,
+        respawnedId,
+        todayStr,
+        prev
+      } = result;
+      saveState();
+      updateTally();
+      renderTodayList();
+      renderFocusList();
+      renderColumns();
+      showToast('Done', () => {
+        revertMarkDone(id, prev, todayStr, wasInSuggestions, respawnedId);
+        saveState();
+        updateTally();
+        renderTodayList();
+        renderFocusList();
+        renderColumns();
+      });
+      if (state.undoDoneTimeout) clearTimeout(state.undoDoneTimeout);
+      state.undoDoneTimeout = setTimeout(() => { /* toast hides */ }, 5000);
+
+      if (state.showSuggestNext) {
+        const nextTask = suggestNext(item);
+        if (nextTask) showSuggestNextStrip(nextTask, item);
+      }
+      renderConsistencySmall();
+    } finally {
+      state.processingIds.delete(id);
+    }
+  }
+
+  function deleteItem(id, showUndo = true) {
+    if (state.processingIds.has(id)) return;
+    state.processingIds.add(id);
+    try {
+      const del = applyDeleteItem(id);
+      if (!del.removed) return;
+      const { item, index: idx } = del;
+      saveState();
+      renderTodayList();
+      renderFocusList();
+      renderColumns();
+      if (showUndo) {
+        const restoreIndex = idx;
+        const restoreItem = item;
+        showToast('Removed', () => {
+          const safeIndex = Math.max(0, Math.min(restoreIndex, state.items.length));
+          state.items.splice(safeIndex, 0, restoreItem);
+          saveState();
+          renderTodayList();
+          renderFocusList();
+          renderColumns();
+        });
+      }
+    } finally {
+      state.processingIds.delete(id);
+    }
+  }
+
+  function updateCategorySelectOptions() {
+    const sel = document.getElementById('category-select');
+    if (!sel) return;
+    sel.innerHTML = getCategories().map(c =>
+      `<option value="${c.id}">${escapeHtml(getCategoryOptionLabel(c.id))}</option>`
+    ).join('');
+  }
+
+  function updatePileSelectOptions(selectIdOrEl, selectedPileId) {
+    const el = typeof selectIdOrEl === 'string' ? document.getElementById(selectIdOrEl) : selectIdOrEl;
+    if (!el) return;
+    const piles = getPiles();
+    el.innerHTML = '<option value="">None</option>' + piles.map(p =>
+      `<option value="${p.id}" ${p.id === selectedPileId ? 'selected' : ''}>${escapeHtml(p.name)}</option>`
+    ).join('');
+  }
+
+  function updatePersonSelectOptions(selectIdOrEl, selectedPersonId) {
+    const el = typeof selectIdOrEl === 'string' ? document.getElementById(selectIdOrEl) : selectIdOrEl;
+    if (!el) return;
+    const people = getPeople().slice().sort(function(a, b) {
+      const groups = getPeopleGroups();
+      var ai = groups.findIndex(function(g) { return g.id === a.group; });
+      var bi = groups.findIndex(function(g) { return g.id === b.group; });
+      if (ai !== bi) return ai - bi;
+      return (a.name || '').localeCompare(b.name || '');
+    });
+    el.innerHTML = '<option value="">None</option>' + people.map(function(p) {
+      return '<option value="' + p.id + '"' + (p.id === selectedPersonId ? ' selected' : '') + '>' + escapeHtml(p.name) + '</option>';
+    }).join('');
+  }
+
+  function ensureSettingsAccordion() {
+    const modalBody = document.querySelector('#settings-modal .modal-body');
+    if (!modalBody || modalBody.dataset.accordionized === 'true') return;
+    const saveBtn = document.getElementById('save-settings');
+    if (!saveBtn) return;
+
+    function collectRange(startNode, endNode) {
+      if (!startNode || !endNode) return [];
+      const nodes = [];
+      let n = startNode;
+      while (n) {
+        const next = n.nextElementSibling;
+        nodes.push(n);
+        if (n === endNode) break;
+        n = next;
+      }
+      return nodes;
+    }
+
+    function createSection(title, open, nodes) {
+      if (!nodes || !nodes.length) return;
+      const details = document.createElement('details');
+      details.className = 'settings-accordion';
+      if (open) details.open = true;
+      const summary = document.createElement('summary');
+      summary.className = 'settings-accordion-title';
+      summary.textContent = title;
+      const content = document.createElement('div');
+      content.className = 'settings-accordion-content';
+      nodes.forEach(node => content.appendChild(node));
+      details.appendChild(summary);
+      details.appendChild(content);
+      modalBody.appendChild(details);
+    }
+
+    const notifications = document.getElementById('settings-push-notifications');
+    const syncStart = document.getElementById('settings-sync-code');
+    const syncEnd = document.getElementById('settings-pair-code');
+    const nameInput = document.getElementById('settings-display-name');
+    const dayReset = document.getElementById('settings-tally-reset-hour');
+    const presetButtons = document.querySelector('.settings-preset-btns');
+    const pilesAdd = document.querySelector('.settings-piles-add');
+    const themeColors = document.querySelector('.settings-theme-colors');
+
+    const generalStart = nameInput ? nameInput.previousElementSibling && nameInput.previousElementSibling.previousElementSibling : null;
+    const workflowStart = presetButtons ? presetButtons.previousElementSibling && presetButtons.previousElementSibling.previousElementSibling : null;
+    const appearanceStart = themeColors ? themeColors.previousElementSibling && themeColors.previousElementSibling.previousElementSibling : null;
+
+    saveBtn.remove();
+
+    createSection('General', true, collectRange(generalStart, dayReset));
+    createSection('Workflow', true, collectRange(workflowStart, pilesAdd));
+    createSection('Appearance', false, collectRange(appearanceStart, themeColors));
+    createSection('Sync & Devices', false, collectRange(syncStart, syncEnd));
+    if (notifications) createSection('Notifications', false, [notifications]);
+
+    modalBody.appendChild(saveBtn);
+    modalBody.dataset.accordionized = 'true';
+  }
+
+  function openSettingsModal() {
+    ensureSettingsAccordion();
+    const pushStatus = document.getElementById('settings-push-status');
+    if (pushStatus) pushStatus.textContent = '';
+    const buildRefEl = document.getElementById('settings-build-ref');
+    if (buildRefEl) {
+      const ref = (state.buildRef || '').trim();
+      buildRefEl.textContent = ref ? ('Build: ' + ref) : '';
+    }
+    const displayNameEl = document.getElementById('settings-display-name');
+    if (displayNameEl) displayNameEl.value = state.displayName || '';
+
+    const tallyResetEl = document.getElementById('settings-tally-reset-hour');
+    if (tallyResetEl) tallyResetEl.value = String(state.tallyResetHour != null ? state.tallyResetHour : 3);
+
+    const showSuggestNextEl = document.getElementById('settings-show-suggest-next');
+    if (showSuggestNextEl) showSuggestNextEl.checked = !!state.showSuggestNext;
+
+    const presetRadios = document.querySelectorAll('input[name="category-preset"]');
+    presetRadios.forEach(r => {
+      r.checked = (r.value === (state.categoryPreset || 'generic'));
+    });
+    const container = document.getElementById('settings-column-inputs');
+    if (!container) return;
+    container.innerHTML = getCategories().map(c => {
+      const val = (state.customLabels[c.id] || c.label);
+      return `<label>${escapeHtml(c.label)}<input type="text" data-cat="${c.id}" value="${escapeHtml(val)}" placeholder="${escapeHtml(c.label)}"></label>`;
+    }).join('');
+
+    const colorsContainer = document.getElementById('settings-column-colors');
+    if (colorsContainer) {
+      colorsContainer.innerHTML = getCategories().map(c => {
+        const current = getColumnColor(c.id);
+        return `
+          <div class="settings-color-row">
+            <label>${escapeHtml(getCategoryOptionLabel(c.id))}</label>
+            <div class="color-picker-row">
+              <input type="color" data-cat="${c.id}" value="${current}" class="color-input">
+              <input type="text" data-cat="${c.id}" class="color-hex-input" value="${current}" placeholder="#000000" maxlength="7">
+            </div>
+          </div>`;
+      }).join('');
+
+      colorsContainer.querySelectorAll('.color-input').forEach(inp => {
+        inp.addEventListener('input', (e) => {
+          const cat = e.target.dataset.cat;
+          state.columnColors[cat] = e.target.value;
+          const hexInp = colorsContainer.querySelector(`.color-hex-input[data-cat="${cat}"]`);
+          if (hexInp) hexInp.value = e.target.value;
+          saveDevicePreferencesToSupabase();
+          renderColumns();
+        });
+      });
+      colorsContainer.querySelectorAll('.color-hex-input').forEach(inp => {
+        inp.addEventListener('input', (e) => {
+          const cat = e.target.dataset.cat;
+          const val = e.target.value.trim();
+          if (/^#[0-9a-fA-F]{6}$/.test(val)) {
+            state.columnColors[cat] = val;
+            const colorInp = colorsContainer.querySelector(`.color-input[data-cat="${cat}"]`);
+            if (colorInp) colorInp.value = val;
+            saveDevicePreferencesToSupabase();
+            renderColumns();
+          }
+        });
+      });
+    }
+
+    const btnColorEl = document.getElementById('settings-button-color');
+    const btnHexEl = document.getElementById('settings-button-hex');
+    const textColorEl = document.getElementById('settings-text-color');
+    const textHexEl = document.getElementById('settings-text-hex');
+    const defaultBtn = '#e07a5f';
+    const defaultText = '#e8e6e3';
+    if (btnColorEl) btnColorEl.value = state.buttonColor || defaultBtn;
+    if (btnHexEl) btnHexEl.value = state.buttonColor || defaultBtn;
+    if (textColorEl) textColorEl.value = state.textColor || defaultText;
+    if (textHexEl) textHexEl.value = state.textColor || defaultText;
+
+    const syncCodeEl = document.getElementById('settings-sync-code');
+    const syncCodeDisplay = document.getElementById('settings-sync-code-display');
+    const pairCodeEl = document.getElementById('settings-pair-code');
+    const pairCodeDisplay = document.getElementById('settings-pair-code-display');
+    if (syncCodeEl && syncCodeDisplay) {
+      if (state.deviceSyncId) {
+        syncCodeEl.style.display = 'block';
+        syncCodeDisplay.textContent = state.deviceSyncId;
+      } else {
+        syncCodeEl.style.display = 'none';
+      }
+    }
+    if (pairCodeEl && pairCodeDisplay) {
+      if (state.pairId) {
+        pairCodeEl.style.display = 'block';
+        pairCodeDisplay.textContent = state.pairId;
+      } else {
+        pairCodeEl.style.display = 'none';
+      }
+    }
+
+    renderSettingsPilesList();
+    const pileNameInput = document.getElementById('settings-pile-name');
+    const pileAddBtn = document.getElementById('settings-pile-add-btn');
+    if (pileAddBtn && pileNameInput) {
+      pileAddBtn.replaceWith(pileAddBtn.cloneNode(true));
+      document.getElementById('settings-pile-add-btn').addEventListener('click', () => {
+        const name = pileNameInput.value.trim();
+        if (!name) return;
+        addPile(name);
+        pileNameInput.value = '';
+        renderSettingsPilesList();
+        showToast('Pile added');
+      });
+    }
+
+    document.getElementById('settings-modal').style.display = 'flex';
+  }
+
+  function renderSettingsPilesList() {
+    const container = document.getElementById('settings-piles-list');
+    if (!container) return;
+    const piles = getPiles();
+    container.innerHTML = piles.length ? piles.map(p => {
+      const count = (state.items || []).filter(i => i.pileId === p.id).length;
+      return `<div class="settings-pile-row" data-pile-id="${p.id}">
+        <span class="settings-pile-name">${escapeHtml(p.name)}</span>
+        <span class="settings-pile-meta">${count} task${count !== 1 ? 's' : ''}</span>
+        <button type="button" class="btn-secondary btn-sm settings-pile-rename" data-pile-id="${p.id}">Rename</button>
+        <button type="button" class="btn-secondary btn-sm settings-pile-delete" data-pile-id="${p.id}" data-count="${count}">Delete</button>
+      </div>`;
+    }).join('') : '<p class="settings-hint">No piles yet. Add one below.</p>';
+
+    container.querySelectorAll('.settings-pile-rename').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.pileId;
+        const current = getPileName(id) || '';
+        const name = window.prompt('Rename pile:', current);
+        if (name != null && name.trim()) {
+          updatePile(id, name.trim());
+          renderSettingsPilesList();
+          showToast('Pile renamed');
+        }
+      });
+    });
+    container.querySelectorAll('.settings-pile-delete').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.pileId;
+        const count = parseInt(btn.dataset.count, 10) || 0;
+        const msg = count > 0
+          ? count + ' task' + (count !== 1 ? 's' : '') + ' will become uncategorized. Delete this pile?'
+          : 'Delete this pile?';
+        if (window.confirm(msg)) {
+          deletePile(id);
+          renderSettingsPilesList();
+          renderColumns();
+          showToast('Pile deleted');
+        }
+      });
+    });
+  }
+
+  function getPreferencesForDevice() {
+    const prefs = { ...getActiveColumnColors() };
+    if (state.buttonColor) prefs.__button = state.buttonColor;
+    if (state.textColor) prefs.__text = state.textColor;
+    prefs.custom_labels = { ...(state.customLabels || {}) };
+    prefs.category_preset = state.categoryPreset || 'generic';
+    prefs.__items = state.items;
+    prefs.__todaySuggestionIds = state.todaySuggestionIds;
+    if (Array.isArray(state.columnOrder) && state.columnOrder.length) prefs.__columnOrder = state.columnOrder;
+    prefs.__tallyResetHour = state.tallyResetHour != null ? state.tallyResetHour : 3;
+    if (Array.isArray(state.piles) && state.piles.length) prefs.__piles = state.piles;
+    if (state.viewMode) prefs.__viewMode = state.viewMode;
+    if (typeof state.showSuggestNext === 'boolean') prefs.__showSuggestNext = state.showSuggestNext;
+    if (state.columnNotes && Object.keys(state.columnNotes).length) prefs.__columnNotes = state.columnNotes;
+    if (state.lastSeed) prefs.__lastSeed = state.lastSeed;
+    if (Array.isArray(state.habits) && state.habits.length) prefs.__habits = state.habits;
+    if (Array.isArray(state.habitCompletions) && state.habitCompletions.length) prefs.__habitCompletions = state.habitCompletions;
+    prefs.__people = Array.isArray(state.people) ? state.people : [];
+    if (Array.isArray(state.peopleGroups) && state.peopleGroups.length) prefs.__peopleGroups = state.peopleGroups;
+    if (state.journalDaily && typeof state.journalDaily === 'object' && Object.keys(state.journalDaily).length) prefs.__journalDaily = state.journalDaily;
+    if (state.journalDailyOpenEntryByDate && typeof state.journalDailyOpenEntryByDate === 'object' && Object.keys(state.journalDailyOpenEntryByDate).length) {
+      prefs.__journalDailyOpenEntryByDate = { ...state.journalDailyOpenEntryByDate };
+    }
+    if (Array.isArray(state.seedReflections) && state.seedReflections.length) prefs.__seedReflections = state.seedReflections;
+    const wk = normalizeWeekPlan(state.weekPlan);
+    if (wk.anchorWeekStart || Object.keys(wk.days).length) prefs.__weekPlan = wk;
+    if (state.lastPlanCommittedAt) prefs.__lastPlanCommittedAt = state.lastPlanCommittedAt;
+    if (state.lastCommittedPlanSnapshot && state.lastCommittedPlanSnapshot.anchorWeekStart) {
+      prefs.__lastCommittedPlanSnapshot = normalizeWeekPlan(state.lastCommittedPlanSnapshot);
+    }
+    if (state.previousWeekPlanSnapshot && state.previousWeekPlanSnapshot.anchorWeekStart) {
+      prefs.__previousWeekPlanSnapshot = normalizeWeekPlan(state.previousWeekPlanSnapshot);
+    }
+    if (state.showWeekStrip) prefs.__showWeekStrip = true;
+    if (state.otherCollapsedOnDate) prefs.__otherCollapsedOnDate = state.otherCollapsedOnDate;
+    if (Array.isArray(state.notes) && state.notes.length) prefs.__notes = state.notes;
+    return prefs;
+  }
+
+  function applyDevicePreferencesToState(prefs) {
+    if (!prefs || typeof prefs !== 'object') return;
+    if (prefs.__button) { state.buttonColor = prefs.__button; delete prefs.__button; }
+    if (prefs.__text) { state.textColor = prefs.__text; delete prefs.__text; }
+    if (prefs.custom_labels) { state.customLabels = prefs.custom_labels; delete prefs.custom_labels; }
+    if (prefs.category_preset) { state.categoryPreset = prefs.category_preset; delete prefs.category_preset; }
+    if (Array.isArray(prefs.__items)) { state.items = prefs.__items; delete prefs.__items; }
+    if (Array.isArray(prefs.__todaySuggestionIds)) { state.todaySuggestionIds = prefs.__todaySuggestionIds; delete prefs.__todaySuggestionIds; }
+    if (typeof prefs.__completedTodayCount === 'number') delete prefs.__completedTodayCount;
+    if (prefs.__lastCompletedDate) delete prefs.__lastCompletedDate;
+    if (Array.isArray(prefs.__columnOrder)) { state.columnOrder = prefs.__columnOrder; delete prefs.__columnOrder; }
+    if (typeof prefs.__tallyResetHour === 'number' && prefs.__tallyResetHour >= 0 && prefs.__tallyResetHour <= 23) { state.tallyResetHour = prefs.__tallyResetHour; delete prefs.__tallyResetHour; }
+    if (Array.isArray(prefs.__piles)) { state.piles = prefs.__piles; delete prefs.__piles; }
+    if (prefs.__viewMode === 'piles' || prefs.__viewMode === 'columns') { state.viewMode = prefs.__viewMode; delete prefs.__viewMode; }
+    if (typeof prefs.__showSuggestNext === 'boolean') { state.showSuggestNext = prefs.__showSuggestNext; delete prefs.__showSuggestNext; }
+    if (prefs.__columnNotes && typeof prefs.__columnNotes === 'object') { state.columnNotes = prefs.__columnNotes; delete prefs.__columnNotes; }
+    if (typeof prefs.__lastSeed === 'string') { state.lastSeed = prefs.__lastSeed; delete prefs.__lastSeed; }
+    if (Array.isArray(prefs.__habits)) { state.habits = prefs.__habits; delete prefs.__habits; }
+    if (Array.isArray(prefs.__habitCompletions)) { state.habitCompletions = prefs.__habitCompletions; delete prefs.__habitCompletions; }
+    if (Array.isArray(prefs.__people)) { state.people = prefs.__people; delete prefs.__people; }
+    if (Array.isArray(prefs.__peopleGroups) && prefs.__peopleGroups.length) {
+      state.peopleGroups = prefs.__peopleGroups.filter(function(g) { return g && typeof g.id === 'string' && typeof g.label === 'string'; });
+      delete prefs.__peopleGroups;
+    }
+    if (prefs.__journalDaily && typeof prefs.__journalDaily === 'object') {
+      if (!state.journalDaily || typeof state.journalDaily !== 'object') state.journalDaily = {};
+      Object.keys(prefs.__journalDaily).forEach(function(dateKey) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return;
+        var existing = state.journalDaily[dateKey];
+        var incoming = prefs.__journalDaily[dateKey];
+        state.journalDaily[dateKey] = mergeJournalDayRemote(existing, incoming);
+      });
+      delete prefs.__journalDaily;
+    }
+    if (prefs.__journalDailyOpenEntryByDate && typeof prefs.__journalDailyOpenEntryByDate === 'object') {
+      if (!state.journalDailyOpenEntryByDate || typeof state.journalDailyOpenEntryByDate !== 'object') state.journalDailyOpenEntryByDate = {};
+      Object.assign(state.journalDailyOpenEntryByDate, prefs.__journalDailyOpenEntryByDate);
+      delete prefs.__journalDailyOpenEntryByDate;
+    }
+    if (Array.isArray(prefs.__seedReflections)) {
+      var existingRefl = state.seedReflections || [];
+      var incomingRefl = prefs.__seedReflections;
+      var byTime = {};
+      existingRefl.forEach(function(r) { byTime[r.reflectedAt] = r; });
+      incomingRefl.forEach(function(r) {
+        if (r && (r.reflectedAt == null || !byTime[r.reflectedAt])) byTime[r.reflectedAt || Date.now() + Math.random()] = r;
+      });
+      state.seedReflections = Object.values(byTime).sort(function(a, b) { return (a.reflectedAt || 0) - (b.reflectedAt || 0); });
+      delete prefs.__seedReflections;
+    }
+    if (prefs.__weekPlan && typeof prefs.__weekPlan === 'object') {
+      state.weekPlan = normalizeWeekPlan(prefs.__weekPlan);
+      delete prefs.__weekPlan;
+    }
+    if (typeof prefs.__lastPlanCommittedAt === 'string') {
+      state.lastPlanCommittedAt = prefs.__lastPlanCommittedAt;
+      delete prefs.__lastPlanCommittedAt;
+    }
+    if (prefs.__lastCommittedPlanSnapshot && typeof prefs.__lastCommittedPlanSnapshot === 'object') {
+      state.lastCommittedPlanSnapshot = normalizeWeekPlan(prefs.__lastCommittedPlanSnapshot);
+      delete prefs.__lastCommittedPlanSnapshot;
+    }
+    if (prefs.__previousWeekPlanSnapshot && typeof prefs.__previousWeekPlanSnapshot === 'object') {
+      state.previousWeekPlanSnapshot = normalizeWeekPlan(prefs.__previousWeekPlanSnapshot);
+      delete prefs.__previousWeekPlanSnapshot;
+    }
+    if (prefs.__showWeekStrip === true) { state.showWeekStrip = true; delete prefs.__showWeekStrip; }
+    if (typeof prefs.__otherCollapsedOnDate === 'string') {
+      state.otherCollapsedOnDate = prefs.__otherCollapsedOnDate;
+      delete prefs.__otherCollapsedOnDate;
+    }
+    if (Array.isArray(prefs.__notes)) {
+      state.notes = prefs.__notes;
+      delete prefs.__notes;
+      if (IS_MOM_APP) migrateLegacyNotesToUnified();
+    }
+    if (!state.columnColors || typeof state.columnColors !== 'object') state.columnColors = {};
+    getValidCategoryIds().forEach(id => {
+      const v = prefs[id];
+      if (v != null && /^#[0-9a-fA-F]{6}$/i.test(String(v).trim())) {
+        state.columnColors[id] = String(v).trim();
+      }
+      delete prefs[id];
+    });
+    sanitizeCategoriesAndItemsAfterLoad();
+    saveState(true, true);
+  }
+
+  async function runDeviceSyncMigration() {
+    if (state.deviceSyncId) return;
+    if (!window.talkAbout) return;
+    if (state.pairId) {
+      state.deviceSyncId = state.pairId + '_' + (state.addedBy || 'Talia');
+      try {
+        const payload = getPreferencesForDevice();
+        const oldPrefs = await window.talkAbout.getUserPreferences(state.pairId, state.addedBy);
+        if (oldPrefs && !oldPrefs.error && typeof oldPrefs === 'object' && Object.keys(oldPrefs).length > 0) {
+          Object.assign(payload, oldPrefs);
+        }
+        const { error } = await window.talkAbout.saveDevicePreferences(state.deviceSyncId, payload);
+        if (error) console.warn('Migration save failed', error);
+      } catch (e) {
+        console.warn('Migration failed', e);
+        const payload = getPreferencesForDevice();
+        await window.talkAbout.saveDevicePreferences(state.deviceSyncId, payload);
+      }
+      if (hasChosenSolo()) {
+        state.pairId = null;
+        state.addedBy = 'Talia';
+        localStorage.removeItem(STORAGE_PREFIX + 'pairId');
+        localStorage.setItem(STORAGE_PREFIX + 'addedBy', 'Talia');
+      }
+    } else {
+      state.deviceSyncId = window.talkAbout.generatePairId();
+      try {
+        const payload = getPreferencesForDevice();
+        await window.talkAbout.saveDevicePreferences(state.deviceSyncId, payload);
+      } catch (e) {
+        console.warn('Seed failed', e);
+      }
+    }
+    saveDeviceSyncState();
+  }
+
+  function saveDevicePreferencesToSupabase() {
+    if (!window.talkAbout || !state.deviceSyncId) return;
+    if (state.savePrefsTimeout) clearTimeout(state.savePrefsTimeout);
+    state.savePrefsTimeout = setTimeout(async () => {
+      state.savePrefsTimeout = null;
+      try {
+        const { error } = await window.talkAbout.saveDevicePreferences(state.deviceSyncId, getPreferencesForDevice());
+        if (error) showToast('Could not sync preferences — will retry when online');
+      } catch (e) {
+        showToast('Could not sync preferences — will retry when online');
+      }
+    }, 500);
+  }
+
+  async function forcePushToCloud() {
+    const btn = document.getElementById('settings-push-now-btn');
+    const statusEl = document.getElementById('settings-push-notifications-status');
+    const origText = btn ? btn.textContent : '';
+    const setStatus = (msg) => {
+      if (statusEl) { statusEl.textContent = msg; statusEl.className = 'settings-push-status' + (msg && !msg.startsWith('✓') ? ' settings-push-error' : ''); }
+    };
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Pushing…';
+    }
+    setStatus('');
+    if (!window.talkAbout || !state.deviceSyncId) {
+      setStatus('No sync code yet — use the app first');
+      showToast('No sync code yet — use the app first');
+      if (btn) { btn.disabled = false; btn.textContent = origText; }
+      return;
+    }
+    try {
+      const { error } = await window.talkAbout.saveDevicePreferences(state.deviceSyncId, getPreferencesForDevice());
+      if (error) {
+        const msg = 'Could not push — ' + (error || 'check connection');
+        setStatus(msg);
+        showToast(msg);
+      } else {
+        const msg = '✓ Pushed ' + state.items.length + ' tasks to cloud';
+        setStatus(msg);
+        showToast(msg);
+      }
+    } catch (e) {
+      const msg = 'Could not push — check connection';
+      setStatus(msg);
+      showToast(msg);
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = origText;
+      }
+    }
+  }
+
+  function closeSettingsModal() {
+    document.getElementById('settings-modal').style.display = 'none';
+  }
+
+  function renderSeedTaskOptions(filterText) {
+    const taskSelect = document.getElementById('seed-render-task-select');
+    const emptyEl = document.getElementById('seed-render-empty');
+    if (!taskSelect) return;
+    const q = (filterText || '').trim().toLowerCase();
+    const filtered = (state.seedRenderTaskCache || []).filter(i => !q || (i.text || '').toLowerCase().includes(q));
+    taskSelect.innerHTML = '<option value="">— None —</option>' + filtered.map(i =>
+      `<option value="${escapeHtml(i.id)}">${escapeHtml((i.text || '').slice(0, 80))}${(i.text || '').length > 80 ? '…' : ''}</option>`
+    ).join('');
+    if (emptyEl) emptyEl.style.display = filtered.length ? 'none' : 'block';
+  }
+
+  function openSeedRenderModal() {
+    const modal = document.getElementById('seed-render-modal');
+    const picker = document.getElementById('seed-render-picker');
+    const searchInput = document.getElementById('seed-render-task-search');
+    const questionInput = document.getElementById('seed-render-question');
+    const resultDiv = document.getElementById('seed-render-result');
+    const actionsDiv = document.getElementById('seed-render-actions');
+    const renderingDiv = document.getElementById('seed-render-rendering');
+    const reflectionDiv = document.getElementById('seed-render-reflection');
+    const reflectionInput = document.getElementById('seed-render-reflection-input');
+    if (!modal) return;
+    state.seedRenderTaskCache = sortByTimeBandsAndFriction(getActiveItems());
+    state.seedRenderState = null;
+    if (picker) picker.style.display = 'block';
+    if (renderingDiv) renderingDiv.style.display = 'none';
+    if (reflectionDiv) reflectionDiv.style.display = 'none';
+    if (reflectionInput) reflectionInput.value = '';
+    if (searchInput) searchInput.value = '';
+    renderSeedTaskOptions('');
+    if (questionInput) questionInput.value = '';
+    if (resultDiv) resultDiv.style.display = 'none';
+    if (actionsDiv) actionsDiv.style.display = 'block';
+    modal.style.display = 'flex';
+  }
+
+  function closeSeedRenderModal() {
+    const modal = document.getElementById('seed-render-modal');
+    if (modal) modal.style.display = 'none';
+    state.seedRenderState = null;
+  }
+
+  function openConsistencyPanel() {
+    const panel = document.getElementById('consistency-panel');
+    if (!panel) return;
+    panel.style.display = 'block';
+    renderConsistencyPanel();
+  }
+
+  function closeConsistencyPanel() {
+    const panel = document.getElementById('consistency-panel');
+    if (panel) panel.style.display = 'none';
+  }
+
+  function renderConsistencyPanel() {
+    const todayStr = getTodayLocalYYYYMMDD();
+    const pct = computeWeightedPct(todayStr);
+    const rolling = compute7DayRolling();
+    const zone = getZoneLabel(pct);
+    const metricsEl = document.getElementById('consistency-metrics');
+    const zoneEl = document.getElementById('consistency-zone');
+    const trendEl = document.getElementById('consistency-trend');
+    const monthEl = document.getElementById('consistency-month');
+    const habitsListEl = document.getElementById('consistency-habits-list');
+    if (metricsEl) metricsEl.innerHTML = '<p>Weighted today: <strong>' + pct + '%</strong></p><p>7-day rolling: <strong>' + rolling + '%</strong></p>';
+    if (zoneEl) zoneEl.textContent = 'Zone: ' + zone;
+    const trendDays = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(todayStr);
+      d.setDate(d.getDate() - i);
+      const dateStr = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      trendDays.push({ date: dateStr, pct: computeWeightedPct(dateStr) });
+    }
+    if (trendEl) trendEl.innerHTML = '<p>Last 7 days</p><p>' + trendDays.map(x => x.date + ': ' + x.pct + '%').join(' · ') + '</p>';
+    if (monthEl) monthEl.innerHTML = '<p>Month view (read-only)</p><p class="consistency-month-hint">Days × habits grid would go here.</p>';
+    const habits = getHabits();
+    const columnSelect = document.getElementById('consistency-habit-column');
+    const pileSelect = document.getElementById('consistency-habit-pile');
+    if (columnSelect) {
+      columnSelect.innerHTML = '<option value="">None</option>' + getCategories().map(c =>
+        '<option value="' + c.id + '">' + escapeHtml(getCategoryOptionLabel(c.id)) + '</option>'
+      ).join('');
+    }
+    if (pileSelect) {
+      pileSelect.innerHTML = '<option value="">None</option>' + getPiles().map(p =>
+        '<option value="' + p.id + '">' + escapeHtml(p.name) + '</option>'
+      ).join('');
+    }
+    if (habitsListEl) {
+      habitsListEl.innerHTML = habits.length ? habits.map(h => {
+        const linkDesc = [h.linkedCategoryId ? getCategoryOptionLabel(h.linkedCategoryId) : null, h.linkedPileId ? getPileName(h.linkedPileId) : null].filter(Boolean);
+        const linkText = linkDesc.length === 2 ? 'Both' : linkDesc.length === 1 ? linkDesc[0] : 'Manual only';
+        return `<div class="consistency-habit-row" data-habit-id="${h.id}">
+          <span class="consistency-habit-name">${escapeHtml(h.name)}</span>
+          <span class="consistency-habit-meta">weight ${h.weight || 1} · ${escapeHtml(linkText)}</span>
+          <button type="button" class="btn-secondary btn-sm consistency-habit-delete" data-habit-id="${h.id}">Delete</button>
+        </div>`;
+      }).join('') : '<p class="settings-hint">No habits yet. Add one below.</p>';
+      habitsListEl.querySelectorAll('.consistency-habit-delete').forEach(btn => {
+        btn.addEventListener('click', () => {
+          if (window.confirm('Delete this habit?')) {
+            deleteHabit(btn.dataset.habitId);
+            renderConsistencyPanel();
+            renderConsistencySmall();
+          }
+        });
+      });
+    }
+    const addBtn = document.getElementById('consistency-habit-add');
+    if (addBtn) {
+      addBtn.replaceWith(addBtn.cloneNode(true));
+      document.getElementById('consistency-habit-add').addEventListener('click', () => {
+        const nameEl = document.getElementById('consistency-habit-name');
+        const weightEl = document.getElementById('consistency-habit-weight');
+        const colEl = document.getElementById('consistency-habit-column');
+        const pileEl = document.getElementById('consistency-habit-pile');
+        const name = nameEl?.value?.trim();
+        if (!name) return;
+        addHabit(name, weightEl?.value || 3, colEl?.value || null, pileEl?.value || null);
+        if (nameEl) nameEl.value = '';
+        renderConsistencyPanel();
+        renderConsistencySmall();
+        showToast('Habit added');
+      });
+    }
+  }
+
+  function collectJournalDayFromDom() {
+    const tallyStr = getTallyDateYYYYMMDD();
+    const day = normalizeJournalDayValue(state.journalDaily && state.journalDaily[tallyStr]);
+    let entries = day.entries.length ? day.entries.map((e) => ({ ...e })) : [];
+    const slot = document.getElementById('journal-daily-active-slot');
+    const body = document.querySelector('#journal-daily-active-slot .journal-entry-body');
+    const activeId = (slot && slot.dataset.entryId) || state.journalDailyOpenEntryByDate[tallyStr];
+    if (body && activeId) {
+      const html = sanitizeJournalHtml(body.innerHTML);
+      if (entries.length === 0) {
+        entries = [{ id: activeId, html, updatedAt: Date.now() }];
+      } else {
+        const idx = entries.findIndex((e) => e.id === activeId);
+        if (idx >= 0) {
+          entries[idx] = { ...entries[idx], html, updatedAt: Date.now() };
+        }
+      }
+    }
+    return normalizeJournalDayValue({ v: 2, entries });
+  }
+
+  function journalEntryPreviewLabel(html, index) {
+    const div = document.createElement('div');
+    div.innerHTML = html || '';
+    const t = (div.textContent || '').replace(/\s+/g, ' ').trim();
+    if (t) return t.length > 44 ? t.slice(0, 44) + '…' : t;
+    return 'Entry ' + (index + 1);
+  }
+
+  function scheduleJournalDailyPersist() {
+    if (state.journalDailySaveTimeout) clearTimeout(state.journalDailySaveTimeout);
+    state.journalDailySaveTimeout = setTimeout(() => {
+      state.journalDailySaveTimeout = null;
+      const tallyStr = getTallyDateYYYYMMDD();
+      if (!state.journalDaily) state.journalDaily = {};
+      state.journalDaily[tallyStr] = collectJournalDayFromDom();
+      saveState();
+    }, 450);
+  }
+
+  function flushJournalDailySave() {
+    if (state.journalDailySaveTimeout) {
+      clearTimeout(state.journalDailySaveTimeout);
+      state.journalDailySaveTimeout = null;
+    }
+    if (!document.getElementById('journal-daily-entries')) return;
+    const tallyStr = getTallyDateYYYYMMDD();
+    if (!state.journalDaily) state.journalDaily = {};
+    state.journalDaily[tallyStr] = collectJournalDayFromDom();
+    saveState();
+  }
+
+  function journalSyncPlaceholderClass(el) {
+    if (!el) return;
+    const t = (el.textContent || '').replace(/\u200b/g, '').trim();
+    el.classList.toggle('journal-entry-empty', !t);
+  }
+
+  let journalCaretScrollRaf = 0;
+  function journalMaybeScrollCaretIntoComfortZone(body) {
+    if (!body || !document.body.contains(body)) return;
+    const scroller = body.closest('.journal-daily-entries--stoic');
+    if (!scroller) return;
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return;
+    if (!body.contains(sel.anchorNode)) return;
+    const range = sel.getRangeAt(0);
+    if (!range.collapsed) return;
+    const rect = range.getBoundingClientRect();
+    if (rect.width === 0 && rect.height === 0 && rect.top === 0 && rect.left === 0) return;
+    const scRect = scroller.getBoundingClientRect();
+    const targetTop = scRect.top + scRect.height * 0.36;
+    const delta = rect.top - targetTop;
+    if (Math.abs(delta) > 8) scroller.scrollTop += delta;
+  }
+
+  function requestJournalCaretComfortScroll(body) {
+    if (!body) return;
+    if (journalCaretScrollRaf) cancelAnimationFrame(journalCaretScrollRaf);
+    journalCaretScrollRaf = requestAnimationFrame(function() {
+      journalCaretScrollRaf = 0;
+      journalMaybeScrollCaretIntoComfortZone(body);
+    });
+  }
+
+  function openJournalPanel() {
+    state.journalFocusMode = false;
+    const panel = document.getElementById('journal-panel');
+    if (!panel) return;
+    panel.style.display = 'block';
+    renderJournalPanel();
+    const firstBody = document.querySelector('#journal-daily-entries .journal-entry-body');
+    if (firstBody && state.journalActiveTab === 'daily') firstBody.focus();
+  }
+
+  function closeJournalPanel() {
+    flushJournalDailySave();
+    state.journalFocusMode = false;
+    const panel = document.getElementById('journal-panel');
+    if (panel) panel.style.display = 'none';
+  }
+
+  function setJournalFocusMode(on) {
+    state.journalFocusMode = !!on;
+    const panel = document.getElementById('journal-panel');
+    const header = document.getElementById('journal-panel-header');
+    const nav = document.getElementById('journal-nav');
+    const focusClose = document.getElementById('journal-focus-close');
+    const focusBtn = document.getElementById('journal-focus-btn');
+    const dailyActions = document.querySelector('.journal-daily-actions');
+    if (panel) panel.classList.toggle('journal-focus-mode', state.journalFocusMode);
+    if (header) header.style.display = state.journalFocusMode ? 'none' : '';
+    if (nav) nav.style.display = state.journalFocusMode ? 'none' : '';
+    if (focusClose) focusClose.style.display = state.journalFocusMode ? 'block' : 'none';
+    if (dailyActions) dailyActions.style.display = state.journalFocusMode ? 'none' : '';
+    if (focusBtn) focusBtn.textContent = state.journalFocusMode ? 'Exit focus' : 'Focus writing';
+    if (state.journalFocusMode) {
+      const body = document.querySelector('#journal-daily-entries .journal-entry-body');
+      if (body) body.focus();
+    }
+  }
+
+  function renderJournalDaily() {
+    const tallyStr = getTallyDateYYYYMMDD();
+    const dateLabel = document.getElementById('journal-daily-date-label');
+    if (dateLabel) dateLabel.textContent = 'Today, ' + (getTallyDate() || '').replace(/\s+\d{4}$/, '');
+    const wrap = document.getElementById('journal-daily-entries');
+    const switcher = document.getElementById('journal-daily-entry-switcher');
+    const delBtn = document.getElementById('journal-daily-delete-entry');
+    if (!wrap) return;
+
+    const day = normalizeJournalDayValue(state.journalDaily && state.journalDaily[tallyStr]);
+    let entryList = day.entries.length ? day.entries.slice() : [{ id: newEntryId(), html: JOURNAL_EMPTY_ENTRY_HTML, updatedAt: Date.now() }];
+
+    let selectedId = state.journalDailyOpenEntryByDate[tallyStr];
+    if (!selectedId || !entryList.some((e) => e.id === selectedId)) {
+      selectedId = entryList[0].id;
+    }
+    state.journalDailyOpenEntryByDate[tallyStr] = selectedId;
+    const selected = entryList.find((e) => e.id === selectedId) || entryList[0];
+
+    if (switcher) {
+      if (entryList.length > 1) {
+        switcher.style.display = 'flex';
+        switcher.innerHTML = entryList.map((ent, i) => {
+          const label = journalEntryPreviewLabel(ent.html, i);
+          const active = ent.id === selectedId;
+          return '<button type="button" role="tab" class="journal-entry-tab' + (active ? ' journal-entry-tab--active' : '') + '" data-entry-id="' + escapeHtml(ent.id) + '" aria-selected="' + (active ? 'true' : 'false') + '">' + escapeHtml(label) + '</button>';
+        }).join('');
+      } else {
+        switcher.style.display = 'none';
+        switcher.innerHTML = '';
+      }
+    }
+
+    if (delBtn) delBtn.hidden = entryList.length < 2;
+
+    const displayHtml = coerceJournalEntryDisplayHtml(selected.html);
+    wrap.innerHTML =
+      '<div id="journal-daily-active-slot" class="journal-daily-active-slot" data-entry-id="' + escapeHtml(selected.id) + '">' +
+      '<div class="journal-entry-body" contenteditable="true" spellcheck="true" data-placeholder="Title, then your thoughts…" title="Journal entry">' + displayHtml + '</div>' +
+      '</div>';
+
+    const body = wrap.querySelector('.journal-entry-body');
+    if (body) {
+      journalSyncPlaceholderClass(body);
+      body.addEventListener('input', function() {
+        journalSyncPlaceholderClass(body);
+        requestJournalCaretComfortScroll(body);
+      });
+      body.addEventListener('keyup', function() {
+        requestJournalCaretComfortScroll(body);
+      });
+      body.addEventListener('focusin', function() {
+        journalStoicLastBody = body;
+        requestJournalCaretComfortScroll(body);
+      });
+      body.addEventListener('mouseup', function() {
+        requestJournalCaretComfortScroll(body);
+      });
+      journalStoicLastBody = body;
+      if (displayHtml !== String(selected.html || '')) scheduleJournalDailyPersist();
+    }
+
+    const journalPanel = document.getElementById('journal-panel');
+    if (journalPanel && !journalPanel._journalStoicToolbarBound) {
+      journalPanel._journalStoicToolbarBound = true;
+      const stoicTb = document.getElementById('journal-stoic-toolbar');
+      if (stoicTb) {
+        stoicTb.addEventListener('mousedown', (e) => {
+          if (e.target.closest('.journal-stoic-cmd')) e.preventDefault();
+        });
+        stoicTb.addEventListener('click', (e) => {
+          const btn = e.target.closest('.journal-stoic-cmd');
+          if (!btn) return;
+          e.preventDefault();
+          const b = journalStoicLastBody || document.querySelector('#journal-daily-active-slot .journal-entry-body');
+          if (!b) return;
+          b.focus();
+          const cmd = btn.dataset.cmd;
+          const block = btn.dataset.block;
+          try {
+            if (cmd === 'formatBlock' && block) {
+              const tag = block.toLowerCase();
+              document.execCommand('formatBlock', false, tag);
+            } else if (cmd) {
+              document.execCommand(cmd, false, null);
+            }
+          } catch (err) {
+            console.warn('execCommand', cmd || block, err);
+          }
+          requestJournalCaretComfortScroll(b);
+          scheduleJournalDailyPersist();
+        });
+      }
+    }
+
+    const dailyView = document.getElementById('journal-daily-view');
+    if (dailyView && !dailyView._journalEntryTabsBound) {
+      dailyView._journalEntryTabsBound = true;
+      dailyView.addEventListener('click', (e) => {
+        const tab = e.target.closest('.journal-entry-tab');
+        if (!tab || !tab.dataset.entryId) return;
+        const id = tab.dataset.entryId;
+        const ts = getTallyDateYYYYMMDD();
+        if (id === state.journalDailyOpenEntryByDate[ts]) return;
+        flushJournalDailySave();
+        state.journalDailyOpenEntryByDate[ts] = id;
+        renderJournalDaily();
+        const nb = document.querySelector('#journal-daily-active-slot .journal-entry-body');
+        if (nb) nb.focus();
+      });
+    }
+
+    wrap.oninput = () => scheduleJournalDailyPersist();
+
+    setJournalFocusMode(state.journalFocusMode);
+  }
+
+  function renderJournalReflections() {
+    const listEl = document.getElementById('journal-reflections-list');
+    if (!listEl) return;
+    const reflections = (state.seedReflections || []).slice().sort(function(a, b) {
+      const ta = (a.reflectedAt != null) ? a.reflectedAt : 0;
+      const tb = (b.reflectedAt != null) ? b.reflectedAt : 0;
+      return tb - ta;
+    });
+    listEl.innerHTML = reflections.length ? reflections.map(function(r) {
+      const d = r.reflectedAt != null ? new Date(r.reflectedAt) : new Date();
+      const dateStr = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      const seedPart = (r.seed && r.seed.trim()) ? ' “‘' + escapeHtml(r.seed.trim()) + '”' : '';
+      return '<div class="journal-reflection-item"><span class="journal-reflection-date">' + escapeHtml(dateStr) + '</span>' + seedPart + ' <span class="journal-reflection-text">' + escapeHtml((r.text || '').slice(0, 200)) + ((r.text || '').length > 200 ? '…' : '') + '</span></div>';
+    }).join('') : '<p class="empty-state">No reflections yet.</p>';
+  }
+
+  function renderJournalCalendar() {
+    const picker = document.getElementById('journal-calendar-picker');
+    const resultEl = document.getElementById('journal-calendar-result');
+    const gridEl = document.getElementById('journal-calendar-month-grid');
+    const labelEl = document.getElementById('journal-cal-month-label');
+    const prevBtn = document.getElementById('journal-cal-prev');
+    const nextBtn = document.getElementById('journal-cal-next');
+    if (!resultEl) return;
+
+    const themeColor = state.buttonColor || '#e07a5f';
+
+    function pad(n) {
+      return String(n).padStart(2, '0');
+    }
+    function ymdStr(y, m0, d) {
+      return y + '-' + pad(m0 + 1) + '-' + pad(d);
+    }
+    function parsePickerYM() {
+      if (picker && picker.value && /^\d{4}-\d{2}-\d{2}$/.test(picker.value)) {
+        const [y, mo] = picker.value.split('-').map(Number);
+        return { y, m: mo - 1 };
+      }
+      const t = new Date();
+      return { y: t.getFullYear(), m: t.getMonth() };
+    }
+
+    let viewYM = parsePickerYM();
+
+    function showResultForDate(dateStr) {
+      if (!dateStr) {
+        resultEl.innerHTML = '<p class="empty-state">Pick a date to see journal and reflections.</p>';
+        return;
+      }
+      const jDay = normalizeJournalDayValue(state.journalDaily && state.journalDaily[dateStr]);
+      const journalHtml = jDay.entries.map((e) => e.html || '').join('');
+      const reflections = (state.seedReflections || []).filter((r) => {
+        if (r.reflectedAt == null) return false;
+        const d = new Date(r.reflectedAt);
+        return ymdStr(d.getFullYear(), d.getMonth(), d.getDate()) === dateStr;
+      });
+      let html = '<h4>Journal for ' + escapeHtml(dateStr) + '</h4>';
+      if (journalHtml.trim()) {
+        html += '<div class="journal-calendar-journal journal-rich">' + journalHtml + '</div>';
+      } else {
+        html += '<p class="empty-state">No journal entries for this day.</p>';
+      }
+      html += '<h4>Reflections</h4>';
+      if (reflections.length) {
+        html += reflections.map((r) => {
+          const seedPart = (r.seed && r.seed.trim()) ? ' “‘' + escapeHtml(r.seed.trim()) + '”' : '';
+          return '<div class="journal-reflection-item">' + seedPart + ' ' + escapeHtml((r.text || '').slice(0, 300)) + ((r.text || '').length > 300 ? '…' : '') + '</div>';
+        }).join('');
+      } else {
+        html += '<p class="empty-state">No reflections for this day.</p>';
+      }
+      resultEl.innerHTML = html;
+    }
+
+    function showResult() {
+      const dateStr = picker && picker.value ? picker.value : '';
+      showResultForDate(dateStr);
+    }
+
+    function renderMonthGrid() {
+      if (!gridEl) return;
+      const y = viewYM.y;
+      const m = viewYM.m;
+      const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+      if (labelEl) labelEl.textContent = monthNames[m] + ' ' + y;
+      const first = new Date(y, m, 1);
+      const startPad = first.getDay();
+      const dim = new Date(y, m + 1, 0).getDate();
+      const todayYmd = getTallyDateYYYYMMDD();
+
+      let html = '<div class="journal-cal-dow">' + ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) =>
+        '<span>' + d + '</span>').join('') + '</div><div class="journal-cal-cells">';
+      for (let i = 0; i < startPad; i++) html += '<div class="journal-cal-cell journal-cal-pad"></div>';
+      for (let d = 1; d <= dim; d++) {
+        const ds = ymdStr(y, m, d);
+        const raw = state.journalDaily && state.journalDaily[ds];
+        const has = journalDayHasContent(raw);
+        const isToday = ds === todayYmd;
+        html += '<button type="button" class="journal-cal-day' + (has ? ' journal-cal-has-entry' : '') + (isToday ? ' journal-cal-today' : '') + '" data-date="' + ds + '"' +
+          (has ? ' style="--journal-cal-accent:' + themeColor + '"' : '') + '>' + d + '</button>';
+      }
+      html += '</div>';
+      gridEl.innerHTML = html;
+      gridEl.querySelectorAll('.journal-cal-day').forEach((b) => {
+        b.addEventListener('click', () => {
+          const ds = b.dataset.date;
+          if (picker) picker.value = ds;
+          showResultForDate(ds);
+        });
+      });
+    }
+
+    if (prevBtn) {
+      prevBtn.onclick = () => {
+        viewYM.m -= 1;
+        if (viewYM.m < 0) { viewYM.m = 11; viewYM.y -= 1; }
+        renderMonthGrid();
+      };
+    }
+    if (nextBtn) {
+      nextBtn.onclick = () => {
+        viewYM.m += 1;
+        if (viewYM.m > 11) { viewYM.m = 0; viewYM.y += 1; }
+        renderMonthGrid();
+      };
+    }
+
+    if (picker) {
+      picker.onchange = () => {
+        viewYM = parsePickerYM();
+        renderMonthGrid();
+        showResult();
+      };
+    }
+
+    const todayStr = getTallyDateYYYYMMDD();
+    if (picker && !picker.value) picker.value = todayStr;
+
+    viewYM = parsePickerYM();
+    renderMonthGrid();
+    setTimeout(() => {
+      if (picker && !picker.value) picker.value = getTallyDateYYYYMMDD();
+      showResult();
+    }, 0);
+  }
+
+  function renderJournalPanel() {
+    setJournalFocusMode(state.journalFocusMode);
+    const dailyView = document.getElementById('journal-daily-view');
+    const reflectionsView = document.getElementById('journal-reflections-view');
+    const calendarView = document.getElementById('journal-calendar-view');
+    [dailyView, reflectionsView, calendarView].forEach(function(el) {
+      if (el) {
+        el.classList.remove('journal-view-visible');
+        el.classList.add('journal-view-hidden');
+      }
+    });
+    if (state.journalActiveTab === 'daily') {
+      if (dailyView) {
+        dailyView.classList.remove('journal-view-hidden');
+        dailyView.classList.add('journal-view-visible');
+      }
+      renderJournalDaily();
+    } else if (state.journalActiveTab === 'reflections') {
+      if (reflectionsView) {
+        reflectionsView.classList.remove('journal-view-hidden');
+        reflectionsView.classList.add('journal-view-visible');
+      }
+      renderJournalReflections();
+    } else {
+      if (calendarView) {
+        calendarView.classList.remove('journal-view-hidden');
+        calendarView.classList.add('journal-view-visible');
+      }
+      renderJournalCalendar();
+    }
+  }
+
+  async function saveSettingsAndClose() {
+    try {
+      const newPreset = (document.querySelector('input[name="category-preset"]:checked') || {}).value || 'generic';
+      const oldPreset = state.categoryPreset || 'generic';
+      if (newPreset !== oldPreset) {
+        const mapKey = oldPreset + '_to_' + newPreset;
+        const map = PRESET_MIGRATION[mapKey];
+        if (map) {
+          state.items.forEach(item => {
+            if (map[item.category]) item.category = map[item.category];
+          });
+          if (state.columnNotes && typeof state.columnNotes === 'object') {
+            const migrated = {};
+            Object.keys(state.columnNotes).forEach(k => {
+              const newKey = map[k];
+              migrated[newKey != null ? newKey : k] = state.columnNotes[k];
+            });
+            state.columnNotes = migrated;
+          }
+          if (Array.isArray(state.habits)) {
+            state.habits.forEach(h => {
+              if (h.linkedCategoryId && map[h.linkedCategoryId]) h.linkedCategoryId = map[h.linkedCategoryId];
+            });
+          }
+          state.categoryPreset = newPreset;
+          state.customLabels = {};
+          const newCats = CATEGORY_PRESETS[newPreset];
+          state.lastCategory = (newCats && newCats[0]) ? newCats[0].id : 'life';
+        }
+      }
+      const displayNameInp = document.getElementById('settings-display-name');
+      if (displayNameInp) state.displayName = displayNameInp.value.trim();
+
+      const tallyResetInp = document.getElementById('settings-tally-reset-hour');
+      if (tallyResetInp) {
+        const h = parseInt(tallyResetInp.value, 10);
+        if (!isNaN(h) && h >= 0 && h <= 23) state.tallyResetHour = h;
+      }
+
+      const showSuggestNextInp = document.getElementById('settings-show-suggest-next');
+      if (showSuggestNextInp) state.showSuggestNext = showSuggestNextInp.checked;
+
+      const btnColorInp = document.getElementById('settings-button-color');
+      const textColorInp = document.getElementById('settings-text-color');
+      if (btnColorInp && btnColorInp.value) state.buttonColor = btnColorInp.value;
+      if (textColorInp && textColorInp.value) state.textColor = textColorInp.value;
+
+      const inputs = document.querySelectorAll('#settings-column-inputs input[data-cat]');
+      inputs.forEach(inp => {
+        const val = inp.value.trim();
+        if (val) state.customLabels[inp.dataset.cat] = val;
+        else delete state.customLabels[inp.dataset.cat];
+      });
+
+      const colorsContainer = document.getElementById('settings-column-colors');
+      if (colorsContainer) {
+        colorsContainer.querySelectorAll('.color-input[data-cat]').forEach(inp => {
+          const cat = inp.dataset.cat;
+          if (cat && cat !== '__button' && cat !== '__text') state.columnColors[cat] = inp.value;
+        });
+        colorsContainer.querySelectorAll('.color-hex-input[data-cat]').forEach(inp => {
+          const cat = inp.dataset.cat;
+          const val = inp.value.trim();
+          if (cat && cat !== '__button' && cat !== '__text' && /^#[0-9a-fA-F]{6}$/.test(val)) {
+            state.columnColors[cat] = val;
+          }
+        });
+      }
+
+      applyThemeColors();
+      saveState();
+      updateCategorySelectOptions();
+      renderColumns();
+      const badge = document.getElementById('pair-badge');
+      if (badge) {
+        if (state.pairId) badge.textContent = state.pairId + ' · ' + ((state.displayName || '').trim() || state.addedBy);
+        else badge.textContent = (state.displayName || '').trim() || 'Solo';
+      }
+      closeSettingsModal();
+      if (window.talkAbout && state.deviceSyncId) {
+        const { error } = await window.talkAbout.saveDevicePreferences(state.deviceSyncId, getPreferencesForDevice());
+        if (error) {
+          showToast('Settings saved locally. Could not sync to cloud — ' + (error || 'Supabase not configured'));
+        } else {
+          showToast('Settings saved');
+        }
+      } else {
+        showToast('Settings saved');
+      }
+    } catch (e) {
+      console.warn('Save settings failed', e);
+      showToast('Could not save settings — ' + (e.message || 'try again'));
+    }
+  }
+
+  function applyBoardFocusMode(on) {
+    state.boardFocusMode = !!on;
+    const focusMode = document.getElementById('focus-mode');
+    const overview = document.getElementById('overview');
+    const todayPanelWrap = document.getElementById('today-panel-wrap');
+    /* Never bail early: if #focus-mode is missing we must still restore overview/today strip when exiting focus */
+    if (state.boardFocusMode) {
+      if (focusMode) focusMode.style.display = 'block';
+      if (overview) overview.style.display = 'none';
+      if (todayPanelWrap) todayPanelWrap.style.display = 'none';
+      renderFocusList();
+    } else {
+      if (focusMode) focusMode.style.display = 'none';
+      if (overview) overview.style.display = '';
+      if (todayPanelWrap) todayPanelWrap.style.display = '';
+    }
+  }
+
+  function toggleFocusMode() {
+    applyBoardFocusMode(!state.boardFocusMode);
+  }
+
+  function exitBoardFocusMode() {
+    applyBoardFocusMode(false);
+  }
+
+  const floatingRoot = document.getElementById('floating-buttons');
+  if (floatingRoot) {
+    floatingRoot.addEventListener('click', (e) => {
+      const t = e.target;
+      if (t && t.closest && t.closest('#focus-btn')) {
+        e.preventDefault();
+        toggleFocusMode();
+      }
+    });
+  }
+
+  function exportBackup() {
+    const data = buildBackupPayload(state);
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'parking-lot-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  function isValidBackupItem(item) {
+    return item && typeof item === 'object' && typeof (item.text ?? item.id) === 'string';
+  }
+
+  function importBackup(file) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(reader.result);
+        if (!data || typeof data !== 'object') throw new Error('Invalid backup format');
+        if (data.items) {
+          if (!Array.isArray(data.items)) throw new Error('Items must be an array');
+          state.items = data.items.filter(isValidBackupItem).map((item, idx) => ({
+            ...item,
+            id: item.id || 'id_' + Date.now() + '_' + idx + '_' + Math.random().toString(36).slice(2),
+            text: (item.text || '').trim() || 'Untitled',
+            category: item.category || 'life',
+            archived: !!item.archived,
+            parkedAt: item.parkedAt || Date.now()
+          }));
+        }
+        if (data.todaySuggestionIds) {
+          if (!Array.isArray(data.todaySuggestionIds)) throw new Error('todaySuggestionIds must be an array');
+          const validIds = new Set(state.items.map(i => i.id));
+          state.todaySuggestionIds = data.todaySuggestionIds.filter(id => typeof id === 'string' && validIds.has(id));
+        }
+        if (data.weekPlan && typeof data.weekPlan === 'object') {
+          state.weekPlan = normalizeWeekPlan(data.weekPlan);
+        }
+        if (typeof data.lastPlanCommittedAt === 'string' || data.lastPlanCommittedAt === null) {
+          state.lastPlanCommittedAt = data.lastPlanCommittedAt;
+        }
+        if (data.lastCommittedPlanSnapshot && typeof data.lastCommittedPlanSnapshot === 'object') {
+          state.lastCommittedPlanSnapshot = normalizeWeekPlan(data.lastCommittedPlanSnapshot);
+        }
+        if (data.previousWeekPlanSnapshot && typeof data.previousWeekPlanSnapshot === 'object') {
+          state.previousWeekPlanSnapshot = normalizeWeekPlan(data.previousWeekPlanSnapshot);
+        }
+        if (typeof data.showWeekStrip === 'boolean') state.showWeekStrip = data.showWeekStrip;
+        if (typeof data.otherCollapsedOnDate === 'string') state.otherCollapsedOnDate = data.otherCollapsedOnDate;
+        state.weekPlan = pruneWeekPlan(state.items, state.weekPlan);
+        saveState();
+        renderTodayList();
+        renderFocusList();
+        renderColumns();
+        showToast('Import complete');
+      } catch (e) {
+        showToast(e instanceof SyntaxError ? 'Import failed: invalid JSON' : (e.message || 'Import failed'));
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  function openArchiveModal() {
+    if (IS_MOM_APP && momArchiveApi) {
+      momArchiveApi.openArchiveModal();
+      return;
+    }
+    const archived = state.items.filter(i => i.archived).sort((a, b) => (b.archivedAt || 0) - (a.archivedAt || 0));
+    const list = document.getElementById('archive-list');
+    if (!list) return;
+    list.innerHTML = archived.length ? archived.map(item => {
+      const date = item.archivedAt ? new Date(item.archivedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+      return `<div class="archive-item">${escapeHtml(item.text)} <span class="archive-date">${escapeHtml(getCategoryLabel(item.category))} — ${escapeHtml(date)}</span></div>`;
+    }).join('') : '<div class="empty-state">No completed items yet</div>';
+    document.getElementById('archive-modal').style.display = 'flex';
+  }
+
+  function computeAnalytics() {
+    const now = Date.now();
+    const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
+    const parked = state.items.filter(i => !i.archived && i.parkedAt >= weekAgo).length;
+    const completed = state.items.filter(i => i.archived && i.archivedAt >= weekAgo).length;
+    const byCat = {};
+    state.items.filter(i => i.archived && i.archivedAt >= weekAgo).forEach(i => {
+      byCat[i.category] = (byCat[i.category] || 0) + 1;
+    });
+    const catStr = Object.entries(byCat).map(([k, v]) => {
+      return `${getCategoryLabel(k)}: ${v}`;
+    }).join(', ');
+    return `Parked this week: ${parked}\nCompleted from Today's Suggestions: ${completed}${catStr ? '\nBy category: ' + catStr : ''}`;
+  }
+
+  function openAnalytics() {
+    const textEl = document.getElementById('analytics-text');
+    if (textEl) textEl.textContent = computeAnalytics();
+    const panel = document.getElementById('analytics-panel');
+    if (panel) panel.style.display = 'block';
+  }
+
+  function openEmailTriage() {
+    if (!window.talkAbout || !hasSupabaseConfig()) {
+      showToast('Email triage unavailable — connect Supabase first');
+      return;
+    }
+    renderEmailTriage(true);
+    const triagePairId = state.pairId || 'solo_default';
+    const triageAddedBy = state.addedBy;
+    window.talkAbout.getLastAgentRun(triagePairId, triageAddedBy).then(run => {
+      state.lastAgentRun = run;
+      if (!run && !state.pairId && triageAddedBy) {
+        window.talkAbout.getLastAgentRun(triagePairId, null).then(fallbackRun => {
+          if (fallbackRun) state.lastAgentRun = fallbackRun;
+          renderEmailTriage(false);
+        });
+      } else {
+        renderEmailTriage(false);
+      }
+    });
+    window.talkAbout.getEmailTasks(triagePairId, triageAddedBy).then(({ data, error }) => {
+      state.emailTriageItems = error ? [] : (data || []);
+      if (state.emailTriageItems.length === 0 && !state.pairId && triageAddedBy) {
+        window.talkAbout.getEmailTasks(triagePairId, null).then(({ data: fallbackData }) => {
+          if (fallbackData?.length) state.emailTriageItems = fallbackData;
+          renderEmailTriage(false);
+        });
+      } else {
+        renderEmailTriage(false);
+      }
+    });
+  }
+
+  function addTalkAbout() {
+    const input = document.getElementById('talk-about-input');
+    if (!input) return;
+    const text = input.value.trim();
+    if (!text) return;
+    if (!window.talkAbout || !state.pairId) {
+      showToast('Connect to sync first');
+      return;
+    }
+    window.talkAbout.addTalkAbout(state.pairId, text, state.addedBy).then(({ data, error }) => {
+      if (error) showToast(error === 'Supabase not configured' ? 'Add Supabase URL and key to config.js' : 'Failed to add');
+      else {
+        input.value = '';
+        if (data) {
+          state.talkAboutItems = [...state.talkAboutItems, data];
+          renderTalkAbout();
+        }
+        showToast('Added');
+      }
+    });
+  }
+
+  /** Avoid blocking main UI on slow/missing Supabase (E2E + flaky networks). */
+  async function safeGetDevicePreferences(deviceSyncId) {
+    if (typeof window !== 'undefined' && window.__E2E__) {
+      return { __skipped: true };
+    }
+    if (!window.talkAbout || !deviceSyncId) return { __skipped: true };
+    const ms = 12000;
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        console.warn('getDevicePreferences timed out after', ms, 'ms');
+        resolve({ error: 'timeout' });
+      }, ms);
+      window.talkAbout.getDevicePreferences(deviceSyncId).then((prefs) => {
+        clearTimeout(timer);
+        resolve(prefs);
+      }).catch((e) => {
+        clearTimeout(timer);
+        resolve({ error: e && e.message ? e.message : String(e) });
+      });
+    });
+  }
+
+  async function showMainApp() {
+    if (!renderColumns || !renderTodayList) {
+      console.error('[orchestrator] showMainApp() called before wireComposer(). Call order is: wireComposer() → showMainApp()');
+    }
+    document.getElementById('entry-screen').style.display = 'none';
+    document.getElementById('pair-setup').style.display = 'none';
+    document.getElementById('main-app').style.display = 'block';
+    document.getElementById('floating-buttons').style.display = 'flex';
+    exitBoardFocusMode();
+    if (weekPlanningApi && typeof weekPlanningApi.forceCloseAllPlanningUI === 'function') {
+      weekPlanningApi.forceCloseAllPlanningUI();
+    }
+    const badge = document.getElementById('pair-badge');
+    const talkSection = document.getElementById('talk-about-section');
+    const linkPartnerBtn = document.getElementById('link-partner-btn');
+    if (state.pairId) {
+      const name = (state.displayName || '').trim() || state.addedBy;
+      if (badge) badge.textContent = state.pairId + ' · ' + name;
+      if (talkSection) talkSection.style.display = 'block';
+      if (linkPartnerBtn) linkPartnerBtn.style.display = 'none';
+    } else {
+      const name = (state.displayName || '').trim() || 'Solo';
+      if (badge) badge.textContent = name;
+      if (talkSection) talkSection.style.display = 'none';
+      if (linkPartnerBtn) linkPartnerBtn.style.display = 'block';
+    }
+    loadState();
+    await runDeviceSyncMigration();
+    try {
+      if (window.talkAbout && state.deviceSyncId) {
+        const prefs = await safeGetDevicePreferences(state.deviceSyncId);
+        if (prefs?.__skipped) {
+          /* E2E or no-op */
+        } else if (prefs?.error) {
+          showToast('Could not load preferences — using local settings');
+        } else {
+          applyDevicePreferencesToState(prefs);
+        }
+      }
+    } catch (e) {
+      console.warn('Preferences fetch failed', e);
+      showToast('Using local settings');
+    }
+    applyThemeColors();
+    updateCategorySelectOptions();
+    ensureViewToggle();
+    if (IS_MOM_APP) migrateLegacyNotesToUnified();
+    renderColumns();
+    renderTodayList();
+    if (IS_MOM_APP) {
+      if (momNotesApi) {
+        momNotesApi.renderTodayNotesPanel();
+      }
+      const weekRow = document.getElementById('week-strip-row');
+      if (weekRow) weekRow.style.display = 'none';
+      const planBtn = document.getElementById('plan-week-header-btn');
+      if (planBtn) planBtn.style.display = 'none';
+      const weekToggle = document.getElementById('show-week-strip-toggle');
+      if (weekToggle) weekToggle.style.display = 'none';
+      const emailBtn = document.getElementById('email-triage-btn');
+      if (emailBtn) emailBtn.style.display = 'none';
+      const seedFab = document.getElementById('seed-fab');
+      if (seedFab) seedFab.closest('.fab-wrap')?.style && (seedFab.closest('.fab-wrap').style.display = 'none');
+      state.viewMode = state.viewMode || 'piles';
+      const pilesBtn = document.getElementById('view-piles-btn');
+      const colsBtn = document.getElementById('view-columns-btn');
+      if (pilesBtn) pilesBtn.textContent = 'Projects';
+      if (state.viewMode === 'piles' && pilesBtn && colsBtn) {
+        pilesBtn.classList.add('active');
+        pilesBtn.setAttribute('aria-selected', 'true');
+        colsBtn.classList.remove('active');
+        colsBtn.setAttribute('aria-selected', 'false');
+      }
+    } else {
+      const weekStripToggle = document.getElementById('show-week-strip-toggle');
+      if (weekStripToggle) weekStripToggle.checked = !!state.showWeekStrip;
+      renderWeekStrip();
+      renderTalkAbout();
+      renderEmailTriage(false);
+    }
+    updateTally();
+    updateAddToSuggestionsBtn();
+    attachMainAppRealtime({
+      state,
+      win: window,
+      applyDevicePreferencesToState,
+      refreshUIAfterRemotePrefs,
+      renderTalkAbout,
+      renderEmailTriage
+    });
+  }
+
+
+  function ensureViewToggle() {
+    const header = document.querySelector('.columns-header');
+    if (!header) return;
+    let toggle = header.querySelector('.view-toggle');
+    if (toggle) return;
+    toggle = document.createElement('div');
+    toggle.className = 'view-toggle';
+    toggle.setAttribute('role', 'tablist');
+    toggle.setAttribute('aria-label', 'View mode');
+    toggle.innerHTML = IS_MOM_APP
+      ? `<button type="button" id="view-columns-btn" class="view-toggle-btn" data-view="columns" aria-selected="false">Columns</button>
+      <button type="button" id="view-piles-btn" class="view-toggle-btn active" data-view="piles" aria-selected="true">Projects</button>`
+      : `<button type="button" id="view-columns-btn" class="view-toggle-btn" data-view="columns" aria-selected="false">Columns</button>
+      <button type="button" id="view-piles-btn" class="view-toggle-btn" data-view="piles" aria-selected="false">Piles</button>`;
+    const search = header.querySelector('#search-input');
+    if (search && search.parentNode == header) header.insertBefore(toggle, search);
+    else header.appendChild(toggle);
+  }
+
+  function bindEvents() {
+    wireMainEvents({
+      addTalkAbout,
+      addToSuggestions,
+      applyDevicePreferencesToState,
+      clearAddToSuggestionsSelection,
+      closeAddFromTalkModal,
+      closeConsistencyPanel,
+      closeJournalPanel,
+      closeLinkPartnerModal,
+      closeSeedRenderModal,
+      closeSettingsModal,
+      ensureViewToggle,
+      exitBoardFocusMode,
+      exportBackup,
+      flushJournalDailySave,
+      forcePushToCloud,
+      importBackup,
+      modalApi,
+      openAnalytics,
+      openArchiveModal,
+      openConsistencyPanel,
+      openEmailTriage,
+      openJournalPanel,
+      openLinkPartnerModal,
+      openSeedRenderModal,
+      openSettingsModal,
+      processAddToTodayQueue,
+      refreshUIAfterRemotePrefs,
+      renderColumns,
+      renderFocusList,
+      renderJournalDaily,
+      renderJournalPanel,
+      renderJournalReflections,
+      renderSeedTaskOptions,
+      renderTodayList,
+      renderWeekStrip,
+      saveDevicePreferencesToSupabase,
+      saveSettingsAndClose,
+      saveState,
+      setJournalFocusMode,
+      submitAddFromTalk,
+      updateAddToSuggestionsBtn,
+      weekPlanningApi
+    });
+    if (IS_MOM_APP && momNotesApi) {
+      const notesBtn = document.getElementById('sidebar-notes-btn');
+      const notesBack = document.getElementById('notes-back-board');
+      const closeSidebar = () => {
+        document.getElementById('sidebar')?.classList.remove('open');
+        const ov = document.getElementById('sidebar-overlay');
+        if (ov) ov.style.display = 'none';
+        document.body.classList.remove('sidebar-open');
+      };
+      if (notesBtn) {
+        notesBtn.addEventListener('click', () => {
+          closeSidebar();
+          momNotesApi.showNotesView();
+        });
+      }
+      if (notesBack) {
+        notesBack.addEventListener('click', () => momNotesApi.hideNotesView());
+      }
+    }
+  }
+
+  function openLinkPartnerModal() {
+    const modal = document.getElementById('link-partner-modal');
+    const actions = document.querySelector('.link-partner-actions');
+    const created = document.getElementById('link-pair-created');
+    if (modal) modal.style.display = 'flex';
+    if (actions) actions.style.display = 'flex';
+    if (created) created.style.display = 'none';
+  }
+
+  function closeLinkPartnerModal() {
+    const modal = document.getElementById('link-partner-modal');
+    if (modal) modal.style.display = 'none';
+  }
+
+  function bindLinkPartnerModal() {
+    const modal = document.getElementById('link-partner-modal');
+    const closeBtn = document.getElementById('close-link-partner');
+    const createBtn = document.getElementById('link-create-btn');
+    const joinBtn = document.getElementById('link-join-btn');
+    const continueBtn = document.getElementById('link-continue-btn');
+    const actions = document.querySelector('.link-partner-actions');
+    const created = document.getElementById('link-pair-created');
+    const codeEl = document.getElementById('link-pair-code');
+    const joinInput = document.getElementById('link-join-input');
+
+    if (closeBtn) closeBtn.addEventListener('click', closeLinkPartnerModal);
+    if (modal) modal.addEventListener('click', (e) => {
+      if (e.target.id === 'link-partner-modal') closeLinkPartnerModal();
+    });
+
+    if (createBtn) createBtn.addEventListener('click', async () => {
+      state.pairId = window.talkAbout ? window.talkAbout.generatePairId() : 'demo' + Date.now().toString(36).slice(-6);
+      state.addedBy = 'Talia';
+      state.deviceSyncId = window.talkAbout ? window.talkAbout.generatePairId() : 'dev' + Date.now().toString(36).slice(-6);
+      savePairState();
+      saveDeviceSyncState();
+      if (window.talkAbout) {
+        try { await window.talkAbout.saveDevicePreferences(state.deviceSyncId, getPreferencesForDevice()); } catch (e) {}
+      }
+      if (actions) actions.style.display = 'none';
+      if (created) created.style.display = 'block';
+      if (codeEl) codeEl.textContent = state.pairId;
+    });
+
+    if (continueBtn) continueBtn.addEventListener('click', async () => {
+      closeLinkPartnerModal();
+      await showMainApp();
+    });
+
+    if (joinBtn) joinBtn.addEventListener('click', async () => {
+      const code = (joinInput && joinInput.value) ? joinInput.value.trim().toLowerCase() : '';
+      if (!code) { showToast('Enter a pair code'); return; }
+      const asTalia = document.getElementById('link-join-talia');
+      state.pairId = code;
+      state.addedBy = (asTalia && asTalia.checked) ? 'Talia' : 'Garren';
+      state.deviceSyncId = window.talkAbout ? window.talkAbout.generatePairId() : 'dev' + Date.now().toString(36).slice(-6);
+      savePairState();
+      saveDeviceSyncState();
+      if (window.talkAbout) {
+        try { await window.talkAbout.saveDevicePreferences(state.deviceSyncId, getPreferencesForDevice()); } catch (e) {}
+      }
+      closeLinkPartnerModal();
+      await showMainApp();
+    });
+
+    if (joinInput) joinInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') document.getElementById('link-join-btn').click();
+    });
+  }
+
+  function bindPairSetup() {
+    const createBtn = document.getElementById('create-pair-btn');
+    if (createBtn) createBtn.addEventListener('click', async () => {
+      state.pairId = window.talkAbout ? window.talkAbout.generatePairId() : 'demo' + Date.now().toString(36).slice(-6);
+      state.addedBy = 'Talia';
+      state.deviceSyncId = window.talkAbout ? window.talkAbout.generatePairId() : 'dev' + Date.now().toString(36).slice(-6);
+      savePairState();
+      saveDeviceSyncState();
+      if (window.talkAbout) {
+        try { await window.talkAbout.saveDevicePreferences(state.deviceSyncId, getPreferencesForDevice()); } catch (e) {}
+      }
+      document.getElementById('pair-created').style.display = 'block';
+      document.querySelector('.pair-actions').style.display = 'none';
+      document.getElementById('pair-code-display').textContent = state.pairId;
+    });
+
+    const continueBtn = document.getElementById('continue-after-create');
+    if (continueBtn) continueBtn.addEventListener('click', async () => {
+      document.getElementById('pair-created').style.display = 'none';
+      await showMainApp();
+      bindEvents();
+    });
+
+    const joinBtn = document.getElementById('join-pair-btn');
+    if (joinBtn) joinBtn.addEventListener('click', async () => {
+      const input = document.getElementById('join-code-input');
+      const code = (input && input.value) ? input.value.trim().toLowerCase() : '';
+      if (!code) {
+        showToast('Enter a pair code');
+        return;
+      }
+      const asTalia = document.getElementById('join-as-talia');
+      state.pairId = code;
+      state.addedBy = (asTalia && asTalia.checked) ? 'Talia' : 'Garren';
+      state.deviceSyncId = window.talkAbout ? window.talkAbout.generatePairId() : 'dev' + Date.now().toString(36).slice(-6);
+      savePairState();
+      saveDeviceSyncState();
+      if (window.talkAbout) {
+        try { await window.talkAbout.saveDevicePreferences(state.deviceSyncId, getPreferencesForDevice()); } catch (e) {}
+      }
+      document.getElementById('pair-setup').style.display = 'none';
+      await showMainApp();
+      bindEvents();
+    });
+
+    const joinInput = document.getElementById('join-code-input');
+    if (joinInput) joinInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') document.getElementById('join-pair-btn').click();
+    });
+  }
+
+  async function loadPublicProductConfig() {
+    try {
+      const r = await fetch('./product.json', { cache: 'no-store' });
+      if (!r.ok) return;
+      const p = await r.json();
+      state.productConfig = p;
+      if (p.buildRef != null && String(p.buildRef).trim()) {
+        state.buildRef = String(p.buildRef).trim().slice(0, 120);
+      }
+      if (p.name && typeof p.name === 'string') {
+        document.title = p.name;
+      }
+      if (IS_MOM_APP) {
+        if (p.categoryPreset) state.categoryPreset = p.categoryPreset;
+        if (p.defaultViewMode === 'piles' || p.defaultViewMode === 'columns') {
+          state.viewMode = p.defaultViewMode;
+        }
+      }
+    } catch (e) {
+      /* offline or missing file — keep defaults */
+    }
+  }
+
+  async function init() {
+    await loadPublicProductConfig();
+    setStorageNotify((msg) => showToast(msg));
+    setCloudSyncHook(() => saveDevicePreferencesToSupabase());
+    window.addEventListener('online', () => {
+      updateOfflineBanner();
+      showToast('Back online — sync resumed');
+      if (window.talkAbout && state.deviceSyncId) saveDevicePreferencesToSupabase();
+    });
+    window.addEventListener('offline', updateOfflineBanner);
+    updateOfflineBanner();
+
+    migrateStoragePrefixIfNeeded();
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })
+        .then((reg) => {
+          if (reg) reg.update();
+          navigator.serviceWorker.addEventListener('controllerchange', () => window.location.reload());
+        })
+        .catch((err) => {
+          console.warn('Service worker registration failed', err);
+          showToast('Offline mode limited — refresh when online');
+        });
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && navigator.serviceWorker.controller) {
+          navigator.serviceWorker.ready.then((reg) => reg.update());
+        }
+      });
+    }
+    loadPairState();
+    loadDeviceSyncState();
+    if (state.pairId || hasChosenSolo() || state.deviceSyncId) {
+      document.getElementById('entry-screen').style.display = 'none';
+      document.getElementById('pair-setup').style.display = 'none';
+      await showMainApp();
+      bindEvents();
+    } else {
+      document.getElementById('entry-screen').style.display = 'block';
+      document.getElementById('pair-setup').style.display = 'none';
+      document.getElementById('main-app').style.display = 'none';
+      document.getElementById('floating-buttons').style.display = 'none';
+      bindEntryScreen();
+    }
+  }
+
+  function bindEntryScreen() {
+    const soloBtn = document.getElementById('entry-solo-btn');
+    const coupleBtn = document.getElementById('entry-couple-btn');
+    const linkBtn = document.getElementById('entry-link-btn');
+    const linkForm = document.getElementById('entry-link-form');
+    const linkCode = document.getElementById('entry-link-code');
+    const linkSubmit = document.getElementById('entry-link-submit');
+    const linkCancel = document.getElementById('entry-link-cancel');
+    if (linkBtn) linkBtn.addEventListener('click', () => {
+      if (linkForm) linkForm.style.display = 'block';
+      if (linkCode) { linkCode.value = ''; linkCode.focus(); }
+    });
+    if (linkCancel) linkCancel.addEventListener('click', () => {
+      if (linkForm) linkForm.style.display = 'none';
+    });
+    if (linkSubmit) linkSubmit.addEventListener('click', async () => {
+      const code = (linkCode && linkCode.value) ? linkCode.value.trim().toLowerCase().replace(/\s/g, '') : '';
+      if (!code || code.length < 6) {
+        showToast('Enter a valid sync code (from your other device)');
+        return;
+      }
+      state.deviceSyncId = code;
+      saveDeviceSyncState();
+      if (linkForm) linkForm.style.display = 'none';
+      document.getElementById('entry-screen').style.display = 'none';
+      try {
+        if (window.talkAbout) {
+          const prefs = await window.talkAbout.getDevicePreferences(state.deviceSyncId);
+          if (!prefs?.error) applyDevicePreferencesToState(prefs);
+          saveState();
+        }
+        showToast('Device linked. If settings look wrong, check the code.');
+      } catch (e) {
+        showToast('Device linked. If settings look wrong, check the code.');
+      }
+      await showMainApp();
+      bindEvents();
+    });
+    if (linkCode) linkCode.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') document.getElementById('entry-link-submit').click();
+    });
+    if (soloBtn) soloBtn.addEventListener('click', async () => {
+      setChosenSolo();
+      if (!state.deviceSyncId) {
+        state.deviceSyncId = window.talkAbout ? window.talkAbout.generatePairId() : 'solo' + Date.now().toString(36).slice(-6);
+        saveDeviceSyncState();
+        if (window.talkAbout) {
+          try {
+            await window.talkAbout.saveDevicePreferences(state.deviceSyncId, getPreferencesForDevice());
+          } catch (e) { console.warn('Seed failed', e); }
+        }
+      }
+      document.getElementById('entry-screen').style.display = 'none';
+      await showMainApp();
+      bindEvents();
+    });
+    if (coupleBtn) {
+      if (IS_MOM_APP) coupleBtn.style.display = 'none';
+      else coupleBtn.addEventListener('click', () => {
+        document.getElementById('entry-screen').style.display = 'none';
+        document.getElementById('pair-setup').style.display = 'block';
+        bindPairSetup();
+      });
+    }
+    if (IS_MOM_APP) {
+      const entryTitle = document.querySelector('#entry-screen h1');
+      if (entryTitle) entryTitle.textContent = "Mom's Parking Lot";
+      const entryHint = document.querySelector('#entry-screen .entry-hint');
+      if (entryHint) entryHint.textContent = 'Your personal task board — link devices to sync.';
+    }
+  }
+
+  wireComposer();
+
+  document.addEventListener('click', (e) => {
+    const headerPlan = e.target.closest('#plan-week-header-btn');
+    if (!headerPlan) return;
+    e.preventDefault();
+    try {
+      weekPlanningApi.openPlanningEntry({});
+    } catch (err) {
+      console.error('openPlanningEntry', err);
+      showToast('Could not open planning — try refreshing the page');
+    }
+  });
+
+  bindLinkPartnerModal();
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => init().catch(e => console.error('Init failed', e)));
+} else {
+  init().catch(e => console.error('Init failed', e));
+}

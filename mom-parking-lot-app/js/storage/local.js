@@ -1,0 +1,260 @@
+import { STORAGE_PREFIX } from '../constants.js';
+import { state } from '../state.js';
+
+/** @deprecated Legacy prefix — migration copies into {@link STORAGE_PREFIX}. */
+const OLD_STORAGE_PREFIX = 'parkingLotCouples_';
+
+/**
+ * One-time migration: copy all `parkingLotCouples_*` keys to `parkingLot_*` when new data key is empty.
+ * Does not delete old keys (rollback window). Safe to call multiple times.
+ */
+export function migrateStoragePrefixIfNeeded() {
+  try {
+    const NEW_DATA_KEY = STORAGE_PREFIX + 'data';
+    const OLD_DATA_KEY = OLD_STORAGE_PREFIX + 'data';
+    if (typeof localStorage === 'undefined') return;
+    if (localStorage.getItem(NEW_DATA_KEY) || !localStorage.getItem(OLD_DATA_KEY)) return;
+    const keysToCopy = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith(OLD_STORAGE_PREFIX)) keysToCopy.push(key);
+    }
+    for (const key of keysToCopy) {
+      const newKey = STORAGE_PREFIX + key.slice(OLD_STORAGE_PREFIX.length);
+      if (!localStorage.getItem(newKey)) {
+        localStorage.setItem(newKey, localStorage.getItem(key));
+      }
+    }
+  } catch (e) {
+    console.warn('Storage prefix migration failed', e);
+  }
+}
+
+const NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1000;
+
+/**
+ * Drop habit completion rows older than 90 days (unbounded growth guard).
+ * @param {import('../types.js').AppState} stateRef
+ * @param {number} [nowMs] - for tests (fake timers)
+ */
+export function pruneHabitCompletions(stateRef, nowMs) {
+  const t = nowMs !== undefined ? nowMs : Date.now();
+  const cutoffDate = new Date(t - NINETY_DAYS_MS).toISOString().slice(0, 10);
+  if (Array.isArray(stateRef.habitCompletions)) {
+    stateRef.habitCompletions = stateRef.habitCompletions.filter((c) => c.date >= cutoffDate);
+  }
+}
+import { normalizeJournalDayValue } from '../domain/journal-daily.js';
+import { migrateLegacyNotesToUnified } from '../domain/notes.js';
+import { seedPeopleGroupsIfEmpty } from '../domain/piles-people.js';
+import { IS_MOM_APP } from '../config/app-profile.js';
+import {
+  normalizeWeekPlan,
+  pruneWeekPlan
+} from '../domain/weekly-planning.js';
+import { sanitizeCategoriesAndItemsAfterLoad } from '../domain/categories.js';
+
+let storageNotify = (msg) => {
+  console.warn(msg);
+};
+
+export function setStorageNotify(fn) {
+  if (typeof fn === 'function') storageNotify = fn;
+}
+
+let cloudSyncHook = null;
+
+export function setCloudSyncHook(fn) {
+  cloudSyncHook = typeof fn === 'function' ? fn : () => {};
+}
+
+export function getTallyDate() {
+  const n = new Date();
+  const hour = (state.tallyResetHour != null && state.tallyResetHour >= 0 && state.tallyResetHour <= 23)
+    ? state.tallyResetHour : 3;
+  if (n.getHours() < hour) n.setDate(n.getDate() - 1);
+  return n.toDateString();
+}
+
+export function getTallyDateYYYYMMDD() {
+  const n = new Date();
+  const hour = (state.tallyResetHour != null && state.tallyResetHour >= 0 && state.tallyResetHour <= 23)
+    ? state.tallyResetHour : 3;
+  if (n.getHours() < hour) n.setDate(n.getDate() - 1);
+  const y = n.getFullYear();
+  const m = String(n.getMonth() + 1).padStart(2, '0');
+  const d = String(n.getDate()).padStart(2, '0');
+  return y + '-' + m + '-' + d;
+}
+
+export function countCompletedInTallyDay() {
+  const hour = (state.tallyResetHour != null && state.tallyResetHour >= 0 && state.tallyResetHour <= 23)
+    ? state.tallyResetHour : 3;
+  const now = new Date();
+  const start = new Date(now);
+  start.setHours(hour, 0, 0, 0);
+  if (now.getHours() < hour) start.setDate(start.getDate() - 1);
+  const startMs = start.getTime();
+  return state.items.filter(i => i.completedAt && i.completedAt >= startMs).length;
+}
+
+export function loadState() {
+  try {
+    migrateStoragePrefixIfNeeded();
+    const stored = localStorage.getItem(STORAGE_PREFIX + 'data');
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      state.items = (parsed.items || []).map(i => ({ ...i, doingDate: i.doingDate || null }));
+      state.todaySuggestionIds = parsed.todaySuggestionIds || [];
+      state.lastCategory = parsed.lastCategory || (IS_MOM_APP ? 'todos' : 'life');
+      state.customLabels = parsed.customLabels || {};
+      state.categoryPreset = parsed.categoryPreset || (IS_MOM_APP ? 'mom' : 'generic');
+      state.buttonColor = parsed.buttonColor || null;
+      state.textColor = parsed.textColor || null;
+      state.displayName = parsed.displayName || '';
+      if (parsed.columnColors && Object.keys(parsed.columnColors).length) state.columnColors = parsed.columnColors;
+      if (Array.isArray(parsed.columnOrder) && parsed.columnOrder.length) state.columnOrder = parsed.columnOrder;
+      if (typeof parsed.tallyResetHour === 'number' && parsed.tallyResetHour >= 0 && parsed.tallyResetHour <= 23) state.tallyResetHour = parsed.tallyResetHour;
+      if (Array.isArray(parsed.piles)) state.piles = parsed.piles;
+      if (parsed.viewMode === 'piles' || parsed.viewMode === 'columns') state.viewMode = parsed.viewMode;
+      if (typeof parsed.showSuggestNext === 'boolean') state.showSuggestNext = parsed.showSuggestNext;
+      if (parsed.columnNotes && typeof parsed.columnNotes === 'object') state.columnNotes = parsed.columnNotes;
+      if (typeof parsed.lastSeed === 'string') state.lastSeed = parsed.lastSeed;
+      if (Array.isArray(parsed.seedReflections)) state.seedReflections = parsed.seedReflections;
+      if (Array.isArray(parsed.habits)) state.habits = parsed.habits;
+      if (Array.isArray(parsed.habitCompletions)) state.habitCompletions = parsed.habitCompletions;
+      if (parsed.journalDailyOpenEntryByDate && typeof parsed.journalDailyOpenEntryByDate === 'object') {
+        state.journalDailyOpenEntryByDate = { ...parsed.journalDailyOpenEntryByDate };
+      }
+      if (parsed.journalDaily && typeof parsed.journalDaily === 'object') {
+        state.journalDaily = {};
+        const keyRe = /^\d{4}-\d{2}-\d{2}$/;
+        function toYYYYMMDD(key) {
+          if (keyRe.test(key)) return key;
+          const d = new Date(key);
+          if (isNaN(d.getTime())) return null;
+          const y = d.getFullYear();
+          const mo = String(d.getMonth() + 1).padStart(2, '0');
+          const day = String(d.getDate()).padStart(2, '0');
+          return y + '-' + mo + '-' + day;
+        }
+        Object.keys(parsed.journalDaily).forEach(function(k) {
+          const val = parsed.journalDaily[k];
+          const canonical = toYYYYMMDD(k);
+          if (!canonical) return;
+          state.journalDaily[canonical] = normalizeJournalDayValue(val);
+        });
+      }
+      if (Array.isArray(parsed.peopleGroups) && parsed.peopleGroups.length) {
+        state.peopleGroups = parsed.peopleGroups.filter(function(g) {
+          return g && typeof g.id === 'string' && typeof g.label === 'string';
+        });
+      }
+      if (Array.isArray(parsed.people)) state.people = parsed.people;
+      if (parsed.weekPlan && typeof parsed.weekPlan === 'object') {
+        state.weekPlan = normalizeWeekPlan(parsed.weekPlan);
+      }
+      if (typeof parsed.lastPlanCommittedAt === 'string' || parsed.lastPlanCommittedAt === null) {
+        state.lastPlanCommittedAt = parsed.lastPlanCommittedAt;
+      }
+      if (parsed.lastCommittedPlanSnapshot && typeof parsed.lastCommittedPlanSnapshot === 'object') {
+        state.lastCommittedPlanSnapshot = normalizeWeekPlan(parsed.lastCommittedPlanSnapshot);
+      }
+      if (parsed.previousWeekPlanSnapshot && typeof parsed.previousWeekPlanSnapshot === 'object') {
+        state.previousWeekPlanSnapshot = normalizeWeekPlan(parsed.previousWeekPlanSnapshot);
+      }
+      if (typeof parsed.showWeekStrip === 'boolean') state.showWeekStrip = parsed.showWeekStrip;
+      if (typeof parsed.otherCollapsedOnDate === 'string') {
+        state.otherCollapsedOnDate = parsed.otherCollapsedOnDate;
+      }
+      if (parsed.hiddenFromTodayByDate && typeof parsed.hiddenFromTodayByDate === 'object') {
+        state.hiddenFromTodayByDate = { ...parsed.hiddenFromTodayByDate };
+      }
+      if (Array.isArray(parsed.notes)) state.notes = parsed.notes;
+    }
+    pruneHabitCompletions(state);
+    seedPeopleGroupsIfEmpty();
+    if (!state.journalDaily || typeof state.journalDaily !== 'object') state.journalDaily = {};
+    if (!state.journalDailyOpenEntryByDate || typeof state.journalDailyOpenEntryByDate !== 'object') {
+      state.journalDailyOpenEntryByDate = {};
+    }
+    if (!Array.isArray(state.people)) state.people = [];
+    if (!state.hiddenFromTodayByDate || typeof state.hiddenFromTodayByDate !== 'object') {
+      state.hiddenFromTodayByDate = {};
+    }
+    const peopleIds = (state.people || []).map(function(p) { return p.id; });
+    state.items = (state.items || []).map(i => ({
+      ...i,
+      pileId: i.pileId != null ? i.pileId : null,
+      friction: i.friction && ['quick', 'medium', 'deep'].includes(i.friction) ? i.friction : null,
+      firstStep: typeof i.firstStep === 'string' ? i.firstStep : null,
+      personId: (i.personId && peopleIds.indexOf(i.personId) >= 0) ? i.personId : null
+    }));
+    state.completedTodayCount = countCompletedInTallyDay();
+
+    state.weekPlan = pruneWeekPlan(state.items, normalizeWeekPlan(state.weekPlan));
+    const sanitizeMeta = sanitizeCategoriesAndItemsAfterLoad();
+    if (sanitizeMeta.clearedUniformCustomLabels) {
+      saveState(true, true);
+    }
+
+    if (!localStorage.getItem(STORAGE_PREFIX + 'suggestNextOffMigrated')) {
+      state.showSuggestNext = false;
+      localStorage.setItem(STORAGE_PREFIX + 'suggestNextOffMigrated', '1');
+    }
+    if (!Array.isArray(state.notes)) state.notes = [];
+    if (IS_MOM_APP) migrateLegacyNotesToUnified();
+  } catch (e) {
+    console.warn('Load failed', e);
+    storageNotify('Could not load saved data — starting fresh');
+  }
+}
+
+export function saveState(skipCloudSync, useRemoteTallyDate) {
+  try {
+    localStorage.setItem(STORAGE_PREFIX + 'data', JSON.stringify({
+      items: state.items,
+      todaySuggestionIds: state.todaySuggestionIds,
+      lastCategory: state.lastCategory,
+      customLabels: state.customLabels,
+      categoryPreset: state.categoryPreset || (IS_MOM_APP ? 'mom' : 'generic'),
+      buttonColor: state.buttonColor,
+      textColor: state.textColor,
+      displayName: state.displayName || '',
+      columnColors: state.columnColors || {},
+      columnOrder: state.columnOrder || null,
+      tallyResetHour: state.tallyResetHour != null ? state.tallyResetHour : 3,
+      piles: state.piles || [],
+      viewMode: state.viewMode || 'columns',
+      showSuggestNext: !!state.showSuggestNext,
+      columnNotes: state.columnNotes || {},
+      lastSeed: state.lastSeed || null,
+      seedReflections: state.seedReflections || [],
+      habits: state.habits || [],
+      habitCompletions: state.habitCompletions || [],
+      journalDaily: state.journalDaily || {},
+      journalDailyOpenEntryByDate: state.journalDailyOpenEntryByDate || {},
+      people: state.people || [],
+      peopleGroups: state.peopleGroups || [],
+      weekPlan: state.weekPlan || { anchorWeekStart: null, days: {} },
+      lastPlanCommittedAt: state.lastPlanCommittedAt != null ? state.lastPlanCommittedAt : null,
+      lastCommittedPlanSnapshot: state.lastCommittedPlanSnapshot || null,
+      previousWeekPlanSnapshot: state.previousWeekPlanSnapshot || null,
+      showWeekStrip: !!state.showWeekStrip,
+      otherCollapsedOnDate: state.otherCollapsedOnDate || null,
+      hiddenFromTodayByDate: state.hiddenFromTodayByDate && typeof state.hiddenFromTodayByDate === 'object'
+        ? state.hiddenFromTodayByDate
+        : {},
+      notes: state.notes || []
+    }));
+    const tallyDate = useRemoteTallyDate && state.lastCompletedDate ? state.lastCompletedDate : getTallyDate();
+    localStorage.setItem(STORAGE_PREFIX + 'tally', JSON.stringify({
+      count: state.completedTodayCount,
+      date: tallyDate
+    }));
+    if (!skipCloudSync && window.talkAbout && state.deviceSyncId && cloudSyncHook) cloudSyncHook();
+  } catch (e) {
+    console.warn('Save failed', e);
+    storageNotify('Could not save — check storage or try again');
+  }
+}

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Privacy — Parking Lot</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .legal-page { max-width: 42rem; margin: 2rem auto; padding: 0 1.25rem; color: var(--text, #e8e6e3); line-height: 1.55; }
+    .legal-page h1 { font-size: 1.5rem; margin-bottom: 0.75rem; }
+    .legal-page h2 { font-size: 1.1rem; margin: 1.5rem 0 0.5rem; }
+    .legal-page ul { padding-left: 1.25rem; }
+    .legal-back { margin-top: 2rem; }
+  </style>
+</head>
+<body class="legal-body" style="background: var(--bg, #1a1a1c); min-height: 100vh;">
+  <div class="legal-page">
+    <h1>Privacy policy</h1>
+    <p>This page describes how the Parking Lot app handles data. Last updated: March 2026.</p>
+
+    <h2>What we process</h2>
+    <ul>
+      <li><strong>On your device:</strong> Tasks, journal entries, relationship notes, habits, and preferences are stored in browser storage (e.g. localStorage). Clearing site data or using a different browser profile removes or isolates that copy.</li>
+      <li><strong>With Supabase (optional):</strong> If you enable sync or pair mode, selected data is stored in your Supabase project: device preferences, paired “Talk about” items, optional email-triage tasks, push subscription endpoints, and related metadata. Your project’s region and retention follow your Supabase settings.</li>
+      <li><strong>Hosting:</strong> The static app may be served from GitHub Pages or another host; that host sees normal HTTPS requests (URLs, timing, IP) but not the contents of your encrypted traffic beyond what the platform logs.</li>
+    </ul>
+
+    <h2>Subprocessors</h2>
+    <ul>
+      <li><strong>Supabase</strong> — database, realtime, and related APIs you configure.</li>
+      <li><strong>GitHub Pages</strong> (or your chosen static host) — delivery of HTML, JS, and CSS.</li>
+      <li><strong>jsDelivr / unpkg</strong> — CDN scripts referenced from <code>index.html</code> (Supabase client, chrono-node) load from those networks when the app runs.</li>
+    </ul>
+
+    <h2>Export &amp; deletion</h2>
+    <p>You can export a JSON backup from Settings. To delete cloud-side rows, use Supabase tooling or contact whoever operates the project. We do not operate a central account system inside the app.</p>
+
+    <h2>Contact</h2>
+    <p>For privacy questions about a deployment you use, contact the person or organization that gave you access to that instance and their Supabase project.</p>
+
+    <p class="legal-back"><a href="index.html">← Back to app</a></p>
+  </div>
+</body>
+</html>

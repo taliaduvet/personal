@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#e07a5f">
+  <title>Mom's Parking Lot</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🅿</text></svg>">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="mom.css">
+</head>
+<body>
+  <div id="offline-banner" class="offline-banner" style="display:none" role="status" aria-live="polite">
+    You're offline — tasks save locally. Sync will resume when you're back online.
+  </div>
+  <div id="app">
+    <!-- Entry screen (first-time: choose solo or couple) -->
+    <div id="entry-screen" class="entry-screen" style="display:none">
+      <h1>Mom's Parking Lot</h1>
+      <p class="entry-hint">Your personal task board — link devices to sync.</p>
+      <div class="entry-actions">
+        <button id="entry-solo-btn" class="btn-primary btn-entry">Get started</button>
+        <button id="entry-couple-btn" class="btn-primary btn-entry" style="display:none">Use with my partner</button>
+        <button id="entry-link-btn" class="btn-secondary btn-entry">Link a device (sync settings)</button>
+      </div>
+      <div id="entry-link-form" class="entry-link-form" style="display:none">
+        <p class="entry-hint">Enter the device sync code from Settings on your other device (laptop, phone, etc.).</p>
+        <input id="entry-link-code" type="text" placeholder="e.g. abc12345" maxlength="20" autocomplete="off">
+        <div class="entry-link-actions">
+          <button id="entry-link-submit" class="btn-primary">Link</button>
+          <button id="entry-link-cancel" class="btn-secondary">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pair setup (shown when choosing couple, no pair_id yet) -->
+    <div id="pair-setup" class="pair-setup" style="display:none">
+      <h1>Parking Lot</h1>
+      <p class="pair-hint">Create a pair to get started, or join with a code from your partner.</p>
+      <div class="pair-actions">
+        <button id="create-pair-btn" class="btn-primary">Create pair</button>
+        <div class="pair-divider">or</div>
+        <div class="join-section">
+          <input id="join-code-input" type="text" placeholder="Enter pair code" maxlength="12" autocomplete="off">
+          <p class="join-who">Who are you?</p>
+          <div class="join-who-btns">
+            <label><input type="radio" name="join-as" value="Talia" id="join-as-talia"> I created the pair</label>
+            <label><input type="radio" name="join-as" value="Garren" id="join-as-garren" checked> I'm the partner</label>
+          </div>
+          <button id="join-pair-btn" class="btn-primary">Join</button>
+        </div>
+      </div>
+      <div id="pair-created" class="pair-created" style="display:none">
+        <p>Share this code with your partner:</p>
+        <p id="pair-code-display" class="pair-code"></p>
+        <button id="continue-after-create" class="btn-primary">Continue</button>
+      </div>
+    </div>
+
+    <!-- Main app (hidden until pair connected) -->
+    <div id="main-app" style="display:none">
+      <div id="today-panel-wrap" class="today-panel-wrap">
+        <header id="today-bar" class="sticky-bar today-bar-sticky">
+          <div class="today-header">
+            <div class="today-header-main">
+              <h2>Today</h2>
+              <label class="week-strip-toggle-label" style="display:none"><input type="checkbox" id="show-week-strip-toggle" title="Show week row"> Week row</label>
+              <button type="button" id="plan-week-header-btn" class="btn-secondary btn-sm" style="display:none">Plan</button>
+            </div>
+            <span id="completed-tally" class="tally">Completed today: 0</span>
+            <div class="today-header-actions">
+              <button id="menu-btn" class="btn-icon btn-hamburger" title="Menu" aria-label="Open menu" aria-expanded="false" aria-controls="sidebar"><span class="hamburger-line"></span><span class="hamburger-line"></span><span class="hamburger-line"></span></button>
+              <button id="email-triage-btn" class="btn-secondary btn-sm btn-email-triage" title="Email triage" style="display:none">Email triage</button>
+              <div id="email-triage-section" class="email-triage-dropdown" style="display:none">
+                <div class="email-triage-dropdown-content">
+                  <h3 class="email-triage-header">Email Triage <button type="button" class="btn-icon close-email-triage-btn" title="Close" aria-label="Close">×</button></h3>
+                  <div class="email-triage-header-actions">
+                    <button type="button" id="email-triage-run-btn" class="btn-primary btn-sm">Run triage</button>
+                  </div>
+                  <p id="email-triage-status" class="email-triage-status"></p>
+                  <div id="email-triage-list" class="email-triage-list"></div>
+                  <p id="email-triage-empty" class="email-triage-empty" style="display:none"></p>
+                  <button type="button" class="btn-secondary close-email-triage-btn">Close</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div id="week-strip-row" class="week-strip-row" style="display:none" aria-label="This week"></div>
+        </header>
+        <div class="today-panel-body">
+          <div id="today-notes-panel" class="today-notes-panel" aria-label="Today's notes"></div>
+          <div id="today-list" class="today-list unified-today"></div>
+          <div id="suggest-next-strip" class="suggest-next-strip" aria-live="polite" style="display:none"></div>
+        </div>
+      </div>
+
+      <main id="main-content">
+        <div id="overview" class="overview">
+          <div class="columns-header">
+            <button id="back-btn" class="btn-back" style="display:none">← Overview</button>
+            <div class="view-toggle" role="tablist" aria-label="View mode">
+              <button type="button" id="view-columns-btn" class="view-toggle-btn" data-view="columns" aria-selected="false">Columns</button>
+              <button type="button" id="view-piles-btn" class="view-toggle-btn active" data-view="piles" aria-selected="true">Projects</button>
+            </div>
+            <input id="search-input" type="text" placeholder="Search..." class="search-input" autocomplete="off">
+          </div>
+          <div id="columns" class="columns"></div>
+          <div id="talk-about-section" class="talk-about-section" style="display:none">
+            <h3 class="talk-about-header">Talk about</h3>
+            <div id="talk-about-list" class="talk-about-list"></div>
+            <div class="talk-about-add">
+              <input id="talk-about-input" type="text" placeholder="Something to discuss..." autocomplete="off">
+              <button id="talk-about-add-btn" type="button" class="btn-primary">Add</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="notes-view" class="notes-view" style="display:none">
+          <header class="notes-view-header">
+            <h2>Notes</h2>
+            <button type="button" id="notes-back-board" class="btn-secondary btn-sm">Back to board</button>
+          </header>
+          <input id="notes-search-input" type="search" class="search-input" placeholder="Search notes..." autocomplete="off">
+          <button type="button" id="notes-new-btn" class="btn-primary btn-sm">New note</button>
+          <div id="notes-tab-list" class="notes-tab-list"></div>
+          <div id="notes-editor-panel" class="notes-editor-panel" style="display:none">
+            <div class="notes-editor-wrap">
+              <textarea id="notes-editor-textarea" class="column-note-textarea" rows="8" placeholder="Write a note..."></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div id="focus-mode" class="focus-mode" style="display:none">
+          <div class="focus-content">
+            <h1>Focus</h1>
+            <p id="focus-tally" class="focus-tally">Completed today: 0</p>
+            <div id="focus-list" class="focus-list"></div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <div id="add-to-suggestions-float" class="add-to-suggestions-float" aria-live="polite">
+    <button id="add-to-suggestions-btn" type="button" class="btn-primary">Add to Today</button>
+    <button id="add-to-suggestions-clear" type="button" class="btn-secondary btn-sm" title="Clear selection">Clear</button>
+  </div>
+  <div class="floating-buttons" id="floating-buttons" style="display:none">
+    <div class="fab-wrap">
+      <span class="fab-hover-help" id="fab-help-focus">Focus mode — see only today’s suggestions and complete them one at a time</span>
+      <button id="focus-btn" class="fab" title="Focus mode">◎</button>
+    </div>
+    <div class="fab-wrap" style="display:none">
+      <span class="fab-hover-help" id="fab-help-seed">Seed my render</span>
+      <button id="seed-fab" class="fab" title="Seed my render">◔</button>
+    </div>
+    <div class="fab-wrap">
+      <span class="fab-hover-help" id="fab-help-add">Add a task to your parking lot — single, quick-add, or voice</span>
+      <button id="add-btn" class="fab fab-primary" title="Add task">+</button>
+    </div>
+  </div>
+
+  <div id="add-modal" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="add-modal-title">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="add-modal-title">Add to parking lot</h3>
+        <button id="close-add" class="btn-close">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="add-mode-tabs">
+          <button id="tab-single" class="tab active">Single</button>
+          <button id="tab-quick" class="tab">Quick add</button>
+          <button id="tab-voice" class="tab">Voice</button>
+        </div>
+        <div id="single-add" class="add-form">
+          <div class="input-row">
+            <input id="task-input" type="text" placeholder="e.g. work project due march 15" autocomplete="off">
+            <button id="mic-btn" class="btn-icon" title="Voice input">🎤</button>
+          </div>
+          <div class="add-options">
+            <label>Category</label>
+            <select id="category-select"></select>
+            <label>Deadline (optional)</label>
+            <input id="deadline-input" type="date">
+            <label>Doing date (optional)</label>
+            <input id="doing-date-input" type="date" title="Plan to do on this day; task is auto-removed after">
+            <label>Recurrence</label>
+            <select id="recurrence-select">
+              <option value="">None</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+              <option value="monthly">Monthly</option>
+              <option value="quarterly">Quarterly</option>
+              <option value="semi_monthly">Semi-monthly (custom)</option>
+            </select>
+            <label id="recurrence-rule-label" style="display:none">Semi-monthly rule (e.g. days 1,15)</label>
+            <input id="recurrence-rule-input" type="text" placeholder="days:1,15 or every:14 from:2026-01-01" style="display:none">
+            <label>First step (optional)</label>
+            <input id="first-step-input" type="text" placeholder="e.g. Open the file and add the title" maxlength="200" title="What's the one tiny thing that would get you started?">
+            <p class="settings-hint" style="margin-top:-0.25rem">Tip: For big tasks, set the deadline for the first small step.</p>
+            <label>Project (optional)</label>
+            <select id="pile-select">
+              <option value="">None</option>
+            </select>
+            <label>Person (optional)</label>
+            <select id="person-select">
+              <option value="">None</option>
+            </select>
+            <label>Friction (optional)</label>
+            <select id="friction-select">
+              <option value="">None</option>
+              <option value="quick">Quick</option>
+              <option value="medium">Medium</option>
+              <option value="deep">Deep</option>
+            </select>
+            <label>Priority <span class="hint-link" id="priority-hint" title="How to decide?">?</span></label>
+            <select id="priority-select">
+              <option value="critical">Critical</option>
+              <option value="high">High</option>
+              <option value="medium" selected>Medium</option>
+              <option value="low">Low</option>
+            </select>
+          </div>
+          <button id="submit-single" class="btn-primary">Add</button>
+        </div>
+        <div id="quick-add" class="add-form" style="display:none">
+          <textarea id="quick-input" placeholder="One task per line&#10;work invoice&#10;life dentist 3/20&#10;cycles grant report" rows="6"></textarea>
+          <button id="submit-quick" class="btn-primary">Add all</button>
+        </div>
+        <div id="voice-add" class="add-form" style="display:none">
+          <p class="voice-hint">Say several tasks, separated by "comma" or "next". Example: "work invoice, life dentist, cycles report"</p>
+          <button id="voice-multi-btn" class="btn-primary btn-voice">Start speaking</button>
+          <div id="voice-transcript" class="voice-transcript"></div>
+          <button id="submit-voice" class="btn-primary" disabled>Add all</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="edit-modal" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="edit-modal-title">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="edit-modal-title">Edit</h3>
+        <button id="close-edit" class="btn-close">×</button>
+      </div>
+      <div class="modal-body edit-form">
+        <div class="edit-input-row">
+          <input id="edit-text" type="text" placeholder="Task description" autocomplete="off">
+        </div>
+        <div class="edit-options">
+          <label>Category</label>
+          <select id="edit-category"></select>
+          <label>First step (optional)</label>
+          <input id="edit-first-step" type="text" placeholder="e.g. Open the file and add the title" maxlength="200" title="What's the one tiny thing that would get you started?">
+          <label>Pile (optional)</label>
+          <select id="edit-pile">
+            <option value="">None</option>
+          </select>
+          <label>Person (optional)</label>
+          <select id="edit-person">
+            <option value="">None</option>
+          </select>
+          <label>Friction (optional)</label>
+          <select id="edit-friction">
+            <option value="">None</option>
+            <option value="quick">Quick</option>
+            <option value="medium">Medium</option>
+            <option value="deep">Deep</option>
+          </select>
+          <label>Deadline</label>
+          <input id="edit-deadline" type="date">
+          <label>Doing date (optional)</label>
+          <input id="edit-doing-date" type="date" title="Plan to do on this day; task is auto-removed after">
+          <label>Recurrence</label>
+          <select id="edit-recurrence">
+            <option value="">None</option>
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+            <option value="quarterly">Quarterly</option>
+            <option value="semi_monthly">Semi-monthly (custom)</option>
+          </select>
+          <label id="edit-recurrence-rule-label" style="display:none">Semi-monthly rule</label>
+          <input id="edit-recurrence-rule-input" type="text" placeholder="days:1,15" style="display:none">
+          <label>Task notes (optional)</label>
+          <textarea id="edit-notes" class="column-note-textarea" rows="3" placeholder="Notes for this task..."></textarea>
+          <label>Priority</label>
+          <select id="edit-priority"></select>
+          <label>Remind me at</label>
+          <input id="edit-reminder" type="datetime-local">
+          <p class="settings-hint" style="margin-top:-0.5rem">Get a push notification at this time (requires notifications enabled in Settings)</p>
+        </div>
+        <button id="save-edit" class="btn-primary">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="add-from-talk-modal" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="add-from-talk-modal-title">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="add-from-talk-modal-title">Add to parking lot</h3>
+        <button id="close-add-from-talk" class="btn-close">×</button>
+      </div>
+      <div class="modal-body">
+        <label>Task name</label>
+        <input id="add-from-talk-text-input" class="add-from-talk-preview" type="text" maxlength="240" placeholder="Task name">
+        <div class="edit-options">
+          <label>Category</label>
+          <select id="add-from-talk-category"></select>
+          <label>First step (optional)</label>
+          <input id="add-from-talk-first-step" type="text" placeholder="e.g. Open the file and add the title" maxlength="200">
+          <label>Pile (optional)</label>
+          <select id="add-from-talk-pile">
+            <option value="">None</option>
+          </select>
+          <label>Friction (optional)</label>
+          <select id="add-from-talk-friction">
+            <option value="">None</option>
+            <option value="quick">Quick</option>
+            <option value="medium">Medium</option>
+            <option value="deep">Deep</option>
+          </select>
+          <label>Doing date (optional)</label>
+          <input id="add-from-talk-doing-date" type="date">
+          <label>Deadline (optional)</label>
+          <input id="add-from-talk-deadline" type="date">
+          <label>Priority</label>
+          <select id="add-from-talk-priority">
+            <option value="critical">Critical</option>
+            <option value="high">High</option>
+            <option value="medium" selected>Medium</option>
+            <option value="low">Low</option>
+          </select>
+        </div>
+        <button id="submit-add-from-talk" class="btn-primary">Add to lot</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="archive-modal" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="archive-modal-title">
+    <div class="modal-content modal-wide">
+      <div class="modal-header">
+        <h3 id="archive-modal-title">Archive</h3>
+        <button id="close-archive" class="btn-close">×</button>
+      </div>
+      <div class="modal-body archive-calendar-body">
+        <input id="archive-search-input" type="search" class="search-input" placeholder="Search tasks and notes..." autocomplete="off">
+        <div id="archive-search-results" class="archive-search-results"></div>
+        <div class="archive-cal-nav">
+          <button type="button" id="archive-prev-month" class="btn-secondary btn-sm">←</button>
+          <span id="archive-month-label"></span>
+          <button type="button" id="archive-next-month" class="btn-secondary btn-sm">→</button>
+        </div>
+        <div id="archive-calendar-grid" class="archive-calendar-grid"></div>
+        <div id="archive-day-detail" class="archive-day-detail"></div>
+        <div id="archive-list" class="archive-list" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="settings-modal" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="settings-modal-title">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="settings-modal-title">Settings</h3>
+        <button id="close-settings" class="btn-close">×</button>
+      </div>
+      <div class="modal-body">
+        <div id="settings-push-notifications" class="settings-sync-code">
+          <h4 class="settings-section-title">Push notifications</h4>
+          <p class="settings-hint">Enable to get reminders on your phone and laptop when tasks are due.</p>
+          <button id="settings-push-enable-btn" type="button" class="btn-secondary btn-sm">Enable push notifications</button>
+          <p id="settings-push-notifications-status" class="settings-push-status" aria-live="polite"></p>
+        </div>
+        <div id="settings-sync-code" class="settings-sync-code" style="display:none">
+          <h4 class="settings-section-title">Device sync code</h4>
+          <p class="settings-hint">Enter this on your other devices (Link a device on the welcome screen) to sync settings. Never share with your partner.</p>
+          <p id="settings-sync-code-display" class="settings-sync-code-display"></p>
+        </div>
+        <div id="settings-sync-actions" class="settings-sync-code">
+          <h4 class="settings-section-title">Device sync</h4>
+          <p class="settings-hint">Push to cloud now: saves your current tasks to the cloud so other devices can pull them.</p>
+          <button id="settings-push-now-btn" type="button" class="btn-secondary btn-sm">Push to cloud now</button>
+          <p id="settings-push-status" class="settings-push-status" aria-live="polite"></p>
+        </div>
+        <div id="settings-link-device" class="settings-sync-code">
+          <h4 class="settings-section-title">Link from another device</h4>
+          <p class="settings-hint">Tasks not syncing? On your laptop: click "Push to cloud now" above, then copy the sync code. Enter it here to pull tasks.</p>
+          <div class="settings-link-row">
+            <input id="settings-link-code" type="text" placeholder="e.g. abc12345" maxlength="20" autocomplete="off" class="settings-link-input">
+            <button id="settings-link-btn" class="btn-primary btn-sm">Link</button>
+          </div>
+          <p class="settings-hint settings-storage-note">Data is stored on this device and synced to the cloud when you use device sync. Opening the app from the browser and from the dock (saved app) use different storage until you link with the same sync code.</p>
+        </div>
+        <div id="settings-pair-code" class="settings-sync-code" style="display:none">
+          <h4 class="settings-section-title">Pair code</h4>
+          <p class="settings-hint">Share with your partner to enable Talk about. Only for couples.</p>
+          <p id="settings-pair-code-display" class="settings-sync-code-display"></p>
+        </div>
+        <h4 class="settings-section-title">Your name</h4>
+        <p class="settings-hint">Shown next to the pair code in the menu.</p>
+        <input id="settings-display-name" type="text" placeholder="e.g. Talia" class="settings-name-input" value="">
+        <h4 class="settings-section-title">Suggest next</h4>
+        <p class="settings-hint">After marking a task done, show a strip suggesting the next task (same pile or list).</p>
+        <label class="settings-checkbox-row">
+          <input type="checkbox" id="settings-show-suggest-next" checked>
+          <span>Show suggest next after completing a task</span>
+        </label>
+        <h4 class="settings-section-title">Day resets at</h4>
+        <p class="settings-hint">"Completed today" resets at this time (local time). Default 3am.</p>
+        <select id="settings-tally-reset-hour" class="settings-select" aria-label="Time when your day resets">
+          <option value="0">12am (midnight)</option>
+          <option value="1">1am</option>
+          <option value="2">2am</option>
+          <option value="3" selected>3am</option>
+          <option value="4">4am</option>
+          <option value="5">5am</option>
+          <option value="6">6am</option>
+          <option value="7">7am</option>
+          <option value="8">8am</option>
+          <option value="9">9am</option>
+          <option value="10">10am</option>
+          <option value="11">11am</option>
+          <option value="12">12pm (noon)</option>
+          <option value="13">1pm</option>
+          <option value="14">2pm</option>
+          <option value="15">3pm</option>
+          <option value="16">4pm</option>
+          <option value="17">5pm</option>
+          <option value="18">6pm</option>
+          <option value="19">7pm</option>
+          <option value="20">8pm</option>
+          <option value="21">9pm</option>
+          <option value="22">10pm</option>
+          <option value="23">11pm</option>
+        </select>
+        <h4 class="settings-section-title">Category preset</h4>
+        <p class="settings-hint">Choose your column structure. You can rename columns below.</p>
+        <div class="settings-preset-btns">
+          <label class="preset-option"><input type="radio" name="category-preset" value="generic"> Generic (Work, Hobbies, Life, Other)</label>
+          <label class="preset-option"><input type="radio" name="category-preset" value="creative"> Creative (Misfit, Stop 2030 Barclay, Cycles, Life)</label>
+        </div>
+        <h4 class="settings-section-title">Column names</h4>
+        <p class="settings-hint">Customize what each column is called.</p>
+        <div id="settings-column-inputs" class="settings-column-inputs"></div>
+        <h4 class="settings-section-title">Column colors</h4>
+        <p class="settings-hint">Pick a color for each column (color wheel or hex). Syncs across your devices.</p>
+        <div id="settings-column-colors" class="settings-column-colors"></div>
+        <h4 class="settings-section-title">Manage piles</h4>
+        <p class="settings-hint">Piles are tags for type of work (e.g. Admin, Creative). Tasks can be assigned to a pile in Add/Edit.</p>
+        <div id="settings-piles-list" class="settings-piles-list"></div>
+        <div class="settings-piles-add">
+          <input id="settings-pile-name" type="text" placeholder="New pile name" class="settings-name-input" maxlength="80">
+          <button id="settings-pile-add-btn" type="button" class="btn-secondary btn-sm">Add pile</button>
+        </div>
+        <h4 class="settings-section-title">Theme colors</h4>
+        <p class="settings-hint">Button and text accent colors.</p>
+        <div class="settings-theme-colors">
+          <div class="settings-color-row">
+            <label>Button color</label>
+            <div class="color-picker-row">
+              <input type="color" id="settings-button-color" class="color-input" value="#e07a5f">
+              <input type="text" id="settings-button-hex" class="color-hex-input" placeholder="#e07a5f" maxlength="7">
+            </div>
+          </div>
+          <div class="settings-color-row">
+            <label>Text color</label>
+            <div class="color-picker-row">
+              <input type="color" id="settings-text-color" class="color-input" value="#e8e6e3">
+              <input type="text" id="settings-text-hex" class="color-hex-input" placeholder="#e8e6e3" maxlength="7">
+            </div>
+          </div>
+        </div>
+        <p class="settings-legal settings-hint" style="margin-top:1rem">
+          <a href="privacy-policy.html" target="_blank" rel="noopener">Privacy</a>
+          ·
+          <a href="terms-of-use.html" target="_blank" rel="noopener">Terms</a>
+        </p>
+        <p id="settings-build-ref" class="settings-hint" style="margin-top:0.35rem;font-size:0.85rem;opacity:0.85" aria-live="polite"></p>
+        <button id="save-settings" class="btn-primary">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="link-partner-modal" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="link-partner-modal-title">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="link-partner-modal-title">Link partner</h3>
+        <button id="close-link-partner" class="btn-close">×</button>
+      </div>
+      <div class="modal-body">
+        <p class="link-partner-hint">Create a pair and share the code, or enter a code from your partner.</p>
+        <div class="link-partner-actions">
+          <button id="link-create-btn" class="btn-primary">Create pair</button>
+          <div class="pair-divider">or</div>
+          <div class="link-join-section">
+            <input id="link-join-input" type="text" placeholder="Enter pair code" maxlength="12" autocomplete="off">
+            <p class="join-who">Who are you?</p>
+            <div class="join-who-btns">
+              <label><input type="radio" name="link-join-as" value="Talia" id="link-join-talia"> I created the pair</label>
+              <label><input type="radio" name="link-join-as" value="Garren" id="link-join-garren" checked> I'm the partner</label>
+            </div>
+            <button id="link-join-btn" class="btn-primary">Join</button>
+          </div>
+        </div>
+        <div id="link-pair-created" class="pair-created" style="display:none">
+          <p>Share this code with your partner:</p>
+          <p id="link-pair-code" class="pair-code"></p>
+          <button id="link-continue-btn" class="btn-primary">Done</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="seed-render-modal" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="seed-render-title">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="seed-render-title">Seed my render</h3>
+        <button id="close-seed-render" class="btn-close">×</button>
+      </div>
+      <div class="modal-body">
+        <div id="seed-render-picker">
+          <label>Search tasks</label>
+          <div class="seed-render-search-row">
+            <input id="seed-render-task-search" type="text" placeholder="Search task text..." class="seed-render-input" autocomplete="off">
+            <button id="seed-render-task-search-clear" type="button" class="btn-secondary btn-sm">Clear</button>
+          </div>
+          <p class="seed-render-hint">What's one thing to sit with? Pick a task or type a question for your brain to work on during rest.</p>
+          <label>Pick a task (optional)</label>
+          <select id="seed-render-task-select" class="seed-render-select">
+            <option value="">— None —</option>
+          </select>
+          <p id="seed-render-empty" class="seed-render-empty" style="display:none">No matching tasks</p>
+          <label>Or type a question</label>
+          <input id="seed-render-question" type="text" placeholder="e.g. What's the most important truth about this grant?" class="seed-render-input" autocomplete="off">
+          <div id="seed-render-result" class="seed-render-result" style="display:none">
+            <p class="seed-render-confirm">Let your brain work on: <strong id="seed-render-confirm-text"></strong></p>
+            <button id="seed-render-done" type="button" class="btn-primary">Done</button>
+          </div>
+          <div id="seed-render-actions" class="seed-render-actions">
+            <button id="seed-render-set" type="button" class="btn-primary">Set seed</button>
+          </div>
+        </div>
+        <div id="seed-render-rendering" class="seed-render-rendering" style="display:none">
+          <p class="seed-render-rendering-title">Rendering</p>
+          <p class="seed-render-rendering-hint">Go take a break. Let your brain work on it. Come back when you’re ready.</p>
+          <button id="seed-render-im-back" type="button" class="btn-primary">I’m back</button>
+        </div>
+        <div id="seed-render-reflection" class="seed-render-reflection" style="display:none">
+          <p class="seed-render-reflection-title">Capture what came to mind</p>
+          <textarea id="seed-render-reflection-input" class="seed-render-reflection-input" placeholder="Anything that surfaced during your break…" rows="4"></textarea>
+          <div class="seed-render-reflection-actions">
+            <button id="seed-render-reflection-save" type="button" class="btn-primary">Save & close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="consistency-panel" class="consistency-panel" style="display:none">
+    <div class="consistency-panel-content">
+      <div class="consistency-panel-header">
+        <h3>Consistency</h3>
+        <button id="close-consistency" class="btn-close" aria-label="Close">×</button>
+      </div>
+      <div id="consistency-metrics" class="consistency-metrics"></div>
+      <div id="consistency-zone" class="consistency-zone"></div>
+      <div id="consistency-trend" class="consistency-trend"></div>
+      <div id="consistency-month" class="consistency-month"></div>
+      <h4 class="consistency-habits-title">Manage habits</h4>
+      <div id="consistency-habits-list" class="consistency-habits-list"></div>
+      <div class="consistency-add-habit">
+        <input id="consistency-habit-name" type="text" placeholder="Habit name" class="settings-name-input" maxlength="80">
+        <label>Weight (1–5)</label>
+        <select id="consistency-habit-weight">
+          <option value="1">1</option>
+          <option value="2">2</option>
+          <option value="3" selected>3</option>
+          <option value="4">4</option>
+          <option value="5">5</option>
+        </select>
+        <label>Link to column</label>
+        <select id="consistency-habit-column">
+          <option value="">None</option>
+        </select>
+        <label>Link to pile</label>
+        <select id="consistency-habit-pile">
+          <option value="">None</option>
+        </select>
+        <button id="consistency-habit-add" type="button" class="btn-primary btn-sm">Add habit</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="journal-panel" class="journal-panel" style="display:none">
+    <div id="journal-panel-header" class="journal-panel-header">
+      <h3>Journal</h3>
+      <button id="close-journal" class="btn-close" aria-label="Close">×</button>
+    </div>
+    <div class="journal-layout">
+      <nav id="journal-nav" class="journal-nav" role="tablist">
+        <button type="button" id="journal-tab-daily" class="journal-nav-item active" role="tab" aria-selected="true" data-tab="daily">Daily</button>
+        <button type="button" id="journal-tab-reflections" class="journal-nav-item" role="tab" aria-selected="false" data-tab="reflections">Reflections</button>
+        <button type="button" id="journal-tab-calendar" class="journal-nav-item" role="tab" aria-selected="false" data-tab="calendar">Calendar</button>
+        <button type="button" id="journal-focus-btn" class="journal-focus-btn btn-secondary btn-sm" title="Focus writing">Focus writing</button>
+      </nav>
+      <main class="journal-main">
+        <div id="journal-daily-view" class="journal-view journal-view-daily journal-view-visible">
+          <div class="journal-daily-stoic-top-full">
+            <div class="journal-daily-stoic-lead">
+              <p id="journal-daily-date-label" class="journal-daily-date-label"></p>
+            </div>
+            <div id="journal-stoic-toolbar" class="journal-stoic-toolbar" role="toolbar" aria-label="Text formatting">
+              <button type="button" class="journal-stoic-btn journal-stoic-cmd" data-cmd="formatBlock" data-block="h1" title="Heading 1">H1</button>
+              <button type="button" class="journal-stoic-btn journal-stoic-cmd" data-cmd="formatBlock" data-block="h2" title="Heading 2">H2</button>
+              <button type="button" class="journal-stoic-btn journal-stoic-cmd" data-cmd="formatBlock" data-block="h3" title="Heading 3">H3</button>
+              <button type="button" class="journal-stoic-btn journal-stoic-cmd" data-cmd="formatBlock" data-block="p" title="Normal text">Body</button>
+              <button type="button" class="journal-stoic-btn journal-stoic-cmd" data-cmd="bold" title="Bold"><b>B</b></button>
+              <button type="button" class="journal-stoic-btn journal-stoic-cmd" data-cmd="italic" title="Italic"><i>I</i></button>
+              <button type="button" class="journal-stoic-btn journal-stoic-cmd" data-cmd="underline" title="Underline"><u>U</u></button>
+              <button type="button" class="journal-stoic-btn journal-stoic-cmd" data-cmd="insertUnorderedList" title="Bullets">•</button>
+              <button type="button" class="journal-stoic-btn journal-stoic-cmd" data-cmd="insertOrderedList" title="Numbered list">1.</button>
+            </div>
+            <div class="journal-daily-stoic-trail">
+              <button type="button" id="journal-daily-new-entry" class="journal-stoic-newentry" title="New entry" aria-label="New entry">+</button>
+            </div>
+          </div>
+          <div class="journal-daily-stoic-column">
+            <div id="journal-daily-entry-switcher" class="journal-daily-entry-switcher" role="tablist" aria-label="Today's journal entries"></div>
+            <div id="journal-daily-wrap" class="journal-daily-wrap journal-daily-wrap--stoic">
+              <div id="journal-daily-entries" class="journal-daily-entries journal-daily-entries--stoic"></div>
+            </div>
+            <div class="journal-daily-actions journal-daily-actions--stoic">
+              <button type="button" id="journal-daily-save" class="journal-stoic-textbtn">Save now</button>
+              <button type="button" id="journal-daily-delete-entry" class="journal-stoic-textbtn journal-stoic-textbtn--danger" hidden>Delete entry</button>
+              <span class="journal-daily-autosave-hint">Autosaves as you type</span>
+            </div>
+          </div>
+          <button type="button" id="journal-focus-close" class="journal-focus-close" aria-label="Exit focus" style="display:none">×</button>
+        </div>
+        <div id="journal-reflections-view" class="journal-view journal-view-hidden">
+          <div class="journal-reflections-header">
+            <button type="button" id="journal-add-reflection-btn" class="btn-primary btn-sm">Add reflection</button>
+          </div>
+          <div id="journal-add-reflection-form" class="journal-add-reflection-form" style="display:none">
+            <textarea id="journal-add-reflection-input" class="journal-reflection-input settings-name-input" placeholder="What came to mind?" rows="3"></textarea>
+            <div class="journal-add-reflection-actions">
+              <button type="button" id="journal-add-reflection-save" class="btn-primary btn-sm">Save</button>
+              <button type="button" id="journal-add-reflection-cancel" class="btn-secondary btn-sm">Cancel</button>
+            </div>
+          </div>
+          <div id="journal-reflections-list" class="journal-reflections-list"></div>
+        </div>
+        <div id="journal-calendar-view" class="journal-view journal-view-hidden">
+          <div class="journal-calendar-month-nav">
+            <button type="button" id="journal-cal-prev" class="btn-secondary btn-sm" aria-label="Previous month">‹</button>
+            <span id="journal-cal-month-label" class="journal-cal-month-label"></span>
+            <button type="button" id="journal-cal-next" class="btn-secondary btn-sm" aria-label="Next month">›</button>
+          </div>
+          <div id="journal-calendar-month-grid" class="journal-calendar-month-grid"></div>
+          <label for="journal-calendar-picker">Or pick a date</label>
+          <input type="date" id="journal-calendar-picker" class="journal-calendar-picker settings-name-input">
+          <div id="journal-calendar-result" class="journal-calendar-result"></div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <div id="relationships-panel" class="relationships-panel" style="display:none">
+    <div class="relationships-panel-content">
+      <div id="relationships-header" class="relationships-panel-header">
+        <button type="button" id="relationships-back" class="btn-back" style="display:none">← Relationships</button>
+        <h3>Relationships</h3>
+        <button id="close-relationships" class="btn-close" aria-label="Close">×</button>
+      </div>
+      <div id="relationships-list-view" class="relationships-list-view">
+        <div class="relationships-list-actions">
+          <button type="button" id="relationships-add-person" class="btn-primary btn-sm">Add person</button>
+          <button type="button" id="relationships-toggle-groups" class="btn-secondary btn-sm">Edit groups</button>
+        </div>
+        <div id="relationships-groups-panel" class="relationships-groups-panel" style="display:none">
+          <p class="settings-hint">Rename or delete groups. Deleting moves people to <strong>Friends</strong>.</p>
+          <ul id="relationships-groups-list" class="relationships-groups-list"></ul>
+          <div class="relationships-group-add">
+            <input type="text" id="relationships-new-group-name" class="settings-name-input" placeholder="New group name" maxlength="48" aria-label="New group name">
+            <button type="button" id="relationships-new-group-add" class="btn-primary btn-sm">Add group</button>
+          </div>
+        </div>
+        <div id="relationships-add-form" class="relationships-add-form" style="display:none">
+          <input id="relationships-add-name" type="text" placeholder="Name" class="settings-name-input" maxlength="120">
+          <label>Group</label>
+          <select id="relationships-add-group" class="settings-select"></select>
+          <label>Last connected (optional)</label>
+          <input type="date" id="relationships-add-last-connected">
+          <label>Reconnect (optional)</label>
+          <select id="relationships-add-reconnect">
+            <option value="">No reminder</option>
+            <option value="1w">Every week</option>
+            <option value="2w">Every 2 weeks</option>
+            <option value="1m">Every month</option>
+            <option value="3m">Every 3 months</option>
+          </select>
+          <textarea id="relationships-add-notes" placeholder="Notes (optional)" rows="2" class="settings-name-input"></textarea>
+          <div class="relationships-form-actions">
+            <button type="button" id="relationships-add-save" class="btn-primary btn-sm">Save</button>
+            <button type="button" id="relationships-add-cancel" class="btn-secondary btn-sm">Cancel</button>
+          </div>
+        </div>
+        <div id="relationships-group-list" class="relationships-group-list"></div>
+      </div>
+      <div id="relationships-detail-view" class="relationships-detail-view" style="display:none">
+        <div id="relationships-detail-content"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="analytics-panel" class="analytics-panel" style="display:none">
+    <div class="analytics-content">
+      <h3>This week</h3>
+      <p id="analytics-text"></p>
+      <button id="close-analytics" class="btn-secondary">Close</button>
+    </div>
+  </div>
+
+  <!-- Weekly planning: pre-review → four-block review → fullscreen overlay -->
+  <div id="pre-plan-review-modal" class="modal week-plan-modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="pre-plan-review-title">
+    <div class="modal-content modal-content-narrow">
+      <h3 id="pre-plan-review-title">Review your last plan before planning?</h3>
+      <p class="modal-hint">See what you committed last time, or skip straight into the planner.</p>
+      <div class="modal-actions">
+        <button type="button" id="pre-plan-review-open" class="btn-primary">Review</button>
+        <button type="button" id="pre-plan-review-skip" class="btn-secondary">Skip</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="plan-review-screen" class="week-plan-fullscreen" style="display:none" role="dialog" aria-modal="true">
+    <div class="week-plan-fullscreen-inner">
+      <header class="week-plan-fullscreen-head">
+        <button type="button" id="plan-review-back" class="btn-secondary btn-sm">← Back</button>
+        <h2>Your last plan</h2>
+      </header>
+      <div id="plan-review-four-blocks" class="plan-review-four-blocks"></div>
+      <footer class="week-plan-fullscreen-foot">
+        <button type="button" id="plan-review-continue" class="btn-primary">Continue to planning</button>
+      </footer>
+    </div>
+  </div>
+
+  <div id="week-planning-overlay" class="week-plan-fullscreen week-plan-fullscreen-planning" style="display:none" role="dialog" aria-modal="true" aria-labelledby="week-planning-title">
+    <div class="week-plan-fullscreen-inner week-planning-layout">
+      <header class="week-planning-header">
+        <div class="week-planning-header-text">
+          <h2 id="week-planning-title">Plan the week</h2>
+          <p id="week-planning-range" class="week-planning-sub"></p>
+          <div class="week-planning-week-nav" role="group" aria-label="Choose which week to plan">
+            <button type="button" id="week-planning-prev-week" class="btn-secondary btn-sm" aria-label="Previous week">←</button>
+            <button type="button" id="week-planning-this-week" class="btn-secondary btn-sm" aria-label="Week containing today">This week</button>
+            <button type="button" id="week-planning-next-week" class="btn-secondary btn-sm" aria-label="Next week">→</button>
+          </div>
+          <div class="week-planning-jump-week">
+            <label for="week-planning-jump-date" class="week-planning-jump-label">Jump to week of</label>
+            <input type="date" id="week-planning-jump-date" class="settings-name-input week-planning-jump-input" autocomplete="off">
+            <button type="button" id="week-planning-jump-go" class="btn-secondary btn-sm">Go</button>
+          </div>
+        </div>
+        <div class="week-planning-header-actions">
+          <button type="button" id="week-planning-add-task" class="btn-secondary btn-sm">Add task</button>
+          <button type="button" id="week-planning-clear" class="btn-danger btn-sm">Clear week</button>
+          <button type="button" id="week-planning-back" class="btn-secondary">Back</button>
+          <button type="button" id="week-planning-done" class="btn-primary">Done</button>
+        </div>
+      </header>
+      <details id="week-planning-last-week" class="week-planning-last-week" style="display:none"></details>
+      <div id="week-planning-scroll" class="week-planning-scroll">
+        <div id="week-planning-calendar-wrap" class="week-planning-calendar-wrap">
+          <div id="week-planning-days" class="week-planning-calendar-row" role="group" aria-label="Week at a glance"></div>
+        </div>
+        <section id="week-planning-piles-ref" class="week-planning-piles-ref" aria-label="Piles and tasks"></section>
+      </div>
+    </div>
+  </div>
+
+  <div id="add-to-today-position-modal" class="modal week-plan-modal" style="display:none" role="dialog" aria-modal="true">
+    <div class="modal-content modal-content-narrow">
+      <h3>Add to today’s order</h3>
+      <p class="modal-hint">This task matches today’s focus pile. Place it at the top or bottom of today’s list?</p>
+      <div class="modal-actions">
+        <button type="button" id="add-to-today-top" class="btn-primary">Top</button>
+        <button type="button" id="add-to-today-bottom" class="btn-primary">Bottom</button>
+        <button type="button" id="add-to-today-position-close" class="btn-secondary">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="week-view-panel" class="analytics-panel week-view-panel" style="display:none">
+    <div class="analytics-content week-view-content">
+      <h3>This week</h3>
+      <p class="week-view-hint">Tap a day to edit in the planner. Light view — full drag order is in Plan the week.</p>
+      <div id="week-view-body"></div>
+      <button type="button" id="close-week-view" class="btn-secondary">Close</button>
+    </div>
+  </div>
+
+  <div id="sidebar-overlay" class="sidebar-overlay" style="display:none" aria-hidden="true"></div>
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-header">
+      <span id="pair-badge" class="pair-badge"></span>
+      <button id="close-sidebar" class="btn-close" aria-label="Close menu">×</button>
+    </div>
+    <nav class="sidebar-nav">
+      <button id="link-partner-btn" class="sidebar-item sidebar-link-partner" style="display:none">Link partner</button>
+      <button type="button" id="sidebar-week-view" class="sidebar-item" style="display:none">Week</button>
+      <button type="button" id="sidebar-notes-btn" class="sidebar-item">Notes</button>
+      <button id="settings-btn" class="sidebar-item" data-action="settings">Settings</button>
+      <button id="consistency-btn" class="sidebar-item" data-action="consistency" style="display:none">Consistency</button>
+      <button id="journal-btn" class="sidebar-item" data-action="journal" style="display:none">Journal</button>
+      <button id="relationships-btn" class="sidebar-item" data-action="relationships">People</button>
+      <button id="archive-btn" class="sidebar-item" data-action="archive">View archive</button>
+      <button id="analytics-btn" class="sidebar-item" data-action="analytics">Analytics</button>
+      <button id="export-btn" class="sidebar-item" data-action="export">Export backup</button>
+      <input type="file" id="import-input" accept=".json" style="display:none">
+      <button id="import-btn" class="sidebar-item" data-action="import">Import</button>
+    </nav>
+  </aside>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true"></div>
+
+  <div id="shortcuts-overlay" class="shortcuts-overlay" style="display:none" aria-hidden="true">
+    <div class="shortcuts-content">
+      <h3>Keyboard shortcuts</h3>
+      <dl class="shortcuts-list">
+        <dt>N</dt><dd>Add new task</dd>
+        <dt>Esc</dt><dd>Close modal</dd>
+        <dt>?</dt><dd>Show this help</dd>
+      </dl>
+      <button id="close-shortcuts" class="btn-secondary">Close</button>
+    </div>
+  </div>
+
+  <!-- Pinned CDN + SRI; bump integrity when changing versions (see docs/STRUCTURE.md). -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.8/dist/umd/supabase.min.js" integrity="sha384-z2hqtpr/vSDZ8zSjLOiNgnR/mpU799AD93s6rvkNJLI6Hl0YlKXEhDtREzNT749S" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/chrono-node@2.5.0/dist/bundle.js" integrity="sha384-/8+AY0G8PzBjQkmrieIR1qah93hZKx833l5OXtZUK6Hig5vQerZN4wfRXJ289/nv" crossorigin="anonymous"></script>
+  <script src="config.js"></script>
+  <script src="supabase.js"></script>
+  <script type="module" src="js/app-main.js"></script>
+</body>
+</html>

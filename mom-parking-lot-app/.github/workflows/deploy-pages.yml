@@ -1,0 +1,98 @@
+# Use when parking-lot-app is the GitHub repo ROOT (standalone site).
+# Secrets: SUPABASE_URL, SUPABASE_KEY
+#
+# Monorepo (e.g. personal vault): the root workflow `.github/workflows/deploy-couples-pages.yml`
+# deploys this app from `parking-lot-app/` — this file is not used unless you split repos.
+
+name: Deploy Parking Lot to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  test:
+    name: Test (Vitest + Playwright)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resolve app directory
+        id: root
+        run: |
+          if [ -f parking-lot-app/index.html ]; then
+            echo "APP_DIR=parking-lot-app" >> "$GITHUB_ENV"
+          else
+            echo "APP_DIR=." >> "$GITHUB_ENV"
+          fi
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: ${{ env.APP_DIR }}/package-lock.json
+      - name: Install and test
+        working-directory: ${{ env.APP_DIR }}
+        run: |
+          npm ci
+          npm run test
+          npx playwright install --with-deps chromium
+          npm run e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-results
+          path: ${{ env.APP_DIR }}/test-results/
+          if-no-files-found: ignore
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resolve app directory
+        run: |
+          if [ -f parking-lot-app/index.html ]; then
+            echo "APP_DIR=parking-lot-app" >> "$GITHUB_ENV"
+          else
+            echo "APP_DIR=." >> "$GITHUB_ENV"
+          fi
+      - name: Prepare site
+        run: |
+          SRC="$GITHUB_WORKSPACE/$APP_DIR"
+          SITE="$GITHUB_WORKSPACE/_site"
+          mkdir -p "$SITE"
+          cp "$SRC/index.html" "$SRC/styles.css" "$SRC/manifest.json" "$SRC/sw.js" "$SRC/supabase.js" "$SITE/"
+          cp -r "$SRC/js" "$SITE/js"
+          echo "const SUPABASE_URL='${{ secrets.SUPABASE_URL }}'; const SUPABASE_ANON_KEY='${{ secrets.SUPABASE_KEY }}';" > "$SITE/config.js"
+          if grep -q "SUPABASE_URL='';" "$SITE/config.js" || grep -q "SUPABASE_ANON_KEY='';" "$SITE/config.js"; then
+            echo "::error::Supabase secrets empty. Add SUPABASE_URL and SUPABASE_KEY in repo Settings → Secrets."
+            exit 1
+          fi
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4.0.5

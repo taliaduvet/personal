@@ -46,6 +46,8 @@ jobs:
           cp index.html deploy/
           cp -r parking-lot-app deploy/
           echo "const SUPABASE_URL='${{ secrets.SUPABASE_URL }}'; const SUPABASE_ANON_KEY='${{ secrets.SUPABASE_KEY }}';" > deploy/parking-lot-app/config.js
+          cp -r mom-parking-lot-app deploy/
+          echo "const SUPABASE_URL='${{ secrets.SUPABASE_URL }}'; const SUPABASE_ANON_KEY='${{ secrets.SUPABASE_KEY }}';" > deploy/mom-parking-lot-app/config.js
           mkdir -p deploy/accounting-app/js
           cp accounting-app/index.html accounting-app/styles.css accounting-app/api.js accounting-app/app.js deploy/accounting-app/
           cp accounting-app/js/parse-csv.js deploy/accounting-app/js/

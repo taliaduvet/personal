@@ -1,0 +1,16 @@
+{
+  "name": "Mom's Parking Lot",
+  "shortName": "Mom Parking Lot",
+  "buildRef": "local",
+  "categoryPreset": "mom",
+  "defaultViewMode": "piles",
+  "features": {
+    "couplePair": false,
+    "weekPlanning": false,
+    "journal": false,
+    "talkAbout": false,
+    "emailTriage": false,
+    "seedRender": false,
+    "habits": false
+  }
+}
