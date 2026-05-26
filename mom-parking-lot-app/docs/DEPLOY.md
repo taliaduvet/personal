@@ -5,7 +5,7 @@ GitHub Actions injects `config.js` from repository secrets:
 | Secret | Value |
 |--------|--------|
 | `SUPABASE_URL` | `https://feodlwvjcayfgujkxcxm.supabase.co` |
-| `SUPABASE_KEY` | Talia Duvet Hub → Project Settings → API → **anon public** key (long string starting with `eyJ` — **not** the REST URL) |
+| `SUPABASE_KEY` | **anon** / **publishable** public key only (`eyJ…` or `sb_publishable_…`). **Never** the `sb_secret_…` or service_role key. **Not** the REST URL. |
 
 Do **not** use the old paused project `csvumbaxopiolwvyevum` — the live app will hang and show sync errors.
 

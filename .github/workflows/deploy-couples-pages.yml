@@ -68,6 +68,10 @@ jobs:
             echo "::error::SUPABASE_KEY must be the anon public JWT (starts with eyJ), not the REST API URL. Supabase Dashboard → API → anon public."
             exit 1
           fi
+          if grep -qE "SUPABASE_ANON_KEY='sb_secret_" deploy/parking-lot-app/config.js; then
+            echo "::error::SUPABASE_KEY is the secret key (sb_secret_…). Use the anon / publishable public key only — never deploy the secret key to GitHub Pages."
+            exit 1
+          fi
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
