@@ -333,7 +333,7 @@
           <select id="add-from-talk-category"></select>
           <label>First step (optional)</label>
           <input id="add-from-talk-first-step" type="text" placeholder="e.g. Open the file and add the title" maxlength="200">
-          <label>Pile (optional)</label>
+          <label>Project (optional)</label>
           <select id="add-from-talk-pile">
             <option value="">None</option>
           </select>
@@ -383,12 +383,12 @@
   </div>
 
   <div id="settings-modal" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="settings-modal-title">
-    <div class="modal-content">
+    <div class="modal-content modal-content-settings">
       <div class="modal-header">
         <h3 id="settings-modal-title">Settings</h3>
         <button id="close-settings" class="btn-close">×</button>
       </div>
-      <div class="modal-body">
+      <div class="modal-body mom-settings-body">
         <div id="settings-push-notifications" class="settings-sync-code">
           <h4 class="settings-section-title">Push notifications</h4>
           <p class="settings-hint">Enable to get reminders on your phone and laptop when tasks are due.</p>
@@ -451,19 +451,25 @@
           <option value="22">10pm</option>
           <option value="23">11pm</option>
         </select>
+        <section class="mom-settings-section">
         <h4 id="settings-column-names-title" class="settings-section-title">Column names</h4>
-        <p class="settings-hint">Customize what each column is called.</p>
+        <p id="settings-column-names-hint" class="settings-hint">Names for People, General todos, and Repeated stuff.</p>
         <div id="settings-column-inputs" class="settings-column-inputs"></div>
+        </section>
+        <section class="mom-settings-section">
         <h4 class="settings-section-title">Column colors</h4>
-        <p class="settings-hint">Pick a color for each column (color wheel or hex). Syncs across your devices.</p>
+        <p id="settings-column-colors-hint" class="settings-hint">Colors for People, General todos, and Repeated stuff — shown on the <strong>Columns</strong> board (toggle above your task list).</p>
         <div id="settings-column-colors" class="settings-column-colors"></div>
+        </section>
+        <section class="mom-settings-section mom-settings-section-projects">
         <h4 class="settings-section-title">Manage projects</h4>
-        <p class="settings-hint">Projects group your tasks (e.g. Kitchen Reno, Taxes). Assign a project when you add or edit a task.</p>
-        <div id="settings-piles-list" class="settings-piles-list"></div>
-        <div class="settings-piles-add">
-          <input id="settings-pile-name" type="text" placeholder="New project name" class="settings-name-input" maxlength="80">
+        <p id="settings-projects-hint" class="settings-hint">Projects group your tasks (e.g. Kitchen Reno, Taxes). Assign a project when you add or edit a task.</p>
+        <div id="settings-piles-list" class="settings-projects-list"></div>
+        <div class="settings-projects-add">
+          <input id="settings-pile-name" type="text" placeholder="New project name" class="settings-name-input" maxlength="80" aria-label="New project name">
           <button id="settings-pile-add-btn" type="button" class="btn-secondary btn-sm">Add project</button>
         </div>
+        </section>
         <h4 class="settings-section-title">People &amp; relationships</h4>
         <p class="settings-hint">Add people, set reconnect reminders, and see tasks linked to each person. Tasks in the <strong>People</strong> column can be tied to someone when you add or edit them.</p>
         <button type="button" id="settings-open-people-btn" class="btn-secondary btn-sm">Open People</button>

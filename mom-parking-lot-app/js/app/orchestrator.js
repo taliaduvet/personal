@@ -129,6 +129,7 @@ import { createEmailTriageUI } from '../features/email-triage.js';
 import { createModalController } from '../features/modals.js';
 import { wireMainEvents } from '../features/events.js';
 import { IS_MOM_APP } from '../config/app-profile.js';
+import { MOM_COPY } from '../config/mom-labels.js';
 import { wireMomTodayAndFocus } from './mom-wire.js';
 import { wireInlineEntityCreates } from '../features/inline-entity-create.js';
 import { migrateLegacyNotesToUnified } from '../domain/notes.js';
@@ -568,7 +569,7 @@ function wireComposer() {
     const nameInput = document.getElementById('settings-display-name');
     const dayReset = document.getElementById('settings-tally-reset-hour');
     const presetButtons = document.querySelector('.settings-preset-btns');
-    const pilesAdd = document.querySelector('.settings-piles-add');
+    const pilesAdd = document.querySelector('.settings-projects-add') || document.querySelector('.settings-piles-add');
     const themeColors = document.querySelector('.settings-theme-colors');
 
     const generalStart = nameInput ? nameInput.previousElementSibling && nameInput.previousElementSibling.previousElementSibling : null;
@@ -587,8 +588,26 @@ function wireComposer() {
     modalBody.dataset.accordionized = 'true';
   }
 
+  function ensureMomSettingsLayout() {
+    const modalBody = document.querySelector('#settings-modal .modal-body');
+    if (!modalBody || modalBody.dataset.momSettingsV1 === '1') return;
+    if (modalBody.dataset.accordionized === 'true') {
+      const saveBtn = document.getElementById('save-settings');
+      const contents = modalBody.querySelectorAll('.settings-accordion-content');
+      contents.forEach((content) => {
+        while (content.firstChild && saveBtn) {
+          modalBody.insertBefore(content.firstChild, saveBtn);
+        }
+      });
+      modalBody.querySelectorAll('.settings-accordion').forEach((el) => el.remove());
+      modalBody.dataset.accordionized = 'false';
+    }
+    modalBody.dataset.momSettingsV1 = '1';
+  }
+
   function openSettingsModal() {
-    ensureSettingsAccordion();
+    if (IS_MOM_APP) ensureMomSettingsLayout();
+    else ensureSettingsAccordion();
     const pushStatus = document.getElementById('settings-push-status');
     if (pushStatus) pushStatus.textContent = '';
     const buildRefEl = document.getElementById('settings-build-ref');
@@ -629,6 +648,7 @@ function wireComposer() {
           state.columnColors[cat] = e.target.value;
           const hexInp = colorsContainer.querySelector(`.color-hex-input[data-cat="${cat}"]`);
           if (hexInp) hexInp.value = e.target.value;
+          saveState();
           saveDevicePreferencesToSupabase();
           renderColumns();
         });
@@ -641,6 +661,7 @@ function wireComposer() {
             state.columnColors[cat] = val;
             const colorInp = colorsContainer.querySelector(`.color-input[data-cat="${cat}"]`);
             if (colorInp) colorInp.value = val;
+            saveState();
             saveDevicePreferencesToSupabase();
             renderColumns();
           }
@@ -691,7 +712,7 @@ function wireComposer() {
         addPile(name);
         pileNameInput.value = '';
         renderSettingsPilesList();
-        showToast(IS_MOM_APP ? 'Project added' : 'Pile added');
+        showToast(IS_MOM_APP ? MOM_COPY.projectAdded : 'Pile added');
       });
     }
 
@@ -702,25 +723,28 @@ function wireComposer() {
     const container = document.getElementById('settings-piles-list');
     if (!container) return;
     const piles = getPiles();
+    const rowClass = IS_MOM_APP ? 'settings-project-row' : 'settings-pile-row';
+    const nameClass = IS_MOM_APP ? 'settings-project-name' : 'settings-pile-name';
+    const metaClass = IS_MOM_APP ? 'settings-project-meta' : 'settings-pile-meta';
     container.innerHTML = piles.length ? piles.map(p => {
       const count = (state.items || []).filter(i => i.pileId === p.id).length;
-      return `<div class="settings-pile-row" data-pile-id="${p.id}">
-        <span class="settings-pile-name">${escapeHtml(p.name)}</span>
-        <span class="settings-pile-meta">${count} task${count !== 1 ? 's' : ''}</span>
+      return `<div class="${rowClass}" data-pile-id="${p.id}">
+        <span class="${nameClass}">${escapeHtml(p.name)}</span>
+        <span class="${metaClass}">${count} task${count !== 1 ? 's' : ''}</span>
         <button type="button" class="btn-secondary btn-sm settings-pile-rename" data-pile-id="${p.id}">Rename</button>
         <button type="button" class="btn-secondary btn-sm settings-pile-delete" data-pile-id="${p.id}" data-count="${count}">Delete</button>
       </div>`;
-    }).join('') : `<p class="settings-hint">No ${IS_MOM_APP ? 'projects' : 'piles'} yet. Add one below.</p>`;
+    }).join('') : `<p class="settings-hint">${IS_MOM_APP ? MOM_COPY.noProjectsYet : 'No piles yet. Add one below.'}</p>`;
 
     container.querySelectorAll('.settings-pile-rename').forEach(btn => {
       btn.addEventListener('click', () => {
         const id = btn.dataset.pileId;
         const current = getPileName(id) || '';
-        const name = window.prompt(IS_MOM_APP ? 'Rename project:' : 'Rename pile:', current);
+        const name = window.prompt(IS_MOM_APP ? MOM_COPY.renameProject : 'Rename pile:', current);
         if (name != null && name.trim()) {
           updatePile(id, name.trim());
           renderSettingsPilesList();
-          showToast(IS_MOM_APP ? 'Project renamed' : 'Pile renamed');
+          showToast(IS_MOM_APP ? MOM_COPY.projectRenamed : 'Pile renamed');
         }
       });
     });
@@ -728,7 +752,7 @@ function wireComposer() {
       btn.addEventListener('click', () => {
         const id = btn.dataset.pileId;
         const count = parseInt(btn.dataset.count, 10) || 0;
-        const noun = IS_MOM_APP ? 'project' : 'pile';
+        const noun = IS_MOM_APP ? MOM_COPY.project : 'pile';
         const msg = count > 0
           ? count + ' task' + (count !== 1 ? 's' : '') + ` will become uncategorized. Delete this ${noun}?`
           : `Delete this ${noun}?`;
@@ -736,7 +760,7 @@ function wireComposer() {
           deletePile(id);
           renderSettingsPilesList();
           renderColumns();
-          showToast(IS_MOM_APP ? 'Project deleted' : 'Pile deleted');
+          showToast(IS_MOM_APP ? MOM_COPY.projectDeleted : 'Pile deleted');
         }
       });
     });
@@ -744,6 +768,7 @@ function wireComposer() {
 
   function getPreferencesForDevice() {
     const prefs = { ...getActiveColumnColors() };
+    prefs.__columnColors = { ...getActiveColumnColors() };
     if (state.buttonColor) prefs.__button = state.buttonColor;
     if (state.textColor) prefs.__text = state.textColor;
     prefs.custom_labels = { ...(state.customLabels || {}) };
@@ -858,6 +883,10 @@ function wireComposer() {
       if (IS_MOM_APP) migrateLegacyNotesToUnified();
     }
     if (!state.columnColors || typeof state.columnColors !== 'object') state.columnColors = {};
+    if (prefs.__columnColors && typeof prefs.__columnColors === 'object') {
+      Object.assign(state.columnColors, prefs.__columnColors);
+      delete prefs.__columnColors;
+    }
     getValidCategoryIds().forEach(id => {
       const v = prefs[id];
       if (v != null && /^#[0-9a-fA-F]{6}$/i.test(String(v).trim())) {

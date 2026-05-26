@@ -12,6 +12,7 @@ import {
   createItem
 } from '../domain/tasks.js';
 import { IS_MOM_APP } from '../config/app-profile.js';
+import { PROJECT_COLUMN_PALETTE } from '../constants.js';
 import { getPiles } from '../domain/piles-people.js';
 import { getOrderedCategoryIds, getCategoryOptionLabel, getCategories } from '../domain/categories.js';
 import { getColumnNoteHtml, setColumnNoteHtml } from '../domain/notes.js';
@@ -66,15 +67,17 @@ export function createBoardRenderer(d) {
       const piles = getPiles();
       const pileColumns = piles.map(p => ({ id: p.id, label: p.name, pileId: p.id }));
       pileColumns.push({ id: '__uncategorized', label: 'Uncategorized', pileId: null });
-      container.innerHTML = pileColumns.map(col => {
+      container.innerHTML = pileColumns.map((col, colIndex) => {
         const items = withoutToday(getActiveItems().filter(i => (i.pileId || null) === (col.pileId || null)));
         const q = (d.state.searchQuery || '').trim().toLowerCase();
         const filtered = q ? items.filter(i => (i.text || '').toLowerCase().includes(q)) : items;
         const sorted = sortByTimeBandsAndFriction(filtered);
         const pileIdAttr = col.pileId != null ? ` data-pile-id="${col.pileId}"` : ' data-uncategorized="true"';
+        const accent = PROJECT_COLUMN_PALETTE[colIndex % PROJECT_COLUMN_PALETTE.length];
         return `
-          <div class="column column-accent" data-category="${col.id}"${pileIdAttr} style="--column-accent: #6b7280">
+          <div class="column column-accent" data-category="${col.id}"${pileIdAttr} style="--column-accent: ${accent}">
             <div class="column-header" data-category="${col.id}"${pileIdAttr} role="none">
+              <span class="column-color-dot" style="background:${escapeHtml(accent)}" aria-hidden="true"></span>
               ${escapeHtml(col.label)} <span class="count">(${sorted.length})</span>
             </div>
             <div class="column-items">
@@ -97,8 +100,9 @@ export function createBoardRenderer(d) {
         const noteOpen = d.state.openColumnNoteId === catId;
 
         return `
-          <div class="column column-accent" data-category="${catId}" style="--column-accent: ${color}">
+          <div class="column column-accent" data-category="${catId}" style="--column-accent: ${escapeHtml(color)}">
             <div class="column-header ${canReorder ? 'column-header-draggable' : ''}" data-category="${catId}" ${canReorder ? 'draggable="true"' : ''} role="${canReorder ? 'button' : 'none'}" title="${canReorder ? 'Drag to reorder columns' : ''}">
+              <span class="column-color-dot" style="background:${escapeHtml(color)}" aria-hidden="true"></span>
               ${escapeHtml(label)} <span class="count">(${items.length})</span>
               <button type="button" class="column-note-btn ${noteOpen ? 'column-note-btn-close' : ''}" data-category="${catId}" title="${noteOpen ? 'Close note' : 'Column note'}" aria-label="${noteOpen ? 'Close note' : 'Open note'}">${noteOpen ? '×' : (noteContent.length ? '📝' : '✎')}</button>
             </div>

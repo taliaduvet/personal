@@ -189,7 +189,15 @@ html.mom-app .column {
   padding: 0.85rem;
 }
 
+html.mom-app .column.column-accent {
+  border-left: 4px solid var(--column-accent, var(--mom-line));
+}
+
 html.mom-app .column-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem;
   font-size: 0.8rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -198,6 +206,14 @@ html.mom-app .column-header {
   border-bottom: 1px solid var(--mom-line-soft);
   padding-bottom: 0.65rem;
   margin-bottom: 0.65rem;
+}
+
+html.mom-app .column-color-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
 }
 
 html.mom-app .column-header:hover {
@@ -467,6 +483,162 @@ html.mom-app .archive-day-detail {
 html.mom-app .note-turn-popover,
 html.mom-app .column-note-turn-popover {
   margin-top: 0.25rem;
+}
+
+/* ── Settings modal (Mom) ─────────────────────────────────── */
+
+html.mom-app .modal-content-settings {
+  max-width: 28rem;
+  width: calc(100% - 2rem);
+}
+
+html.mom-app .mom-settings-body {
+  padding: 0 1.25rem 1.25rem;
+}
+
+html.mom-app .mom-settings-section {
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--mom-line-soft);
+}
+
+html.mom-app .mom-settings-section:last-of-type {
+  border-bottom: none;
+}
+
+html.mom-app .mom-settings-body .settings-section-title {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--mom-muted);
+  margin: 0 0 0.35rem;
+}
+
+html.mom-app .mom-settings-body .settings-hint {
+  font-size: 0.85rem;
+  line-height: 1.45;
+  margin-bottom: 0.75rem;
+  color: var(--mom-muted);
+}
+
+html.mom-app .mom-settings-body .settings-name-input,
+html.mom-app .mom-settings-body .settings-select,
+html.mom-app .mom-settings-body .settings-link-input {
+  background: var(--mom-surface);
+  border: 1px solid var(--mom-line);
+  color: var(--mom-ink);
+  border-radius: var(--mom-radius-sm);
+}
+
+html.mom-app .mom-settings-body .settings-column-inputs label {
+  color: var(--mom-ink);
+  font-weight: 500;
+  font-size: 0.875rem;
+}
+
+html.mom-app .mom-settings-body .settings-column-colors .settings-color-row {
+  padding: 0.65rem 0.75rem;
+  background: var(--mom-surface-2);
+  border-radius: var(--mom-radius-md);
+  border: 1px solid var(--mom-line-soft);
+}
+
+html.mom-app .mom-settings-body .color-input {
+  background: var(--mom-surface);
+  border: 1px solid var(--mom-line);
+}
+
+html.mom-app .mom-settings-body .color-hex-input {
+  background: var(--mom-surface);
+  color: var(--mom-ink);
+}
+
+html.mom-app .settings-projects-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+html.mom-app .settings-project-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.5rem;
+  padding: 0.65rem 0.75rem;
+  background: var(--mom-surface-2);
+  border: 1px solid var(--mom-line);
+  border-radius: var(--mom-radius-md);
+}
+
+html.mom-app .settings-project-name {
+  font-weight: 600;
+  color: var(--mom-ink);
+  flex: 1 1 auto;
+  min-width: 5rem;
+}
+
+html.mom-app .settings-project-meta {
+  font-size: 0.8rem;
+  color: var(--mom-muted);
+  flex: 1 1 100%;
+  margin-top: -0.15rem;
+}
+
+html.mom-app .settings-project-row .settings-pile-rename,
+html.mom-app .settings-project-row .settings-pile-delete {
+  font-size: 0.75rem;
+  padding: 0.3rem 0.55rem;
+  margin-left: auto;
+}
+
+html.mom-app .settings-projects-add {
+  display: flex;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+html.mom-app .settings-projects-add .settings-name-input {
+  flex: 1;
+  min-width: 0;
+}
+
+html.mom-app .mom-settings-body #save-settings {
+  width: 100%;
+  margin-top: 0.5rem;
+}
+
+html.mom-app .mom-settings-body #settings-open-people-btn {
+  margin-bottom: 0.25rem;
+}
+
+html.mom-app .view-toggle {
+  background: var(--mom-surface-2);
+  border: 1px solid var(--mom-line);
+  border-radius: var(--mom-radius-md);
+  padding: 3px;
+}
+
+html.mom-app .view-toggle-btn {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--mom-muted);
+  border-radius: var(--mom-radius-sm);
+  padding: 0.35rem 0.75rem;
+  border: none;
+  background: transparent;
+}
+
+html.mom-app .view-toggle-btn.active {
+  background: var(--mom-surface);
+  color: var(--mom-ink);
+  box-shadow: 0 1px 2px rgba(26, 32, 44, 0.06);
+}
+
+html.mom-app .columns-header {
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  align-items: center;
 }
 
 @media (max-width: 480px) {

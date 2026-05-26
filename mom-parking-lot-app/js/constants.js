@@ -31,6 +31,16 @@ export const STORAGE_PREFIX = 'momParkingLot_';
 export const HAS_CHOSEN_SOLO_KEY = STORAGE_PREFIX + 'hasChosenSolo';
 
 /** Muted, modern column accents — sleek/minimal (not couples warm palette). */
+/** Rotating accents for project columns (Projects board view). */
+export const PROJECT_COLUMN_PALETTE = [
+  '#8e9aaf',
+  '#6d8f7b',
+  '#5c6b7a',
+  '#a89b8c',
+  '#7d9aaa',
+  '#9a8fad'
+];
+
 export const DEFAULT_COLUMN_COLORS = {
   people: '#8e9aaf',
   todos: '#5c6b7a',
