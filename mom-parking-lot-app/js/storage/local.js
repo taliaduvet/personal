@@ -9,6 +9,7 @@ const OLD_STORAGE_PREFIX = 'parkingLotCouples_';
  * Does not delete old keys (rollback window). Safe to call multiple times.
  */
 export function migrateStoragePrefixIfNeeded() {
+  if (IS_MOM_APP) return;
   try {
     const NEW_DATA_KEY = STORAGE_PREFIX + 'data';
     const OLD_DATA_KEY = OLD_STORAGE_PREFIX + 'data';

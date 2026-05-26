@@ -20,6 +20,11 @@ import {
   saveDeviceSyncState
 } from '../storage/pair-device.js';
 import {
+  ensureMomPrefixedSyncId,
+  ensureMomStorageIsolation,
+  generateMomDeviceSyncId
+} from '../storage/mom-isolation.js';
+import {
   loadState,
   saveState,
   setStorageNotify,
@@ -869,8 +874,24 @@ function wireComposer() {
   }
 
   async function runDeviceSyncMigration() {
-    if (state.deviceSyncId) return;
+    if (state.deviceSyncId) {
+      if (IS_MOM_APP) {
+        state.deviceSyncId = ensureMomPrefixedSyncId(state.deviceSyncId);
+        saveDeviceSyncState();
+      }
+      return;
+    }
     if (!window.talkAbout) return;
+    if (IS_MOM_APP) {
+      state.deviceSyncId = generateMomDeviceSyncId(window.talkAbout);
+      try {
+        await window.talkAbout.saveDevicePreferences(state.deviceSyncId, getPreferencesForDevice());
+      } catch (e) {
+        console.warn('Mom device seed failed', e);
+      }
+      saveDeviceSyncState();
+      return;
+    }
     if (state.pairId) {
       state.deviceSyncId = state.pairId + '_' + (state.addedBy || 'Talia');
       try {
@@ -893,7 +914,9 @@ function wireComposer() {
         localStorage.setItem(STORAGE_PREFIX + 'addedBy', 'Talia');
       }
     } else {
-      state.deviceSyncId = window.talkAbout.generatePairId();
+      state.deviceSyncId = IS_MOM_APP
+        ? generateMomDeviceSyncId(window.talkAbout)
+        : window.talkAbout.generatePairId();
       try {
         const payload = getPreferencesForDevice();
         await window.talkAbout.saveDevicePreferences(state.deviceSyncId, payload);
@@ -1843,6 +1866,9 @@ function wireComposer() {
       if (linkPartnerBtn) linkPartnerBtn.style.display = 'block';
     }
     loadState();
+    if (IS_MOM_APP && ensureMomStorageIsolation()) {
+      showToast("Fresh start — Mom's board is separate from yours.");
+    }
     await runDeviceSyncMigration();
     try {
       if (window.talkAbout && state.deviceSyncId) {
@@ -2027,7 +2053,9 @@ function wireComposer() {
     if (createBtn) createBtn.addEventListener('click', async () => {
       state.pairId = window.talkAbout ? window.talkAbout.generatePairId() : 'demo' + Date.now().toString(36).slice(-6);
       state.addedBy = 'Talia';
-      state.deviceSyncId = window.talkAbout ? window.talkAbout.generatePairId() : 'dev' + Date.now().toString(36).slice(-6);
+      state.deviceSyncId = IS_MOM_APP
+        ? generateMomDeviceSyncId(window.talkAbout)
+        : (window.talkAbout ? window.talkAbout.generatePairId() : 'dev' + Date.now().toString(36).slice(-6));
       savePairState();
       saveDeviceSyncState();
       if (window.talkAbout) {
@@ -2049,7 +2077,9 @@ function wireComposer() {
       const asTalia = document.getElementById('link-join-talia');
       state.pairId = code;
       state.addedBy = (asTalia && asTalia.checked) ? 'Talia' : 'Garren';
-      state.deviceSyncId = window.talkAbout ? window.talkAbout.generatePairId() : 'dev' + Date.now().toString(36).slice(-6);
+      state.deviceSyncId = IS_MOM_APP
+        ? generateMomDeviceSyncId(window.talkAbout)
+        : (window.talkAbout ? window.talkAbout.generatePairId() : 'dev' + Date.now().toString(36).slice(-6));
       savePairState();
       saveDeviceSyncState();
       if (window.talkAbout) {
@@ -2069,7 +2099,9 @@ function wireComposer() {
     if (createBtn) createBtn.addEventListener('click', async () => {
       state.pairId = window.talkAbout ? window.talkAbout.generatePairId() : 'demo' + Date.now().toString(36).slice(-6);
       state.addedBy = 'Talia';
-      state.deviceSyncId = window.talkAbout ? window.talkAbout.generatePairId() : 'dev' + Date.now().toString(36).slice(-6);
+      state.deviceSyncId = IS_MOM_APP
+        ? generateMomDeviceSyncId(window.talkAbout)
+        : (window.talkAbout ? window.talkAbout.generatePairId() : 'dev' + Date.now().toString(36).slice(-6));
       savePairState();
       saveDeviceSyncState();
       if (window.talkAbout) {
@@ -2098,7 +2130,9 @@ function wireComposer() {
       const asTalia = document.getElementById('join-as-talia');
       state.pairId = code;
       state.addedBy = (asTalia && asTalia.checked) ? 'Talia' : 'Garren';
-      state.deviceSyncId = window.talkAbout ? window.talkAbout.generatePairId() : 'dev' + Date.now().toString(36).slice(-6);
+      state.deviceSyncId = IS_MOM_APP
+        ? generateMomDeviceSyncId(window.talkAbout)
+        : (window.talkAbout ? window.talkAbout.generatePairId() : 'dev' + Date.now().toString(36).slice(-6));
       savePairState();
       saveDeviceSyncState();
       if (window.talkAbout) {
@@ -2205,7 +2239,7 @@ function wireComposer() {
         showToast('Enter a valid sync code (from your other device)');
         return;
       }
-      state.deviceSyncId = code;
+      state.deviceSyncId = IS_MOM_APP ? ensureMomPrefixedSyncId(code) : code;
       saveDeviceSyncState();
       if (linkForm) linkForm.style.display = 'none';
       document.getElementById('entry-screen').style.display = 'none';
@@ -2228,7 +2262,9 @@ function wireComposer() {
     if (soloBtn) soloBtn.addEventListener('click', async () => {
       setChosenSolo();
       if (!state.deviceSyncId) {
-        state.deviceSyncId = window.talkAbout ? window.talkAbout.generatePairId() : 'solo' + Date.now().toString(36).slice(-6);
+        state.deviceSyncId = IS_MOM_APP
+          ? generateMomDeviceSyncId(window.talkAbout)
+          : (window.talkAbout ? window.talkAbout.generatePairId() : 'solo' + Date.now().toString(36).slice(-6));
         saveDeviceSyncState();
         if (window.talkAbout) {
           try {

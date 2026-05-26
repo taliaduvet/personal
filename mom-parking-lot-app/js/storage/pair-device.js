@@ -1,9 +1,12 @@
 import { STORAGE_PREFIX, HAS_CHOSEN_SOLO_KEY } from '../constants.js';
+import { IS_MOM_APP } from '../config/app-profile.js';
 import { state } from '../state.js';
 import { migrateStoragePrefixIfNeeded } from './local.js';
+import { ensureMomPrefixedSyncId, ensureMomStorageIsolation } from './mom-isolation.js';
 
 export function loadPairState() {
-  migrateStoragePrefixIfNeeded();
+  if (IS_MOM_APP) ensureMomStorageIsolation();
+  else migrateStoragePrefixIfNeeded();
   state.pairId = localStorage.getItem(STORAGE_PREFIX + 'pairId');
   state.addedBy = localStorage.getItem(STORAGE_PREFIX + 'addedBy') || 'Talia';
 }
@@ -22,10 +25,15 @@ export function savePairState() {
 }
 
 export function loadDeviceSyncState() {
-  migrateStoragePrefixIfNeeded();
-  state.deviceSyncId = localStorage.getItem(STORAGE_PREFIX + 'deviceSyncId');
+  if (IS_MOM_APP) ensureMomStorageIsolation();
+  else migrateStoragePrefixIfNeeded();
+  const raw = localStorage.getItem(STORAGE_PREFIX + 'deviceSyncId');
+  state.deviceSyncId = IS_MOM_APP && raw ? ensureMomPrefixedSyncId(raw) : raw;
 }
 
 export function saveDeviceSyncState() {
-  if (state.deviceSyncId) localStorage.setItem(STORAGE_PREFIX + 'deviceSyncId', state.deviceSyncId);
+  if (!state.deviceSyncId) return;
+  const id = IS_MOM_APP ? ensureMomPrefixedSyncId(state.deviceSyncId) : state.deviceSyncId;
+  state.deviceSyncId = id;
+  localStorage.setItem(STORAGE_PREFIX + 'deviceSyncId', id);
 }

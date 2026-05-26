@@ -3,6 +3,8 @@ import { coerceCategoryId } from "../domain/categories.js";
 import { escapeHtml } from "../utils/dom.js";
 import { getTallyDateYYYYMMDD } from "../storage/local.js";
 import { saveDeviceSyncState } from "../storage/pair-device.js";
+import { IS_MOM_APP } from "../config/app-profile.js";
+import { ensureMomPrefixedSyncId } from "../storage/mom-isolation.js";
 import {
   normalizeJournalDayValue,
   newEntryId,
@@ -399,7 +401,7 @@ export function wireMainEvents(deps) {
           showToast('Enter a valid sync code (6+ chars from your other device)');
           return;
         }
-        state.deviceSyncId = code;
+        state.deviceSyncId = IS_MOM_APP ? ensureMomPrefixedSyncId(code) : code;
         saveDeviceSyncState();
         try {
           if (window.talkAbout) {
