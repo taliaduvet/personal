@@ -12,5 +12,5 @@ export function applyThemeColors() {
   if (state.textColor) root.style.setProperty('--accent-text', state.textColor);
   else root.style.removeProperty('--accent-text');
   const metaTheme = document.querySelector('meta[name="theme-color"]');
-  if (metaTheme) metaTheme.setAttribute('content', state.buttonColor || '#e07a5f');
+  if (metaTheme) metaTheme.setAttribute('content', state.buttonColor || '#9b6cff');
 }

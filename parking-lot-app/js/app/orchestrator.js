@@ -61,6 +61,8 @@ import {
   getActiveColumnColors
 } from '../domain/tasks.js';
 import {
+  INBOX_PILE_ID,
+  ensureInboxPile,
   getPiles,
   getPileName,
   getPeopleGroups,
@@ -154,6 +156,7 @@ let renderTalkAbout;
 let renderEmailTriage;
 let closeAddFromTalkModal;
 let submitAddFromTalk;
+let eventsWired = false;
 
 /** Set in {@link wireComposer} — add/edit modal + voice/quick handlers. */
 let modalApi;
@@ -229,7 +232,7 @@ function wireComposer() {
     state,
     saveState,
     saveDevicePreferencesToSupabase,
-    openAddModal: (presetCategory, presetPileId) => modalApi.openAddModal(presetCategory, presetPileId),
+    openAddModal: (presetCategory, presetPileId, presetText) => modalApi.openAddModal(presetCategory, presetPileId, presetText),
     onCommitted: () => {
       unifiedApi.renderTodayList();
       unifiedApi.renderFocusUnified();
@@ -245,6 +248,12 @@ function wireComposer() {
     markDone,
     renderColumns,
     openPlanningEntry: (opts) => weekPlanningApi.openPlanningEntry(opts),
+    openAddModal: (presetCategory, presetPileId, presetText) => modalApi.openAddModal(presetCategory, presetPileId, presetText),
+    openWeekView: () => {
+      weekPlanningApi.renderWeekViewPanel();
+      const panel = document.getElementById('week-view-panel');
+      if (panel) panel.style.display = 'flex';
+    },
     onWeekPlanChanged: () => {
       if (typeof renderWeekStrip === 'function') renderWeekStrip();
       if (window.talkAbout && state.deviceSyncId) saveDevicePreferencesToSupabase();
@@ -409,6 +418,12 @@ function wireComposer() {
       renderTodayList();
       renderFocusList();
       renderColumns();
+      const tallyEl = document.getElementById('completed-tally');
+      if (tallyEl) {
+        tallyEl.classList.remove('tally-pulse');
+        requestAnimationFrame(() => tallyEl.classList.add('tally-pulse'));
+        setTimeout(() => tallyEl.classList.remove('tally-pulse'), 900);
+      }
       showToast('Done', () => {
         revertMarkDone(id, prev, todayStr, wasInSuggestions, respawnedId);
         saveState();
@@ -674,11 +689,12 @@ function wireComposer() {
     const piles = getPiles();
     container.innerHTML = piles.length ? piles.map(p => {
       const count = (state.items || []).filter(i => i.pileId === p.id).length;
+      const isPermanent = p.permanent || p.id === INBOX_PILE_ID;
       return `<div class="settings-pile-row" data-pile-id="${p.id}">
-        <span class="settings-pile-name">${escapeHtml(p.name)}</span>
+        <span class="settings-pile-name">${escapeHtml(p.name)}${isPermanent ? ' <span class="settings-pile-permanent" title="Permanent">●</span>' : ''}</span>
         <span class="settings-pile-meta">${count} task${count !== 1 ? 's' : ''}</span>
-        <button type="button" class="btn-secondary btn-sm settings-pile-rename" data-pile-id="${p.id}">Rename</button>
-        <button type="button" class="btn-secondary btn-sm settings-pile-delete" data-pile-id="${p.id}" data-count="${count}">Delete</button>
+        ${!isPermanent ? `<button type="button" class="btn-secondary btn-sm settings-pile-rename" data-pile-id="${p.id}">Rename</button>` : ''}
+        ${!isPermanent ? `<button type="button" class="btn-secondary btn-sm settings-pile-delete" data-pile-id="${p.id}" data-count="${count}">Delete</button>` : ''}
       </div>`;
     }).join('') : '<p class="settings-hint">No piles yet. Add one below.</p>';
 
@@ -746,6 +762,8 @@ function wireComposer() {
     }
     if (state.showWeekStrip) prefs.__showWeekStrip = true;
     if (state.otherCollapsedOnDate) prefs.__otherCollapsedOnDate = state.otherCollapsedOnDate;
+    if (state.energyLevel) prefs.__energyLevel = state.energyLevel;
+    if (state.energyDate) prefs.__energyDate = state.energyDate;
     return prefs;
   }
 
@@ -820,6 +838,8 @@ function wireComposer() {
       state.otherCollapsedOnDate = prefs.__otherCollapsedOnDate;
       delete prefs.__otherCollapsedOnDate;
     }
+    if (prefs.__energyLevel) { state.energyLevel = prefs.__energyLevel; delete prefs.__energyLevel; }
+    if (prefs.__energyDate) { state.energyDate = prefs.__energyDate; delete prefs.__energyDate; }
     if (!state.columnColors || typeof state.columnColors !== 'object') state.columnColors = {};
     getValidCategoryIds().forEach(id => {
       const v = prefs[id];
@@ -982,6 +1002,89 @@ function wireComposer() {
     if (panel) panel.style.display = 'none';
   }
 
+  function setEnergy(level) {
+    const todayStr = getTodayLocalYYYYMMDD();
+    state.energyLevel = (state.energyLevel === level) ? null : level;
+    state.energyDate = state.energyLevel ? todayStr : null;
+    saveState();
+    if (window.talkAbout && state.deviceSyncId) saveDevicePreferencesToSupabase();
+    renderEnergyWidget();
+  }
+
+  function renderEnergyWidget() {
+    const widget = document.getElementById('energy-widget');
+    if (!widget) return;
+    const todayStr = getTodayLocalYYYYMMDD();
+    const current = state.energyDate === todayStr ? state.energyLevel : null;
+    widget.querySelectorAll('.energy-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.level === current);
+    });
+  }
+
+  function submitBrainDump() {
+    const input = document.getElementById('brain-dump-input');
+    if (!input) return;
+    const text = input.value.trim();
+    if (!text) return;
+    ensureInboxPile();
+    const lines = text.split(/\n/).map(l => l.trim()).filter(Boolean);
+    lines.forEach(line => {
+      const item = createItem(line, state.lastCategory, null, 'medium', null, null, null, INBOX_PILE_ID, null, null);
+      state.items.push(item);
+    });
+    saveState();
+    input.value = '';
+    renderColumns();
+    showToast(lines.length === 1 ? 'Added to Inbox' : lines.length + ' items added to Inbox');
+  }
+
+  function openWeeklyReview() {
+    const overlay = document.getElementById('weekly-review-overlay');
+    if (!overlay) return;
+    const body = document.getElementById('weekly-review-body');
+    if (body) {
+      const todayStr = getTodayLocalYYYYMMDD();
+      const activeItems = getActiveItems();
+      const overdueItems = activeItems.filter(i => i.deadline && i.deadline < todayStr);
+      const avoidedItems = activeItems.filter(i => (i.skippedFromToday || 0) >= 3);
+      const incomeItems = activeItems.filter(i => i.income);
+      const sections = [];
+      sections.push('<h3 class="weekly-review-section-title">Quick scan</h3>');
+      sections.push(`<div class="weekly-review-stat-row">
+        <div class="weekly-review-stat"><span class="weekly-review-num">${activeItems.length}</span><span class="weekly-review-label">active tasks</span></div>
+        <div class="weekly-review-stat"><span class="weekly-review-num ${overdueItems.length > 0 ? 'weekly-review-num--warn' : ''}">${overdueItems.length}</span><span class="weekly-review-label">overdue</span></div>
+        <div class="weekly-review-stat"><span class="weekly-review-num ${avoidedItems.length > 0 ? 'weekly-review-num--warn' : ''}">${avoidedItems.length}</span><span class="weekly-review-label">avoided</span></div>
+        <div class="weekly-review-stat"><span class="weekly-review-num">${incomeItems.length}</span><span class="weekly-review-label">income tasks</span></div>
+      </div>`);
+      if (avoidedItems.length) {
+        sections.push('<h3 class="weekly-review-section-title">Kept skipping these</h3>');
+        sections.push('<ul class="weekly-review-list">' + avoidedItems.slice(0, 5).map(i =>
+          `<li><span class="weekly-review-task">${escapeHtml(i.text)}</span> <span class="weekly-review-meta">(skipped ${i.skippedFromToday}×)</span></li>`
+        ).join('') + '</ul>');
+        sections.push('<p class="weekly-review-hint">Consider: break these down, delegate, or drop them.</p>');
+      }
+      if (overdueItems.length) {
+        sections.push('<h3 class="weekly-review-section-title">Overdue</h3>');
+        sections.push('<ul class="weekly-review-list">' + overdueItems.slice(0, 5).map(i =>
+          `<li><span class="weekly-review-task">${escapeHtml(i.text)}</span></li>`
+        ).join('') + '</ul>');
+      }
+      if (incomeItems.length) {
+        sections.push('<h3 class="weekly-review-section-title">Income tasks (◈)</h3>');
+        sections.push('<ul class="weekly-review-list">' + incomeItems.slice(0, 5).map(i =>
+          `<li><span class="weekly-review-task">${escapeHtml(i.text)}</span></li>`
+        ).join('') + '</ul>');
+      }
+      body.innerHTML = sections.join('');
+    }
+    overlay.style.display = 'flex';
+  }
+
+  function closeWeeklyReview() {
+    const overlay = document.getElementById('weekly-review-overlay');
+    if (overlay) overlay.style.display = 'none';
+  }
+
   function renderConsistencyPanel() {
     const todayStr = getTodayLocalYYYYMMDD();
     const pct = computeWeightedPct(todayStr);
@@ -1001,8 +1104,38 @@ function wireComposer() {
       const dateStr = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
       trendDays.push({ date: dateStr, pct: computeWeightedPct(dateStr) });
     }
-    if (trendEl) trendEl.innerHTML = '<p>Last 7 days</p><p>' + trendDays.map(x => x.date + ': ' + x.pct + '%').join(' · ') + '</p>';
-    if (monthEl) monthEl.innerHTML = '<p>Month view (read-only)</p><p class="consistency-month-hint">Days × habits grid would go here.</p>';
+    if (trendEl) {
+      const DAY_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+      const bars = trendDays.map((x, i) => {
+        const d = new Date(x.date + 'T00:00:00');
+        const label = DAY_LABELS[((d.getDay() + 6) % 7)];
+        const h = Math.max(4, x.pct);
+        const isCurrent = x.date === todayStr;
+        return `<div class="consistency-bar-col${isCurrent ? ' consistency-bar-col--today' : ''}">
+          <span class="consistency-bar-pct">${x.pct > 0 ? x.pct + '%' : ''}</span>
+          <div class="consistency-bar-track"><div class="consistency-bar-fill" style="height:${h}%"></div></div>
+          <span class="consistency-bar-day">${label}</span>
+        </div>`;
+      }).join('');
+      trendEl.innerHTML = `<p class="consistency-section-label">Last 7 days</p><div class="consistency-bars">${bars}</div>`;
+    }
+    if (monthEl) {
+      const today = new Date(todayStr + 'T00:00:00');
+      const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+      const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+      const cells = [];
+      for (let day = 1; day <= daysInMonth; day++) {
+        const d = new Date(today.getFullYear(), today.getMonth(), day);
+        const dateStr = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        const pct = computeWeightedPct(dateStr);
+        const isFuture = dateStr > todayStr;
+        const heat = isFuture ? 0 : pct / 100;
+        const label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ': ' + (isFuture ? '—' : pct + '%');
+        cells.push(`<div class="consistency-month-cell${dateStr === todayStr ? ' consistency-month-cell--today' : ''}${isFuture ? ' consistency-month-cell--future' : ''}" style="--heat:${heat.toFixed(2)}" title="${label}">${day}</div>`);
+      }
+      const monthLabel = today.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      monthEl.innerHTML = `<p class="consistency-section-label">${monthLabel}</p><div class="consistency-month-grid" style="--start-col:${((firstOfMonth.getDay() + 6) % 7) + 1}">${cells.join('')}</div>`;
+    }
     const habits = getHabits();
     const columnSelect = document.getElementById('consistency-habit-column');
     const pileSelect = document.getElementById('consistency-habit-pile');
@@ -1679,26 +1812,40 @@ function wireComposer() {
     document.getElementById('archive-modal').style.display = 'flex';
   }
 
-  function computeAnalytics() {
-    const now = Date.now();
-    const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
-    const parked = state.items.filter(i => !i.archived && i.parkedAt >= weekAgo).length;
-    const completed = state.items.filter(i => i.archived && i.archivedAt >= weekAgo).length;
-    const byCat = {};
-    state.items.filter(i => i.archived && i.archivedAt >= weekAgo).forEach(i => {
-      byCat[i.category] = (byCat[i.category] || 0) + 1;
-    });
-    const catStr = Object.entries(byCat).map(([k, v]) => {
-      return `${getCategoryLabel(k)}: ${v}`;
-    }).join(', ');
-    return `Parked this week: ${parked}\nCompleted from Today's Suggestions: ${completed}${catStr ? '\nBy category: ' + catStr : ''}`;
-  }
-
   function openAnalytics() {
-    const textEl = document.getElementById('analytics-text');
-    if (textEl) textEl.textContent = computeAnalytics();
+    const container = document.getElementById('analytics-body');
     const panel = document.getElementById('analytics-panel');
-    if (panel) panel.style.display = 'block';
+    if (!panel) return;
+    if (container) {
+      const now = Date.now();
+      const weekAgo = now - 7 * 24 * 60 * 60 * 1000;
+      const parked = state.items.filter(i => !i.archived && i.parkedAt >= weekAgo).length;
+      const completed = state.items.filter(i => i.archived && i.archivedAt >= weekAgo).length;
+      const total = state.items.filter(i => !i.archived).length;
+      const byCat = {};
+      state.items.filter(i => i.archived && i.archivedAt >= weekAgo).forEach(i => {
+        byCat[i.category] = (byCat[i.category] || 0) + 1;
+      });
+      const catEntries = Object.entries(byCat).sort((a, b) => b[1] - a[1]);
+      const maxCat = catEntries.length ? catEntries[0][1] : 1;
+      const catBars = catEntries.map(([k, v]) => {
+        const w = Math.round((v / maxCat) * 100);
+        return `<div class="analytics-cat-row">
+          <span class="analytics-cat-label">${escapeHtml(getCategoryLabel(k))}</span>
+          <div class="analytics-cat-bar-track"><div class="analytics-cat-bar-fill" style="width:${w}%"></div></div>
+          <span class="analytics-cat-count">${v}</span>
+        </div>`;
+      }).join('');
+      container.innerHTML = `
+        <div class="analytics-stats">
+          <div class="analytics-stat"><span class="analytics-stat-num">${completed}</span><span class="analytics-stat-label">completed</span></div>
+          <div class="analytics-stat"><span class="analytics-stat-num">${parked}</span><span class="analytics-stat-label">added</span></div>
+          <div class="analytics-stat"><span class="analytics-stat-num">${total}</span><span class="analytics-stat-label">in lot</span></div>
+        </div>
+        ${catBars ? `<p class="analytics-section-label">Completed by area</p><div class="analytics-cat-bars">${catBars}</div>` : '<p class="analytics-empty">No completions this week yet.</p>'}
+      `;
+    }
+    panel.style.display = 'block';
   }
 
   function openEmailTriage() {
@@ -1785,6 +1932,8 @@ function wireComposer() {
     document.getElementById('pair-setup').style.display = 'none';
     document.getElementById('main-app').style.display = 'block';
     document.getElementById('floating-buttons').style.display = 'flex';
+    const brainDumpBar = document.getElementById('brain-dump-bar');
+    if (brainDumpBar) brainDumpBar.style.display = 'flex';
     exitBoardFocusMode();
     if (weekPlanningApi && typeof weekPlanningApi.forceCloseAllPlanningUI === 'function') {
       weekPlanningApi.forceCloseAllPlanningUI();
@@ -1804,6 +1953,12 @@ function wireComposer() {
       if (linkPartnerBtn) linkPartnerBtn.style.display = 'block';
     }
     loadState();
+    ensureInboxPile();
+    const todayStr = getTodayLocalYYYYMMDD();
+    if (state.energyDate && state.energyDate !== todayStr) {
+      state.energyLevel = null;
+      state.energyDate = null;
+    }
     await runDeviceSyncMigration();
     try {
       if (window.talkAbout && state.deviceSyncId) {
@@ -1825,13 +1980,12 @@ function wireComposer() {
     ensureViewToggle();
     renderColumns();
     renderTodayList();
-    const weekStripToggle = document.getElementById('show-week-strip-toggle');
-    if (weekStripToggle) weekStripToggle.checked = !!state.showWeekStrip;
-    renderWeekStrip();
+    renderWeekStrip(); // no-op: week-strip-row removed, WEEK button in header replaces it
     renderTalkAbout();
     renderEmailTriage(false);
     updateTally();
     updateAddToSuggestionsBtn();
+    renderEnergyWidget();
     attachMainAppRealtime({
       state,
       win: window,
@@ -1862,6 +2016,8 @@ function wireComposer() {
   }
 
   function bindEvents() {
+    if (eventsWired) return;
+    eventsWired = true;
     wireMainEvents({
       addTalkAbout,
       addToSuggestions,
@@ -1901,8 +2057,12 @@ function wireComposer() {
       saveDevicePreferencesToSupabase,
       saveSettingsAndClose,
       saveState,
+      setEnergy,
       setJournalFocusMode,
       submitAddFromTalk,
+      submitBrainDump,
+      openWeeklyReview,
+      closeWeeklyReview,
       updateAddToSuggestionsBtn,
       weekPlanningApi
     });
@@ -1940,7 +2100,7 @@ function wireComposer() {
 
     if (createBtn) createBtn.addEventListener('click', async () => {
       state.pairId = window.talkAbout ? window.talkAbout.generatePairId() : 'demo' + Date.now().toString(36).slice(-6);
-      state.addedBy = 'Talia';
+      state.addedBy = (state.displayName || '').trim() || 'Talia';
       state.deviceSyncId = window.talkAbout ? window.talkAbout.generatePairId() : 'dev' + Date.now().toString(36).slice(-6);
       savePairState();
       saveDeviceSyncState();
@@ -1960,9 +2120,10 @@ function wireComposer() {
     if (joinBtn) joinBtn.addEventListener('click', async () => {
       const code = (joinInput && joinInput.value) ? joinInput.value.trim().toLowerCase() : '';
       if (!code) { showToast('Enter a pair code'); return; }
-      const asTalia = document.getElementById('link-join-talia');
+      const nameEl = document.getElementById('link-join-name');
+      const enteredName = (nameEl && nameEl.value.trim()) || '';
       state.pairId = code;
-      state.addedBy = (asTalia && asTalia.checked) ? 'Talia' : 'Garren';
+      state.addedBy = enteredName || (state.displayName || '').trim() || 'partner';
       state.deviceSyncId = window.talkAbout ? window.talkAbout.generatePairId() : 'dev' + Date.now().toString(36).slice(-6);
       savePairState();
       saveDeviceSyncState();
@@ -1982,7 +2143,7 @@ function wireComposer() {
     const createBtn = document.getElementById('create-pair-btn');
     if (createBtn) createBtn.addEventListener('click', async () => {
       state.pairId = window.talkAbout ? window.talkAbout.generatePairId() : 'demo' + Date.now().toString(36).slice(-6);
-      state.addedBy = 'Talia';
+      state.addedBy = (state.displayName || '').trim() || 'Talia';
       state.deviceSyncId = window.talkAbout ? window.talkAbout.generatePairId() : 'dev' + Date.now().toString(36).slice(-6);
       savePairState();
       saveDeviceSyncState();
@@ -2009,9 +2170,10 @@ function wireComposer() {
         showToast('Enter a pair code');
         return;
       }
-      const asTalia = document.getElementById('join-as-talia');
+      const nameEl = document.getElementById('join-as-name');
+      const enteredName = (nameEl && nameEl.value.trim()) || '';
       state.pairId = code;
-      state.addedBy = (asTalia && asTalia.checked) ? 'Talia' : 'Garren';
+      state.addedBy = enteredName || (state.displayName || '').trim() || 'partner';
       state.deviceSyncId = window.talkAbout ? window.talkAbout.generatePairId() : 'dev' + Date.now().toString(36).slice(-6);
       savePairState();
       saveDeviceSyncState();

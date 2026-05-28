@@ -74,5 +74,11 @@ export const state = {
   /** YYYY-MM-DD — if set to today, "Other" loads collapsed (first open of day = expanded). */
   otherCollapsedOnDate: null,
   /** Per calendar day: task ids explicitly removed from Today (not done) — hides pile/dated rows still in the plan. */
-  hiddenFromTodayByDate: {}
+  hiddenFromTodayByDate: {},
+  /** 'low' | 'medium' | 'high' | null — set daily by energy widget in Today header. */
+  energyLevel: null,
+  /** YYYY-MM-DD of when energyLevel was last set — auto-clears to null on a new day. */
+  energyDate: null,
+  /** YYYY-MM-DD — if set to today, the overwhelm banner has been dismissed. */
+  todayOverwhelmDismissed: null
 };

@@ -60,17 +60,19 @@ export function createBoardRenderer(d) {
     const withoutToday = (items) => items.filter(i => !todayIdSet.has(i.id));
 
     if (isPilesView) {
+      const PILE_ACCENT_PALETTE = ['#9b6cff','#fbcb94','#8bcba6','#b0cdfd','#fcd47a','#c49fff'];
       const piles = getPiles();
       const pileColumns = piles.map(p => ({ id: p.id, label: p.name, pileId: p.id }));
       pileColumns.push({ id: '__uncategorized', label: 'Uncategorized', pileId: null });
-      container.innerHTML = pileColumns.map(col => {
+      container.innerHTML = pileColumns.map((col, colIdx) => {
         const items = withoutToday(getActiveItems().filter(i => (i.pileId || null) === (col.pileId || null)));
         const q = (d.state.searchQuery || '').trim().toLowerCase();
         const filtered = q ? items.filter(i => (i.text || '').toLowerCase().includes(q)) : items;
         const sorted = sortByTimeBandsAndFriction(filtered);
         const pileIdAttr = col.pileId != null ? ` data-pile-id="${col.pileId}"` : ' data-uncategorized="true"';
+        const pileAccent = PILE_ACCENT_PALETTE[colIdx % PILE_ACCENT_PALETTE.length];
         return `
-          <div class="column column-accent" data-category="${col.id}"${pileIdAttr} style="--column-accent: #6b7280">
+          <div class="column column-accent" data-category="${col.id}"${pileIdAttr} style="--column-accent: ${pileAccent}">
             <div class="column-header" data-category="${col.id}"${pileIdAttr} role="none">
               ${escapeHtml(col.label)} <span class="count">(${sorted.length})</span>
             </div>

@@ -759,16 +759,23 @@ export function createWeekPlanningUI(d) {
     const mon = getMondayYYYYMMDD();
     const wp = normalizeWeekPlan(d.state.weekPlan);
     const keys = getWeekDateKeys(mon);
-    const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const todayStr = getTodayLocalYYYYMMDD();
+    const shortDay = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     container.innerHTML = keys
       .map((dk, i) => {
-        const e = wp.days[dk] || { pileId: null, orderedTaskIds: [] };
-        const pile = e.pileId ? getPileName(e.pileId) : 'No pile';
-        const n = (e.orderedTaskIds || []).length;
-        return `<div class="week-view-row">
-          <div><strong>${dayNames[i]}</strong> <span class="week-view-date">${dk}</span></div>
-          <div class="week-view-meta">${escapeHtml(pile)} · ${n} ordered</div>
-          <button type="button" class="btn-secondary btn-sm week-view-edit-day" data-date="${dk}">Edit</button>
+        const e = wp.days[dk] || { pileId: null, orderedTaskIds: [], note: '' };
+        const pileName = e.pileId ? (getPileName(e.pileId) || '?') : null;
+        const isToday = dk === todayStr;
+        const noteSnippet = e.note && e.note.trim()
+          ? escapeHtml(e.note.trim().slice(0, 55)) + (e.note.trim().length > 55 ? '…' : '')
+          : '';
+        return `<div class="week-view-row${isToday ? ' week-view-row-today' : ''}">
+          <div class="week-view-row-main">
+            <div class="week-view-dayname">${shortDay[i]}${isToday ? ' <span class="week-view-today-badge">today</span>' : ''}</div>
+            <div class="${pileName ? 'week-view-pile' : 'week-view-no-pile'}">${escapeHtml(pileName || 'No pile set')}</div>
+            ${noteSnippet ? `<div class="week-view-note-snippet">${noteSnippet}</div>` : ''}
+          </div>
+          <button type="button" class="btn-link week-view-edit-day" data-date="${dk}">Edit</button>
         </div>`;
       })
       .join('');

@@ -166,6 +166,17 @@ function isOverdueToReconnect(person) {
   return todayStr >= dueStr;
 }
 
+const INBOX_PILE_ID = 'pile_inbox';
+
+function ensureInboxPile() {
+  const list = state.piles || [];
+  const existing = list.find(p => p.id === INBOX_PILE_ID);
+  if (existing) return INBOX_PILE_ID;
+  state.piles = [{ id: INBOX_PILE_ID, name: 'Inbox', permanent: true }, ...list];
+  persist();
+  return INBOX_PILE_ID;
+}
+
 function addPile(name) {
   const trimmed = (name || '').trim();
   if (!trimmed) return null;
@@ -188,6 +199,7 @@ function updatePile(id, name) {
 }
 
 function deletePile(id) {
+  if (id === INBOX_PILE_ID) return 0;
   const list = (state.piles || []).filter(pi => pi.id !== id);
   const count = (state.items || []).filter(i => i.pileId === id).length;
   state.items.forEach(i => { if (i.pileId === id) i.pileId = null; });
@@ -197,6 +209,8 @@ function deletePile(id) {
 }
 
 export {
+  INBOX_PILE_ID,
+  ensureInboxPile,
   getPiles,
   getPileName,
   PEOPLE_GROUPS,

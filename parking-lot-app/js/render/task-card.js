@@ -54,6 +54,9 @@ export function renderTaskCard(item, opts) {
           ${pileName ? `<span class="pile-tag" title="Pile: ${escapeHtml(pileName)}">${escapeHtml(pileName)}</span>` : ''}
           ${personName ? `<span class="person-tag" title="For: ${escapeHtml(personName)}">For ${escapeHtml(personName)}</span>` : ''}
           ${frictionLabel ? `<span class="friction-badge" title="Friction: ${escapeHtml(frictionLabel)}">${escapeHtml(frictionLabel)}</span>` : ''}
+          ${item.estimate ? `<span class="estimate-badge" title="Estimated time">${escapeHtml(item.estimate)}</span>` : ''}
+          ${item.income ? `<span class="income-badge" title="Income-generating task">◈</span>` : ''}
+          ${(item.skippedFromToday || 0) >= 3 ? `<span class="avoidance-badge" title="Removed from Today ${item.skippedFromToday} times without completing — consider breaking this down">⚠ avoided</span>` : ''}
           <span class="priority-badge">${escapeHtml(priorityLabel)}</span>
           ${item.doingDate ? `<span class="doing-badge">${escapeHtml((doingFd && doingFd.text) || item.doingDate)}</span>` : ''}
           ${fd ? `<span class="${overdue ? 'overdue-badge' : ''}">${escapeHtml(fd.text)}</span>` : ''}

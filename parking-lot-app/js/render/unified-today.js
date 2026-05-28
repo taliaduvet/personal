@@ -4,7 +4,7 @@
  */
 import { escapeHtml } from '../utils/dom.js';
 import { getColumnColor, getTodayLocalYYYYMMDD } from '../domain/tasks.js';
-import { getPileName } from '../domain/piles-people.js';
+import { getPileName, getPeople, isOverdueToReconnect } from '../domain/piles-people.js';
 import {
   getTodayLayoutMode,
   normalizeWeekPlan,
@@ -100,6 +100,46 @@ export function createUnifiedTodayRenderer(d) {
     );
   }
 
+  const ESTIMATE_MINUTES = { '~5m': 5, '~30m': 30, '~1h': 60, '~2h+': 120 };
+
+  function capacityTotalHtml(items) {
+    const known = items.filter(i => i.estimate && ESTIMATE_MINUTES[i.estimate]);
+    if (!known.length) return '';
+    const total = known.reduce((sum, i) => sum + ESTIMATE_MINUTES[i.estimate], 0);
+    const h = Math.floor(total / 60);
+    const m = total % 60;
+    const label = h > 0 ? (m > 0 ? `${h}h ${m}m` : `${h}h`) : `${m}m`;
+    return `<div class="today-capacity-total" title="Estimated total time for ${known.length} of ${items.length} tasks">~${label} total</div>`;
+  }
+
+  function overwhelmBannerHtml(items, todayStr) {
+    if (items.length <= 5) return '';
+    if (d.state.todayOverwhelmDismissed === todayStr) return '';
+    return `<div class="today-overwhelm-banner" data-dismiss-overwhelm>
+      <span>You've got <strong>${items.length} tasks</strong> for today — that's a lot. Which 3 actually matter most?</span>
+      <button type="button" class="btn-dismiss-overwhelm" title="Dismiss">✕</button>
+    </div>`;
+  }
+
+  function overdueReconnectHtml() {
+    const people = getPeople();
+    const overdue = people.filter(isOverdueToReconnect);
+    if (!overdue.length) return '';
+    const names = overdue.slice(0, 3).map(p => escapeHtml(p.name)).join(', ');
+    const extra = overdue.length > 3 ? ` +${overdue.length - 3} more` : '';
+    return `<div class="today-reconnect-nudge">Reach out to: <strong>${names}${extra}</strong></div>`;
+  }
+
+  /** One shared "Day note" control per list root (Today vs Focus); same backing field as week plan day note. */
+  function dayNoteEditorHtml(rootId) {
+    const safeId = `today-main-note-${rootId.replace(/[^a-zA-Z0-9_-]/g, '')}`;
+    const hasNote = getTodayPlanNoteText().length > 0;
+    return `<details class="unified-today-day-note" ${hasNote ? 'open' : ''} aria-label="Day note">
+      <summary class="unified-today-day-note-toggle">${hasNote ? 'Day note' : '+ Note'}</summary>
+      <textarea id="${safeId}" class="settings-name-input today-main-note-field" rows="2" maxlength="400" placeholder="Jot something for today…" aria-label="Day note"></textarea>
+    </details>`;
+  }
+
   function taskRowHtml(item, extraClass = '', orderOpt) {
     const accent = getColumnColor(item.category);
     const order =
@@ -192,6 +232,8 @@ export function createUnifiedTodayRenderer(d) {
 
   function removeFromToday(id) {
     const todayStr = getTodayLocalYYYYMMDD();
+    const item = d.state.items.find(i => i.id === id);
+    if (item) item.skippedFromToday = (item.skippedFromToday || 0) + 1;
     d.state.todaySuggestionIds = d.state.todaySuggestionIds.filter(x => x !== id);
     d.state.weekPlan = normalizeWeekPlan(d.state.weekPlan);
     const day = d.state.weekPlan.days[todayStr];
@@ -217,10 +259,12 @@ export function createUnifiedTodayRenderer(d) {
   function paintUnifiedToday(root) {
     const todayStr = getTodayLocalYYYYMMDD();
     const wp = normalizeWeekPlan(d.state.weekPlan);
+    const rid = root.id || 'today';
 
     const mode = getTodayLayoutMode(wp, todayStr);
 
     if (mode === 'no_week') {
+      const isFocusMode = rid === 'focus-list';
       const items = getSingleListNoPlanItems(
         d.state.items,
         todayStr,
@@ -229,7 +273,15 @@ export function createUnifiedTodayRenderer(d) {
       );
       root.innerHTML = `
         <div class="unified-today-no-plan">
-          <p class="unified-today-plan-hint-muted">Use <strong>Plan</strong> in the header when you’re ready to set this week’s focus.</p>
+          ${dayNoteEditorHtml(rid)}
+          ${overwhelmBannerHtml(items, todayStr)}
+          ${capacityTotalHtml(items)}
+          ${isFocusMode
+            ? `<div class="unified-today-plan-cta">
+                <p class="unified-today-plan-cta-msg">No week plan yet — set one to unlock your daily focus pile.</p>
+                <button type="button" class="btn-primary unified-today-plan-cta-btn">Plan your week →</button>
+               </div>`
+            : `<p class="unified-today-plan-hint-muted">Use <strong>Plan</strong> in the header when you're ready to set this week's focus.</p>`}
           <div class="unified-today-section-body" data-section="single">${items.length ? items.map((i) => {
             const idx = d.state.todaySuggestionIds.indexOf(i.id);
             const inExp = idx >= 0;
@@ -239,6 +291,12 @@ export function createUnifiedTodayRenderer(d) {
           }).join('') : '<div class="empty-state">Nothing dated for today — add tasks below or drag them here</div>'}</div>
         </div>`;
       bindTodayListEvents(root, { removeFromToday, reorderExplicit: true });
+      root.querySelector('.unified-today-plan-cta-btn')?.addEventListener('click', () => d.openPlanningEntry({}));
+      root.querySelector('.btn-dismiss-overwhelm')?.addEventListener('click', () => {
+        d.state.todayOverwhelmDismissed = todayStr;
+        d.saveState();
+        refreshTodayAndFocus();
+      });
       return;
     }
 
@@ -252,14 +310,23 @@ export function createUnifiedTodayRenderer(d) {
       const otherOpen = d.state.otherCollapsedOnDate !== todayStr;
       root.innerHTML = `
         <div class="unified-today-blank">
-          <div class="unified-today-banner"><strong>No theme for today</strong> — <button type="button" class="btn-link set-plan-today-btn">Set / update plan for today</button></div>
+          ${dayNoteEditorHtml(rid)}
+          ${overwhelmBannerHtml(otherItems, todayStr)}
+          ${capacityTotalHtml(otherItems)}
+          <div class="unified-today-banner"><strong>No focus pile for today</strong> — <button type="button" class="btn-link set-plan-today-btn">Plan your week →</button></div>
           <details class="unified-today-details" ${otherOpen ? 'open' : ''} data-section="other">
             <summary>Other <span class="badge-count" data-other-count>${otherItems.length}</span></summary>
+            ${overdueReconnectHtml()}
             <div class="unified-today-section-body">${otherItems.length ? otherItems.map(i => taskRowHtml(i)).join('') : '<div class="empty-state">Nothing here yet</div>'}</div>
           </details>
         </div>`;
       bindTodayListEvents(root, { removeFromToday });
       root.querySelector('.set-plan-today-btn')?.addEventListener('click', () => d.openPlanningEntry({ scrollToDate: todayStr }));
+      root.querySelector('.btn-dismiss-overwhelm')?.addEventListener('click', () => {
+        d.state.todayOverwhelmDismissed = todayStr;
+        d.saveState();
+        refreshTodayAndFocus();
+      });
       const det = root.querySelector('details[data-section="other"]');
       det?.addEventListener('toggle', () => {
         if (!det.open) d.state.otherCollapsedOnDate = todayStr;
@@ -281,33 +348,144 @@ export function createUnifiedTodayRenderer(d) {
       d.state.todaySuggestionIds,
       hidden
     );
-    const otherOpen = d.state.otherCollapsedOnDate !== todayStr;
+    // "Outside the plan" is closed by default; only open if user explicitly opened it today
+    const otherOpen = d.state.otherOpenedOnDate === todayStr;
 
+    const allTodayItems = [...focusItems, ...otherItems];
     root.innerHTML = `
       <div class="unified-today-with-plan">
+        ${dayNoteEditorHtml(rid)}
+        ${overwhelmBannerHtml(allTodayItems, todayStr)}
+        ${capacityTotalHtml(allTodayItems)}
         <details class="unified-today-details unified-today-focus" open data-section="focus">
           <summary>Today: ${escapeHtml(pileLabel)}</summary>
-          <p class="unified-today-focus-hint">↑ ↓ = order you’ll tackle first in this pile. <button type="button" class="btn-link unified-today-review-plan-btn">Review week</button></p>
+          <p class="unified-today-focus-hint">
+            <button type="button" class="btn-link pile-change-today-btn" title="Switch today's pile">↻ Switch pile</button>
+            · <button type="button" class="btn-link unified-today-review-plan-btn">Review week</button>
+          </p>
           <div class="unified-today-section-body">${focusItems.length ? focusItems.map((i, idx) => {
             const canUp = idx > 0;
             const canDown = idx < focusItems.length - 1;
             return taskRowHtml(i, '', { show: true, canUp, canDown });
           }).join('') : '<div class="empty-state">No tasks in this pile — add on the board</div>'}</div>
         </details>
-        <details class="unified-today-details" ${otherOpen ? 'open' : ''} data-section="other">
-          <summary>Other <span class="badge-count">${otherItems.length}</span></summary>
+        <details class="unified-today-details unified-today-escape" ${otherOpen ? 'open' : ''} data-section="other">
+          <summary class="unified-today-other-summary">Outside the plan <span class="badge-count">${otherItems.length}</span></summary>
+          ${overdueReconnectHtml()}
           <div class="unified-today-section-body">${otherItems.length ? otherItems.map(i => taskRowHtml(i)).join('') : '<div class="empty-state">Nothing else dated or pinned for today</div>'}</div>
         </details>
       </div>`;
 
     bindTodayListEvents(root, { removeFromToday, focusPileReorderTodayStr: todayStr });
-    root.querySelector('.unified-today-review-plan-btn')?.addEventListener('click', () => d.openPlanningEntry({ scrollToDate: todayStr }));
+    root.querySelector('.unified-today-review-plan-btn')?.addEventListener('click', () => {
+      if (typeof d.openWeekView === 'function') d.openWeekView();
+      else d.openPlanningEntry({ scrollToDate: todayStr });
+    });
+    root.querySelector('.pile-change-today-btn')?.addEventListener('click', function(e) {
+      showPilePickerForToday(e.currentTarget, todayStr, pileId);
+    });
+    root.querySelector('.btn-dismiss-overwhelm')?.addEventListener('click', () => {
+      d.state.todayOverwhelmDismissed = todayStr;
+      d.saveState();
+      refreshTodayAndFocus();
+    });
     const otherDet = root.querySelector('details[data-section="other"]');
     otherDet?.addEventListener('toggle', () => {
-      if (!otherDet.open) d.state.otherCollapsedOnDate = todayStr;
-      else d.state.otherCollapsedOnDate = null;
+      if (otherDet.open) d.state.otherOpenedOnDate = todayStr;
+      else d.state.otherOpenedOnDate = null;
       d.saveState();
-       });
+    });
+  }
+
+  // ── Mid-week pile reassignment ─────────────────────────────────
+
+  function applyTodayPileChange(todayStr, newPileId) {
+    const mon = getMondayYYYYMMDD();
+    d.state.weekPlan = normalizeWeekPlan(d.state.weekPlan);
+    if (!d.state.weekPlan.days[todayStr]) {
+      d.state.weekPlan.days[todayStr] = { pileId: null, orderedTaskIds: [], note: '', excludedTaskIds: [] };
+    }
+    d.state.weekPlan.days[todayStr].pileId = newPileId;
+    d.state.weekPlan.anchorWeekStart = mon;
+    d.state.weekPlan = pruneWeekPlan(d.state.items, d.state.weekPlan);
+    d.saveState();
+    if (typeof d.onWeekPlanChanged === 'function') d.onWeekPlanChanged();
+    refreshTodayAndFocus();
+    d.renderColumns();
+  }
+
+  function showPilePickerForToday(anchorBtn, todayStr, currentPileId) {
+    document.getElementById('today-pile-picker-popup')?.remove();
+    const piles = (d.state.piles || []).filter(p => p && !p.archived);
+    if (!piles.length) return;
+    const popup = document.createElement('div');
+    popup.id = 'today-pile-picker-popup';
+    popup.className = 'today-pile-picker-popup';
+    popup.innerHTML = `<div class="today-pile-picker-header">Switch today’s pile</div>
+      ${piles.map(p => `<button type="button" class="today-pile-picker-option${p.id === currentPileId ? ' active' : ''}" data-pile-id="${escapeHtml(p.id)}">${escapeHtml(p.name || p.id)}</button>`).join('')}`;
+    document.body.appendChild(popup);
+    const rect = anchorBtn.getBoundingClientRect();
+    popup.style.top = (rect.bottom + window.scrollY + 6) + 'px';
+    popup.style.left = Math.min(rect.left, window.innerWidth - 210) + 'px';
+    popup.querySelectorAll('.today-pile-picker-option').forEach(opt => {
+      opt.addEventListener('click', () => {
+        popup.remove();
+        applyTodayPileChange(todayStr, opt.dataset.pileId);
+      });
+    });
+    function onOutside(e) {
+      if (!popup.contains(e.target)) {
+        popup.remove();
+        document.removeEventListener('click', onOutside, true);
+      }
+    }
+    setTimeout(() => document.addEventListener('click', onOutside, true), 0);
+  }
+
+  // ── Select text in note → create task ──────────────────────────
+
+  function wireSelectionToTaskPopup(textarea, pileId) {
+    if (!d.openAddModal) return;
+    let popup = document.getElementById('selection-task-popup');
+    if (!popup) {
+      popup = document.createElement('div');
+      popup.id = 'selection-task-popup';
+      popup.className = 'selection-task-popup';
+      popup.innerHTML = '<button type="button" class="selection-task-popup-btn">→ Create task</button>';
+      document.body.appendChild(popup);
+      popup.querySelector('.selection-task-popup-btn').addEventListener('click', () => {
+        const text = popup._selectedText || '';
+        const pid = popup._pileId || null;
+        popup.style.display = 'none';
+        if (text) d.openAddModal(null, pid, text);
+      });
+    }
+    textarea.addEventListener('mouseup', () => {
+      const sel = textarea.value.substring(textarea.selectionStart, textarea.selectionEnd).trim();
+      if (!sel) { popup.style.display = 'none'; return; }
+      popup._selectedText = sel;
+      popup._pileId = pileId;
+      const rect = textarea.getBoundingClientRect();
+      popup.style.display = 'flex';
+      popup.style.top = (rect.bottom + window.scrollY + 4) + 'px';
+      popup.style.left = rect.left + 'px';
+    });
+    textarea.addEventListener('blur', () => {
+      setTimeout(() => { popup.style.display = 'none'; }, 200);
+    });
+  }
+
+  function wireSelectionPopupsInRoot(root) {
+    if (!d.openAddModal) return;
+    const todayStr = getTodayLocalYYYYMMDD();
+    const wp = normalizeWeekPlan(d.state.weekPlan);
+    const dayEntry = wp.days[todayStr];
+    const pileId = dayEntry ? dayEntry.pileId : null;
+    root.querySelectorAll('.today-main-note-field').forEach(ta => {
+      if (ta.dataset.selPopupWired) return;
+      ta.dataset.selPopupWired = '1';
+      wireSelectionToTaskPopup(ta, pileId);
+    });
   }
 
   function renderTodayList() {
@@ -316,6 +494,7 @@ export function createUnifiedTodayRenderer(d) {
     wireTodayNoteFieldsOnce();
     paintUnifiedToday(root);
     syncTodayNoteFields();
+    wireSelectionPopupsInRoot(root);
   }
 
   function renderFocusUnified() {
@@ -324,6 +503,7 @@ export function createUnifiedTodayRenderer(d) {
     wireTodayNoteFieldsOnce();
     paintUnifiedToday(list);
     syncTodayNoteFields();
+    wireSelectionPopupsInRoot(list);
   }
 
   return {

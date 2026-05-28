@@ -3,11 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#e07a5f">
+  <meta name="theme-color" content="#9b6cff">
   <title>Parking Lot</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🅿</text></svg>">
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="styles.css">
+  <script>
+    /* apply saved surface before first paint — prevents flash */
+    (function() {
+      var t = localStorage.getItem('pl-surface');
+      if (t && t !== 'cosmic') document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
 </head>
 <body>
   <div id="offline-banner" class="offline-banner" style="display:none" role="status" aria-live="polite">
@@ -21,10 +28,11 @@
       <div class="entry-actions">
         <button id="entry-solo-btn" class="btn-primary btn-entry">Use on my own</button>
         <button id="entry-couple-btn" class="btn-primary btn-entry">Use with my partner</button>
-        <button id="entry-link-btn" class="btn-secondary btn-entry">Link a device (sync settings)</button>
+        <div class="entry-divider">already set up?</div>
+        <button id="entry-link-btn" class="btn-secondary btn-entry">Sync from another device</button>
       </div>
       <div id="entry-link-form" class="entry-link-form" style="display:none">
-        <p class="entry-hint">Enter the device sync code from Settings on your other device (laptop, phone, etc.).</p>
+        <p class="entry-hint">Enter the sync code from Settings on your other device. Your tasks and preferences will load automatically.</p>
         <input id="entry-link-code" type="text" placeholder="e.g. abc12345" maxlength="20" autocomplete="off">
         <div class="entry-link-actions">
           <button id="entry-link-submit" class="btn-primary">Link</button>
@@ -42,11 +50,8 @@
         <div class="pair-divider">or</div>
         <div class="join-section">
           <input id="join-code-input" type="text" placeholder="Enter pair code" maxlength="12" autocomplete="off">
-          <p class="join-who">Who are you?</p>
-          <div class="join-who-btns">
-            <label><input type="radio" name="join-as" value="Talia" id="join-as-talia"> I created the pair</label>
-            <label><input type="radio" name="join-as" value="Garren" id="join-as-garren" checked> I'm the partner</label>
-          </div>
+          <label class="join-who" for="join-as-name">Your name (shown to your partner)</label>
+          <input id="join-as-name" type="text" placeholder="e.g. Talia" maxlength="40" autocomplete="off" class="settings-name-input">
           <button id="join-pair-btn" class="btn-primary">Join</button>
         </div>
       </div>
@@ -64,7 +69,7 @@
           <div class="today-header">
             <div class="today-header-main">
               <h2>Today</h2>
-              <label class="week-strip-toggle-label"><input type="checkbox" id="show-week-strip-toggle" title="Show week row"> Week row</label>
+              <button type="button" id="header-week-view-btn" class="btn-secondary btn-sm">Week</button>
               <button type="button" id="plan-week-header-btn" class="btn-secondary btn-sm">Plan</button>
             </div>
             <span id="completed-tally" class="tally">Completed today: 0</span>
@@ -85,10 +90,12 @@
               </div>
             </div>
           </div>
-          <div id="week-strip-row" class="week-strip-row" style="display:none" aria-label="This week"></div>
-          <div id="today-day-note-strip" class="today-day-note-strip">
-            <label for="today-main-note-header" class="today-main-note-label">Today’s note</label>
-            <textarea id="today-main-note-header" class="settings-name-input today-main-note-field" rows="2" maxlength="400" placeholder="Jot something for today…" aria-label="Today note"></textarea>
+          <!-- week-strip-row removed; use the WEEK button in header instead -->
+          <div id="energy-widget" class="energy-widget" title="How's your energy today?">
+            <span class="energy-label">Energy:</span>
+            <button type="button" class="energy-btn" data-level="low" title="Low energy — quick wins only">🌱 Low</button>
+            <button type="button" class="energy-btn" data-level="medium" title="Steady energy — regular work">⚡ Medium</button>
+            <button type="button" class="energy-btn" data-level="high" title="High energy — tackle hard things">🔥 High</button>
           </div>
         </header>
         <div class="today-panel-body">
@@ -122,10 +129,6 @@
           <div class="focus-content">
             <h1>Your Focus</h1>
             <p id="focus-tally" class="focus-tally">Completed today: 0</p>
-            <div class="focus-today-note-wrap">
-              <label for="today-main-note-focus" class="today-main-note-label">Today’s note</label>
-              <textarea id="today-main-note-focus" class="settings-name-input today-main-note-field" rows="2" maxlength="400" placeholder="Jot something for today…" aria-label="Today note"></textarea>
-            </div>
             <div id="focus-list" class="focus-list unified-today"></div>
           </div>
         </div>
@@ -150,6 +153,10 @@
       <span class="fab-hover-help" id="fab-help-add">Add a task to your parking lot — single, quick-add, or voice</span>
       <button id="add-btn" class="fab fab-primary" title="Add task">+</button>
     </div>
+  </div>
+  <div id="brain-dump-bar" class="brain-dump-bar" style="display:none">
+    <textarea id="brain-dump-input" rows="1" placeholder="Brain dump — hit Enter to send to Inbox, Shift+Enter for new line..." autocomplete="off" aria-label="Brain dump to Inbox"></textarea>
+    <button id="brain-dump-submit" type="button" class="btn-secondary btn-sm" title="Send to Inbox">→</button>
   </div>
 
   <div id="add-modal" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="add-modal-title">
@@ -201,6 +208,15 @@
               <option value="medium">Medium</option>
               <option value="deep">Deep</option>
             </select>
+            <label>Time estimate (optional)</label>
+            <select id="estimate-select">
+              <option value="">None</option>
+              <option value="~5m">~5 min</option>
+              <option value="~30m">~30 min</option>
+              <option value="~1h">~1 hour</option>
+              <option value="~2h+">~2 hours+</option>
+            </select>
+            <label class="checkbox-label"><input type="checkbox" id="income-check"> Income-generating task (◈)</label>
             <label>Priority <span class="hint-link" id="priority-hint" title="How to decide?">?</span></label>
             <select id="priority-select">
               <option value="critical">Critical</option>
@@ -255,6 +271,15 @@
             <option value="medium">Medium</option>
             <option value="deep">Deep</option>
           </select>
+          <label>Time estimate (optional)</label>
+          <select id="edit-estimate">
+            <option value="">None</option>
+            <option value="~5m">~5 min</option>
+            <option value="~30m">~30 min</option>
+            <option value="~1h">~1 hour</option>
+            <option value="~2h+">~2 hours+</option>
+          </select>
+          <label class="checkbox-label"><input type="checkbox" id="edit-income"> Income-generating task (◈)</label>
           <label>Deadline</label>
           <input id="edit-deadline" type="date">
           <label>Doing date (optional)</label>
@@ -425,6 +450,13 @@
           <input id="settings-pile-name" type="text" placeholder="New pile name" class="settings-name-input" maxlength="80">
           <button id="settings-pile-add-btn" type="button" class="btn-secondary btn-sm">Add pile</button>
         </div>
+        <h4 class="settings-section-title">Surface</h4>
+        <p class="settings-hint">Background theme. Cosmic and Warm are dark; Paper is light.</p>
+        <div class="settings-surface-btns" id="settings-surface-btns">
+          <button type="button" class="settings-surface-btn active" data-surface="cosmic">Cosmic</button>
+          <button type="button" class="settings-surface-btn" data-surface="warm">Warm</button>
+          <button type="button" class="settings-surface-btn" data-surface="paper">Paper</button>
+        </div>
         <h4 class="settings-section-title">Theme colors</h4>
         <p class="settings-hint">Button and text accent colors.</p>
         <div class="settings-theme-colors">
@@ -467,11 +499,8 @@
           <div class="pair-divider">or</div>
           <div class="link-join-section">
             <input id="link-join-input" type="text" placeholder="Enter pair code" maxlength="12" autocomplete="off">
-            <p class="join-who">Who are you?</p>
-            <div class="join-who-btns">
-              <label><input type="radio" name="link-join-as" value="Talia" id="link-join-talia"> I created the pair</label>
-              <label><input type="radio" name="link-join-as" value="Garren" id="link-join-garren" checked> I'm the partner</label>
-            </div>
+            <label class="join-who" for="link-join-name">Your name (shown to your partner)</label>
+            <input id="link-join-name" type="text" placeholder="e.g. Talia" maxlength="40" autocomplete="off" class="settings-name-input">
             <button id="link-join-btn" class="btn-primary">Join</button>
           </div>
         </div>
@@ -688,9 +717,21 @@
 
   <div id="analytics-panel" class="analytics-panel" style="display:none">
     <div class="analytics-content">
-      <h3>This week</h3>
-      <p id="analytics-text"></p>
-      <button id="close-analytics" class="btn-secondary">Close</button>
+      <div class="analytics-header">
+        <h3>This week</h3>
+        <button id="close-analytics" class="btn-close" aria-label="Close">×</button>
+      </div>
+      <div id="analytics-body"></div>
+    </div>
+  </div>
+
+  <div id="weekly-review-overlay" class="weekly-review-overlay" style="display:none" role="dialog" aria-modal="true" aria-labelledby="weekly-review-title">
+    <div class="weekly-review-content">
+      <div class="weekly-review-header">
+        <h3 id="weekly-review-title">Weekly review</h3>
+        <button id="close-weekly-review" class="btn-close" aria-label="Close">×</button>
+      </div>
+      <div id="weekly-review-body" class="weekly-review-body"></div>
     </div>
   </div>
 
@@ -767,10 +808,14 @@
 
   <div id="week-view-panel" class="analytics-panel week-view-panel" style="display:none">
     <div class="analytics-content week-view-content">
-      <h3>This week</h3>
-      <p class="week-view-hint">Tap a day to edit in the planner. Light view — full drag order is in Plan the week.</p>
+      <div class="week-view-header">
+        <h3>This week</h3>
+        <button type="button" id="close-week-view" class="btn-close" aria-label="Close">×</button>
+      </div>
       <div id="week-view-body"></div>
-      <button type="button" id="close-week-view" class="btn-secondary">Close</button>
+      <div class="week-view-footer">
+        <button type="button" id="week-view-open-planner" class="btn-link">Full planner →</button>
+      </div>
     </div>
   </div>
 
@@ -784,6 +829,7 @@
       <button id="link-partner-btn" class="sidebar-item sidebar-link-partner" style="display:none">Link partner</button>
       <button type="button" id="sidebar-week-view" class="sidebar-item">Week</button>
       <button id="settings-btn" class="sidebar-item" data-action="settings">Settings</button>
+      <button id="weekly-review-btn" class="sidebar-item" data-action="weekly-review">Weekly review</button>
       <button id="consistency-btn" class="sidebar-item" data-action="consistency">Consistency</button>
       <button id="journal-btn" class="sidebar-item" data-action="journal">Journal</button>
       <button id="relationships-btn" class="sidebar-item" data-action="relationships">Relationships</button>
@@ -815,5 +861,29 @@
   <script src="config.js"></script>
   <script src="supabase.js"></script>
   <script type="module" src="js/app-main.js"></script>
+  <script>
+    (function() {
+      function setSurface(name) {
+        if (name === 'cosmic') {
+          document.documentElement.removeAttribute('data-theme');
+        } else {
+          document.documentElement.setAttribute('data-theme', name);
+        }
+        localStorage.setItem('pl-surface', name);
+        document.querySelectorAll('.settings-surface-btn').forEach(function(btn) {
+          btn.classList.toggle('active', btn.dataset.surface === name);
+        });
+      }
+
+      var current = localStorage.getItem('pl-surface') || 'cosmic';
+
+      document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('.settings-surface-btn').forEach(function(btn) {
+          btn.classList.toggle('active', btn.dataset.surface === current);
+          btn.addEventListener('click', function() { setSurface(this.dataset.surface); });
+        });
+      });
+    })();
+  </script>
 </body>
 </html>

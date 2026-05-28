@@ -10,6 +10,7 @@ import {
   detectCategory,
   extractDeadline,
   extractDoingDate,
+  extractEstimate,
   extractFriction,
   extractRecurrence,
   extractPriority,
@@ -59,7 +60,7 @@ export function createModalController(deps) {
     if (typeof fn === 'function') fn();
   }
 
-  function openAddModal(presetCategory, presetPileId) {
+  function openAddModal(presetCategory, presetPileId, presetText) {
     const modal = document.getElementById('add-modal');
     if (modal) modal.style.display = 'flex';
     updateCategorySelectOptions();
@@ -83,7 +84,7 @@ export function createModalController(deps) {
     if (transcriptEl) transcriptEl.textContent = '';
     const taskInput = document.getElementById('task-input');
     if (taskInput) {
-      taskInput.value = '';
+      taskInput.value = presetText || '';
       taskInput.focus();
     }
     const quickInput = document.getElementById('quick-input');
@@ -107,6 +108,10 @@ export function createModalController(deps) {
     if (presetPileId == null) updatePileSelectOptions('pile-select', '');
     const frictionSelect = document.getElementById('friction-select');
     if (frictionSelect) frictionSelect.value = '';
+    const estimateSelect = document.getElementById('estimate-select');
+    if (estimateSelect) estimateSelect.value = '';
+    const incomeCheck = document.getElementById('income-check');
+    if (incomeCheck) incomeCheck.checked = false;
     const firstStepInput = document.getElementById('first-step-input');
     if (firstStepInput) firstStepInput.value = '';
   }
@@ -230,6 +235,11 @@ export function createModalController(deps) {
       const sel = document.getElementById('friction-select');
       if (sel && sel.querySelector(`option[value="${friction}"]`)) sel.value = friction;
     }
+    const estimate = extractEstimate(text);
+    if (estimate) {
+      const sel = document.getElementById('estimate-select');
+      if (sel && sel.querySelector(`option[value="${estimate}"]`)) sel.value = estimate;
+    }
     const t = (text || '').toLowerCase();
     const piles = (state.piles || []).slice();
     const people = (state.people || []).slice();
@@ -317,8 +327,14 @@ export function createModalController(deps) {
       state.lastCategory = category;
       const personEl = document.getElementById('person-select');
       const personId = (personEl && personEl.value) ? personEl.value : null;
+      const estimateEl = document.getElementById('estimate-select');
+      const estimate = (estimateEl && estimateEl.value) ? estimateEl.value : null;
+      const incomeEl = document.getElementById('income-check');
+      const income = !!(incomeEl && incomeEl.checked);
       const item = createItem(text, category, deadline, priority, recurrence, null, doingDate, pileId, friction, personId);
       if (firstStep) item.firstStep = firstStep;
+      if (estimate) item.estimate = estimate;
+      if (income) item.income = income;
       state.items.push(item);
       saveState();
       closeAddModal();
@@ -344,6 +360,10 @@ export function createModalController(deps) {
     updatePersonSelectOptions('edit-person', item.personId || '');
     const editFriction = document.getElementById('edit-friction');
     if (editFriction) editFriction.value = item.friction || '';
+    const editEstimate = document.getElementById('edit-estimate');
+    if (editEstimate) editEstimate.value = item.estimate || '';
+    const editIncome = document.getElementById('edit-income');
+    if (editIncome) editIncome.checked = !!(item.income);
     const editFirstStep = document.getElementById('edit-first-step');
     if (editFirstStep) editFirstStep.value = item.firstStep || '';
     document.getElementById('edit-deadline').value = item.deadline || '';
@@ -372,6 +392,10 @@ export function createModalController(deps) {
     item.personId = (editPersonEl && editPersonEl.value) ? editPersonEl.value : null;
     const editFrictionEl = document.getElementById('edit-friction');
     item.friction = (editFrictionEl && editFrictionEl.value) ? editFrictionEl.value : null;
+    const editEstimateEl = document.getElementById('edit-estimate');
+    item.estimate = (editEstimateEl && editEstimateEl.value) ? editEstimateEl.value : null;
+    const editIncomeEl = document.getElementById('edit-income');
+    item.income = !!(editIncomeEl && editIncomeEl.checked);
     const editFirstStepEl = document.getElementById('edit-first-step');
     item.firstStep = (editFirstStepEl && editFirstStepEl.value.trim()) ? editFirstStepEl.value.trim() : null;
     item.deadline = document.getElementById('edit-deadline').value || null;

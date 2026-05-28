@@ -153,6 +153,19 @@ function extractDeadline(text) {
 
 /**
  * @param {string} text
+ * @returns {'~5m'|'~30m'|'~1h'|'~2h+'|null}
+ */
+function extractEstimate(text) {
+  const t = (text || '').toLowerCase();
+  if (/\b(2\s*h(?:ours?)?(\s*\+)?|3\s*h|4\s*h|half\s*day|all\s*day|deep\s*work)\b/.test(t)) return '~2h+';
+  if (/\b(1\s*h(?:our)?|60\s*min(?:utes?)?|an?\s*hour)\b/.test(t)) return '~1h';
+  if (/\b(30\s*min(?:utes?)?|half\s*(?:an?\s*)?hour|45\s*min)\b/.test(t)) return '~30m';
+  if (/\b(5\s*min(?:utes?)?|quick(?:ly)?|fast|sec(?:onds?)?|2\s*min|10\s*min|15\s*min)\b/.test(t)) return '~5m';
+  return null;
+}
+
+/**
+ * @param {string} text
  * @returns {'critical'|'high'|'medium'|'low'|null}
  */
 function extractPriority(text) {
@@ -231,7 +244,10 @@ function createItem(text, category, deadline, priority, recurrence, reminderAt, 
     pileId: pileId != null ? pileId : null,
     friction: friction && ['quick', 'medium', 'deep'].includes(friction) ? friction : null,
     firstStep: null,
-    personId: personId != null ? personId : null
+    personId: personId != null ? personId : null,
+    estimate: null,
+    income: false,
+    skippedFromToday: 0
   };
 }
 
@@ -415,6 +431,7 @@ export {
   detectCategory,
   extractDeadline,
   extractDoingDate,
+  extractEstimate,
   extractFriction,
   extractRecurrence,
   extractPriority,

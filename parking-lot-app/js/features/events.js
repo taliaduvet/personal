@@ -123,8 +123,7 @@ export function wireMainEvents(deps) {
     }
 
     /* Plan (header + sidebar): handled by delegated listener after wireComposer() so clicks always reach openPlanningEntry */
-    const sidebarWeekView = document.getElementById('sidebar-week-view');
-    if (sidebarWeekView) sidebarWeekView.addEventListener('click', () => {
+    function openWeekViewPanel() {
       document.getElementById('sidebar')?.classList.remove('open');
       document.getElementById('sidebar-overlay') && (document.getElementById('sidebar-overlay').style.display = 'none');
       document.body.classList.remove('sidebar-open');
@@ -133,23 +132,22 @@ export function wireMainEvents(deps) {
         d.weekPlanningApi.renderWeekViewPanel();
         panel.style.display = 'flex';
       }
-    });
+    }
+    const headerWeekViewBtn = document.getElementById('header-week-view-btn');
+    if (headerWeekViewBtn) headerWeekViewBtn.addEventListener('click', openWeekViewPanel);
+    const sidebarWeekView = document.getElementById('sidebar-week-view');
+    if (sidebarWeekView) sidebarWeekView.addEventListener('click', openWeekViewPanel);
     const closeWeekView = document.getElementById('close-week-view');
     if (closeWeekView) closeWeekView.addEventListener('click', () => {
       const panel = document.getElementById('week-view-panel');
       if (panel) panel.style.display = 'none';
     });
-    const weekStripToggle = document.getElementById('show-week-strip-toggle');
-    if (weekStripToggle) {
-      weekStripToggle.checked = !!state.showWeekStrip;
-      weekStripToggle.addEventListener('change', () => {
-        state.showWeekStrip = weekStripToggle.checked;
-        d.saveState();
-        if (window.talkAbout && state.deviceSyncId) d.saveDevicePreferencesToSupabase();
-        d.renderWeekStrip();
-      });
-    }
-
+    const weekViewOpenPlanner = document.getElementById('week-view-open-planner');
+    if (weekViewOpenPlanner) weekViewOpenPlanner.addEventListener('click', () => {
+      const panel = document.getElementById('week-view-panel');
+      if (panel) panel.style.display = 'none';
+      d.weekPlanningApi.openPlanningEntry({});
+    });
     const addToSuggestionsBtn = document.getElementById('add-to-suggestions-btn');
     if (addToSuggestionsBtn) addToSuggestionsBtn.addEventListener('click', d.addToSuggestions);
     const addToSuggestionsClear = document.getElementById('add-to-suggestions-clear');
@@ -248,6 +246,11 @@ export function wireMainEvents(deps) {
           for (const id of panels) {
             const p = document.getElementById(id);
             if (p && p.style.display === 'block') { p.style.display = 'none'; return; }
+          }
+          const weeklyReviewOvl = document.getElementById('weekly-review-overlay');
+          if (weeklyReviewOvl && weeklyReviewOvl.style.display === 'flex') {
+            d.closeWeeklyReview();
+            return;
           }
           const consistencyPanel = document.getElementById('consistency-panel');
           if (consistencyPanel && consistencyPanel.style.display === 'block') {
@@ -1007,6 +1010,33 @@ export function wireMainEvents(deps) {
     const hint = document.getElementById('priority-hint');
     if (hint) hint.addEventListener('click', () => {
       alert('1. Is someone else waiting? → Critical\n2. Does money/reputation depend on it? → High\n3. Would you feel relieved dropping it? → Low (else Medium)');
+    });
+
+    document.querySelectorAll('.energy-btn').forEach(btn => {
+      btn.addEventListener('click', () => d.setEnergy(btn.dataset.level));
+    });
+
+    const brainDumpInput = document.getElementById('brain-dump-input');
+    const brainDumpSubmit = document.getElementById('brain-dump-submit');
+    if (brainDumpInput) {
+      brainDumpInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); d.submitBrainDump(); }
+      });
+    }
+    if (brainDumpSubmit) brainDumpSubmit.addEventListener('click', () => d.submitBrainDump());
+
+    const weeklyReviewBtn = document.getElementById('weekly-review-btn');
+    if (weeklyReviewBtn) weeklyReviewBtn.addEventListener('click', () => {
+      document.getElementById('sidebar')?.classList.remove('open');
+      document.getElementById('sidebar-overlay') && (document.getElementById('sidebar-overlay').style.display = 'none');
+      document.body.classList.remove('sidebar-open');
+      d.openWeeklyReview();
+    });
+    const closeWeeklyReview = document.getElementById('close-weekly-review');
+    if (closeWeeklyReview) closeWeeklyReview.addEventListener('click', () => d.closeWeeklyReview());
+    const weeklyReviewOverlay = document.getElementById('weekly-review-overlay');
+    if (weeklyReviewOverlay) weeklyReviewOverlay.addEventListener('click', (e) => {
+      if (e.target === weeklyReviewOverlay) d.closeWeeklyReview();
     });
 
     const micBtn = document.getElementById('mic-btn');
