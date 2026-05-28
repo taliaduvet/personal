@@ -264,35 +264,82 @@ export function createModalController(deps) {
     const textEl = document.getElementById('edit-text');
     if (!textEl) return;
     const text = textEl.value;
+    const t = (text || '').toLowerCase();
+
+    // Category
     const cat = detectCategory(text);
     if (cat) {
       const sel = document.getElementById('edit-category');
       if (sel && sel.querySelector(`option[value="${cat}"]`)) sel.value = cat;
     }
+
+    // Dates
     const deadline = extractDeadline(text);
     if (deadline) {
       const inp = document.getElementById('edit-deadline');
       if (inp) inp.value = deadline;
-    }
-    const priority = extractPriority(text);
-    if (priority) {
-      const sel = document.getElementById('edit-priority');
-      if (sel && sel.querySelector(`option[value="${priority}"]`)) sel.value = priority;
-    }
-    const recurrence = extractRecurrence(text);
-    if (recurrence) {
-      const sel = document.getElementById('edit-recurrence');
-      if (sel && sel.querySelector(`option[value="${recurrence}"]`)) sel.value = recurrence;
     }
     const doingDate = extractDoingDate(text);
     if (doingDate && doingDate !== deadline) {
       const inp = document.getElementById('edit-doing-date');
       if (inp) inp.value = doingDate;
     }
+
+    // Recurrence
+    const recurrence = extractRecurrence(text);
+    if (recurrence) {
+      const sel = document.getElementById('edit-recurrence');
+      if (sel && sel.querySelector(`option[value="${recurrence}"]`)) sel.value = recurrence;
+    }
+
+    // Priority
+    const priority = extractPriority(text);
+    if (priority) {
+      const sel = document.getElementById('edit-priority');
+      if (sel && sel.querySelector(`option[value="${priority}"]`)) sel.value = priority;
+    }
+
+    // Friction
     const friction = extractFriction(text);
     if (friction) {
       const sel = document.getElementById('edit-friction');
       if (sel && sel.querySelector(`option[value="${friction}"]`)) sel.value = friction;
+    }
+
+    // Time estimate
+    const estimate = extractEstimate(text);
+    if (estimate) {
+      const sel = document.getElementById('edit-estimate');
+      if (sel && sel.querySelector(`option[value="${estimate}"]`)) sel.value = estimate;
+    }
+
+    // Income flag (◈ or "income" keyword)
+    if (/◈|\bincome\b/i.test(text)) {
+      const cb = document.getElementById('edit-income');
+      if (cb) cb.checked = true;
+    }
+
+    // Pile — match by name
+    const piles = (state.piles || []).slice();
+    const pile = piles.find((p) => p?.name && t.includes(String(p.name).toLowerCase()));
+    if (pile) {
+      const sel = document.getElementById('edit-pile');
+      if (sel && sel.querySelector(`option[value="${pile.id}"]`)) sel.value = pile.id;
+    }
+
+    // Person — match by name
+    const people = (state.people || []).slice();
+    const person = people.find((p) => p?.name && t.includes(String(p.name).toLowerCase()));
+    if (person) {
+      const sel = document.getElementById('edit-person');
+      if (sel && sel.querySelector(`option[value="${person.id}"]`)) sel.value = person.id;
+    }
+
+    // First step — "first step: ...", "start by: ...", "start: ..."
+    const firstStepMatch = (text || '').match(/\b(?:first\s+step|start\s+by|start)\s*:\s*(.+)$/i);
+    if (firstStepMatch && firstStepMatch[1]) {
+      const inp = document.getElementById('edit-first-step');
+      if (inp && !inp.value) inp.value = firstStepMatch[1].trim().slice(0, 200);
     }
   }
 
