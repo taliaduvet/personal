@@ -2594,6 +2594,55 @@ body.week-planning-open .modal {
   color: var(--text-muted);
 }
 
+.edit-section {
+  border-top: 1px solid var(--border);
+  padding-top: 0.75rem;
+  margin-bottom: 0;
+}
+
+.edit-section-title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 0.35rem;
+}
+
+.edit-dates-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-bottom: 0.15rem;
+}
+
+.edit-date-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.edit-date-field label {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.edit-date-field input {
+  padding: 0.5rem 0.6rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 0.88rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.edit-date-field input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
 .edit-options select,
 .edit-options input[type="date"],
 .edit-options input[type="datetime-local"],
