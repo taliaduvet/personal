@@ -1,0 +1,38 @@
+{
+  "folders": [
+    {
+      "name": "Hub App",
+      "path": "Hub App"
+    },
+    {
+      "name": "Bass App",
+      "path": "Bass App"
+    },
+    {
+      "name": "Accounting App",
+      "path": "accounting-app"
+    },
+    {
+      "name": "Parking Lot v2",
+      "path": "parking-lot-v2"
+    },
+    {
+      "name": "Parking Lot (original)",
+      "path": "parking-lot-app"
+    },
+    {
+      "name": "Knowledge Pipeline",
+      "path": "Knowledge Pipeline"
+    }
+  ],
+  "settings": {
+    "editor.formatOnSave": true,
+    "files.exclude": {
+      "**/node_modules": true,
+      "**/.git": true,
+      "**/dist": true,
+      "**/__pycache__": true,
+      "**/*.pyc": true
+    }
+  }
+}
