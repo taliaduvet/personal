@@ -23,18 +23,34 @@ export function clearHiddenFromTodayForTaskState(stateRef, taskId) {
 function respawnRecurringItem(item) {
   const now = new Date();
   let nextDeadline = null;
+  let nextDoingDate = null;
   if (item.recurrence === 'daily') {
     const d = new Date(now);
     d.setDate(d.getDate() + 1);
     nextDeadline = d.toISOString().slice(0, 10);
+    if (item.doingDate) {
+      const dd = new Date(item.doingDate);
+      dd.setDate(dd.getDate() + 1);
+      nextDoingDate = dd.toISOString().slice(0, 10);
+    }
   } else if (item.recurrence === 'weekly') {
     const d = new Date(now);
     d.setDate(d.getDate() + 7);
     nextDeadline = d.toISOString().slice(0, 10);
+    if (item.doingDate) {
+      const dd = new Date(item.doingDate);
+      dd.setDate(dd.getDate() + 7);
+      nextDoingDate = dd.toISOString().slice(0, 10);
+    }
   } else if (item.recurrence === 'monthly') {
     const d = new Date(now);
     d.setMonth(d.getMonth() + 1);
     nextDeadline = d.toISOString().slice(0, 10);
+    if (item.doingDate) {
+      const dd = new Date(item.doingDate);
+      dd.setMonth(dd.getMonth() + 1);
+      nextDoingDate = dd.toISOString().slice(0, 10);
+    }
   }
   const newItem = createItem(
     item.text,
@@ -43,7 +59,7 @@ function respawnRecurringItem(item) {
     item.priority,
     item.recurrence,
     null,
-    item.doingDate,
+    nextDoingDate,
     item.pileId,
     item.friction,
     item.personId || null
