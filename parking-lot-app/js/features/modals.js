@@ -16,6 +16,7 @@ import {
   extractPriority,
   createItem
 } from '../domain/tasks.js';
+import { buildTaskSessionHistoryHtml } from '../domain/task-activity.js';
 
 /**
  * @typedef {Object} ModalControllerDeps
@@ -422,6 +423,8 @@ export function createModalController(deps) {
       `<option value="${p}" ${p === item.priority ? 'selected' : ''}>${p.charAt(0).toUpperCase() + p.slice(1)}</option>`
     ).join('');
     renderEditAiResult(item);
+    const historyEl = document.getElementById('edit-task-history');
+    if (historyEl) historyEl.innerHTML = buildTaskSessionHistoryHtml(item);
     document.getElementById('edit-modal').style.display = 'flex';
   }
 

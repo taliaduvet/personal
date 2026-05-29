@@ -102,12 +102,15 @@ export function createArchiveCalendar(deps) {
       parts.push(`<div class="archive-day-section-title">SESSIONS (${sess.length})</div>`);
       sess.forEach(({ item, sess: s }) => {
         const ctx = escapeHtml(getContextLabel(item));
-        const dur = formatDurationShort(s.durationSeconds);
+        const isResearch = s.sessionType === 'research' || s.sessionType === 'research_queued';
+        const dur = isResearch
+          ? (s.sessionType === 'research_queued' ? 'queued' : 'research')
+          : formatDurationShort(s.durationSeconds);
         parts.push(
           `<div class="archive-session-item">${escapeHtml(item.text)} · ${ctx} · ${escapeHtml(dur)}</div>`
         );
         if (s.notes && !s.paused) {
-          parts.push(`<div class="archive-session-item-notes">└ "${escapeHtml(s.notes)}"</div>`);
+          parts.push(`<div class="archive-session-item-notes">└ ${escapeHtml(s.notes)}</div>`);
         }
       });
     }

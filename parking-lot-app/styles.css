@@ -4843,6 +4843,19 @@ body { padding-bottom: 3.5rem; }
   border-left-color: var(--text-muted);
   opacity: 0.85;
 }
+.session-history-research {
+  border-left-color: var(--accent);
+}
+.session-history-research-queued {
+  opacity: 0.9;
+}
+.session-history-research .session-history-duration {
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
 .session-history-meta {
   display: flex;
   gap: 0.75rem;
@@ -4902,6 +4915,49 @@ body { padding-bottom: 3.5rem; }
 @keyframes pulse-session {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
+}
+.btn-task-history {
+  position: relative;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0.2rem 0.35rem;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  border-radius: 3px;
+  line-height: 1;
+}
+.btn-task-history:hover {
+  color: var(--text);
+  background: var(--bg-soft);
+}
+.task-history-count {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  min-width: 0.85rem;
+  height: 0.85rem;
+  padding: 0 0.15rem;
+  font-size: 0.55rem;
+  font-weight: 700;
+  line-height: 0.85rem;
+  text-align: center;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+}
+.session-start-timer-btn {
+  flex: 1;
+}
+#session-modal[data-mode="history"] .session-modal-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+#session-modal[data-mode="history"] .session-history-section {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
 }
 .task-time-total {
   font-size: 0.72rem;
@@ -5318,6 +5374,29 @@ body { padding-bottom: 3.5rem; }
   color: var(--text-muted);
   font-size: 0.8rem;
   margin-left: 0.35rem;
+}
+.edit-task-history-section {
+  margin-top: 0.5rem;
+}
+.edit-task-history-hint {
+  margin: 0 0 0.5rem;
+}
+.edit-task-history {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-soft);
+  padding: 0.5rem 0.65rem;
+}
+.edit-task-history .task-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.task-history-empty,
+.session-history-empty {
+  margin: 0;
 }
 .edit-ai-result {
   margin: 0.75rem 0;

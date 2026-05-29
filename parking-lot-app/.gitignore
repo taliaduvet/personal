@@ -1,4 +1,6 @@
 config.js
+scripts/ai-worker.env
+scripts/.ai-worker-state.json
 test-results/
 playwright-report/
 node_modules/

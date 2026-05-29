@@ -11,7 +11,9 @@
     "e2e:headed:slow": "PW_HEADED_SLOW=1 playwright test --headed --workers=1",
     "e2e:ui": "playwright test --ui",
     "e2e:debug": "playwright test --debug",
-    "e2e:reuse": "PW_REUSE_SERVER=1 playwright test"
+    "e2e:reuse": "PW_REUSE_SERVER=1 playwright test",
+    "ai:process-queue": "node scripts/ai-research-worker.mjs",
+    "ai:watch": "node scripts/ai-research-worker.mjs --watch"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",

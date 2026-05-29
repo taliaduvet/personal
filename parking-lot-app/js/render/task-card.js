@@ -82,6 +82,10 @@ export function renderTaskCard(item, opts) {
     aiResultTaskId: state.aiResultTaskId || null
   });
   const aiExpanded = !!(state.aiPromptTaskId === item.id || state.aiResultTaskId === item.id || item.aiAction === 'research' || (item.aiResult && !item.aiResultRead));
+  const historyCount = (item.sessions || []).length;
+  const historyTitle = historyCount
+    ? `View history (${historyCount} ${historyCount === 1 ? 'entry' : 'entries'}) — no timer`
+    : 'View history — no timer';
   return `
       <div class="task-card ${overdue ? 'overdue' : ''} ${checked ? 'selected' : ''} ${daysParked >= 30 ? 'stale-nudge' : ''} ${aiExpanded ? 'task-card-ai-open' : ''}" data-id="${item.id}"${staleNudge}>
         <div class="task-card-row">
@@ -92,7 +96,8 @@ export function renderTaskCard(item, opts) {
             ${metaRow}
           </div>
           <div class="task-actions">
-            <button type="button" class="btn-ai-research" data-id="${item.id}" title="Ask Claude to research this">⚡</button>
+            <button type="button" class="btn-ai-research" data-id="${item.id}" title="Queue web research for this task">⚡</button>
+            <button type="button" class="btn-task-history" data-id="${item.id}" title="${historyTitle}" aria-label="${historyTitle}">📋${historyCount ? `<span class="task-history-count">${historyCount}</span>` : ''}</button>
             <button type="button" class="btn-session ${isSessionActive ? 'btn-session-active' : ''}" data-id="${item.id}" title="${isSessionActive ? 'Session in progress — click to open' : 'Start a session'}">${isSessionActive ? '■' : '▶'}</button>
             <button class="btn-done-card" data-id="${item.id}" title="Done">✓</button>
             <button class="btn-edit" data-id="${item.id}" title="Edit">✎</button>

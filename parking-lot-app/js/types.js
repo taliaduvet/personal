@@ -58,6 +58,7 @@
  * @property {string|null} [notes]
  * @property {boolean} [paused]
  * @property {string|null} [aiPickup]
+ * @property {'work'|'research'|'research_queued'} [sessionType] - omitted = timed work session
  */
 
 /**

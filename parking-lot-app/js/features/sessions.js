@@ -3,22 +3,19 @@
  * Manages start/stop, timer display, session history in modal.
  */
 import { escapeHtml } from '../utils/dom.js';
+import { renderSessionHistoryItemHtml } from '../domain/task-activity.js';
 
 export function createSessionController(deps) {
   const { state, saveState, showToast, getRenderColumns, getRenderTodayList } = deps;
   let timerInterval = null;
   let activeTaskId = null;
+  let historyOnlyMode = false;
 
   function formatDuration(seconds) {
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
     const s = seconds % 60;
     return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-  }
-
-  function formatSessionDate(isoString) {
-    const d = new Date(isoString);
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   }
 
   function getElapsedSeconds(startIso) {
@@ -47,7 +44,49 @@ export function createSessionController(deps) {
     return true;
   }
 
-  function openSessionModal(taskId) {
+  function setSessionModalMode(historyOnly) {
+    historyOnlyMode = historyOnly;
+    const modal = document.getElementById('session-modal');
+    const nowSection = document.querySelector('.session-now-section');
+    const timerEl = document.getElementById('session-timer');
+    const stopBtn = document.getElementById('session-stop-btn');
+    const startBtn = document.getElementById('session-start-timer-btn');
+    const cancelBtn = document.getElementById('session-cancel-btn');
+
+    if (modal) modal.dataset.mode = historyOnly ? 'history' : 'timer';
+    if (nowSection) nowSection.style.display = historyOnly ? 'none' : '';
+    if (timerEl) timerEl.style.display = historyOnly ? 'none' : '';
+    if (stopBtn) stopBtn.style.display = historyOnly ? 'none' : '';
+    if (startBtn) startBtn.style.display = historyOnly ? '' : 'none';
+    if (cancelBtn) cancelBtn.textContent = historyOnly ? 'Close' : 'Cancel';
+  }
+
+  function renderSessionHistory(item, opts = {}) {
+    const showWhenEmpty = !!opts.showWhenEmpty;
+    const sessions = (item.sessions || []).slice().reverse();
+    const section = document.getElementById('session-history-section');
+    const list = document.getElementById('session-history-list');
+    if (!section || !list) return;
+
+    const divider = section.querySelector('.session-history-divider');
+    if (divider) divider.textContent = 'History on this task';
+
+    if (!sessions.length) {
+      if (showWhenEmpty) {
+        section.style.display = 'block';
+        list.innerHTML =
+          '<p class="settings-hint session-history-empty">No history yet — use ▶ to time work or ⚡ to queue research.</p>';
+      } else {
+        section.style.display = 'none';
+        list.innerHTML = '';
+      }
+      return;
+    }
+    section.style.display = 'block';
+    list.innerHTML = sessions.map((s) => renderSessionHistoryItemHtml(s)).join('');
+  }
+
+  function beginTimerForTask(taskId) {
     const item = state.items.find(i => i.id === taskId);
     if (!item) return;
 
@@ -57,20 +96,18 @@ export function createSessionController(deps) {
       getRenderTodayList()?.();
     }
 
-    activeTaskId = taskId;
-
     if (!item.activeSessionStart) {
       item.activeSessionStart = new Date().toISOString();
       saveState();
       getRenderColumns()?.();
     }
 
-    const taskNameEl = document.getElementById('session-task-name');
-    const notesInput = document.getElementById('session-notes-input');
-    if (taskNameEl) taskNameEl.textContent = item.text;
-    if (notesInput) notesInput.value = '';
+    historyOnlyMode = false;
+    setSessionModalMode(false);
+    activeTaskId = taskId;
 
-    renderSessionHistory(item);
+    const notesInput = document.getElementById('session-notes-input');
+    if (notesInput) notesInput.value = '';
 
     clearInterval(timerInterval);
     timerInterval = setInterval(() => {
@@ -87,33 +124,47 @@ export function createSessionController(deps) {
     if (timerEl && item.activeSessionStart) {
       timerEl.textContent = formatDuration(getElapsedSeconds(item.activeSessionStart));
     }
-
-    const modal = document.getElementById('session-modal');
-    if (modal) modal.style.display = 'flex';
     if (notesInput) notesInput.focus();
   }
 
-  function renderSessionHistory(item) {
-    const sessions = (item.sessions || []).slice().reverse();
-    const section = document.getElementById('session-history-section');
-    const list = document.getElementById('session-history-list');
-    if (!section || !list) return;
+  /**
+   * @param {string} taskId
+   * @param {{ historyOnly?: boolean }} [opts]
+   */
+  function openSessionModal(taskId, opts = {}) {
+    const item = state.items.find(i => i.id === taskId);
+    if (!item) return;
 
-    if (!sessions.length) {
-      section.style.display = 'none';
+    const historyOnly = !!opts.historyOnly && !item.activeSessionStart;
+    activeTaskId = taskId;
+
+    const taskNameEl = document.getElementById('session-task-name');
+    if (taskNameEl) taskNameEl.textContent = item.text;
+
+    if (historyOnly) {
+      setSessionModalMode(true);
+      renderSessionHistory(item, { showWhenEmpty: true });
+      const modal = document.getElementById('session-modal');
+      if (modal) modal.style.display = 'flex';
       return;
     }
-    section.style.display = 'block';
-    list.innerHTML = sessions.map(s => `
-      <div class="session-history-item${s.paused ? ' session-history-paused' : ''}">
-        <div class="session-history-meta">
-          <span class="session-history-date">${formatSessionDate(s.start)}</span>
-          <span class="session-history-duration">${formatDuration(s.durationSeconds)}</span>
-        </div>
-        ${s.notes ? `<div class="session-history-notes">${escapeHtml(s.notes)}</div>` : ''}
-        ${s.aiPickup ? `<div class="session-ai-pickup">✦ ${escapeHtml(s.aiPickup)}</div>` : ''}
-      </div>
-    `).join('');
+
+    setSessionModalMode(false);
+    beginTimerForTask(taskId);
+    renderSessionHistory(item);
+    const modal = document.getElementById('session-modal');
+    if (modal) modal.style.display = 'flex';
+  }
+
+  /** View history without starting a timer (▶ still starts timer if one is already running). */
+  function openTaskHistory(taskId) {
+    const item = state.items.find(i => i.id === taskId);
+    if (!item) return;
+    if (item.activeSessionStart) {
+      openSessionModal(taskId);
+      return;
+    }
+    openSessionModal(taskId, { historyOnly: true });
   }
 
   function stopSession() {
@@ -158,15 +209,28 @@ export function createSessionController(deps) {
   function closeSessionModal() {
     clearInterval(timerInterval);
     activeTaskId = null;
+    historyOnlyMode = false;
     const modal = document.getElementById('session-modal');
-    if (modal) modal.style.display = 'none';
+    if (modal) {
+      modal.style.display = 'none';
+      delete modal.dataset.mode;
+    }
   }
 
   function bindEvents() {
     const stopBtn = document.getElementById('session-stop-btn');
     const cancelBtn = document.getElementById('session-cancel-btn');
+    const startTimerBtn = document.getElementById('session-start-timer-btn');
     if (stopBtn) stopBtn.addEventListener('click', stopSession);
     if (cancelBtn) cancelBtn.addEventListener('click', cancelSession);
+    if (startTimerBtn) {
+      startTimerBtn.addEventListener('click', () => {
+        if (!activeTaskId) return;
+        beginTimerForTask(activeTaskId);
+        const item = state.items.find(i => i.id === activeTaskId);
+        if (item) renderSessionHistory(item);
+      });
+    }
 
     const modal = document.getElementById('session-modal');
     if (modal) {
@@ -182,5 +246,12 @@ export function createSessionController(deps) {
     });
   }
 
-  return { openSessionModal, stopSession, cancelSession, closeSessionModal, bindEvents };
+  return {
+    openSessionModal,
+    openTaskHistory,
+    stopSession,
+    cancelSession,
+    closeSessionModal,
+    bindEvents
+  };
 }

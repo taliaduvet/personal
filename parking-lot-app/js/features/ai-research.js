@@ -2,6 +2,7 @@
  * Per-task AI research queue UI (inline on cards + edit modal).
  */
 import { escapeHtml } from '../utils/dom.js';
+import { appendResearchQueuedSession } from '../domain/task-activity.js';
 
 /**
  * @param {object|null} result
@@ -19,7 +20,7 @@ export function formatAiResultHtml(result) {
   }).join('');
   return `
     <div class="task-ai-result-block">
-      <div class="task-ai-result-title">⚡ Claude found:</div>
+      <div class="task-ai-result-title">⚡ Research:</div>
       ${summary ? `<div class="task-ai-result-summary">${escapeHtml(summary)}</div>` : ''}
       ${linkRows ? `<div class="task-ai-result-links">${linkRows}</div>` : ''}
     </div>`;
@@ -51,7 +52,7 @@ export function buildTaskAiPanelHtml(item, ui) {
   }
 
   if (queued && !hasResult) {
-    parts.push(`<div class="task-ai-panel task-ai-status"><span class="task-ai-queued-badge">⏳ Queued for Claude</span></div>`);
+    parts.push(`<div class="task-ai-panel task-ai-status"><span class="task-ai-queued-badge">⏳ Queued for research</span></div>`);
   }
 
   if (showResultChip) {
@@ -103,10 +104,11 @@ export function createAiResearch(deps) {
     }
     item.aiAction = 'research';
     item.aiActionPrompt = prompt;
+    appendResearchQueuedSession(item, prompt);
     state.aiPromptTaskId = null;
     saveState();
     refresh();
-    showToast('Queued for Claude');
+    showToast('Queued for research');
   }
 
   function openResult(taskId) {

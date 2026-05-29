@@ -330,6 +330,12 @@
           <p class="settings-hint" style="margin-top:-0.5rem">Get a push notification at this time (requires notifications enabled in Settings)</p>
         </div>
 
+        <div class="edit-section edit-task-history-section">
+          <div class="edit-section-title">History on this task</div>
+          <p class="settings-hint edit-task-history-hint">Timer notes and research — same list as ▶ → history. Read-only here.</p>
+          <div id="edit-task-history" class="edit-task-history"></div>
+        </div>
+
         <div id="edit-ai-result" class="edit-ai-result" style="display:none"></div>
 
         <button id="save-edit" class="btn-primary">Save</button>
@@ -900,12 +906,13 @@
           <textarea id="session-notes-input" class="session-notes-textarea" placeholder="Jot as you go — saved when you stop..." aria-label="Session notes"></textarea>
         </div>
         <div id="session-history-section" class="session-history-section" style="display:none">
-          <div class="session-history-divider">Past sessions</div>
+          <div class="session-history-divider">History on this task</div>
           <div id="session-history-list" class="session-history-list"></div>
         </div>
       </div>
       <div class="session-modal-footer">
         <button id="session-stop-btn" type="button" class="btn-primary session-stop-btn">⏹ Stop &amp; save</button>
+        <button id="session-start-timer-btn" type="button" class="btn-primary session-start-timer-btn" style="display:none">▶ Start timer</button>
         <button id="session-cancel-btn" type="button" class="btn-secondary">Cancel</button>
       </div>
     </div>

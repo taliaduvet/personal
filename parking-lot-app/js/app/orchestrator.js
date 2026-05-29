@@ -257,6 +257,7 @@ function wireComposer() {
     deleteItem,
     markDone,
     openSessionModal: (id) => sessionApi?.openSessionModal(id),
+    openTaskHistory: (id) => sessionApi?.openTaskHistory(id),
     bindAiResearchEvents: (container) => aiResearchApi?.bindCardEvents(container),
     updateAddToSuggestionsBtn: () => tfApi.updateAddToSuggestionsBtn()
   });
