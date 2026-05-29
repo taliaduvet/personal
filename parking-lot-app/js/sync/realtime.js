@@ -21,6 +21,10 @@ export function attachDevicePreferencesRealtime(ctx) {
   }
   if (state.prefsUnsubscribe) state.prefsUnsubscribe();
   state.prefsUnsubscribe = talkAbout.subscribeDevicePreferences(state.deviceSyncId, (prefs) => {
+    // Skip if a local write is already queued — our in-memory state is newer than
+    // whatever Supabase is broadcasting. Applying stale remote data here is what
+    // causes deleted/edited tasks to briefly reappear before the debounced write lands.
+    if (state.savePrefsTimeout) return;
     applyDevicePreferencesToState(prefs);
     refreshUIAfterRemotePrefs();
   });
