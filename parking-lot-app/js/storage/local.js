@@ -149,6 +149,9 @@ export function loadState() {
         });
       }
       if (Array.isArray(parsed.people)) state.people = parsed.people;
+      if (typeof parsed.birthdayReminderDays === 'number' && parsed.birthdayReminderDays >= 1 && parsed.birthdayReminderDays <= 60) {
+        state.birthdayReminderDays = parsed.birthdayReminderDays;
+      }
       if (parsed.weekPlan && typeof parsed.weekPlan === 'object') {
         state.weekPlan = normalizeWeekPlan(parsed.weekPlan);
       }
@@ -255,7 +258,13 @@ export function saveState(skipCloudSync, useRemoteTallyDate) {
       hiddenFromTodayByDate: state.hiddenFromTodayByDate && typeof state.hiddenFromTodayByDate === 'object'
         ? state.hiddenFromTodayByDate
         : {},
-      notes: state.notes || []
+      notes: state.notes || [],
+      birthdayReminderDays:
+        typeof state.birthdayReminderDays === 'number' &&
+        state.birthdayReminderDays >= 1 &&
+        state.birthdayReminderDays <= 60
+          ? state.birthdayReminderDays
+          : 14
     }));
     const tallyDate = useRemoteTallyDate && state.lastCompletedDate ? state.lastCompletedDate : getTallyDate();
     localStorage.setItem(STORAGE_PREFIX + 'tally', JSON.stringify({

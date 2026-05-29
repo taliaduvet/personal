@@ -83,8 +83,14 @@
  * @property {string} id
  * @property {string} name
  * @property {string} group
- * @property {string|null} lastConnected - YYYY-MM-DD
+ * @property {number|null} lastConnected - ms at start of day
  * @property {{ interval: string }|null} [reconnectRule]
+ * @property {number|string|null} [agreedReconnectOn] - ms or YYYY-MM-DD
+ * @property {boolean} [wantToImprove]
+ * @property {string|null} [email]
+ * @property {string|null} [phone]
+ * @property {string|null} [birthday] - YYYY-MM-DD
+ * @property {string|null} [talkAboutNext]
  * @property {string|null} [notes]
  * @property {{ at: number, text: string }[]} [history]
  */
@@ -164,6 +170,9 @@
  * @property {Person[]} people
  * @property {{ id: string, label: string }[]|null} peopleGroups
  * @property {string|null} relationshipsDetailPersonId
+ * @property {'list'|'hierarchy'} relationshipsViewMode
+ * @property {Record<string, boolean>} relationshipsCollapsedGroupIds
+ * @property {number} birthdayReminderDays
  * @property {string} buildRef
  * @property {Record<string, unknown>|null} productConfig
  * @property {WeekPlanState} weekPlan

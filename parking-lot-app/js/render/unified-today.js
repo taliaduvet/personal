@@ -4,7 +4,12 @@
  */
 import { escapeHtml } from '../utils/dom.js';
 import { getColumnColor, getTodayLocalYYYYMMDD } from '../domain/tasks.js';
-import { getPileName, getPeople, isOverdueToReconnect } from '../domain/piles-people.js';
+import {
+  getPileName,
+  isOverdueToReconnect,
+  getUpcomingBirthdays,
+  getDefaultBirthdayReminderDays
+} from '../domain/piles-people.js';
 import {
   getTodayLayoutMode,
   normalizeWeekPlan,
@@ -125,9 +130,44 @@ export function createUnifiedTodayRenderer(d) {
     const people = getPeople();
     const overdue = people.filter(isOverdueToReconnect);
     if (!overdue.length) return '';
-    const names = overdue.slice(0, 3).map(p => escapeHtml(p.name)).join(', ');
-    const extra = overdue.length > 3 ? ` +${overdue.length - 3} more` : '';
-    return `<div class="today-reconnect-nudge">Reach out to: <strong>${names}${extra}</strong></div>`;
+    const buttons = overdue
+      .slice(0, 5)
+      .map(
+        (p) =>
+          `<button type="button" class="today-reconnect-person" data-person-id="${escapeHtml(p.id)}">${escapeHtml(p.name)}</button>`
+      )
+      .join('');
+    const extra = overdue.length > 5 ? ` <span class="today-reconnect-more">+${overdue.length - 5} more</span>` : '';
+    return `<div class="today-reconnect-nudge">Reach out to: ${buttons}${extra}</div>`;
+  }
+
+  function upcomingBirthdaysHtml() {
+    const withinDays = getDefaultBirthdayReminderDays();
+    const upcoming = getUpcomingBirthdays(withinDays);
+    if (!upcoming.length) return '';
+    const items = upcoming
+      .slice(0, 6)
+      .map(({ person, daysUntil }) => {
+        const when =
+          daysUntil === 0 ? 'today' : daysUntil === 1 ? 'tomorrow' : `in ${daysUntil} days`;
+        return `<button type="button" class="today-birthday-person" data-person-id="${escapeHtml(person.id)}">🎂 ${escapeHtml(person.name)} (${when})</button>`;
+      })
+      .join('');
+    const extra =
+      upcoming.length > 6 ? ` <span class="today-reconnect-more">+${upcoming.length - 6} more</span>` : '';
+    const windowLabel = withinDays === 1 ? '1 day' : `${withinDays} days`;
+    return `<div class="today-birthdays-nudge" role="status"><strong>Birthday reminders</strong> (next ${windowLabel}): ${items}${extra}</div>`;
+  }
+
+  function bindTodayRelationshipNudges(root) {
+    if (!root || typeof d.openRelationshipsPerson !== 'function') return;
+    root.querySelectorAll('.today-reconnect-person, .today-birthday-person').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const id = btn.getAttribute('data-person-id');
+        if (id) d.openRelationshipsPerson(id);
+      });
+    });
   }
 
   /** Left column: always-visible day note (week plan day note field). */
@@ -158,13 +198,16 @@ export function createUnifiedTodayRenderer(d) {
       : `<div class="empty-state">${emptyMsg}</div>`;
     return `<div class="unified-today-other-section" data-section="other">
       <div class="unified-today-other-heading">${escapeHtml(title)} <span class="badge-count">${items.length}</span></div>
-      ${overdueReconnectHtml()}
       <div class="unified-today-section-body">${body}</div>
     </div>`;
   }
 
+  function relationshipNudgesHtml() {
+    return `${upcomingBirthdaysHtml()}${overdueReconnectHtml()}`;
+  }
+
   function bannersHtml(items, todayStr) {
-    return `${overwhelmBannerHtml(items, todayStr)}${capacityTotalHtml(items)}`;
+    return `${overwhelmBannerHtml(items, todayStr)}${capacityTotalHtml(items)}${relationshipNudgesHtml()}`;
   }
 
   function taskRowHtml(item, extraClass = '', orderOpt) {
@@ -321,6 +364,7 @@ export function createUnifiedTodayRenderer(d) {
         <div class="unified-today-section-body" data-section="single">${taskBody}</div>`
       );
       bindTodayListEvents(root, { removeFromToday, reorderExplicit: true });
+      bindTodayRelationshipNudges(root);
       root.querySelector('.unified-today-plan-cta-btn')?.addEventListener('click', () => d.openPlanningEntry({}));
       root.querySelector('.btn-dismiss-overwhelm')?.addEventListener('click', () => {
         d.state.todayOverwhelmDismissed = todayStr;
@@ -345,6 +389,7 @@ export function createUnifiedTodayRenderer(d) {
         ${otherSectionHtml('Other', otherItems, 'Nothing here yet')}`
       );
       bindTodayListEvents(root, { removeFromToday });
+      bindTodayRelationshipNudges(root);
       root.querySelector('.set-plan-today-btn')?.addEventListener('click', () => d.openPlanningEntry({ scrollToDate: todayStr }));
       root.querySelector('.btn-dismiss-overwhelm')?.addEventListener('click', () => {
         d.state.todayOverwhelmDismissed = todayStr;
@@ -390,6 +435,7 @@ export function createUnifiedTodayRenderer(d) {
     );
 
     bindTodayListEvents(root, { removeFromToday, focusPileReorderTodayStr: todayStr });
+    bindTodayRelationshipNudges(root);
     root.querySelector('.unified-today-review-plan-btn')?.addEventListener('click', () => {
       if (typeof d.openWeekView === 'function') d.openWeekView();
       else d.openPlanningEntry({ scrollToDate: todayStr });

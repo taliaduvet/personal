@@ -193,9 +193,19 @@
               <option value="">None</option>
             </select>
             <label>Person (optional)</label>
-            <select id="person-select">
-              <option value="">None</option>
-            </select>
+            <div class="person-select-row">
+              <select id="person-select">
+                <option value="">None</option>
+              </select>
+              <button type="button" id="person-select-add-btn" class="btn-secondary btn-sm">+ New</button>
+            </div>
+            <div id="person-inline-add" class="person-inline-add" style="display:none">
+              <input type="text" id="person-inline-name" class="settings-name-input" placeholder="Name" maxlength="120" aria-label="New person name">
+              <div class="person-inline-add-actions">
+                <button type="button" id="person-inline-save" class="btn-primary btn-sm">Add person</button>
+                <button type="button" id="person-inline-cancel" class="btn-secondary btn-sm">Cancel</button>
+              </div>
+            </div>
           </div>
 
           <div class="add-options edit-section">
@@ -298,9 +308,19 @@
             <option value="">None</option>
           </select>
           <label>Person (optional)</label>
-          <select id="edit-person">
-            <option value="">None</option>
-          </select>
+          <div class="person-select-row">
+            <select id="edit-person">
+              <option value="">None</option>
+            </select>
+            <button type="button" id="edit-person-add-btn" class="btn-secondary btn-sm">+ New</button>
+          </div>
+          <div id="edit-person-inline-add" class="person-inline-add" style="display:none">
+            <input type="text" id="edit-person-inline-name" class="settings-name-input" placeholder="Name" maxlength="120" aria-label="New person name">
+            <div class="person-inline-add-actions">
+              <button type="button" id="edit-person-inline-save" class="btn-primary btn-sm">Add person</button>
+              <button type="button" id="edit-person-inline-cancel" class="btn-secondary btn-sm">Cancel</button>
+            </div>
+          </div>
         </div>
 
         <div class="edit-options edit-section">
@@ -448,6 +468,14 @@
         <h4 class="settings-section-title">Your name</h4>
         <p class="settings-hint">Shown next to the pair code in the menu.</p>
         <input id="settings-display-name" type="text" placeholder="e.g. Talia" class="settings-name-input" value="">
+        <h4 class="settings-section-title">Birthday reminders</h4>
+        <p class="settings-hint">Shows upcoming birthdays on Today and in Relationships. Add birthdays on each person’s profile.</p>
+        <select id="settings-birthday-reminder-days" class="settings-select" aria-label="Days ahead for birthday reminders">
+          <option value="3">3 days ahead</option>
+          <option value="7">7 days ahead</option>
+          <option value="14" selected>14 days ahead</option>
+          <option value="30">30 days ahead</option>
+        </select>
         <h4 class="settings-section-title">Suggest next</h4>
         <p class="settings-hint">After marking a task done, show a strip suggesting the next task (same pile or list).</p>
         <label class="settings-checkbox-row">
@@ -726,6 +754,11 @@
         <button id="close-relationships" class="btn-close" aria-label="Close">×</button>
       </div>
       <div id="relationships-list-view" class="relationships-list-view">
+        <div id="relationships-birthday-banner" class="relationships-birthday-banner" style="display:none" aria-live="polite"></div>
+        <div id="relationships-view-tabs" class="relationships-view-tabs">
+          <button type="button" id="relationships-tab-list" class="relationships-tab active">List</button>
+          <button type="button" id="relationships-tab-hierarchy" class="relationships-tab">Hierarchy</button>
+        </div>
         <div class="relationships-list-actions">
           <button type="button" id="relationships-add-person" class="btn-primary btn-sm">Add person</button>
           <button type="button" id="relationships-toggle-groups" class="btn-secondary btn-sm">Edit groups</button>
@@ -752,13 +785,18 @@
             <option value="1m">Every month</option>
             <option value="3m">Every 3 months</option>
           </select>
+          <label>Birthday (optional)</label>
+          <input type="date" id="relationships-add-birthday" class="settings-name-input">
           <textarea id="relationships-add-notes" placeholder="Notes (optional)" rows="2" class="settings-name-input"></textarea>
           <div class="relationships-form-actions">
             <button type="button" id="relationships-add-save" class="btn-primary btn-sm">Save</button>
             <button type="button" id="relationships-add-cancel" class="btn-secondary btn-sm">Cancel</button>
           </div>
         </div>
-        <div id="relationships-group-list" class="relationships-group-list"></div>
+        <div id="relationships-list-container">
+          <div id="relationships-group-list" class="relationships-group-list"></div>
+        </div>
+        <div id="relationships-hierarchy-view" class="relationships-hierarchy-view" style="display:none" aria-label="Relationship hierarchy"></div>
       </div>
       <div id="relationships-detail-view" class="relationships-detail-view" style="display:none">
         <div id="relationships-detail-content"></div>

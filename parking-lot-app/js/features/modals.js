@@ -17,6 +17,7 @@ import {
   createItem
 } from '../domain/tasks.js';
 import { buildTaskSessionHistoryHtml } from '../domain/task-activity.js';
+import { addPerson } from '../domain/piles-people.js';
 
 /**
  * @typedef {Object} ModalControllerDeps
@@ -31,6 +32,7 @@ import { buildTaskSessionHistoryHtml } from '../domain/task-activity.js';
  * @property {(selectIdOrEl: string|HTMLElement, selectedPersonId?: string) => void} updatePersonSelectOptions
  * @property {() => void} [onAfterItemsChange] — e.g. refresh week planner when it is open
  * @property {(item: import('../types.js').Task) => void} [renderEditAiResult]
+ * @property {() => void} [syncDevicePreferences]
  */
 
 /**
@@ -47,8 +49,77 @@ export function createModalController(deps) {
     updatePileSelectOptions,
     updatePersonSelectOptions,
     onAfterItemsChange = () => {},
-    renderEditAiResult = () => {}
+    renderEditAiResult = () => {},
+    syncDevicePreferences = () => {}
   } = deps;
+
+  /**
+   * @param {{
+   *   selectId: string,
+   *   addBtnId: string,
+   *   panelId: string,
+   *   nameInputId: string,
+   *   saveBtnId: string,
+   *   cancelBtnId: string,
+   *   taskTextInputId?: string
+   * }} cfg
+   */
+  function wirePersonQuickAdd(cfg) {
+    const addBtn = document.getElementById(cfg.addBtnId);
+    const panel = document.getElementById(cfg.panelId);
+    const nameInput = document.getElementById(cfg.nameInputId);
+    const saveBtn = document.getElementById(cfg.saveBtnId);
+    const cancelBtn = document.getElementById(cfg.cancelBtnId);
+    if (!addBtn || !panel || !nameInput || !saveBtn || !cancelBtn) return;
+
+    function hidePanel() {
+      panel.style.display = 'none';
+      nameInput.value = '';
+    }
+
+    addBtn.addEventListener('click', () => {
+      panel.style.display = 'block';
+      const taskInp = cfg.taskTextInputId ? document.getElementById(cfg.taskTextInputId) : null;
+      const guess = taskInp && taskInp.value ? taskInp.value.trim().split(/\s+/)[0] : '';
+      if (guess && guess.length >= 2 && !nameInput.value) nameInput.value = guess;
+      nameInput.focus();
+    });
+
+    cancelBtn.addEventListener('click', hidePanel);
+
+    saveBtn.addEventListener('click', () => {
+      const name = nameInput.value.trim();
+      if (!name) {
+        showToast('Enter a name');
+        return;
+      }
+      const id = addPerson({ name, group: 'friends' });
+      if (!id) return;
+      updatePersonSelectOptions(cfg.selectId, id);
+      hidePanel();
+      showToast('Added ' + name);
+      syncDevicePreferences();
+    });
+  }
+
+  wirePersonQuickAdd({
+    selectId: 'person-select',
+    addBtnId: 'person-select-add-btn',
+    panelId: 'person-inline-add',
+    nameInputId: 'person-inline-name',
+    saveBtnId: 'person-inline-save',
+    cancelBtnId: 'person-inline-cancel',
+    taskTextInputId: 'task-input'
+  });
+  wirePersonQuickAdd({
+    selectId: 'edit-person',
+    addBtnId: 'edit-person-add-btn',
+    panelId: 'edit-person-inline-add',
+    nameInputId: 'edit-person-inline-name',
+    saveBtnId: 'edit-person-inline-save',
+    cancelBtnId: 'edit-person-inline-cancel',
+    taskTextInputId: 'edit-text'
+  });
 
   function renderColumns() {
     const fn = getRenderColumns();
@@ -69,6 +140,8 @@ export function createModalController(deps) {
     updateCategorySelectOptions();
     updatePileSelectOptions('pile-select', presetPileId != null ? presetPileId : '');
     updatePersonSelectOptions('person-select', '');
+    const personInline = document.getElementById('person-inline-add');
+    if (personInline) personInline.style.display = 'none';
     const submitVoice = document.getElementById('submit-voice');
     if (submitVoice) submitVoice.disabled = true;
     const tabSingle = document.getElementById('tab-single');
@@ -408,6 +481,8 @@ export function createModalController(deps) {
     ).join('');
     updatePileSelectOptions('edit-pile', item.pileId || '');
     updatePersonSelectOptions('edit-person', item.personId || '');
+    const editPersonInline = document.getElementById('edit-person-inline-add');
+    if (editPersonInline) editPersonInline.style.display = 'none';
     const editFriction = document.getElementById('edit-friction');
     if (editFriction) editFriction.value = item.friction || '';
     const editEstimate = document.getElementById('edit-estimate');

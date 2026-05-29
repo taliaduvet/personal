@@ -93,6 +93,37 @@ function normalizeHistory(h) {
     .sort((a, b) => b.at - a.at);
 }
 
+/** @param {number|null|undefined} ms */
+function formatYmdFromMs(ms) {
+  if (ms == null || typeof ms !== 'number' || isNaN(ms) || ms <= 0) return '';
+  const dt = new Date(ms);
+  return (
+    dt.getFullYear() +
+    '-' +
+    String(dt.getMonth() + 1).padStart(2, '0') +
+    '-' +
+    String(dt.getDate()).padStart(2, '0')
+  );
+}
+
+/** @param {string|null|undefined} ymd */
+function parseYmdToMs(ymd) {
+  if (!ymd || typeof ymd !== 'string') return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd.trim());
+  if (!m) return null;
+  const ms = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).setHours(0, 0, 0, 0);
+  return isNaN(ms) ? null : ms;
+}
+
+function todayYmd() {
+  return formatYmdFromMs(Date.now());
+}
+
+function compareYmd(a, b) {
+  if (!a || !b) return 0;
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
 function addPerson(attrs) {
   var name = (attrs && attrs.name != null) ? String(attrs.name).trim() : '';
   if (!name) return null;
@@ -105,6 +136,12 @@ function addPerson(attrs) {
     group: group,
     lastConnected: attrs && attrs.lastConnected != null ? attrs.lastConnected : null,
     reconnectRule: attrs && attrs.reconnectRule && { interval: attrs.reconnectRule.interval } ? attrs.reconnectRule : null,
+    agreedReconnectOn: attrs && attrs.agreedReconnectOn != null ? attrs.agreedReconnectOn : null,
+    wantToImprove: !!(attrs && attrs.wantToImprove),
+    email: attrs && attrs.email != null ? String(attrs.email).trim() || null : null,
+    phone: attrs && attrs.phone != null ? String(attrs.phone).trim() || null : null,
+    birthday: attrs && attrs.birthday != null ? String(attrs.birthday).trim() || null : null,
+    talkAboutNext: attrs && attrs.talkAboutNext != null ? String(attrs.talkAboutNext).trim() || null : null,
     notes: (attrs && attrs.notes != null) ? String(attrs.notes) : null,
     history: normalizeHistory(attrs && attrs.history)
   };
@@ -123,6 +160,14 @@ function updatePerson(id, updates) {
   if (updates && updates.group != null && isValidPeopleGroupId(updates.group)) p.group = updates.group;
   if (updates && updates.lastConnected !== undefined) p.lastConnected = updates.lastConnected;
   if (updates && updates.reconnectRule !== undefined) p.reconnectRule = updates.reconnectRule;
+  if (updates && updates.agreedReconnectOn !== undefined) p.agreedReconnectOn = updates.agreedReconnectOn;
+  if (updates && updates.wantToImprove !== undefined) p.wantToImprove = !!updates.wantToImprove;
+  if (updates && updates.email !== undefined) p.email = updates.email ? String(updates.email).trim() || null : null;
+  if (updates && updates.phone !== undefined) p.phone = updates.phone ? String(updates.phone).trim() || null : null;
+  if (updates && updates.birthday !== undefined) p.birthday = updates.birthday ? String(updates.birthday).trim() || null : null;
+  if (updates && updates.talkAboutNext !== undefined) {
+    p.talkAboutNext = updates.talkAboutNext ? String(updates.talkAboutNext).trim() || null : null;
+  }
   if (updates && updates.notes !== undefined) p.notes = updates.notes;
   if (updates && updates.history !== undefined) p.history = normalizeHistory(updates.history);
   persist();
@@ -154,16 +199,74 @@ function getReconnectIntervalMs(interval) {
   return 0;
 }
 
+function isAgreedReconnectSnoozed(person) {
+  if (!person || person.agreedReconnectOn == null) return false;
+  const agreed = typeof person.agreedReconnectOn === 'number'
+    ? formatYmdFromMs(person.agreedReconnectOn)
+    : String(person.agreedReconnectOn).slice(0, 10);
+  if (!agreed) return false;
+  return compareYmd(todayYmd(), agreed) <= 0;
+}
+
+function getNextReconnectDueMs(person) {
+  if (!person || !person.reconnectRule || !person.reconnectRule.interval) return null;
+  const lc = person.lastConnected;
+  if (typeof lc !== 'number' || isNaN(lc) || lc <= 0) return null;
+  return lc + getReconnectIntervalMs(person.reconnectRule.interval);
+}
+
+function getNextReconnectDueYmd(person) {
+  const dueMs = getNextReconnectDueMs(person);
+  return dueMs ? formatYmdFromMs(dueMs) : null;
+}
+
 function isOverdueToReconnect(person) {
-  if (!person || person.lastConnected == null || !person.reconnectRule || !person.reconnectRule.interval) return false;
-  var lc = person.lastConnected;
-  if (typeof lc !== 'number' || isNaN(lc) || lc <= 0) return false;
-  var dueMs = lc + getReconnectIntervalMs(person.reconnectRule.interval);
-  var today = new Date();
-  var todayStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
-  var dueDate = new Date(dueMs);
-  var dueStr = dueDate.getFullYear() + '-' + String(dueDate.getMonth() + 1).padStart(2, '0') + '-' + String(dueDate.getDate()).padStart(2, '0');
-  return todayStr >= dueStr;
+  if (!person || !person.reconnectRule || !person.reconnectRule.interval) return false;
+  if (isAgreedReconnectSnoozed(person)) return false;
+  const dueYmd = getNextReconnectDueYmd(person);
+  if (!dueYmd) return false;
+  return compareYmd(todayYmd(), dueYmd) >= 0;
+}
+
+/** @param {number} withinDays */
+function getUpcomingBirthdays(withinDays) {
+  const people = getPeople().filter((p) => p.birthday && /^\d{4}-\d{2}-\d{2}$/.test(p.birthday));
+  if (!people.length) return [];
+  const today = new Date();
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  const maxMs = todayStart + withinDays * 24 * 60 * 60 * 1000;
+  const out = [];
+  people.forEach((p) => {
+    const parts = p.birthday.split('-');
+    const month = Number(parts[1]);
+    const day = Number(parts[2]);
+    if (!month || !day) return;
+    let year = today.getFullYear();
+    let next = new Date(year, month - 1, day).getTime();
+    if (next < todayStart) {
+      year += 1;
+      next = new Date(year, month - 1, day).getTime();
+    }
+    if (next <= maxMs) {
+      const daysUntil = Math.round((next - todayStart) / (24 * 60 * 60 * 1000));
+      out.push({ person: p, daysUntil, dateYmd: formatYmdFromMs(next) });
+    }
+  });
+  out.sort((a, b) => a.daysUntil - b.daysUntil);
+  return out;
+}
+
+/** @param {import('../types.js').Person} person */
+function getPersonBirthdayDaysUntil(person, withinDays) {
+  if (!person || !person.birthday) return null;
+  const hit = getUpcomingBirthdays(withinDays).find((u) => u.person.id === person.id);
+  return hit != null ? hit.daysUntil : null;
+}
+
+function getDefaultBirthdayReminderDays() {
+  const n = state.birthdayReminderDays;
+  if (typeof n === 'number' && n >= 1 && n <= 60) return n;
+  return 14;
 }
 
 const INBOX_PILE_ID = 'pile_inbox';
@@ -228,7 +331,16 @@ export {
   appendPersonHistory,
   deletePerson,
   getReconnectIntervalMs,
+  formatYmdFromMs,
+  parseYmdToMs,
+  todayYmd,
+  isAgreedReconnectSnoozed,
+  getNextReconnectDueMs,
+  getNextReconnectDueYmd,
   isOverdueToReconnect,
+  getUpcomingBirthdays,
+  getPersonBirthdayDaysUntil,
+  getDefaultBirthdayReminderDays,
   addPile,
   updatePile,
   deletePile

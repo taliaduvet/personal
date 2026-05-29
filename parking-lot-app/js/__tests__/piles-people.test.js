@@ -7,8 +7,13 @@ import {
   addPile,
   deletePile,
   getReconnectIntervalMs,
+  getNextReconnectDueYmd,
+  isAgreedReconnectSnoozed,
   isOverdueToReconnect,
-  updatePile
+  getUpcomingBirthdays,
+  updatePile,
+  parseYmdToMs,
+  todayYmd
 } from '../domain/piles-people.js';
 
 describe('domain/piles-people', () => {
@@ -58,5 +63,35 @@ describe('domain/piles-people', () => {
     expect(isOverdueToReconnect({})).toBe(false);
     expect(isOverdueToReconnect({ lastConnected: null, reconnectRule: { interval: '1w' } })).toBe(false);
   });
-});
 
+  it('getNextReconnectDueYmd() computes from last connected + interval', () => {
+    const last = parseYmdToMs('2020-01-01');
+    const person = {
+      lastConnected: last,
+      reconnectRule: { interval: '1w' }
+    };
+    const due = getNextReconnectDueYmd(person);
+    expect(due).toBe('2020-01-08');
+  });
+
+  it('isAgreedReconnectSnoozed() suppresses overdue until agreed date passes', () => {
+    const futureYmd = todayYmd();
+    const person = {
+      lastConnected: parseYmdToMs('2000-01-01'),
+      reconnectRule: { interval: '1w' },
+      agreedReconnectOn: parseYmdToMs(futureYmd)
+    };
+    expect(isAgreedReconnectSnoozed(person)).toBe(true);
+    expect(isOverdueToReconnect(person)).toBe(false);
+  });
+
+  it('getUpcomingBirthdays() finds birthdays within window', () => {
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, '0');
+    const d = String(today.getDate()).padStart(2, '0');
+    addPerson({ name: 'Birthday pal', group: 'friends', birthday: `${y}-${m}-${d}` });
+    const upcoming = getUpcomingBirthdays(14);
+    expect(upcoming.some((u) => u.person.name === 'Birthday pal' && u.daysUntil === 0)).toBe(true);
+  });
+});

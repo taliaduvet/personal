@@ -57,6 +57,12 @@ export const state = {
   /** @type {{ id: string, label: string }[] | null} */
   peopleGroups: null,
   relationshipsDetailPersonId: null,
+  /** @type {'list'|'hierarchy'} */
+  relationshipsViewMode: 'list',
+  /** @type {Record<string, boolean>} */
+  relationshipsCollapsedGroupIds: {},
+  /** How many days ahead to show birthday reminders (Today + Relationships). */
+  birthdayReminderDays: 14,
   /** Shown in Settings; set from `product.json` (no private URLs). */
   buildRef: '',
   /** Optional white-label copy from `product.json`. */

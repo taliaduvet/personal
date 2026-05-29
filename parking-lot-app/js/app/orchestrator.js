@@ -139,6 +139,8 @@ let journalStoicLastBody = null;
 
 let tfApi;
 let unifiedApi;
+/** @type {{ openRelationshipsPanel: (personId?: string) => void } | null} */
+let relationshipsApi = null;
 let weekPlanningApi;
 let renderWeekStrip;
 /** @type {(ids: string[]) => void} */
@@ -203,7 +205,10 @@ function wireComposer() {
     updatePileSelectOptions,
     updatePersonSelectOptions,
     onAfterItemsChange: () => planningItemHooks.afterItemsChange(),
-    renderEditAiResult: (item) => aiResearchApi?.renderEditModalAiResult(item)
+    renderEditAiResult: (item) => aiResearchApi?.renderEditModalAiResult(item),
+    syncDevicePreferences: () => {
+      if (window.talkAbout && state.deviceSyncId) saveDevicePreferencesToSupabase();
+    }
   });
 
   /** Wired after unified Today exists so today-focus never repaints legacy HTML over unified markup. */
@@ -312,6 +317,9 @@ function wireComposer() {
     onWeekPlanChanged: () => {
       if (typeof renderWeekStrip === 'function') renderWeekStrip();
       if (window.talkAbout && state.deviceSyncId) saveDevicePreferencesToSupabase();
+    },
+    openRelationshipsPerson: (personId) => {
+      if (relationshipsApi && personId) relationshipsApi.openRelationshipsPanel(personId);
     }
   });
 
@@ -638,6 +646,12 @@ function wireComposer() {
     const showSuggestNextEl = document.getElementById('settings-show-suggest-next');
     if (showSuggestNextEl) showSuggestNextEl.checked = !!state.showSuggestNext;
 
+    const birthdayDaysEl = document.getElementById('settings-birthday-reminder-days');
+    if (birthdayDaysEl) {
+      const days = state.birthdayReminderDays != null ? state.birthdayReminderDays : 14;
+      birthdayDaysEl.value = String([3, 7, 14, 30].includes(days) ? days : 14);
+    }
+
     const presetRadios = document.querySelectorAll('input[name="category-preset"]');
     presetRadios.forEach(r => {
       r.checked = (r.value === (state.categoryPreset || 'generic'));
@@ -820,6 +834,7 @@ function wireComposer() {
     if (state.energyLevel) prefs.__energyLevel = state.energyLevel;
     if (state.energyDate) prefs.__energyDate = state.energyDate;
     if (Array.isArray(state.notes) && state.notes.length) prefs.__notes = state.notes;
+    if (typeof state.birthdayReminderDays === 'number') prefs.__birthdayReminderDays = state.birthdayReminderDays;
     return prefs;
   }
 
@@ -910,6 +925,10 @@ function wireComposer() {
         };
       });
       delete prefs.__notes;
+    }
+    if (typeof prefs.__birthdayReminderDays === 'number' && prefs.__birthdayReminderDays >= 1 && prefs.__birthdayReminderDays <= 60) {
+      state.birthdayReminderDays = prefs.__birthdayReminderDays;
+      delete prefs.__birthdayReminderDays;
     }
     if (!state.columnColors || typeof state.columnColors !== 'object') state.columnColors = {};
     getValidCategoryIds().forEach(id => {
@@ -1734,6 +1753,12 @@ function wireComposer() {
       const showSuggestNextInp = document.getElementById('settings-show-suggest-next');
       if (showSuggestNextInp) state.showSuggestNext = showSuggestNextInp.checked;
 
+      const birthdayDaysInp = document.getElementById('settings-birthday-reminder-days');
+      if (birthdayDaysInp) {
+        const d = parseInt(birthdayDaysInp.value, 10);
+        if (!isNaN(d) && d >= 1 && d <= 60) state.birthdayReminderDays = d;
+      }
+
       const btnColorInp = document.getElementById('settings-button-color');
       const textColorInp = document.getElementById('settings-text-color');
       if (btnColorInp && btnColorInp.value) state.buttonColor = btnColorInp.value;
@@ -1765,6 +1790,8 @@ function wireComposer() {
       saveState();
       updateCategorySelectOptions();
       renderColumns();
+      if (typeof renderTodayList === 'function') renderTodayList();
+      if (typeof renderFocusList === 'function') renderFocusList();
       const badge = document.getElementById('pair-badge');
       if (badge) {
         if (state.pairId) badge.textContent = state.pairId + ' · ' + ((state.displayName || '').trim() || state.addedBy);
@@ -2109,7 +2136,7 @@ function wireComposer() {
     notesApi?.bindEvents();
     inboxApi?.bindEvents();
     archiveApi?.bindEvents();
-    wireMainEvents({
+    relationshipsApi = wireMainEvents({
       closeSessionModal: () => sessionApi?.cancelSession(),
       openNotesPanel: () => notesApi?.openNotesPanel(),
       closeNotesPanel: () => notesApi?.closeNotesPanel(),
