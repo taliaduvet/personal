@@ -76,7 +76,10 @@ export function createUnifiedTodayRenderer(d) {
     d.state.weekPlan = pruneWeekPlan(d.state.items, d.state.weekPlan);
     d.saveState();
     if (typeof d.onWeekPlanChanged === 'function') d.onWeekPlanChanged();
-    refreshTodayAndFocus();
+    // Only sync the value to the sibling note field — do NOT call refreshTodayAndFocus()
+    // here, as that would destroy and recreate the textarea mid-keystroke, causing focus
+    // loss and the next spacebar to scroll the page instead of typing.
+    syncTodayNoteFields();
   }
 
   function syncTodayNoteFields() {

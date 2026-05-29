@@ -1345,7 +1345,7 @@ body.sidebar-open .sidebar-overlay {
 /* Unified Today — two-column layout (notes | focus card) */
 .unified-today-layout {
   display: grid;
-  grid-template-columns: 200px 1fr;
+  grid-template-columns: 260px 1fr;
   gap: 1rem;
   align-items: start;
   width: 100%;
@@ -1375,12 +1375,13 @@ body.sidebar-open .sidebar-overlay {
 
 .unified-today-notes-col .today-main-note-field {
   flex: 1;
-  min-height: 5rem;
+  min-height: 7rem;
   font-size: 0.88rem;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--bg-soft);
-  padding: 0.45rem 0.55rem;
+  padding: 0.5rem 0.65rem;
+  resize: vertical;
 }
 
 .unified-today-tasks-col {
