@@ -1313,6 +1313,101 @@ body.sidebar-open .sidebar-overlay {
   margin: 0;
 }
 
+/* Unified Today — two-column layout (notes | focus card) */
+.unified-today-layout {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 1rem;
+  align-items: start;
+  width: 100%;
+}
+
+@media (max-width: 700px) {
+  .unified-today-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.unified-today-notes-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.unified-today-notes-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.unified-today-notes-col .today-main-note-field {
+  flex: 1;
+  min-height: 5rem;
+  font-size: 0.88rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-soft);
+  padding: 0.45rem 0.55rem;
+}
+
+.unified-today-tasks-col {
+  min-width: 0;
+}
+
+.unified-today-focus-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-card);
+  padding: 0.65rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.unified-today-pile-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.5rem;
+  font-size: 0.95rem;
+  line-height: 1.35;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.unified-today-pile-title {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.unified-today-pile-actions {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.unified-today-focus-tasks {
+  border-left: 3px solid var(--accent);
+  padding-left: 0.6rem;
+}
+
+.unified-today-other-section {
+  margin-top: 0.35rem;
+  padding-top: 0.5rem;
+  border-top: 1px dashed var(--border);
+}
+
+.unified-today-other-heading {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+  margin-bottom: 0.35rem;
+}
+
 .unified-today-plan-hint-muted {
   margin: 0 0 0.6rem;
   font-size: 0.85rem;
@@ -1320,84 +1415,6 @@ body.sidebar-open .sidebar-overlay {
   line-height: 1.35;
 }
 
-/* Day note — collapsible <details> */
-.unified-today-day-note {
-  margin: 0 0 0.65rem;
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-  background: var(--bg-soft);
-  overflow: hidden;
-}
-
-.unified-today-day-note-toggle {
-  display: block;
-  cursor: pointer;
-  padding: 0.35rem 0.65rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--text-muted);
-  user-select: none;
-  list-style: none;
-}
-.unified-today-day-note-toggle::-webkit-details-marker { display: none; }
-.unified-today-day-note-toggle::before {
-  content: '▸ ';
-  font-size: 0.65rem;
-  opacity: 0.7;
-}
-.unified-today-day-note[open] .unified-today-day-note-toggle::before {
-  content: '▾ ';
-}
-.unified-today-day-note[open] .unified-today-day-note-toggle {
-  color: var(--text);
-  border-bottom: 1px solid var(--border);
-}
-.unified-today-day-note .today-main-note-field {
-  border: none;
-  border-radius: 0;
-  background: transparent;
-  padding: 0.4rem 0.65rem 0.5rem;
-  width: 100%;
-  box-sizing: border-box;
-  font-size: 0.88rem;
-}
-
-.unified-today-details summary {
-  cursor: pointer;
-  font-weight: 600;
-  padding: 0.35rem 0;
-}
-
-/* Focus zone — primary section */
-.unified-today-focus {
-  border-left: 3px solid var(--accent);
-  padding-left: 0.6rem;
-}
-.unified-today-focus > summary {
-  font-size: 1rem;
-  color: var(--text);
-}
-
-/* Escape hatch — "Outside the plan", visually secondary */
-.unified-today-escape {
-  margin-top: 0.5rem;
-  opacity: 0.7;
-  transition: opacity 150ms;
-}
-.unified-today-escape:hover,
-.unified-today-escape[open] {
-  opacity: 1;
-}
-.unified-today-other-summary {
-  font-size: 0.82rem !important;
-  font-weight: 500 !important;
-  color: var(--text-muted) !important;
-  letter-spacing: 0.02em;
-}
-
-.unified-today-focus-hint,
 .focus-pile-hint {
   margin: 0.15rem 0 0.5rem;
   padding: 0 0.1rem;

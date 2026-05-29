@@ -130,14 +130,41 @@ export function createUnifiedTodayRenderer(d) {
     return `<div class="today-reconnect-nudge">Reach out to: <strong>${names}${extra}</strong></div>`;
   }
 
-  /** One shared "Day note" control per list root (Today vs Focus); same backing field as week plan day note. */
-  function dayNoteEditorHtml(rootId) {
+  /** Left column: always-visible day note (week plan day note field). */
+  function notesColumnHtml(rootId) {
     const safeId = `today-main-note-${rootId.replace(/[^a-zA-Z0-9_-]/g, '')}`;
-    const hasNote = getTodayPlanNoteText().length > 0;
-    return `<details class="unified-today-day-note" ${hasNote ? 'open' : ''} aria-label="Day note">
-      <summary class="unified-today-day-note-toggle">${hasNote ? 'Day note' : '+ Note'}</summary>
-      <textarea id="${safeId}" class="settings-name-input today-main-note-field" rows="2" maxlength="400" placeholder="Jot something for today…" aria-label="Day note"></textarea>
-    </details>`;
+    return `<div class="unified-today-notes-col">
+      <label class="unified-today-notes-label" for="${safeId}">NOTES</label>
+      <textarea id="${safeId}" class="settings-name-input today-main-note-field" rows="4" maxlength="400" placeholder="Jot something for today…" aria-label="Day note"></textarea>
+    </div>`;
+  }
+
+  function layoutHtml(modeClass, rootId, rightInner) {
+    return `<div class="unified-today-layout ${modeClass}">
+      ${notesColumnHtml(rootId)}
+      <div class="unified-today-tasks-col">
+        <div class="unified-today-focus-card">${rightInner}</div>
+      </div>
+    </div>`;
+  }
+
+  function pileHeaderHtml(inner) {
+    return `<div class="unified-today-pile-header">${inner}</div>`;
+  }
+
+  function otherSectionHtml(title, items, emptyMsg) {
+    const body = items.length
+      ? items.map((i) => taskRowHtml(i)).join('')
+      : `<div class="empty-state">${emptyMsg}</div>`;
+    return `<div class="unified-today-other-section" data-section="other">
+      <div class="unified-today-other-heading">${escapeHtml(title)} <span class="badge-count">${items.length}</span></div>
+      ${overdueReconnectHtml()}
+      <div class="unified-today-section-body">${body}</div>
+    </div>`;
+  }
+
+  function bannersHtml(items, todayStr) {
+    return `${overwhelmBannerHtml(items, todayStr)}${capacityTotalHtml(items)}`;
   }
 
   function taskRowHtml(item, extraClass = '', orderOpt) {
@@ -271,25 +298,28 @@ export function createUnifiedTodayRenderer(d) {
         d.state.todaySuggestionIds,
         hiddenSetFor(todayStr)
       );
-      root.innerHTML = `
-        <div class="unified-today-no-plan">
-          ${dayNoteEditorHtml(rid)}
-          ${overwhelmBannerHtml(items, todayStr)}
-          ${capacityTotalHtml(items)}
-          ${isFocusMode
-            ? `<div class="unified-today-plan-cta">
-                <p class="unified-today-plan-cta-msg">No week plan yet — set one to unlock your daily focus pile.</p>
-                <button type="button" class="btn-primary unified-today-plan-cta-btn">Plan your week →</button>
-               </div>`
-            : `<p class="unified-today-plan-hint-muted">Use <strong>Plan</strong> in the header when you're ready to set this week's focus.</p>`}
-          <div class="unified-today-section-body" data-section="single">${items.length ? items.map((i) => {
+      const planBlock = isFocusMode
+        ? `<div class="unified-today-plan-cta">
+            <p class="unified-today-plan-cta-msg">No week plan yet — set one to unlock your daily focus pile.</p>
+            <button type="button" class="btn-primary unified-today-plan-cta-btn">Plan your week →</button>
+           </div>`
+        : `<p class="unified-today-plan-hint-muted">Use <strong>Plan</strong> in the header when you're ready to set this week's focus.</p>`;
+      const taskBody = items.length
+        ? items.map((i) => {
             const idx = d.state.todaySuggestionIds.indexOf(i.id);
             const inExp = idx >= 0;
             const canUp = inExp && idx > 0;
             const canDown = inExp && idx < d.state.todaySuggestionIds.length - 1;
             return taskRowHtml(i, '', inExp ? { show: true, canUp, canDown } : null);
-          }).join('') : '<div class="empty-state">Nothing dated for today — add tasks below or drag them here</div>'}</div>
-        </div>`;
+          }).join('')
+        : '<div class="empty-state">Nothing dated for today — add tasks below or drag them here</div>';
+      root.innerHTML = layoutHtml(
+        'unified-today-no-plan',
+        rid,
+        `${bannersHtml(items, todayStr)}
+        ${planBlock}
+        <div class="unified-today-section-body" data-section="single">${taskBody}</div>`
+      );
       bindTodayListEvents(root, { removeFromToday, reorderExplicit: true });
       root.querySelector('.unified-today-plan-cta-btn')?.addEventListener('click', () => d.openPlanningEntry({}));
       root.querySelector('.btn-dismiss-overwhelm')?.addEventListener('click', () => {
@@ -307,31 +337,19 @@ export function createUnifiedTodayRenderer(d) {
         d.state.todaySuggestionIds,
         hiddenSetFor(todayStr)
       );
-      const otherOpen = d.state.otherCollapsedOnDate !== todayStr;
-      root.innerHTML = `
-        <div class="unified-today-blank">
-          ${dayNoteEditorHtml(rid)}
-          ${overwhelmBannerHtml(otherItems, todayStr)}
-          ${capacityTotalHtml(otherItems)}
-          <div class="unified-today-banner"><strong>No focus pile for today</strong> — <button type="button" class="btn-link set-plan-today-btn">Plan your week →</button></div>
-          <details class="unified-today-details" ${otherOpen ? 'open' : ''} data-section="other">
-            <summary>Other <span class="badge-count" data-other-count>${otherItems.length}</span></summary>
-            ${overdueReconnectHtml()}
-            <div class="unified-today-section-body">${otherItems.length ? otherItems.map(i => taskRowHtml(i)).join('') : '<div class="empty-state">Nothing here yet</div>'}</div>
-          </details>
-        </div>`;
+      root.innerHTML = layoutHtml(
+        'unified-today-blank',
+        rid,
+        `${bannersHtml(otherItems, todayStr)}
+        ${pileHeaderHtml('<span class="unified-today-pile-title">No focus pile for today</span> — <button type="button" class="btn-link set-plan-today-btn">Plan your week →</button>')}
+        ${otherSectionHtml('Other', otherItems, 'Nothing here yet')}`
+      );
       bindTodayListEvents(root, { removeFromToday });
       root.querySelector('.set-plan-today-btn')?.addEventListener('click', () => d.openPlanningEntry({ scrollToDate: todayStr }));
       root.querySelector('.btn-dismiss-overwhelm')?.addEventListener('click', () => {
         d.state.todayOverwhelmDismissed = todayStr;
         d.saveState();
         refreshTodayAndFocus();
-      });
-      const det = root.querySelector('details[data-section="other"]');
-      det?.addEventListener('toggle', () => {
-        if (!det.open) d.state.otherCollapsedOnDate = todayStr;
-        else d.state.otherCollapsedOnDate = null;
-        d.saveState();
       });
       return;
     }
@@ -348,33 +366,28 @@ export function createUnifiedTodayRenderer(d) {
       d.state.todaySuggestionIds,
       hidden
     );
-    // "Outside the plan" is closed by default; only open if user explicitly opened it today
-    const otherOpen = d.state.otherOpenedOnDate === todayStr;
-
     const allTodayItems = [...focusItems, ...otherItems];
-    root.innerHTML = `
-      <div class="unified-today-with-plan">
-        ${dayNoteEditorHtml(rid)}
-        ${overwhelmBannerHtml(allTodayItems, todayStr)}
-        ${capacityTotalHtml(allTodayItems)}
-        <details class="unified-today-details unified-today-focus" open data-section="focus">
-          <summary>Today: ${escapeHtml(pileLabel)}</summary>
-          <p class="unified-today-focus-hint">
-            <button type="button" class="btn-link pile-change-today-btn" title="Switch today's pile">↻ Switch pile</button>
-            · <button type="button" class="btn-link unified-today-review-plan-btn">Review week</button>
-          </p>
-          <div class="unified-today-section-body">${focusItems.length ? focusItems.map((i, idx) => {
-            const canUp = idx > 0;
-            const canDown = idx < focusItems.length - 1;
-            return taskRowHtml(i, '', { show: true, canUp, canDown });
-          }).join('') : '<div class="empty-state">No tasks in this pile — add on the board</div>'}</div>
-        </details>
-        <details class="unified-today-details unified-today-escape" ${otherOpen ? 'open' : ''} data-section="other">
-          <summary class="unified-today-other-summary">Outside the plan <span class="badge-count">${otherItems.length}</span></summary>
-          ${overdueReconnectHtml()}
-          <div class="unified-today-section-body">${otherItems.length ? otherItems.map(i => taskRowHtml(i)).join('') : '<div class="empty-state">Nothing else dated or pinned for today</div>'}</div>
-        </details>
-      </div>`;
+    const focusBody = focusItems.length
+      ? focusItems.map((i, idx) => {
+          const canUp = idx > 0;
+          const canDown = idx < focusItems.length - 1;
+          return taskRowHtml(i, '', { show: true, canUp, canDown });
+        }).join('')
+      : '<div class="empty-state">No tasks in this pile — add on the board</div>';
+    root.innerHTML = layoutHtml(
+      'unified-today-with-plan',
+      rid,
+      `${bannersHtml(allTodayItems, todayStr)}
+      ${pileHeaderHtml(`<span class="unified-today-pile-title">Today: ${escapeHtml(pileLabel)}</span>
+        <span class="unified-today-pile-actions">
+          <button type="button" class="btn-link pile-change-today-btn" title="Switch today's pile">↻ Switch pile</button>
+          · <button type="button" class="btn-link unified-today-review-plan-btn">Review week</button>
+        </span>`)}
+      <div class="unified-today-focus-tasks" data-section="focus">
+        <div class="unified-today-section-body">${focusBody}</div>
+      </div>
+      ${otherSectionHtml('Outside the plan', otherItems, 'Nothing else dated or pinned for today')}`
+    );
 
     bindTodayListEvents(root, { removeFromToday, focusPileReorderTodayStr: todayStr });
     root.querySelector('.unified-today-review-plan-btn')?.addEventListener('click', () => {
@@ -388,12 +401,6 @@ export function createUnifiedTodayRenderer(d) {
       d.state.todayOverwhelmDismissed = todayStr;
       d.saveState();
       refreshTodayAndFocus();
-    });
-    const otherDet = root.querySelector('details[data-section="other"]');
-    otherDet?.addEventListener('toggle', () => {
-      if (otherDet.open) d.state.otherOpenedOnDate = todayStr;
-      else d.state.otherOpenedOnDate = null;
-      d.saveState();
     });
   }
 
