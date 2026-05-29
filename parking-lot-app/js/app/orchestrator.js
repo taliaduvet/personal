@@ -128,6 +128,7 @@ import { wireMainEvents } from '../features/events.js';
 import { createSessionController } from '../features/sessions.js';
 import { createNotesPanel } from '../features/notes-panel.js';
 import { archiveDayNote, getNotesForDate } from '../domain/notes.js';
+import { createFocusTimer } from '../features/focus-timer.js';
 import { createInboxSession } from '../features/inbox-session.js';
 import { createArchiveCalendar } from '../features/archive-calendar.js';
 import { createAiResearch } from '../features/ai-research.js';
@@ -170,6 +171,8 @@ let eventsWired = false;
 let sessionApi = null;
 /** @type {ReturnType<typeof createNotesPanel>|null} */
 let notesApi = null;
+/** @type {ReturnType<typeof createFocusTimer>|null} */
+let focusTimerApi = null;
 /** @type {ReturnType<typeof createInboxSession>|null} */
 let inboxApi = null;
 /** @type {ReturnType<typeof createArchiveCalendar>|null} */
@@ -232,6 +235,9 @@ function wireComposer() {
     showToast,
     openEditModal: (id) => modalApi.openEditModal(id)
   });
+
+  focusTimerApi = createFocusTimer({ saveState, showToast });
+  focusTimerApi.boot();
 
   inboxApi = createInboxSession({
     state,
@@ -1826,6 +1832,7 @@ function wireComposer() {
       if (overview) overview.style.display = 'none';
       if (todayPanelWrap) todayPanelWrap.style.display = 'none';
       renderFocusList();
+      focusTimerApi?.renderWidgets();
     } else {
       if (focusMode) focusMode.style.display = 'none';
       if (overview) overview.style.display = '';

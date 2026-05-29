@@ -92,5 +92,7 @@ export const state = {
   /** Task id with open inline AI research prompt. */
   aiPromptTaskId: null,
   /** Task id with expanded inline AI result panel. */
-  aiResultTaskId: null
+  aiResultTaskId: null,
+  /** @type {import('./types.js').FocusTimerState|null} */
+  focusTimer: null
 };

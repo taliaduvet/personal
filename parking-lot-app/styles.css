@@ -4873,6 +4873,224 @@ body.week-planning-open .modal {
   border-color: var(--accent);
 }
 
+/* ── Focus Block Timer ──────────────────────────────────────────────── */
+
+/* Shared widget shell */
+.focus-timer-widget {
+  display: flex;
+  align-items: center;
+}
+
+/* ── Idle state ── */
+.ft-idle {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.ft-icon {
+  font-size: 0.85rem;
+  opacity: 0.6;
+}
+.ft-presets {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-wrap: nowrap;
+}
+.ft-preset {
+  font-size: 0.72rem;
+  padding: 0.18rem 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-soft);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out),
+              border-color var(--dur-fast) var(--ease-out),
+              color var(--dur-fast) var(--ease-out);
+}
+.ft-preset:hover {
+  background: var(--bg-card);
+  border-color: var(--accent-sage);
+  color: var(--text);
+}
+.ft-custom-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+}
+.ft-custom-input {
+  width: 2.8rem;
+  font-size: 0.72rem;
+  padding: 0.18rem 0.3rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-soft);
+  color: var(--text);
+  text-align: center;
+}
+.ft-custom-input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.ft-custom-go {
+  font-size: 0.65rem;
+  padding: 0.18rem 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-soft);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.ft-custom-go:hover { background: var(--bg-card); color: var(--text); }
+
+/* ── Running state ── */
+.ft-running {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.ft-ring {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+}
+.ft-ring-track {
+  fill: none;
+  stroke: var(--border);
+  stroke-width: 3;
+}
+.ft-ring-fill {
+  fill: none;
+  stroke: var(--accent-sage);
+  stroke-width: 3;
+  stroke-linecap: round;
+  transition: stroke-dasharray 0.9s linear;
+}
+.ft-warning .ft-ring-fill {
+  stroke: var(--accent-amber, #c9a86c);
+}
+.ft-running-inner {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+.ft-countdown {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: 0.03em;
+}
+.ft-warning .ft-countdown {
+  color: var(--accent-amber, #c9a86c);
+  animation: ft-pulse 1.2s ease-in-out infinite;
+}
+.ft-running-label {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.ft-end-btn {
+  font-size: 0.7rem;
+  width: 1.5rem;
+  height: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background var(--dur-fast), border-color var(--dur-fast);
+}
+.ft-end-btn:hover { background: var(--bg-card); border-color: var(--negative); color: var(--negative); }
+
+@keyframes ft-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+/* ── Large variant (focus mode) ── */
+.focus-timer-widget--large {
+  margin-bottom: 1rem;
+}
+.focus-timer-widget--large .ft-ring {
+  width: 52px;
+  height: 52px;
+}
+.focus-timer-widget--large .ft-ring-track,
+.focus-timer-widget--large .ft-ring-fill {
+  stroke-width: 3.5;
+}
+.focus-timer-widget--large .ft-countdown {
+  font-size: 1.4rem;
+}
+.focus-timer-widget--large .ft-running-label {
+  font-size: 0.72rem;
+}
+.focus-timer-widget--large .ft-preset {
+  font-size: 0.85rem;
+  padding: 0.3rem 0.75rem;
+}
+.focus-timer-widget--large .ft-custom-input {
+  width: 3.5rem;
+  font-size: 0.85rem;
+}
+.focus-timer-widget--large .ft-end-btn {
+  width: 2rem;
+  height: 2rem;
+  font-size: 0.85rem;
+}
+
+/* ── Summary modal ── */
+.focus-summary-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 4500;
+  padding: 1rem;
+}
+.focus-summary-content {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 40px rgba(0,0,0,0.28);
+  width: 100%;
+  max-width: 480px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.focus-summary-header h3 {
+  margin: 0 0 0.15rem;
+  font-size: 1.1rem;
+}
+.focus-summary-sub {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+.focus-summary-label {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+.focus-summary-textarea {
+  min-height: 7rem;
+  resize: vertical;
+  font-size: 0.92rem;
+}
+.focus-summary-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
 /* Brain dump bar — sits at bottom; FABs float above it */
 .brain-dump-bar {
   position: fixed;

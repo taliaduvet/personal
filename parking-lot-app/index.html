@@ -77,6 +77,7 @@
                 <button type="button" class="energy-btn" data-level="medium" title="Steady energy — regular work">⚡ Medium</button>
                 <button type="button" class="energy-btn" data-level="high" title="High energy — tackle hard things">🔥 High</button>
               </div>
+              <div class="focus-timer-widget" id="focus-timer-today"></div>
             </div>
             <span id="completed-tally" class="tally">Completed today: 0</span>
             <div class="today-header-actions">
@@ -128,6 +129,7 @@
         <div id="focus-mode" class="focus-mode" style="display:none">
           <div class="focus-content">
             <h1>Your Focus</h1>
+            <div class="focus-timer-widget focus-timer-widget--large" id="focus-timer-focus"></div>
             <p id="focus-tally" class="focus-tally">Completed today: 0</p>
             <div id="focus-list" class="focus-list unified-today"></div>
           </div>
@@ -157,6 +159,22 @@
   <div id="brain-dump-bar" class="brain-dump-bar" style="display:none">
     <textarea id="brain-dump-input" rows="1" placeholder="Capture anything — Enter for task, # for note, ! for urgent..." autocomplete="off" aria-label="Brain dump capture"></textarea>
     <button id="brain-dump-submit" type="button" class="btn-secondary btn-sm" title="Send to Inbox">→</button>
+  </div>
+
+  <!-- Focus Block summary modal -->
+  <div id="focus-summary-modal" class="focus-summary-overlay" style="display:none" role="dialog" aria-modal="true" aria-labelledby="focus-summary-heading">
+    <div class="focus-summary-content">
+      <div class="focus-summary-header">
+        <h3 id="focus-summary-heading">Block complete 🎉</h3>
+        <p class="focus-summary-sub"></p>
+      </div>
+      <label class="focus-summary-label" for="focus-summary-text">What did you get done?</label>
+      <textarea id="focus-summary-text" class="settings-name-input focus-summary-textarea" rows="5" placeholder="Quick brain dump — what happened in this block? (Cmd+Enter to save)"></textarea>
+      <div class="focus-summary-actions">
+        <button id="focus-summary-save" type="button" class="btn-primary">Save summary</button>
+        <button id="focus-summary-skip" type="button" class="btn-secondary">Skip</button>
+      </div>
+    </div>
   </div>
 
   <div id="add-modal" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="add-modal-title">

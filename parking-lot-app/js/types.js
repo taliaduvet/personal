@@ -43,7 +43,7 @@
  * @property {string} date - YYYY-MM-DD local
  * @property {string} text
  * @property {string|null} taskId
- * @property {'standalone'|'quick-capture'|'session'|'ai_research'|'day-note'} source
+ * @property {'standalone'|'quick-capture'|'session'|'ai_research'|'day-note'|'focus-block'} source
  * @property {boolean} triaged
  * @property {number} createdAt
  * @property {number} updatedAt
@@ -112,6 +112,15 @@
  * @typedef {Object} WeekPlanState
  * @property {string|null} anchorWeekStart
  * @property {Record<string, { pileId: string|null, orderedTaskIds: string[], note: string, excludedTaskIds: string[] }>} days — `excludedTaskIds` hides pile tasks from that day’s plan without removing them from the pile
+ */
+
+/**
+ * @typedef {Object} FocusTimerState
+ * @property {number} endMs - absolute epoch ms when block ends
+ * @property {number} durationMs - chosen duration in ms
+ * @property {string} label - human label e.g. "45 min"
+ * @property {boolean} warningSent - 10-min notification already fired
+ * @property {boolean} endSent - end notification already fired
  */
 
 /**
