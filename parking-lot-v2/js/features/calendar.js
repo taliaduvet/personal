@@ -144,36 +144,78 @@ export async function silentRefresh() {
 // ── Calendar API ─────────────────────────────────────────────────────────────
 
 /**
- * Fetches events from the primary calendar.
+ * Returns all user-enabled calendar IDs (including work/secondary calendars).
+ * Results are cached for 1 hour.
+ * @returns {Promise<string[]>}
+ */
+async function getCalendarIds() {
+  const cached = readCache('calendarList', 60 * 60 * 1000);
+  if (cached) return cached;
+
+  const resp = await fetch(`${CAL_API}/users/me/calendarList?minAccessRole=reader`, {
+    headers: { Authorization: `Bearer ${_accessToken}` }
+  });
+  if (!resp.ok) return ['primary'];
+  const data = await resp.json();
+  // Only include calendars the user has selected/visible in Google Calendar
+  const ids = (data.items || [])
+    .filter(c => c.selected !== false && !c.deleted)
+    .map(c => c.id);
+  const result = ids.length ? ids : ['primary'];
+  writeCache('calendarList', result);
+  return result;
+}
+
+/**
+ * Fetches events from ALL user calendars and merges them.
  * @param {string} timeMin ISO string
  * @param {string} timeMax ISO string
  * @returns {Promise<GCalEvent[]|null>}
  */
 async function fetchEvents(timeMin, timeMax) {
   if (!isConnected()) {
-    // Try silent refresh before giving up
     const ok = await silentRefresh();
     if (!ok) return null;
   }
 
-  const url = new URL(`${CAL_API}/calendars/primary/events`);
-  url.searchParams.set('timeMin', timeMin);
-  url.searchParams.set('timeMax', timeMax);
-  url.searchParams.set('singleEvents', 'true');
-  url.searchParams.set('orderBy', 'startTime');
-  url.searchParams.set('maxResults', '50');
+  const calIds = await getCalendarIds();
 
-  const resp = await fetch(url.toString(), {
-    headers: { Authorization: `Bearer ${_accessToken}` }
-  });
+  const results = await Promise.allSettled(
+    calIds.map(async (calId) => {
+      const url = new URL(`${CAL_API}/calendars/${encodeURIComponent(calId)}/events`);
+      url.searchParams.set('timeMin', timeMin);
+      url.searchParams.set('timeMax', timeMax);
+      url.searchParams.set('singleEvents', 'true');
+      url.searchParams.set('orderBy', 'startTime');
+      url.searchParams.set('maxResults', '50');
 
-  if (resp.status === 401) {
-    clearToken();
-    return null;
+      const resp = await fetch(url.toString(), {
+        headers: { Authorization: `Bearer ${_accessToken}` }
+      });
+      if (resp.status === 401) { clearToken(); return []; }
+      if (!resp.ok) return [];
+      const data = await resp.json();
+      return data.items || [];
+    })
+  );
+
+  // Merge all calendars, deduplicate by event id
+  const seen = new Set();
+  const merged = [];
+  for (const r of results) {
+    if (r.status === 'fulfilled') {
+      for (const ev of r.value) {
+        if (!seen.has(ev.id)) { seen.add(ev.id); merged.push(ev); }
+      }
+    }
   }
-  if (!resp.ok) return null;
-  const data = await resp.json();
-  return data.items || [];
+  // Sort by start time
+  merged.sort((a, b) => {
+    const ta = a.start.dateTime || a.start.date || '';
+    const tb = b.start.dateTime || b.start.date || '';
+    return ta < tb ? -1 : ta > tb ? 1 : 0;
+  });
+  return merged;
 }
 
 /** @typedef {{ id: string, summary: string, start: { dateTime?: string, date?: string }, end: { dateTime?: string, date?: string }, allDay?: boolean }} GCalEvent */
