@@ -39,7 +39,7 @@ describe('domain/piles-people', () => {
     ];
     const clearedCount = deletePile(pileId);
     expect(clearedCount).toBe(1);
-    expect(state.items.find(i => i.id === 't1')?.pileId).toBe(null);
+    expect(state.items.find(i => i.id === 't1')?.pileId).toBe('pile_inbox');
     expect(state.piles.some(p => p.id === pileId)).toBe(false);
   });
 

@@ -102,7 +102,7 @@ describe('domain/tasks', () => {
     const item = createItem('hello', null, null, null, null, null, null, undefined, 'not-a-friction', 'person_1');
     expect(item.category).toBe('work');
     expect(item.friction).toBe(null);
-    expect(item.pileId).toBe(null);
+    expect(item.pileId).toBe('pile_inbox');
     expect(item.personId).toBe('person_1');
     expect(item.archived).toBe(false);
   });
