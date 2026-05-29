@@ -2256,6 +2256,26 @@ body.week-planning-open .modal {
   gap: 0.75rem;
 }
 
+.focus-list .unified-today-layout {
+  grid-template-columns: 1fr 1fr;
+  align-items: stretch;
+}
+
+.focus-list .unified-today-notes-col {
+  height: 100%;
+}
+
+.focus-list .unified-today-notes-col .today-main-note-field {
+  flex: 1;
+  min-height: 16rem;
+  resize: vertical;
+}
+
+.focus-list .unified-today-focus-card {
+  height: 100%;
+  box-sizing: border-box;
+}
+
 .focus-list .task-card {
   padding: 1rem;
 }
