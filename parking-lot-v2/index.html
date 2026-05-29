@@ -73,10 +73,12 @@
               <button type="button" id="plan-week-header-btn" class="btn-secondary btn-sm">Plan</button>
               <div id="gcal-today-strip" class="gcal-today-strip" style="display:none" aria-live="polite"></div>
               <div id="energy-widget" class="energy-widget" title="How's your energy today?">
-                <span class="energy-label">Energy:</span>
-                <button type="button" class="energy-btn" data-level="low" title="Low energy — quick wins only">🌱 Low</button>
-                <button type="button" class="energy-btn" data-level="medium" title="Steady energy — regular work">⚡ Medium</button>
-                <button type="button" class="energy-btn" data-level="high" title="High energy — tackle hard things">🔥 High</button>
+                <button type="button" class="energy-current" id="energy-current-btn" title="Set your energy level">🌱 Energy</button>
+                <div class="energy-picker" id="energy-picker" style="display:none">
+                  <button type="button" class="energy-btn" data-level="low" title="Low energy — quick wins only">🌱 Low</button>
+                  <button type="button" class="energy-btn" data-level="medium" title="Steady energy — regular work">⚡ Medium</button>
+                  <button type="button" class="energy-btn" data-level="high" title="High energy — tackle hard things">🔥 High</button>
+                </div>
               </div>
               <div class="focus-timer-widget" id="focus-timer-today"></div>
             </div>

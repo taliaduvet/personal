@@ -1120,6 +1120,7 @@ function wireComposer() {
     saveState();
     if (window.talkAbout && state.deviceSyncId) saveDevicePreferencesToSupabase();
     renderEnergyWidget();
+    toggleEnergyPicker(false);
   }
 
   function renderEnergyWidget() {
@@ -1127,9 +1128,25 @@ function wireComposer() {
     if (!widget) return;
     const todayStr = getTodayLocalYYYYMMDD();
     const current = state.energyDate === todayStr ? state.energyLevel : null;
+
+    const LABELS = { low: '🌱 Low', medium: '⚡ Medium', high: '🔥 High' };
+    const currentBtn = document.getElementById('energy-current-btn');
+    if (currentBtn) {
+      currentBtn.textContent = current ? LABELS[current] : '🌱 Energy';
+      currentBtn.dataset.active = current ? 'true' : 'false';
+    }
     widget.querySelectorAll('.energy-btn').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.level === current);
     });
+  }
+
+  function toggleEnergyPicker(force) {
+    const picker = document.getElementById('energy-picker');
+    if (!picker) return;
+    const isOpen = picker.style.display !== 'none';
+    const shouldOpen = force !== undefined ? force : !isOpen;
+    picker.style.display = shouldOpen ? 'flex' : 'none';
+    document.getElementById('energy-widget')?.classList.toggle('energy-widget--open', shouldOpen);
   }
 
   // ── Google Calendar strip ─────────────────────────────────────────────────
@@ -1149,18 +1166,15 @@ function wireComposer() {
       const todayYMD = getTodayLocalYYYYMMDD();
       const timedEvents = events.filter(e => e.start.dateTime);
       const freeH = calcFreeHours(events, todayYMD);
-
-      if (!timedEvents.length) {
-        strip.innerHTML = `<span class="gcal-free-chip gcal-free-high">📅 No meetings · ${freeH}h free</span>`;
-        return;
-      }
-
-      const eventChips = timedEvents.slice(0, 3).map(ev =>
-        `<span class="gcal-event-chip" title="${ev.summary} · ${formatEventRange(ev)}">${formatEventTime(ev)} ${ev.summary}</span>`
-      ).join('');
-      const more = timedEvents.length > 3 ? `<span class="gcal-more">+${timedEvents.length - 3} more</span>` : '';
       const freeClass = freeH >= 5 ? 'gcal-free-high' : freeH >= 2.5 ? 'gcal-free-mid' : 'gcal-free-low';
-      strip.innerHTML = `${eventChips}${more}<span class="gcal-free-chip ${freeClass}">~${freeH}h free</span>`;
+      const meetingCount = timedEvents.length;
+      const tooltip = meetingCount
+        ? timedEvents.map(ev => `${formatEventRange(ev)} ${ev.summary}`).join('\n')
+        : 'No meetings today';
+      const label = meetingCount
+        ? `📅 ${meetingCount} meeting${meetingCount > 1 ? 's' : ''} · ~${freeH}h free`
+        : `📅 No meetings · ${freeH}h free`;
+      strip.innerHTML = `<span class="gcal-free-chip ${freeClass}" title="${tooltip}">${label}</span>`;
     } catch (e) {
       console.warn('[calendar] strip render failed', e);
       strip.style.display = 'none';
@@ -2326,6 +2340,7 @@ function wireComposer() {
       saveSettingsAndClose,
       saveState,
       setEnergy,
+      toggleEnergyPicker,
       setJournalFocusMode,
       submitAddFromTalk,
       submitBrainDump,
