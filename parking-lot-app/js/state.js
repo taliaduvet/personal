@@ -82,5 +82,9 @@ export const state = {
   /** YYYY-MM-DD — if set to today, the overwhelm banner has been dismissed. */
   todayOverwhelmDismissed: null,
   /** @type {import('./types.js').AppNote[]} */
-  notes: []
+  notes: [],
+  /** Task id with open inline AI research prompt. */
+  aiPromptTaskId: null,
+  /** Task id with expanded inline AI result panel. */
+  aiResultTaskId: null
 };

@@ -4,6 +4,7 @@ import { escapeHtml } from '../utils/dom.js';
 import { formatDeadline, formatDuration, parseLocalDate } from '../domain/tasks.js';
 import { getPileName, getPersonName } from '../domain/piles-people.js';
 import { getCategoryOptionLabel } from '../domain/categories.js';
+import { buildTaskAiPanelHtml } from '../features/ai-research.js';
 
 function formatSessionTime(seconds) {
   if (!seconds) return null;
@@ -76,20 +77,29 @@ export function renderTaskCard(item, opts) {
         </div>`;
 
   const firstStepHtml = item.firstStep ? `<div class="task-first-step">Start by: ${escapeHtml(item.firstStep)}</div>` : '';
+  const aiPanel = buildTaskAiPanelHtml(item, {
+    aiPromptTaskId: state.aiPromptTaskId || null,
+    aiResultTaskId: state.aiResultTaskId || null
+  });
+  const aiExpanded = !!(state.aiPromptTaskId === item.id || state.aiResultTaskId === item.id || item.aiAction === 'research' || (item.aiResult && !item.aiResultRead));
   return `
-      <div class="task-card ${overdue ? 'overdue' : ''} ${checked ? 'selected' : ''} ${daysParked >= 30 ? 'stale-nudge' : ''}" data-id="${item.id}"${staleNudge}>
-        <span class="task-drag-handle" draggable="true" data-id="${item.id}" title="Click to select for Today · Drag to reorder" aria-label="Select or drag task">⋮⋮</span>
-        <div class="task-content">
-          <div class="task-text">${escapeHtml(item.text)}</div>
-          ${firstStepHtml}
-          ${metaRow}
+      <div class="task-card ${overdue ? 'overdue' : ''} ${checked ? 'selected' : ''} ${daysParked >= 30 ? 'stale-nudge' : ''} ${aiExpanded ? 'task-card-ai-open' : ''}" data-id="${item.id}"${staleNudge}>
+        <div class="task-card-row">
+          <span class="task-drag-handle" draggable="true" data-id="${item.id}" title="Click to select for Today · Drag to reorder" aria-label="Select or drag task">⋮⋮</span>
+          <div class="task-content">
+            <div class="task-text">${escapeHtml(item.text)}</div>
+            ${firstStepHtml}
+            ${metaRow}
+          </div>
+          <div class="task-actions">
+            <button type="button" class="btn-ai-research" data-id="${item.id}" title="Ask Claude to research this">⚡</button>
+            <button type="button" class="btn-session ${isSessionActive ? 'btn-session-active' : ''}" data-id="${item.id}" title="${isSessionActive ? 'Session in progress — click to open' : 'Start a session'}">${isSessionActive ? '■' : '▶'}</button>
+            <button class="btn-done-card" data-id="${item.id}" title="Done">✓</button>
+            <button class="btn-edit" data-id="${item.id}" title="Edit">✎</button>
+            <button class="btn-drop" data-id="${item.id}" title="Drop">×</button>
+          </div>
         </div>
-        <div class="task-actions">
-          <button type="button" class="btn-session ${isSessionActive ? 'btn-session-active' : ''}" data-id="${item.id}" title="${isSessionActive ? 'Session in progress — click to open' : 'Start a session'}">${isSessionActive ? '■' : '▶'}</button>
-          <button class="btn-done-card" data-id="${item.id}" title="Done">✓</button>
-          <button class="btn-edit" data-id="${item.id}" title="Edit">✎</button>
-          <button class="btn-drop" data-id="${item.id}" title="Drop">×</button>
-        </div>
+        ${aiPanel}
       </div>
     `;
 }

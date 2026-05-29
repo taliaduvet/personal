@@ -29,6 +29,7 @@ import {
  * @property {(selectIdOrEl: string|HTMLElement, selectedPileId?: string) => void} updatePileSelectOptions
  * @property {(selectIdOrEl: string|HTMLElement, selectedPersonId?: string) => void} updatePersonSelectOptions
  * @property {() => void} [onAfterItemsChange] — e.g. refresh week planner when it is open
+ * @property {(item: import('../types.js').Task) => void} [renderEditAiResult]
  */
 
 /**
@@ -44,7 +45,8 @@ export function createModalController(deps) {
     updateCategorySelectOptions,
     updatePileSelectOptions,
     updatePersonSelectOptions,
-    onAfterItemsChange = () => {}
+    onAfterItemsChange = () => {},
+    renderEditAiResult = () => {}
   } = deps;
 
   function renderColumns() {
@@ -419,12 +421,18 @@ export function createModalController(deps) {
     document.getElementById('edit-priority').innerHTML = PRIORITIES.map((p) =>
       `<option value="${p}" ${p === item.priority ? 'selected' : ''}>${p.charAt(0).toUpperCase() + p.slice(1)}</option>`
     ).join('');
+    renderEditAiResult(item);
     document.getElementById('edit-modal').style.display = 'flex';
   }
 
   function closeEditModal() {
     document.getElementById('edit-modal').style.display = 'none';
     state.editingId = null;
+    const aiEl = document.getElementById('edit-ai-result');
+    if (aiEl) {
+      aiEl.innerHTML = '';
+      aiEl.style.display = 'none';
+    }
   }
 
   function saveEdit() {

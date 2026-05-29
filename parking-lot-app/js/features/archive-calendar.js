@@ -106,7 +106,7 @@ export function createArchiveCalendar(deps) {
         parts.push(
           `<div class="archive-session-item">${escapeHtml(item.text)} · ${ctx} · ${escapeHtml(dur)}</div>`
         );
-        if (s.notes) {
+        if (s.notes && !s.paused) {
           parts.push(`<div class="archive-session-item-notes">└ "${escapeHtml(s.notes)}"</div>`);
         }
       });

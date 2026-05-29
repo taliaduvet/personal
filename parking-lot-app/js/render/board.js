@@ -26,6 +26,7 @@ import { renderTaskCard } from './task-card.js';
  * @param {(id: string, showUndo?: boolean) => void} d.deleteItem
  * @param {(id: string) => void} d.markDone
  * @param {(id: string) => void} d.openSessionModal
+ * @param {(container: HTMLElement) => void} [d.bindAiResearchEvents]
  * @param {() => void} d.updateAddToSuggestionsBtn
  */
 export function createBoardRenderer(d) {
@@ -285,6 +286,8 @@ export function createBoardRenderer(d) {
         d.openSessionModal(btn.dataset.id);
       });
     });
+
+    d.bindAiResearchEvents?.(container);
 
     container.querySelectorAll('.task-meta-clickable').forEach(el => {
       el.addEventListener('click', (e) => {

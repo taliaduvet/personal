@@ -129,6 +129,7 @@ import { createSessionController } from '../features/sessions.js';
 import { createNotesPanel } from '../features/notes-panel.js';
 import { createInboxSession } from '../features/inbox-session.js';
 import { createArchiveCalendar } from '../features/archive-calendar.js';
+import { createAiResearch } from '../features/ai-research.js';
 import { processBrainDumpLine } from '../domain/brain-dump.js';
 
 wirePersist(() => saveState());
@@ -170,6 +171,8 @@ let notesApi = null;
 let inboxApi = null;
 /** @type {ReturnType<typeof createArchiveCalendar>|null} */
 let archiveApi = null;
+/** @type {ReturnType<typeof createAiResearch>|null} */
+let aiResearchApi = null;
 
 /** Set in {@link wireComposer} — add/edit modal + voice/quick handlers. */
 let modalApi;
@@ -199,7 +202,8 @@ function wireComposer() {
     updateCategorySelectOptions,
     updatePileSelectOptions,
     updatePersonSelectOptions,
-    onAfterItemsChange: () => planningItemHooks.afterItemsChange()
+    onAfterItemsChange: () => planningItemHooks.afterItemsChange(),
+    renderEditAiResult: (item) => aiResearchApi?.renderEditModalAiResult(item)
   });
 
   /** Wired after unified Today exists so today-focus never repaints legacy HTML over unified markup. */
@@ -235,6 +239,14 @@ function wireComposer() {
 
   archiveApi = createArchiveCalendar({ state });
 
+  aiResearchApi = createAiResearch({
+    state,
+    saveState,
+    showToast,
+    getRenderColumns: () => renderColumns,
+    getRenderTodayList: () => renderTodayList
+  });
+
   const board = createBoardRenderer({
     state,
     saveState,
@@ -245,6 +257,7 @@ function wireComposer() {
     deleteItem,
     markDone,
     openSessionModal: (id) => sessionApi?.openSessionModal(id),
+    bindAiResearchEvents: (container) => aiResearchApi?.bindCardEvents(container),
     updateAddToSuggestionsBtn: () => tfApi.updateAddToSuggestionsBtn()
   });
   renderColumns = board.renderColumns;

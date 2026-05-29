@@ -23,10 +23,18 @@
  * @property {TaskSession[]} [sessions]
  * @property {string|null} [activeSessionStart] - ISO timestamp while session running
  * @property {number} [totalTimeSeconds]
- * @property {string|null} [aiAction]
+ * @property {'research'|null} [aiAction]
  * @property {string|null} [aiActionPrompt]
- * @property {object|null} [aiResult]
+ * @property {AiResult|null} [aiResult]
  * @property {boolean} [aiResultRead]
+ */
+
+/**
+ * @typedef {Object} AiResult
+ * @property {string} [type]
+ * @property {string} [summary]
+ * @property {{ title: string, url: string, note?: string }[]} [links]
+ * @property {number|string} [createdAt]
  */
 
 /**
@@ -166,4 +174,6 @@
  * @property {Record<string, string[]>} hiddenFromTodayByDate
  * @property {ReturnType<typeof setTimeout>|null} [undoDoneTimeout]
  * @property {AppNote[]} notes
+ * @property {string|null} aiPromptTaskId
+ * @property {string|null} aiResultTaskId
  */
