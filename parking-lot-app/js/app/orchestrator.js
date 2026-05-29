@@ -128,6 +128,7 @@ import { wireMainEvents } from '../features/events.js';
 import { createSessionController } from '../features/sessions.js';
 import { createNotesPanel } from '../features/notes-panel.js';
 import { createInboxSession } from '../features/inbox-session.js';
+import { createArchiveCalendar } from '../features/archive-calendar.js';
 import { processBrainDumpLine } from '../domain/brain-dump.js';
 
 wirePersist(() => saveState());
@@ -167,6 +168,8 @@ let sessionApi = null;
 let notesApi = null;
 /** @type {ReturnType<typeof createInboxSession>|null} */
 let inboxApi = null;
+/** @type {ReturnType<typeof createArchiveCalendar>|null} */
+let archiveApi = null;
 
 /** Set in {@link wireComposer} — add/edit modal + voice/quick handlers. */
 let modalApi;
@@ -229,6 +232,8 @@ function wireComposer() {
     getRenderColumns: () => renderColumns,
     getRenderTodayList: () => renderTodayList
   });
+
+  archiveApi = createArchiveCalendar({ state });
 
   const board = createBoardRenderer({
     state,
@@ -1879,18 +1884,6 @@ function wireComposer() {
     reader.readAsText(file);
   }
 
-  function openArchiveModal() {
-    const archived = state.items.filter(i => i.archived).sort((a, b) => (b.archivedAt || 0) - (a.archivedAt || 0));
-    const list = document.getElementById('archive-list');
-    if (!list) return;
-    list.innerHTML = archived.length ? archived.map(item => {
-      const date = item.archivedAt ? new Date(item.archivedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
-      const cat = getCategories().find(c => c.id === item.category);
-      return `<div class="archive-item">${escapeHtml(item.text)} <span class="archive-date">${escapeHtml(getCategoryLabel(item.category))} — ${escapeHtml(date)}</span></div>`;
-    }).join('') : '<div class="empty-state">No completed items yet</div>';
-    document.getElementById('archive-modal').style.display = 'flex';
-  }
-
   function openAnalytics() {
     const container = document.getElementById('analytics-body');
     const panel = document.getElementById('analytics-panel');
@@ -2100,6 +2093,7 @@ function wireComposer() {
     sessionApi?.bindEvents();
     notesApi?.bindEvents();
     inboxApi?.bindEvents();
+    archiveApi?.bindEvents();
     wireMainEvents({
       closeSessionModal: () => sessionApi?.cancelSession(),
       openNotesPanel: () => notesApi?.openNotesPanel(),
@@ -2125,7 +2119,8 @@ function wireComposer() {
       importBackup,
       modalApi,
       openAnalytics,
-      openArchiveModal,
+      openArchiveModal: () => archiveApi?.open(),
+      closeArchiveModal: () => archiveApi?.close(),
       openConsistencyPanel,
       openEmailTriage,
       openJournalPanel,

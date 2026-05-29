@@ -380,11 +380,21 @@
   <div id="archive-modal" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="archive-modal-title">
     <div class="modal-content modal-wide">
       <div class="modal-header">
-        <h3 id="archive-modal-title">Archive — Completed items</h3>
-        <button id="close-archive" class="btn-close">×</button>
+        <h3 id="archive-modal-title">Archive</h3>
+        <button id="close-archive" type="button" class="btn-close" aria-label="Close">×</button>
       </div>
-      <div class="modal-body">
-        <div id="archive-list" class="archive-list"></div>
+      <div class="modal-body archive-calendar-body">
+        <input id="archive-search-input" type="search" class="search-input" placeholder="Search completed tasks and notes..." autocomplete="off" aria-label="Search archive">
+        <div id="archive-search-results" class="archive-search-results" style="display:none"></div>
+        <div class="archive-cal-nav">
+          <button type="button" id="archive-prev-month" class="btn-secondary btn-sm" aria-label="Previous month">←</button>
+          <span id="archive-month-label"></span>
+          <button type="button" id="archive-next-month" class="btn-secondary btn-sm" aria-label="Next month">→</button>
+        </div>
+        <div id="archive-calendar-grid" class="archive-calendar-grid"></div>
+        <div id="archive-day-detail" class="archive-day-detail">
+          <p class="settings-hint">Select a day to see what happened</p>
+        </div>
       </div>
     </div>
   </div>

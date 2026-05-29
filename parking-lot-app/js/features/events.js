@@ -244,7 +244,7 @@ export function wireMainEvents(deps) {
               if (id === 'add-modal') d.modalApi.closeAddModal();
               else if (id === 'edit-modal') d.modalApi.closeEditModal();
               else if (id === 'add-from-talk-modal') d.closeAddFromTalkModal();
-              else if (id === 'archive-modal') m.style.display = 'none';
+              else if (id === 'archive-modal') d.closeArchiveModal?.();
               else if (id === 'settings-modal') d.closeSettingsModal();
               else if (id === 'link-partner-modal') d.closeLinkPartnerModal();
               else if (id === 'seed-render-modal') d.closeSeedRenderModal();
@@ -556,14 +556,11 @@ export function wireMainEvents(deps) {
     });
 
     const closeArchive = document.getElementById('close-archive');
-    if (closeArchive) closeArchive.addEventListener('click', () => {
-      const m = document.getElementById('archive-modal');
-      if (m) m.style.display = 'none';
-    });
+    if (closeArchive) closeArchive.addEventListener('click', () => d.closeArchiveModal?.());
 
     const archiveModal = document.getElementById('archive-modal');
     if (archiveModal) archiveModal.addEventListener('click', (e) => {
-      if (e.target.id === 'archive-modal') archiveModal.style.display = 'none';
+      if (e.target.id === 'archive-modal') d.closeArchiveModal?.();
     });
 
     const consistencyOpenFull = document.getElementById('consistency-open-full');
