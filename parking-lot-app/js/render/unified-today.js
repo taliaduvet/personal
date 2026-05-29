@@ -5,6 +5,7 @@
 import { escapeHtml } from '../utils/dom.js';
 import { getColumnColor, getTodayLocalYYYYMMDD } from '../domain/tasks.js';
 import {
+  getPeople,
   getPileName,
   isOverdueToReconnect,
   getUpcomingBirthdays,

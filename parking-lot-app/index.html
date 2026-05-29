@@ -71,6 +71,12 @@
               <h2>Today</h2>
               <button type="button" id="header-week-view-btn" class="btn-secondary btn-sm">Week</button>
               <button type="button" id="plan-week-header-btn" class="btn-secondary btn-sm">Plan</button>
+              <div id="energy-widget" class="energy-widget" title="How's your energy today?">
+                <span class="energy-label">Energy:</span>
+                <button type="button" class="energy-btn" data-level="low" title="Low energy — quick wins only">🌱 Low</button>
+                <button type="button" class="energy-btn" data-level="medium" title="Steady energy — regular work">⚡ Medium</button>
+                <button type="button" class="energy-btn" data-level="high" title="High energy — tackle hard things">🔥 High</button>
+              </div>
             </div>
             <span id="completed-tally" class="tally">Completed today: 0</span>
             <div class="today-header-actions">
@@ -90,13 +96,7 @@
               </div>
             </div>
           </div>
-          <!-- week-strip-row removed; use the WEEK button in header instead -->
-          <div id="energy-widget" class="energy-widget" title="How's your energy today?">
-            <span class="energy-label">Energy:</span>
-            <button type="button" class="energy-btn" data-level="low" title="Low energy — quick wins only">🌱 Low</button>
-            <button type="button" class="energy-btn" data-level="medium" title="Steady energy — regular work">⚡ Medium</button>
-            <button type="button" class="energy-btn" data-level="high" title="High energy — tackle hard things">🔥 High</button>
-          </div>
+          <!-- energy-widget moved into today-header-main row -->
         </header>
         <div class="today-panel-body">
           <div id="today-list" class="today-list unified-today"></div>
