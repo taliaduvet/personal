@@ -1,3 +1,4 @@
+import { PRODUCT_MAP } from './products'
 import type { Section } from './types'
 
 interface Props {
@@ -27,7 +28,7 @@ const REFERENCE: { id: Section; icon: string; label: string }[] = [
 ]
 
 export function WorkspaceTOC({
-  productName, productStatus, productVersion,
+  productId, productName, productStatus, productVersion,
   activeSection, onNavigate,
   inboxCount, taskCount, decisionCount, milestoneProgress,
 }: Props) {
@@ -38,6 +39,8 @@ export function WorkspaceTOC({
     milestones: milestoneProgress,
   }
   const urgent: Partial<Record<Section, boolean>> = { inbox: inboxCount > 0 }
+
+  const appUrl = PRODUCT_MAP[productId]?.url ?? ''
 
   function item(s: { id: Section; icon: string; label: string }) {
     return (
@@ -75,9 +78,15 @@ export function WorkspaceTOC({
 
       <div className="ws-toc-foot">
         <div className="ws-toc-section-label" style={{ margin: 0 }}>— elsewhere</div>
-        <a href="#" className="ws-toc-link">
-          <span className="ws-toc-icon">↗</span>Open app
-        </a>
+        {appUrl ? (
+          <a href={appUrl} target="_blank" rel="noopener noreferrer" className="ws-toc-link">
+            <span className="ws-toc-icon">↗</span>Open app
+          </a>
+        ) : (
+          <span className="ws-toc-link" style={{ opacity: 0.35, cursor: 'default' }}>
+            <span className="ws-toc-icon">↗</span>Open app
+          </span>
+        )}
         <a href="/" className="ws-toc-link">
           <span className="ws-toc-icon">↗</span>Open hub
         </a>

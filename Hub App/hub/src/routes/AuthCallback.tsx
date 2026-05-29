@@ -6,28 +6,30 @@ export default function AuthCallback() {
   const navigate = useNavigate()
 
   useEffect(() => {
+    let timeout: ReturnType<typeof setTimeout> | null = null
+    let unsubscribe: (() => void) | null = null
+
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) {
         navigate('/', { replace: true })
       } else {
-        // session exchange is still in progress — wait for the auth state change
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
           if (session) {
-            subscription.unsubscribe()
             navigate('/', { replace: true })
           }
         })
-        // if nothing happens in 10s, something went wrong
-        const timeout = setTimeout(() => {
+        unsubscribe = () => subscription.unsubscribe()
+        timeout = setTimeout(() => {
           subscription.unsubscribe()
           navigate('/sign-in?error=link-expired', { replace: true })
         }, 10_000)
-        return () => {
-          clearTimeout(timeout)
-          subscription.unsubscribe()
-        }
       }
     })
+
+    return () => {
+      unsubscribe?.()
+      if (timeout) clearTimeout(timeout)
+    }
   }, [navigate])
 
   return (

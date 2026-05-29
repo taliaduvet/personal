@@ -1,19 +1,15 @@
 import { useNavigate } from 'react-router-dom'
-
-const PRODUCTS = [
-  { id: 'vein',       name: 'Vein',       status: 'live', colorClass: 'peri'  },
-  { id: 'ledger',     name: 'Ledger',     status: 'beta', colorClass: 'mauv'  },
-  { id: 'production', name: 'Production', status: 'soon', colorClass: 'peach' },
-]
+import { PRODUCTS } from './products'
 
 interface Props {
   productId: string
   onToggleDesign: () => void
   onToggleLive: () => void
   drawerTab: string | null
+  savedAt: Date | null
 }
 
-export function WorkspaceTopbar({ productId, onToggleDesign, onToggleLive, drawerTab }: Props) {
+export function WorkspaceTopbar({ productId, onToggleDesign, onToggleLive, drawerTab, savedAt }: Props) {
   const navigate = useNavigate()
 
   return (
@@ -42,7 +38,9 @@ export function WorkspaceTopbar({ productId, onToggleDesign, onToggleLive, drawe
       </nav>
 
       <div className="ws-topbar-right">
-        <span className="ws-save-ind">saved</span>
+        {savedAt && (
+          <span key={savedAt.getTime()} className="ws-save-ind ws-save-ind--flash">saved</span>
+        )}
         <button
           className={`ws-kbd-btn${drawerTab === 'design' ? ' ws-kbd-btn--active' : ''}`}
           onClick={onToggleDesign}

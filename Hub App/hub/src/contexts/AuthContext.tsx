@@ -1,16 +1,9 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import type { Session } from '@supabase/supabase-js'
+import { useEffect, useState, type ReactNode } from 'react'
 import { supabase } from '../lib/supabase'
-
-interface AuthCtx {
-  session: Session | null
-  loading: boolean
-}
-
-const AuthContext = createContext<AuthCtx>({ session: null, loading: true })
+import { AuthContext } from './useAuth'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null)
+  const [session, setSession] = useState<import('@supabase/supabase-js').Session | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -32,5 +25,3 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     </AuthContext.Provider>
   )
 }
-
-export const useAuth = () => useContext(AuthContext)

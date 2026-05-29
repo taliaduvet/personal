@@ -1,5 +1,5 @@
 import { Navigate } from 'react-router-dom'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../contexts/useAuth'
 import type { ReactNode } from 'react'
 
 const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL as string

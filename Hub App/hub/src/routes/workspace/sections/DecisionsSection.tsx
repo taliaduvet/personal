@@ -42,7 +42,7 @@ export function DecisionsSection({ decisions, productId, onUpdate }: Props) {
             <div className="ws-dec-head">
               <span className="ws-dec-title">{dec.title}</span>
               <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', flexShrink: 0 }}>
-                {dec.tags.map(tag => (
+                {(dec.tags ?? []).map(tag => (
                   <span key={tag} className={`ws-dec-pill ws-dec-pill--${tag}`}>{tag}</span>
                 ))}
                 <span className={`ws-dec-pill ws-dec-pill--status-${dec.status}`}>{dec.status}</span>
@@ -52,9 +52,9 @@ export function DecisionsSection({ decisions, productId, onUpdate }: Props) {
               </div>
             </div>
 
-            {dec.options.length > 0 && (
+            {(dec.options ?? []).length > 0 && (
               <div className="ws-dec-options">
-                {dec.options.map(opt => (
+                {(dec.options ?? []).map(opt => (
                   <div key={opt.letter} className={`ws-dec-option${opt.chosen ? ' ws-dec-option--chosen' : ''}`}>
                     <span className="ws-dec-opt-letter">{opt.letter} · {opt.label}</span>
                     {opt.description && <span>{opt.description}</span>}

@@ -104,6 +104,14 @@
   gap: 6px;
 }
 .ws-save-ind::before { content: '●'; font-size: 8px; }
+.ws-save-ind--flash {
+  animation: ws-save-fade 3s ease-out forwards;
+}
+@keyframes ws-save-fade {
+  0%   { opacity: 1; }
+  60%  { opacity: 1; }
+  100% { opacity: 0; }
+}
 .ws-kbd-btn {
   padding: 4px 8px;
   font-family: var(--font-mono);

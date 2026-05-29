@@ -1,3 +1,5 @@
+import { PRODUCT_MAP } from './products'
+
 interface Props {
   tab: 'design' | 'live' | null
   onChangeTab: (t: 'design' | 'live' | null) => void
@@ -25,14 +27,8 @@ const DESIGN_FILES = [
   },
 ]
 
-const PRODUCT_URLS: Record<string, string> = {
-  vein:       'https://vein.taliaduvet.com',
-  ledger:     'https://ledger.taliaduvet.com',
-  production: '',
-}
-
 export function WorkspaceDrawer({ tab, onChangeTab, productId }: Props) {
-  const appUrl = PRODUCT_URLS[productId] ?? ''
+  const appUrl = PRODUCT_MAP[productId]?.url ?? ''
 
   if (tab === null) {
     return (
@@ -83,7 +79,7 @@ export function WorkspaceDrawer({ tab, onChangeTab, productId }: Props) {
               <a
                 key={f.file}
                 className="ws-design-file"
-                href={`/design_handoff_hub/designs/${f.file}`}
+                href={`/designs/${f.file}`}
                 target="_blank"
                 rel="noopener noreferrer"
               >

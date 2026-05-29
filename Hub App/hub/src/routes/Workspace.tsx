@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { PRODUCT_MAP } from './workspace/products'
 import { WorkspaceTopbar } from './workspace/WorkspaceTopbar'
 import { WorkspaceTOC } from './workspace/WorkspaceTOC'
 import { WorkspaceDrawer } from './workspace/WorkspaceDrawer'
@@ -8,44 +9,68 @@ import { SprintSection } from './workspace/sections/SprintSection'
 import { DecisionsSection } from './workspace/sections/DecisionsSection'
 import { MilestonesSection } from './workspace/sections/MilestonesSection'
 import { SpecSection } from './workspace/sections/SpecSection'
+import { NotesSection } from './workspace/sections/NotesSection'
+import { ChangelogSection } from './workspace/sections/ChangelogSection'
 import type { Task, Decision, Milestone, Section } from './workspace/types'
 import './Workspace.css'
-
-const PRODUCTS: Record<string, { name: string; status: string; version: string }> = {
-  vein:       { name: 'Vein',       status: 'live', version: 'v1.4 · in progress' },
-  ledger:     { name: 'Ledger',     status: 'beta', version: 'v0.9 · in progress' },
-  production: { name: 'Production', status: 'soon', version: 'concept phase'      },
-}
 
 export default function Workspace() {
   const { productId = 'vein' } = useParams()
   const navigate = useNavigate()
-  const product = PRODUCTS[productId] ?? PRODUCTS.vein
+  const product = PRODUCT_MAP[productId] ?? PRODUCT_MAP['vein']
 
   const [activeSection, setActiveSection] = useState<Section>('spec')
   const [drawerTab, setDrawerTab] = useState<'design' | 'live' | null>(null)
 
-  const [tasks,       setTasks]       = useState<Task[]>([])
-  const [decisions,   setDecisions]   = useState<Decision[]>([])
-  const [milestones,  setMilestones]  = useState<Milestone[]>([])
-  const [specContent, setSpecContent] = useState('')
-  const [loading,     setLoading]     = useState(true)
+  const [tasks,            setTasks]            = useState<Task[]>([])
+  const [decisions,        setDecisions]        = useState<Decision[]>([])
+  const [milestones,       setMilestones]       = useState<Milestone[]>([])
+  const [specContent,      setSpecContent]      = useState('')
+  const [notesContent,     setNotesContent]     = useState('')
+  const [changelogContent, setChangelogContent] = useState('')
+  const [loadedFor,        setLoadedFor]        = useState<string | null>(null)
+  const [errorInfo,        setErrorInfo]        = useState<{ productId: string; msg: string } | null>(null)
+  const [prevProductId,    setPrevProductId]    = useState(productId)
+  const [savedAt,          setSavedAt]          = useState<Date | null>(null)
+
+  // Derived state — computed during render, not in effects
+  if (prevProductId !== productId) {
+    setPrevProductId(productId)
+    setErrorInfo(null)
+  }
+  const loading = loadedFor !== productId && errorInfo?.productId !== productId
+  const error   = errorInfo?.productId === productId ? errorInfo.msg : null
 
   useEffect(() => {
-    if (!PRODUCTS[productId]) { navigate('/workspace/vein', { replace: true }); return }
-    setLoading(true)
+    if (!PRODUCT_MAP[productId]) { navigate('/workspace/vein', { replace: true }); return }
+
+    let cancelled = false
+
     Promise.all([
       supabase.from('workspace_tasks').select('*').eq('product_id', productId).order('position'),
       supabase.from('workspace_decisions').select('*').eq('product_id', productId).order('position'),
       supabase.from('workspace_milestones').select('*').eq('product_id', productId).order('position'),
       supabase.from('workspace_docs').select('content').eq('product_id', productId).eq('section', 'spec').maybeSingle(),
-    ]).then(([t, d, m, spec]) => {
+      supabase.from('workspace_docs').select('content').eq('product_id', productId).eq('section', 'notes').maybeSingle(),
+      supabase.from('workspace_docs').select('content').eq('product_id', productId).eq('section', 'changelog').maybeSingle(),
+    ]).then(([t, d, m, spec, notes, changelog]) => {
+      if (cancelled) return
+      if (t.error || d.error || m.error) {
+        setErrorInfo({ productId, msg: "couldn\u2019t load workspace data. check your connection and try refreshing." })
+        return
+      }
       setTasks((t.data ?? []) as Task[])
       setDecisions((d.data ?? []) as Decision[])
       setMilestones((m.data ?? []) as Milestone[])
       setSpecContent(spec.data?.content ?? '')
-      setLoading(false)
+      setNotesContent(notes.data?.content ?? '')
+      setChangelogContent(changelog.data?.content ?? '')
+      setLoadedFor(productId)
+    }).catch(() => {
+      if (!cancelled) setErrorInfo({ productId, msg: 'something went wrong loading the workspace. try refreshing.' })
     })
+
+    return () => { cancelled = true }
   }, [productId, navigate])
 
   // ⌘D / ⌘P shortcuts
@@ -65,6 +90,10 @@ export default function Workspace() {
     document.getElementById(s)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
+  function handleSaved() {
+    setSavedAt(new Date())
+  }
+
   const sprintLabel       = tasks.find(t => t.sprint_label)?.sprint_label ?? 'current'
   const milestoneProgress = milestones.length > 0
     ? `${milestones.filter(m => m.status === 'done').length} / ${milestones.length}`
@@ -78,6 +107,17 @@ export default function Workspace() {
     )
   }
 
+  if (error) {
+    return (
+      <div className="ws-loading">
+        <span className="t-mono-cap" style={{ color: 'var(--negative)', maxWidth: 320, textAlign: 'center' }}>{error}</span>
+        <button className="btn" style={{ marginTop: 'var(--space-4)', fontSize: 10 }} onClick={() => window.location.reload()}>
+          try again
+        </button>
+      </div>
+    )
+  }
+
   return (
     <div className="ws-shell">
       <WorkspaceTopbar
@@ -85,6 +125,7 @@ export default function Workspace() {
         onToggleDesign={() => setDrawerTab(t => t === 'design' ? null : 'design')}
         onToggleLive={() => setDrawerTab(t => t === 'live' ? null : 'live')}
         drawerTab={drawerTab}
+        savedAt={savedAt}
       />
 
       <div className={`ws-grid${drawerTab === null ? ' ws-grid--drawer-closed' : ''}`}>
@@ -108,6 +149,7 @@ export default function Workspace() {
             productId={productId}
             content={specContent}
             onUpdate={setSpecContent}
+            onSaved={handleSaved}
           />
 
           <MilestonesSection milestones={milestones} productId={productId} onUpdate={setMilestones} />
@@ -139,11 +181,19 @@ export default function Workspace() {
             <p style={{ color: 'var(--ink-faint)', fontSize: 'var(--text-sm)' }}>coming soon.</p>
           </div>
 
-          <div id="notes" style={{ marginTop: 48, paddingBottom: 160 }}>
-            <div className="ws-sec-eyebrow">— § notes</div>
-            <h2 className="ws-sec-h2">notes & scratch</h2>
-            <p style={{ color: 'var(--ink-faint)', fontSize: 'var(--text-sm)' }}>editable notes coming in the next build.</p>
-          </div>
+          <NotesSection
+            productId={productId}
+            content={notesContent}
+            onUpdate={setNotesContent}
+            onSaved={handleSaved}
+          />
+
+          <ChangelogSection
+            productId={productId}
+            rawContent={changelogContent}
+            onUpdate={setChangelogContent}
+            onSaved={handleSaved}
+          />
         </main>
 
         <WorkspaceDrawer
