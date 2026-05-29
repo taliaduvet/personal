@@ -25,6 +25,7 @@ import { renderTaskCard } from './task-card.js';
  * @param {(id: string) => void} d.openEditModal
  * @param {(id: string, showUndo?: boolean) => void} d.deleteItem
  * @param {(id: string) => void} d.markDone
+ * @param {(id: string) => void} d.openSessionModal
  * @param {() => void} d.updateAddToSuggestionsBtn
  */
 export function createBoardRenderer(d) {
@@ -276,6 +277,12 @@ export function createBoardRenderer(d) {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
         d.markDone(btn.dataset.id);
+      });
+    });
+    container.querySelectorAll('.btn-session').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        d.openSessionModal(btn.dataset.id);
       });
     });
 

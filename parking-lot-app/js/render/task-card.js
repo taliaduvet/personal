@@ -5,6 +5,14 @@ import { formatDeadline, formatDuration, parseLocalDate } from '../domain/tasks.
 import { getPileName, getPersonName } from '../domain/piles-people.js';
 import { getCategoryOptionLabel } from '../domain/categories.js';
 
+function formatSessionTime(seconds) {
+  if (!seconds) return null;
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+}
+
 export function formatDoingDate(iso) {
   if (!iso) return null;
   const d = parseLocalDate(iso);
@@ -39,6 +47,8 @@ export function renderTaskCard(item, opts) {
   const personName = getPersonName(item.personId);
   const lifeAreaTag = showLifeAreaAsTag ? getCategoryOptionLabel(item.category) : null;
   const frictionLabel = item.friction ? (item.friction.charAt(0).toUpperCase() + item.friction.slice(1)) : null;
+  const isSessionActive = !!(item.activeSessionStart);
+  const totalTime = (item.totalTimeSeconds || 0) > 0 ? formatSessionTime(item.totalTimeSeconds) : null;
   const metaRow = metaExpanded
     ? `<div class="task-meta-edit" data-id="${item.id}">
           <select class="meta-priority" data-id="${item.id}" title="Priority">
@@ -62,6 +72,7 @@ export function renderTaskCard(item, opts) {
           ${fd ? `<span class="${overdue ? 'overdue-badge' : ''}">${escapeHtml(fd.text)}</span>` : ''}
           ${daysParked >= 30 ? `<span class="stale-badge" title="Parked ${daysParked} days">${daysParked}d</span>` : ''}
           ${item.recurrence ? `<span class="recurrence-badge" title="Recurs ${item.recurrence}">↻</span>` : ''}
+          ${totalTime ? `<span class="task-time-total" title="Total time tracked">⏱ ${escapeHtml(totalTime)}</span>` : ''}
         </div>`;
 
   const firstStepHtml = item.firstStep ? `<div class="task-first-step">Start by: ${escapeHtml(item.firstStep)}</div>` : '';
@@ -74,6 +85,7 @@ export function renderTaskCard(item, opts) {
           ${metaRow}
         </div>
         <div class="task-actions">
+          <button type="button" class="btn-session ${isSessionActive ? 'btn-session-active' : ''}" data-id="${item.id}" title="${isSessionActive ? 'Session in progress — click to open' : 'Start a session'}">${isSessionActive ? '■' : '▶'}</button>
           <button class="btn-done-card" data-id="${item.id}" title="Done">✓</button>
           <button class="btn-edit" data-id="${item.id}" title="Edit">✎</button>
           <button class="btn-drop" data-id="${item.id}" title="Drop">×</button>

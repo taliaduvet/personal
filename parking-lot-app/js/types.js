@@ -20,6 +20,24 @@
  * @property {boolean} [archived]
  * @property {number|null} [archivedAt]
  * @property {number|null} [completedAt]
+ * @property {TaskSession[]} [sessions]
+ * @property {string|null} [activeSessionStart] - ISO timestamp while session running
+ * @property {number} [totalTimeSeconds]
+ * @property {string|null} [aiAction]
+ * @property {string|null} [aiActionPrompt]
+ * @property {object|null} [aiResult]
+ * @property {boolean} [aiResultRead]
+ */
+
+/**
+ * @typedef {Object} TaskSession
+ * @property {string} id
+ * @property {string} start - ISO
+ * @property {string} end - ISO
+ * @property {number} durationSeconds
+ * @property {string|null} [notes]
+ * @property {boolean} [paused]
+ * @property {string|null} [aiPickup]
  */
 
 /**

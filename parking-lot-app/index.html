@@ -876,6 +876,29 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
+  <div id="session-modal" class="modal session-modal-fullscreen" style="display:none" role="dialog" aria-modal="true" aria-labelledby="session-modal-title">
+    <div class="modal-content session-modal-content">
+      <div class="session-modal-header">
+        <div class="session-modal-task-name" id="session-task-name"></div>
+        <div class="session-timer" id="session-timer">0:00:00</div>
+      </div>
+      <div class="session-modal-body">
+        <div class="session-now-section">
+          <div class="session-section-label">NOW</div>
+          <textarea id="session-notes-input" class="session-notes-textarea" placeholder="Jot as you go — saved when you stop..." aria-label="Session notes"></textarea>
+        </div>
+        <div id="session-history-section" class="session-history-section" style="display:none">
+          <div class="session-history-divider">Past sessions</div>
+          <div id="session-history-list" class="session-history-list"></div>
+        </div>
+      </div>
+      <div class="session-modal-footer">
+        <button id="session-stop-btn" type="button" class="btn-primary session-stop-btn">⏹ Stop &amp; save</button>
+        <button id="session-cancel-btn" type="button" class="btn-secondary">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <div id="shortcuts-overlay" class="shortcuts-overlay" style="display:none" aria-hidden="true">
     <div class="shortcuts-content">
       <h3>Keyboard shortcuts</h3>

@@ -4734,3 +4734,159 @@ body { padding-bottom: 3.5rem; }
   margin: 0;
   accent-color: var(--accent);
 }
+
+/* ── Session modal ─────────────────────────────────── */
+.session-modal-fullscreen .modal-content {
+  width: 100%;
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+}
+.session-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  gap: 1rem;
+}
+.session-modal-task-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.session-timer {
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+  white-space: nowrap;
+}
+.session-modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.session-section-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 0.4rem;
+}
+.session-notes-textarea {
+  width: 100%;
+  min-height: 120px;
+  resize: vertical;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 0.9rem;
+  padding: 0.6rem 0.75rem;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+.session-notes-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.session-history-divider {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+  padding-top: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+.session-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.session-history-item {
+  padding: 0.6rem 0.75rem;
+  background: var(--bg-soft);
+  border-radius: var(--radius);
+  border-left: 2px solid var(--border);
+}
+.session-history-paused {
+  border-left-color: var(--text-muted);
+  opacity: 0.85;
+}
+.session-history-meta {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 0.25rem;
+}
+.session-history-date {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.session-history-duration {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+.session-history-notes {
+  font-size: 0.88rem;
+  color: var(--text);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+.session-ai-pickup {
+  margin-top: 0.35rem;
+  font-size: 0.82rem;
+  color: var(--accent);
+  font-style: italic;
+}
+.session-modal-footer {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.75rem 1.25rem 1rem;
+  border-top: 1px solid var(--border);
+}
+.session-stop-btn {
+  flex: 1;
+}
+
+/* Task card session button */
+.btn-session {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0.2rem 0.3rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  border-radius: 3px;
+  line-height: 1;
+  transition: color 0.15s, background 0.15s;
+}
+.btn-session:hover {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.btn-session-active {
+  color: var(--accent);
+  animation: pulse-session 2s ease-in-out infinite;
+}
+@keyframes pulse-session {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+.task-time-total {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  opacity: 0.75;
+}

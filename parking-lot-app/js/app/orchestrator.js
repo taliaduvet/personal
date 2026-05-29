@@ -125,6 +125,7 @@ import { createTalkAboutUI } from '../features/talk-about.js';
 import { createEmailTriageUI } from '../features/email-triage.js';
 import { createModalController } from '../features/modals.js';
 import { wireMainEvents } from '../features/events.js';
+import { createSessionController } from '../features/sessions.js';
 
 wirePersist(() => saveState());
 
@@ -157,6 +158,8 @@ let renderEmailTriage;
 let closeAddFromTalkModal;
 let submitAddFromTalk;
 let eventsWired = false;
+/** @type {ReturnType<typeof createSessionController>|null} */
+let sessionApi = null;
 
 /** Set in {@link wireComposer} — add/edit modal + voice/quick handlers. */
 let modalApi;
@@ -195,6 +198,14 @@ function wireComposer() {
     removeFromToday: (id) => {}
   };
 
+  sessionApi = createSessionController({
+    state,
+    saveState,
+    showToast,
+    getRenderColumns: () => renderColumns,
+    getRenderTodayList: () => renderTodayList
+  });
+
   const board = createBoardRenderer({
     state,
     saveState,
@@ -204,6 +215,7 @@ function wireComposer() {
     openEditModal: modalApi.openEditModal,
     deleteItem,
     markDone,
+    openSessionModal: (id) => sessionApi?.openSessionModal(id),
     updateAddToSuggestionsBtn: () => tfApi.updateAddToSuggestionsBtn()
   });
   renderColumns = board.renderColumns;
@@ -2018,7 +2030,9 @@ function wireComposer() {
   function bindEvents() {
     if (eventsWired) return;
     eventsWired = true;
+    sessionApi?.bindEvents();
     wireMainEvents({
+      closeSessionModal: () => sessionApi?.cancelSession(),
       addTalkAbout,
       addToSuggestions,
       applyDevicePreferencesToState,

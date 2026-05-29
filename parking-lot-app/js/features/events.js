@@ -228,7 +228,7 @@ export function wireMainEvents(deps) {
         } else if (state.boardFocusMode) {
           d.exitBoardFocusMode();
         } else {
-          const modals = ['add-modal', 'edit-modal', 'add-from-talk-modal', 'archive-modal', 'settings-modal', 'link-partner-modal', 'seed-render-modal'];
+          const modals = ['add-modal', 'edit-modal', 'add-from-talk-modal', 'archive-modal', 'settings-modal', 'link-partner-modal', 'seed-render-modal', 'session-modal'];
           const panels = ['analytics-panel', 'email-triage-section'];
           for (const id of modals) {
             const m = document.getElementById(id);
@@ -240,6 +240,7 @@ export function wireMainEvents(deps) {
               else if (id === 'settings-modal') d.closeSettingsModal();
               else if (id === 'link-partner-modal') d.closeLinkPartnerModal();
               else if (id === 'seed-render-modal') d.closeSeedRenderModal();
+              else if (id === 'session-modal') d.closeSessionModal?.();
               return;
             }
           }
