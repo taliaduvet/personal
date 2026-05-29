@@ -5,6 +5,49 @@
 import { MONTHS, PRIORITY_ORDER, DEFAULT_COLUMN_COLORS } from '../constants.js';
 import { persist } from '../core/persist.js';
 import { state } from '../state.js';
+import { getPileName, getPersonName } from './piles-people.js';
+
+/**
+ * @param {string} s
+ * @returns {string}
+ */
+function escapeRegExp(s) {
+  return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * @param {string} text
+ * @param {string} phrase
+ * @returns {boolean}
+ */
+function textIncludesWholePhrase(text, phrase) {
+  if (!phrase || !text) return false;
+  return new RegExp(`\\b${escapeRegExp(phrase)}\\b`, 'i').test(text);
+}
+
+/**
+ * @param {import('../types.js').Pile|null} pile
+ * @returns {import('../types.js').Pile|null}
+ */
+function detectPileFromText(text) {
+  const piles = (state.piles || [])
+    .filter((p) => p?.name)
+    .slice()
+    .sort((a, b) => b.name.length - a.name.length);
+  return piles.find((p) => textIncludesWholePhrase(text, p.name)) || null;
+}
+
+/**
+ * @param {string} text
+ * @returns {import('../types.js').Person|null}
+ */
+function detectPersonFromText(text) {
+  const people = (state.people || [])
+    .filter((p) => p?.name)
+    .slice()
+    .sort((a, b) => b.name.length - a.name.length);
+  return people.find((p) => textIncludesWholePhrase(text, p.name)) || null;
+}
 
 /**
  * @param {string} text
@@ -182,9 +225,11 @@ function extractPriority(text) {
  * @param {string|null} category
  * @param {string|null} deadline
  * @param {string|null} priority
+ * @param {string|null} [pileName]
+ * @param {string|null} [personName]
  * @returns {string}
  */
-function stripAutoExtractedFromText(text, category, deadline, priority) {
+function stripAutoExtractedFromText(text, category, deadline, priority, pileName, personName) {
   let result = (text || '').trim();
   if (!result) return result;
   if (deadline) {
@@ -212,6 +257,12 @@ function stripAutoExtractedFromText(text, category, deadline, priority) {
   } else if (priority === 'low') {
     result = result.replace(/\b(low\s+priority|low\s+prio|whenever|nice\s+to\s+have|optional|backlog)\b/gi, '');
   }
+  if (pileName) {
+    result = result.replace(new RegExp(`\\b${escapeRegExp(pileName)}\\b`, 'gi'), '');
+  }
+  if (personName) {
+    result = result.replace(new RegExp(`\\b${escapeRegExp(personName)}\\b`, 'gi'), '');
+  }
   return result.replace(/\s+/g, ' ').trim();
 }
 
@@ -229,7 +280,32 @@ function stripAutoExtractedFromText(text, category, deadline, priority) {
  * @returns {import('../types.js').Task}
  */
 function createItem(text, category, deadline, priority, recurrence, reminderAt, doingDate, pileId, friction, personId) {
-  const cleanText = stripAutoExtractedFromText(text, category, deadline, priority) || text.trim();
+  let resolvedPileId = pileId != null ? pileId : null;
+  let resolvedPersonId = personId != null ? personId : null;
+
+  if (!resolvedPileId) {
+    const detectedPile = detectPileFromText(text);
+    if (detectedPile) resolvedPileId = detectedPile.id;
+  }
+  if (!resolvedPersonId) {
+    const detectedPerson = detectPersonFromText(text);
+    if (detectedPerson) resolvedPersonId = detectedPerson.id;
+  }
+
+  const pileName = resolvedPileId ? getPileName(resolvedPileId) : null;
+  const personName = resolvedPersonId ? getPersonName(resolvedPersonId) : null;
+  const pileStripName = pileName && pileName !== resolvedPileId ? pileName : null;
+  const personStripName = personName && personName !== resolvedPersonId ? personName : null;
+
+  const cleanText = stripAutoExtractedFromText(
+    text,
+    category,
+    deadline,
+    priority,
+    pileStripName,
+    personStripName
+  ) || text.trim();
+
   return {
     id: 'id_' + Date.now() + '_' + Math.random().toString(36).slice(2),
     text: cleanText || text.trim(),
@@ -241,10 +317,10 @@ function createItem(text, category, deadline, priority, recurrence, reminderAt, 
     recurrence: recurrence || null,
     reminderAt: reminderAt || null,
     archived: false,
-    pileId: pileId != null ? pileId : null,
+    pileId: resolvedPileId,
     friction: friction && ['quick', 'medium', 'deep'].includes(friction) ? friction : null,
     firstStep: null,
-    personId: personId != null ? personId : null,
+    personId: resolvedPersonId,
     estimate: null,
     income: false,
     skippedFromToday: 0
@@ -429,6 +505,8 @@ function getActiveColumnColors() {
 
 export {
   detectCategory,
+  detectPileFromText,
+  detectPersonFromText,
   extractDeadline,
   extractDoingDate,
   extractEstimate,

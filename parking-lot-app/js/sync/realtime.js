@@ -3,6 +3,11 @@
  * Avoid duplicate subscribe calls across features — teardown before re-subscribe.
  */
 
+/** @param {import('../state.js').state} state */
+export function isLocalPrefsWritePending(state) {
+  return !!state.savePrefsTimeout;
+}
+
 /**
  * @param {object} ctx
  * @param {import('../state.js').state} ctx.state
@@ -21,10 +26,8 @@ export function attachDevicePreferencesRealtime(ctx) {
   }
   if (state.prefsUnsubscribe) state.prefsUnsubscribe();
   state.prefsUnsubscribe = talkAbout.subscribeDevicePreferences(state.deviceSyncId, (prefs) => {
-    // Skip if a local write is already queued — our in-memory state is newer than
-    // whatever Supabase is broadcasting. Applying stale remote data here is what
-    // causes deleted/edited tasks to briefly reappear before the debounced write lands.
-    if (state.savePrefsTimeout) return;
+    // Skip if a local write is debounced or in flight — in-memory state is newer than stale remote snapshots.
+    if (isLocalPrefsWritePending(state)) return;
     applyDevicePreferencesToState(prefs);
     refreshUIAfterRemotePrefs();
   });

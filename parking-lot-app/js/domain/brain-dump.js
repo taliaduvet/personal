@@ -1,5 +1,5 @@
 import { state } from '../state.js';
-import { createItem } from './tasks.js';
+import { createItem, detectPileFromText } from './tasks.js';
 import { createNote } from './notes.js';
 import { ensureInboxPile, INBOX_PILE_ID } from './piles-people.js';
 
@@ -27,6 +27,9 @@ export function processBrainDumpLine(line) {
   }
   if (!taskText) return null;
 
+  const detectedPile = detectPileFromText(taskText);
+  const pileId = detectedPile ? detectedPile.id : INBOX_PILE_ID;
+
   const item = createItem(
     taskText,
     state.lastCategory,
@@ -35,7 +38,7 @@ export function processBrainDumpLine(line) {
     null,
     null,
     null,
-    INBOX_PILE_ID,
+    pileId,
     null,
     null
   );

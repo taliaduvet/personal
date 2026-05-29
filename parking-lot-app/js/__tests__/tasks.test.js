@@ -4,6 +4,7 @@ import { state } from '../state.js';
 import {
   createItem,
   detectCategory,
+  detectPileFromText,
   extractDeadline,
   extractPriority,
   formatDeadline,
@@ -78,6 +79,22 @@ describe('domain/tasks', () => {
   it('stripAutoExtractedFromText() removes recognized tokens cleanly', () => {
     const out = stripAutoExtractedFromText('work invoice due mar 15 asap', 'work', '2026-03-15', 'critical');
     expect(out).toBe('invoice');
+  });
+
+  it('detectPileFromText() matches pile name as whole word', () => {
+    state.piles = [
+      { id: 'pile_cycles', name: 'Cycles' },
+      { id: 'pile_inbox', name: 'Inbox' }
+    ];
+    expect(detectPileFromText('Cycles write the bridge')).toEqual({ id: 'pile_cycles', name: 'Cycles' });
+    expect(detectPileFromText('homework')).toBe(null);
+  });
+
+  it('createItem() assigns pile from text and strips pile name', () => {
+    state.piles = [{ id: 'pile_creative', name: 'Creative' }];
+    const item = createItem('Creative draft album cover', 'life', null, 'medium', null, null, null, null, null, null);
+    expect(item.pileId).toBe('pile_creative');
+    expect(item.text).toBe('draft album cover');
   });
 
   it('createItem() uses lastCategory fallback and normalizes friction/person/pile', () => {

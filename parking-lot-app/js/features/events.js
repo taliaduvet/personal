@@ -23,7 +23,7 @@ import {
 } from "../domain/piles-people.js";
 import { showToast } from "./toast.js";
 import { applyThemeColors } from "../ui/theme.js";
-import { attachDevicePreferencesRealtime } from "../sync/realtime.js";
+import { attachDevicePreferencesRealtime, isLocalPrefsWritePending } from "../sync/realtime.js";
 
 /**
  * Main app DOM wiring (search, drag-drop, sidebar, modals, settings, journal, relationships, etc.).
@@ -424,14 +424,16 @@ export function wireMainEvents(deps) {
             const prefs = await window.talkAbout.getDevicePreferences(state.deviceSyncId);
             if (!prefs?.error) {
               const hadData = Array.isArray(prefs.__items) || Object.keys(prefs).length > 0;
-              d.applyDevicePreferencesToState(prefs);
+              if (!isLocalPrefsWritePending(state)) {
+                d.applyDevicePreferencesToState(prefs);
+              }
               attachDevicePreferencesRealtime({
                 state,
                 talkAbout: window.talkAbout,
                 applyDevicePreferencesToState: d.applyDevicePreferencesToState,
                 refreshUIAfterRemotePrefs: d.refreshUIAfterRemotePrefs
               });
-              d.refreshUIAfterRemotePrefs();
+              if (!isLocalPrefsWritePending(state)) d.refreshUIAfterRemotePrefs();
               const syncDisplay = document.getElementById('settings-sync-code-display');
               if (syncDisplay) syncDisplay.textContent = state.deviceSyncId;
               const syncEl = document.getElementById('settings-sync-code');

@@ -962,12 +962,13 @@ function wireComposer() {
     if (!window.talkAbout || !state.deviceSyncId) return;
     if (state.savePrefsTimeout) clearTimeout(state.savePrefsTimeout);
     state.savePrefsTimeout = setTimeout(async () => {
-      state.savePrefsTimeout = null;
       try {
         const { error } = await window.talkAbout.saveDevicePreferences(state.deviceSyncId, getPreferencesForDevice());
         if (error) showToast('Could not sync preferences — will retry when online');
       } catch (e) {
         showToast('Could not sync preferences — will retry when online');
+      } finally {
+        state.savePrefsTimeout = null;
       }
     }, 500);
   }
