@@ -1,6 +1,6 @@
 # AI research worker (no Claude)
 
-The ⚡ button **queues** tasks in Supabase. This script **processes** the queue using **Brave Search** + **Google Gemini Flash** so your Claude quota stays free for other work.
+The ⚡ button **queues** tasks in Supabase. This script **processes** the queue using **Google Gemini** with built-in **Google Search** (no Brave required). Optional `BRAVE_API_KEY` still works if you have one.
 
 ## Where results appear
 
@@ -15,8 +15,8 @@ After a successful run, open the Parking Lot app (same sync code as `DEVICE_SYNC
 1. Copy `scripts/ai-worker.env.example` → `scripts/ai-worker.env`
 2. Fill in Supabase URL/key (same as `config.js`)
 3. Set `DEVICE_SYNC_ID` to your app **Settings → sync code**
-4. Get a free **Brave Search API** key: https://api.search.brave.com/app/keys
-5. Get a free **Gemini API** key: https://aistudio.google.com/apikey
+4. Get a **Gemini API** key: https://aistudio.google.com/apikey (create in AI Studio — a Google Cloud project is created for you automatically)
+5. *(Optional)* Brave Search key only if you want the old two-step search path: https://api-dashboard.search.brave.com/register
 
 ## Run once (manual)
 

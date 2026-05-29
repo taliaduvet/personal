@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Processes ⚡ research queue in Supabase device_preferences (no Claude).
- * Uses Brave Search + Google Gemini Flash. Run on a schedule or manually.
+ * Uses Google Gemini Flash with built-in Google Search (Brave optional). Run on a schedule or manually.
  *
  * Setup: copy scripts/ai-worker.env.example → scripts/ai-worker.env
  * Run:   npm run ai:process-queue
@@ -103,6 +103,113 @@ async function braveSearch(env, query) {
   }));
 }
 
+function geminiModel(env) {
+  return (env.GEMINI_MODEL || 'gemini-2.5-flash').trim();
+}
+
+async function geminiGenerate(env, body) {
+  const model = geminiModel(env);
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-goog-api-key': env.GEMINI_API_KEY
+    },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Gemini failed: ${res.status} ${errText.slice(0, 280)}`);
+  }
+  return res.json();
+}
+
+function linksFromGrounding(data) {
+  const chunks = data?.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+  const seen = new Set();
+  const links = [];
+  for (const c of chunks) {
+    const uri = c?.web?.uri || c?.retrievedContext?.uri;
+    if (!uri || seen.has(uri)) continue;
+    seen.add(uri);
+    links.push({
+      title: String(c.web?.title || uri).slice(0, 200),
+      url: String(uri).slice(0, 2000),
+      note: undefined
+    });
+    if (links.length >= 6) break;
+  }
+  return links;
+}
+
+function normalizeResearchResult(parsed, fallbackSummary, groundingLinks) {
+  const links = Array.isArray(parsed?.links) && parsed.links.length
+    ? parsed.links
+        .filter((l) => l && (l.url || l.title))
+        .slice(0, 6)
+        .map((l) => ({
+          title: String(l.title || l.url || 'Link').slice(0, 200),
+          url: String(l.url || '#').slice(0, 2000),
+          note: l.note ? String(l.note).slice(0, 200) : undefined
+        }))
+    : groundingLinks;
+  return {
+    type: 'research',
+    summary: String(parsed?.summary || fallbackSummary || 'Research completed.').slice(0, 2000),
+    links,
+    createdAt: Date.now()
+  };
+}
+
+/** Gemini + Google Search grounding (no Brave). */
+async function geminiResearchWithGoogleSearch(env, taskText, userPrompt) {
+  const prompt = `You are a helpful research assistant. The user queued this on a personal task board.
+
+Task: ${taskText}
+Request: ${userPrompt}
+
+Search the web for current, useful information. Then respond in plain language with:
+1) A practical 2-4 sentence summary
+2) A short list of the best links (title + URL) when you find them`;
+
+  const data = await geminiGenerate(env, {
+    contents: [{ parts: [{ text: prompt }] }],
+    tools: [{ google_search: {} }]
+  });
+  const text = (data?.candidates?.[0]?.content?.parts || [])
+    .map((p) => p.text || '')
+    .join('\n')
+    .trim();
+  const groundingLinks = linksFromGrounding(data);
+
+  const formatData = await geminiGenerate(env, {
+    contents: [
+      {
+        parts: [
+          {
+            text: `Turn this research into JSON only:\n\n${text}\n\nSources:\n${groundingLinks.map((l) => l.url).join('\n')}\n\nShape: {"summary":"...","links":[{"title":"...","url":"https://...","note":"..."}]}`
+          }
+        ]
+      }
+    ],
+    generationConfig: {
+      responseMimeType: 'application/json',
+      temperature: 0.3,
+      maxOutputTokens: 1024
+    }
+  });
+  const formatText = formatData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  let parsed;
+  try {
+    parsed = JSON.parse(formatText);
+  } catch {
+    const m = formatText.match(/\{[\s\S]*\}/);
+    if (m) parsed = JSON.parse(m[0]);
+  }
+  return normalizeResearchResult(parsed, text, groundingLinks);
+}
+
 async function geminiResearch(env, taskText, userPrompt, searchHits) {
   const searchBlock = searchHits
     .map((h, i) => `${i + 1}. ${h.title}\n   URL: ${h.url}\n   ${h.snippet}`)
@@ -120,23 +227,14 @@ Return ONLY valid JSON (no markdown) with this shape:
 {"summary":"2-4 sentences, practical and specific","links":[{"title":"string","url":"https://...","note":"optional one line why it matters"}]}
 Include 3-5 links when search results exist; use URLs from the search results when possible.`;
 
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${env.GEMINI_API_KEY}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          responseMimeType: 'application/json',
-          temperature: 0.4,
-          maxOutputTokens: 1024
-        }
-      })
+  const data = await geminiGenerate(env, {
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: {
+      responseMimeType: 'application/json',
+      temperature: 0.4,
+      maxOutputTokens: 1024
     }
-  );
-  if (!res.ok) throw new Error(`Gemini failed: ${res.status} ${await res.text()}`);
-  const data = await res.json();
+  });
   const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
   let parsed;
   try {
@@ -146,22 +244,7 @@ Include 3-5 links when search results exist; use URLs from the search results wh
     if (!m) throw new Error('Gemini returned non-JSON');
     parsed = JSON.parse(m[0]);
   }
-  const links = Array.isArray(parsed.links)
-    ? parsed.links
-        .filter((l) => l && (l.url || l.title))
-        .slice(0, 6)
-        .map((l) => ({
-          title: String(l.title || l.url || 'Link').slice(0, 200),
-          url: String(l.url || '#').slice(0, 2000),
-          note: l.note ? String(l.note).slice(0, 200) : undefined
-        }))
-    : [];
-  return {
-    type: 'research',
-    summary: String(parsed.summary || 'Research completed.').slice(0, 2000),
-    links,
-    createdAt: Date.now()
-  };
+  return normalizeResearchResult(parsed, null, []);
 }
 
 function formatResearchNoteText(prompt, result) {
@@ -214,8 +297,10 @@ async function processOne(env, item) {
   const prompt = item.aiActionPrompt;
   const query = [item.text, prompt].filter(Boolean).join(' — ');
   console.log(`  → researching: ${item.text.slice(0, 60)}…`);
-  const hits = await braveSearch(env, query);
-  const result = await geminiResearch(env, item.text, prompt, hits);
+  const useBrave = !!(env.BRAVE_API_KEY && env.BRAVE_API_KEY.trim());
+  const result = useBrave
+    ? await geminiResearch(env, item.text, prompt, await braveSearch(env, query))
+    : await geminiResearchWithGoogleSearch(env, item.text, prompt);
   item.aiResult = result;
   item.aiResultRead = false;
   item.aiAction = null;
@@ -270,8 +355,11 @@ async function runCycle(env) {
 
 async function main() {
   const env = loadEnv(ENV_PATH);
-  for (const key of ['SUPABASE_URL', 'SUPABASE_ANON_KEY', 'DEVICE_SYNC_ID', 'BRAVE_API_KEY', 'GEMINI_API_KEY']) {
+  for (const key of ['SUPABASE_URL', 'SUPABASE_ANON_KEY', 'DEVICE_SYNC_ID', 'GEMINI_API_KEY']) {
     if (!env[key]) throw new Error(`ai-worker.env missing ${key}`);
+  }
+  if (!env.BRAVE_API_KEY) {
+    console.log('No BRAVE_API_KEY — using Gemini Google Search grounding.');
   }
 
   const watch = process.argv.includes('--watch');
