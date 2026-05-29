@@ -4987,3 +4987,70 @@ body { padding-bottom: 3.5rem; }
 }
 .note-delete-btn:hover { color: var(--text); }
 .notes-empty-hint { margin: 0; }
+
+/* ── Inbox session ─────────────────────────────────── */
+.inbox-session-content {
+  max-width: 520px;
+  width: 100%;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+}
+.inbox-session-body {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.inbox-count-badge {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--accent);
+  margin-left: 0.35rem;
+}
+.inbox-item {
+  padding: 0.75rem;
+  background: var(--bg-soft);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+.inbox-item-note {
+  border-left: 2px solid var(--accent);
+}
+.inbox-item-text {
+  font-size: 0.92rem;
+  color: var(--text);
+  line-height: 1.45;
+  white-space: pre-wrap;
+  margin-bottom: 0.5rem;
+}
+.inbox-item-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.inbox-route-form {
+  margin-top: 0.65rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.inbox-route-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.inbox-route-form-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+.inbox-empty {
+  margin: 0;
+  text-align: center;
+  padding: 1rem 0;
+}

@@ -155,7 +155,7 @@
     </div>
   </div>
   <div id="brain-dump-bar" class="brain-dump-bar" style="display:none">
-    <textarea id="brain-dump-input" rows="1" placeholder="Brain dump — hit Enter to send to Inbox, Shift+Enter for new line..." autocomplete="off" aria-label="Brain dump to Inbox"></textarea>
+    <textarea id="brain-dump-input" rows="1" placeholder="Capture anything — Enter for task, # for note, ! for urgent..." autocomplete="off" aria-label="Brain dump capture"></textarea>
     <button id="brain-dump-submit" type="button" class="btn-secondary btn-sm" title="Send to Inbox">→</button>
   </div>
 
@@ -896,6 +896,16 @@
         <button id="session-stop-btn" type="button" class="btn-primary session-stop-btn">⏹ Stop &amp; save</button>
         <button id="session-cancel-btn" type="button" class="btn-secondary">Cancel</button>
       </div>
+    </div>
+  </div>
+
+  <div id="inbox-session-modal" class="modal inbox-session-modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="inbox-session-title">
+    <div class="modal-content inbox-session-content">
+      <div class="modal-header">
+        <h3 id="inbox-session-title">Inbox <span id="inbox-session-count" class="inbox-count-badge"></span></h3>
+        <button id="close-inbox-session" type="button" class="btn-close" aria-label="Close">×</button>
+      </div>
+      <div class="modal-body inbox-session-body" id="inbox-session-list"></div>
     </div>
   </div>
 

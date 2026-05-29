@@ -127,6 +127,8 @@ import { createModalController } from '../features/modals.js';
 import { wireMainEvents } from '../features/events.js';
 import { createSessionController } from '../features/sessions.js';
 import { createNotesPanel } from '../features/notes-panel.js';
+import { createInboxSession } from '../features/inbox-session.js';
+import { processBrainDumpLine } from '../domain/brain-dump.js';
 
 wirePersist(() => saveState());
 
@@ -163,6 +165,8 @@ let eventsWired = false;
 let sessionApi = null;
 /** @type {ReturnType<typeof createNotesPanel>|null} */
 let notesApi = null;
+/** @type {ReturnType<typeof createInboxSession>|null} */
+let inboxApi = null;
 
 /** Set in {@link wireComposer} — add/edit modal + voice/quick handlers. */
 let modalApi;
@@ -214,6 +218,16 @@ function wireComposer() {
     saveState,
     showToast,
     openEditModal: (id) => modalApi.openEditModal(id)
+  });
+
+  inboxApi = createInboxSession({
+    state,
+    saveState,
+    showToast,
+    markDone,
+    deleteItem,
+    getRenderColumns: () => renderColumns,
+    getRenderTodayList: () => renderTodayList
   });
 
   const board = createBoardRenderer({
@@ -1069,25 +1083,26 @@ function wireComposer() {
     }
   }
 
-  function openInboxSessionStub() {
-    showToast('Inbox session — coming in Phase 3');
-  }
-
   function submitBrainDump() {
     const input = document.getElementById('brain-dump-input');
     if (!input) return;
     const text = input.value.trim();
     if (!text) return;
-    ensureInboxPile();
     const lines = text.split(/\n/).map(l => l.trim()).filter(Boolean);
+    let notes = 0;
+    let tasks = 0;
     lines.forEach(line => {
-      const item = createItem(line, state.lastCategory, null, 'medium', null, null, null, INBOX_PILE_ID, null, null);
-      state.items.push(item);
+      const kind = processBrainDumpLine(line);
+      if (kind === 'note') notes++;
+      else if (kind === 'task') tasks++;
     });
     saveState();
     input.value = '';
     renderColumns();
-    showToast(lines.length === 1 ? 'Added to Inbox' : lines.length + ' items added to Inbox');
+    const parts = [];
+    if (tasks) parts.push(tasks === 1 ? '1 task' : tasks + ' tasks');
+    if (notes) parts.push(notes === 1 ? '1 note' : notes + ' notes');
+    showToast(parts.length ? 'Added ' + parts.join(', ') : 'Nothing added');
   }
 
   function openWeeklyReview() {
@@ -2084,12 +2099,14 @@ function wireComposer() {
     eventsWired = true;
     sessionApi?.bindEvents();
     notesApi?.bindEvents();
+    inboxApi?.bindEvents();
     wireMainEvents({
       closeSessionModal: () => sessionApi?.cancelSession(),
       openNotesPanel: () => notesApi?.openNotesPanel(),
       closeNotesPanel: () => notesApi?.closeNotesPanel(),
       focusBrainDumpBar,
-      openInboxSession: openInboxSessionStub,
+      openInboxSession: () => inboxApi?.open(),
+      closeInboxSession: () => inboxApi?.close(),
       addTalkAbout,
       addToSuggestions,
       applyDevicePreferencesToState,
