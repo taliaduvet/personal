@@ -660,6 +660,27 @@ function wireComposer() {
     const displayNameEl = document.getElementById('settings-display-name');
     if (displayNameEl) displayNameEl.value = state.displayName || '';
 
+    // Account section (shown when authenticated)
+    const accountSection = document.getElementById('settings-account-section');
+    const accountEmailEl = document.getElementById('settings-account-email');
+    const signOutBtn = document.getElementById('settings-sign-out-btn');
+    if (state.authUser && accountSection) {
+      accountSection.style.display = 'block';
+      if (accountEmailEl) accountEmailEl.textContent = 'Signed in as ' + (state.authUser.email || '');
+      if (signOutBtn && !signOutBtn._wired) {
+        signOutBtn._wired = true;
+        signOutBtn.addEventListener('click', async () => {
+          if (!confirm('Sign out of Parking Lot?')) return;
+          await window.talkAbout?.signOut();
+          state.authUser = null;
+          const settingsModal = document.getElementById('settings-modal');
+          if (settingsModal) settingsModal.style.display = 'none';
+          showAuthScreen();
+          bindAuthScreen();
+        });
+      }
+    }
+
     const tallyResetEl = document.getElementById('settings-tally-reset-hour');
     if (tallyResetEl) tallyResetEl.value = String(state.tallyResetHour != null ? state.tallyResetHour : 3);
 
@@ -2383,12 +2404,15 @@ function wireComposer() {
     });
 
     if (createBtn) createBtn.addEventListener('click', async () => {
-      state.pairId = window.talkAbout ? window.talkAbout.generatePairId() : 'demo' + Date.now().toString(36).slice(-6);
-      state.addedBy = (state.displayName || '').trim() || 'Talia';
-      state.deviceSyncId = window.talkAbout ? window.talkAbout.generatePairId() : 'dev' + Date.now().toString(36).slice(-6);
+      const newPairId = window.talkAbout ? window.talkAbout.generatePairId() : 'demo' + Date.now().toString(36).slice(-6);
+      state.pairId = newPairId;
+      state.addedBy = (state.displayName || '').trim() || 'me';
       savePairState();
-      saveDeviceSyncState();
-      if (window.talkAbout) {
+      // Save updated pair_id to user profile if authenticated
+      if (state.authUser && window.talkAbout) {
+        try { await window.talkAbout.saveUserProfile(state.authUser.id, { displayName: state.displayName, pairId: newPairId }); } catch (e) {}
+      }
+      if (window.talkAbout && state.deviceSyncId) {
         try { await window.talkAbout.saveDevicePreferences(state.deviceSyncId, getPreferencesForDevice()); } catch (e) {}
       }
       if (actions) actions.style.display = 'none';
@@ -2404,14 +2428,14 @@ function wireComposer() {
     if (joinBtn) joinBtn.addEventListener('click', async () => {
       const code = (joinInput && joinInput.value) ? joinInput.value.trim().toLowerCase() : '';
       if (!code) { showToast('Enter a pair code'); return; }
-      const nameEl = document.getElementById('link-join-name');
-      const enteredName = (nameEl && nameEl.value.trim()) || '';
       state.pairId = code;
-      state.addedBy = enteredName || (state.displayName || '').trim() || 'partner';
-      state.deviceSyncId = window.talkAbout ? window.talkAbout.generatePairId() : 'dev' + Date.now().toString(36).slice(-6);
+      state.addedBy = (state.displayName || '').trim() || 'me';
       savePairState();
-      saveDeviceSyncState();
-      if (window.talkAbout) {
+      // Save updated pair_id to user profile if authenticated
+      if (state.authUser && window.talkAbout) {
+        try { await window.talkAbout.saveUserProfile(state.authUser.id, { displayName: state.displayName, pairId: code }); } catch (e) {}
+      }
+      if (window.talkAbout && state.deviceSyncId) {
         try { await window.talkAbout.saveDevicePreferences(state.deviceSyncId, getPreferencesForDevice()); } catch (e) {}
       }
       closeLinkPartnerModal();
@@ -2423,57 +2447,6 @@ function wireComposer() {
     });
   }
 
-  function bindPairSetup() {
-    const createBtn = document.getElementById('create-pair-btn');
-    if (createBtn) createBtn.addEventListener('click', async () => {
-      state.pairId = window.talkAbout ? window.talkAbout.generatePairId() : 'demo' + Date.now().toString(36).slice(-6);
-      state.addedBy = (state.displayName || '').trim() || 'Talia';
-      state.deviceSyncId = window.talkAbout ? window.talkAbout.generatePairId() : 'dev' + Date.now().toString(36).slice(-6);
-      savePairState();
-      saveDeviceSyncState();
-      if (window.talkAbout) {
-        try { await window.talkAbout.saveDevicePreferences(state.deviceSyncId, getPreferencesForDevice()); } catch (e) {}
-      }
-      document.getElementById('pair-created').style.display = 'block';
-      document.querySelector('.pair-actions').style.display = 'none';
-      document.getElementById('pair-code-display').textContent = state.pairId;
-    });
-
-    const continueBtn = document.getElementById('continue-after-create');
-    if (continueBtn) continueBtn.addEventListener('click', async () => {
-      document.getElementById('pair-created').style.display = 'none';
-      await showMainApp();
-      bindEvents();
-    });
-
-    const joinBtn = document.getElementById('join-pair-btn');
-    if (joinBtn) joinBtn.addEventListener('click', async () => {
-      const input = document.getElementById('join-code-input');
-      const code = (input && input.value) ? input.value.trim().toLowerCase() : '';
-      if (!code) {
-        showToast('Enter a pair code');
-        return;
-      }
-      const nameEl = document.getElementById('join-as-name');
-      const enteredName = (nameEl && nameEl.value.trim()) || '';
-      state.pairId = code;
-      state.addedBy = enteredName || (state.displayName || '').trim() || 'partner';
-      state.deviceSyncId = window.talkAbout ? window.talkAbout.generatePairId() : 'dev' + Date.now().toString(36).slice(-6);
-      savePairState();
-      saveDeviceSyncState();
-      if (window.talkAbout) {
-        try { await window.talkAbout.saveDevicePreferences(state.deviceSyncId, getPreferencesForDevice()); } catch (e) {}
-      }
-      document.getElementById('pair-setup').style.display = 'none';
-      await showMainApp();
-      bindEvents();
-    });
-
-    const joinInput = document.getElementById('join-code-input');
-    if (joinInput) joinInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') document.getElementById('join-pair-btn').click();
-    });
-  }
 
   async function loadPublicProductConfig() {
     try {
@@ -2490,6 +2463,158 @@ function wireComposer() {
     } catch (e) {
       /* offline or missing file — keep defaults */
     }
+  }
+
+  // ── Auth screen helpers ──────────────────────────────────────────
+
+  function showAuthScreen() {
+    document.getElementById('entry-screen').style.display = 'block';
+    document.getElementById('pair-setup').style.display = 'none';
+    document.getElementById('main-app').style.display = 'none';
+    const floating = document.getElementById('floating-buttons');
+    if (floating) floating.style.display = 'none';
+    const sentState = document.getElementById('auth-sent-state');
+    const emailForm = document.getElementById('auth-email-form');
+    if (sentState) sentState.style.display = 'none';
+    if (emailForm) emailForm.style.display = 'flex';
+  }
+
+  function bindAuthScreen() {
+    const sendBtn = document.getElementById('auth-send-btn');
+    const emailInput = document.getElementById('auth-email-input');
+    const resendBtn = document.getElementById('auth-resend-btn');
+    const emailForm = document.getElementById('auth-email-form');
+    const sentState = document.getElementById('auth-sent-state');
+
+    async function sendLink() {
+      const email = (emailInput ? emailInput.value : '').trim();
+      if (!email || !email.includes('@')) {
+        showToast('Enter a valid email address');
+        return;
+      }
+      if (sendBtn) { sendBtn.disabled = true; sendBtn.textContent = 'Sending…'; }
+      const { error } = await window.talkAbout.signInWithOtp(email);
+      if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = 'Send sign-in link'; }
+      if (error) {
+        showToast('Could not send link — check your email and try again');
+        return;
+      }
+      if (emailForm) emailForm.style.display = 'none';
+      if (sentState) sentState.style.display = 'block';
+    }
+
+    if (sendBtn) sendBtn.addEventListener('click', sendLink);
+    if (emailInput) emailInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendLink(); });
+    if (resendBtn) resendBtn.addEventListener('click', () => {
+      if (sentState) sentState.style.display = 'none';
+      if (emailForm) emailForm.style.display = 'flex';
+      if (emailInput) { emailInput.value = ''; emailInput.focus(); }
+    });
+  }
+
+  async function handleAuthSession(session) {
+    window.talkAbout.setCurrentUser(session.user.id);
+    state.authUser = { id: session.user.id, email: session.user.email };
+
+    const profile = await window.talkAbout.getUserProfile(session.user.id);
+
+    if (!profile) {
+      document.getElementById('entry-screen').style.display = 'none';
+      document.getElementById('pair-setup').style.display = 'block';
+      document.getElementById('main-app').style.display = 'none';
+      const floating = document.getElementById('floating-buttons');
+      if (floating) floating.style.display = 'none';
+      bindOnboardingScreen(session.user);
+      return;
+    }
+
+    state.displayName = profile.display_name || '';
+    state.pairId = profile.pair_id || null;
+    state.addedBy = profile.display_name || '';
+
+    loadDeviceSyncState();
+    if (state.deviceSyncId) {
+      try { await window.talkAbout.claimDevicePreferences(state.deviceSyncId); } catch (e) {}
+    } else {
+      state.deviceSyncId = window.talkAbout.generatePairId();
+      saveDeviceSyncState();
+    }
+
+    document.getElementById('entry-screen').style.display = 'none';
+    document.getElementById('pair-setup').style.display = 'none';
+    await showMainApp();
+    bindEvents();
+  }
+
+  function bindOnboardingScreen(user) {
+    const nameInput   = document.getElementById('ob-name-input');
+    const nameNext    = document.getElementById('ob-name-next');
+    const stepName    = document.getElementById('ob-step-name');
+    const stepMode    = document.getElementById('ob-step-mode');
+    const stepPair    = document.getElementById('ob-step-pair');
+    const soloBtn     = document.getElementById('ob-solo-btn');
+    const partnerBtn  = document.getElementById('ob-partner-btn');
+    const createBtn   = document.getElementById('ob-create-pair-btn');
+    const joinBtn     = document.getElementById('ob-join-pair-btn');
+    const joinInput   = document.getElementById('ob-join-code-input');
+    const pairActions = document.getElementById('ob-pair-actions');
+    const pairCreated = document.getElementById('ob-pair-created');
+    const pairCodeEl  = document.getElementById('ob-pair-code-display');
+    const continueBtn = document.getElementById('ob-continue-btn');
+
+    let chosenName = '';
+
+    async function finishOnboarding(pairId) {
+      await window.talkAbout.saveUserProfile(user.id, { displayName: chosenName, pairId: pairId || null });
+      state.displayName = chosenName;
+      state.pairId = pairId || null;
+      state.addedBy = chosenName;
+      savePairState();
+
+      if (!state.deviceSyncId) {
+        state.deviceSyncId = window.talkAbout.generatePairId();
+        saveDeviceSyncState();
+      }
+      try { await window.talkAbout.saveDevicePreferences(state.deviceSyncId, getPreferencesForDevice()); } catch (e) {}
+
+      document.getElementById('pair-setup').style.display = 'none';
+      await showMainApp();
+      bindEvents();
+    }
+
+    if (nameNext) nameNext.addEventListener('click', () => {
+      chosenName = (nameInput ? nameInput.value.trim() : '');
+      if (!chosenName) { showToast('Please enter your name'); return; }
+      if (stepName) stepName.style.display = 'none';
+      if (stepMode) stepMode.style.display = 'block';
+    });
+    if (nameInput) nameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') nameNext?.click(); });
+
+    if (soloBtn) soloBtn.addEventListener('click', () => finishOnboarding(null));
+
+    if (partnerBtn) partnerBtn.addEventListener('click', () => {
+      if (stepMode) stepMode.style.display = 'none';
+      if (stepPair) stepPair.style.display = 'block';
+    });
+
+    if (createBtn) createBtn.addEventListener('click', () => {
+      const newPairId = window.talkAbout.generatePairId();
+      if (pairActions) pairActions.style.display = 'none';
+      if (pairCreated) pairCreated.style.display = 'block';
+      if (pairCodeEl) pairCodeEl.textContent = newPairId;
+      if (continueBtn) continueBtn.dataset.pairId = newPairId;
+    });
+
+    if (continueBtn) continueBtn.addEventListener('click', () => {
+      finishOnboarding(continueBtn.dataset.pairId || null);
+    });
+
+    if (joinBtn) joinBtn.addEventListener('click', () => {
+      const code = (joinInput ? joinInput.value.trim().toLowerCase() : '');
+      if (!code) { showToast('Enter a pair code from your partner'); return; }
+      finishOnboarding(code);
+    });
+    if (joinInput) joinInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') joinBtn?.click(); });
   }
 
   async function init() {
@@ -2522,90 +2647,50 @@ function wireComposer() {
         }
       });
     }
-    // Archive yesterday's note whenever the app becomes visible (handles overnight stays)
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') {
         archiveYesterdayNoteIfNeeded();
       }
     });
-    loadPairState();
-    loadDeviceSyncState();
-    if (state.pairId || hasChosenSolo() || state.deviceSyncId) {
-      document.getElementById('entry-screen').style.display = 'none';
-      document.getElementById('pair-setup').style.display = 'none';
-      await showMainApp();
-      bindEvents();
+
+    // Auth-first flow: if Supabase is configured use real auth,
+    // otherwise fall back to the legacy code-based flow.
+    if (!window.talkAbout || !hasSupabaseConfig()) {
+      loadPairState();
+      loadDeviceSyncState();
+      if (state.pairId || hasChosenSolo() || state.deviceSyncId) {
+        document.getElementById('entry-screen').style.display = 'none';
+        document.getElementById('pair-setup').style.display = 'none';
+        await showMainApp();
+        bindEvents();
+      } else {
+        showAuthScreen();
+        bindAuthScreen();
+      }
+      return;
+    }
+
+    // Listen for auth state changes (fires when magic link is clicked)
+    window.talkAbout.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session && !state.authUser) {
+        await handleAuthSession(session);
+      } else if (event === 'SIGNED_OUT') {
+        state.authUser = null;
+        showAuthScreen();
+        bindAuthScreen();
+      }
+    });
+
+    // Check for an existing session
+    const session = await window.talkAbout.getSession();
+    if (session) {
+      await handleAuthSession(session);
     } else {
-      document.getElementById('entry-screen').style.display = 'block';
-      document.getElementById('pair-setup').style.display = 'none';
-      document.getElementById('main-app').style.display = 'none';
-      document.getElementById('floating-buttons').style.display = 'none';
-      bindEntryScreen();
+      showAuthScreen();
+      bindAuthScreen();
     }
   }
 
-  function bindEntryScreen() {
-    const soloBtn = document.getElementById('entry-solo-btn');
-    const coupleBtn = document.getElementById('entry-couple-btn');
-    const linkBtn = document.getElementById('entry-link-btn');
-    const linkForm = document.getElementById('entry-link-form');
-    const linkCode = document.getElementById('entry-link-code');
-    const linkSubmit = document.getElementById('entry-link-submit');
-    const linkCancel = document.getElementById('entry-link-cancel');
-    if (linkBtn) linkBtn.addEventListener('click', () => {
-      if (linkForm) linkForm.style.display = 'block';
-      if (linkCode) { linkCode.value = ''; linkCode.focus(); }
-    });
-    if (linkCancel) linkCancel.addEventListener('click', () => {
-      if (linkForm) linkForm.style.display = 'none';
-    });
-    if (linkSubmit) linkSubmit.addEventListener('click', async () => {
-      const code = (linkCode && linkCode.value) ? linkCode.value.trim().toLowerCase().replace(/\s/g, '') : '';
-      if (!code || code.length < 6) {
-        showToast('Enter a valid sync code (from your other device)');
-        return;
-      }
-      state.deviceSyncId = code;
-      saveDeviceSyncState();
-      if (linkForm) linkForm.style.display = 'none';
-      document.getElementById('entry-screen').style.display = 'none';
-      try {
-        if (window.talkAbout) {
-          const prefs = await window.talkAbout.getDevicePreferences(state.deviceSyncId);
-          if (!prefs?.error) applyDevicePreferencesToState(prefs);
-          saveState();
-        }
-        showToast('Device linked. If settings look wrong, check the code.');
-      } catch (e) {
-        showToast('Device linked. If settings look wrong, check the code.');
-      }
-      await showMainApp();
-      bindEvents();
-    });
-    if (linkCode) linkCode.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') document.getElementById('entry-link-submit').click();
-    });
-    if (soloBtn) soloBtn.addEventListener('click', async () => {
-      setChosenSolo();
-      if (!state.deviceSyncId) {
-        state.deviceSyncId = window.talkAbout ? window.talkAbout.generatePairId() : 'solo' + Date.now().toString(36).slice(-6);
-        saveDeviceSyncState();
-        if (window.talkAbout) {
-          try {
-            await window.talkAbout.saveDevicePreferences(state.deviceSyncId, getPreferencesForDevice());
-          } catch (e) { console.warn('Seed failed', e); }
-        }
-      }
-      document.getElementById('entry-screen').style.display = 'none';
-      await showMainApp();
-      bindEvents();
-    });
-    if (coupleBtn) coupleBtn.addEventListener('click', () => {
-      document.getElementById('entry-screen').style.display = 'none';
-      document.getElementById('pair-setup').style.display = 'block';
-      bindPairSetup();
-    });
-  }
 
   wireComposer();
 

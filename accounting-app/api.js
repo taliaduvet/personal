@@ -41,6 +41,14 @@ window.acctApi = {
     return { data, error };
   },
 
+  async signInWithOtp(email) {
+    const sb = getClient();
+    if (!sb) return { error: { message: 'Supabase not configured – check config.js SUPABASE_URL and SUPABASE_ANON_KEY.' } };
+    const { data, error } = await sb.auth.signInWithOtp({ email });
+    if (error) console.error('Supabase signInWithOtp error', error);
+    return { data, error };
+  },
+
   async signOut() {
     const sb = getClient();
     if (!sb) return { error: 'Supabase not configured' };

@@ -33,3 +33,4 @@ accounting-app/config.js
 
 # clasp: user-specific Apps Script project id
 accounting-app/gmail-receipts-clasp/.clasp.json
+.vercel

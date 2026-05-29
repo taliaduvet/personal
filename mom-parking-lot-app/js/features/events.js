@@ -375,6 +375,12 @@ export function wireMainEvents(deps) {
     const editTextEl = document.getElementById('edit-text');
     if (editTextEl) editTextEl.addEventListener('input', () => d.modalApi.applySmartFieldsToEdit());
 
+    const editRecurrenceSel = document.getElementById('edit-recurrence');
+    if (editRecurrenceSel) editRecurrenceSel.addEventListener('change', () => {
+      const semiWrap = document.getElementById('edit-semi-monthly-wrap');
+      if (semiWrap) semiWrap.style.display = editRecurrenceSel.value === 'semi_monthly' ? 'block' : 'none';
+    });
+
     const settingsBtn = document.getElementById('settings-btn');
     if (settingsBtn) settingsBtn.addEventListener('click', d.openSettingsModal);
 

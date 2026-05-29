@@ -174,6 +174,21 @@ const {
 const { onBankFileChosen, loadBankReconcile } = bank;
 const { loadGFPanel, initGFPanelListeners } = gf;
 
+function setBooksSub(sub) {
+  document.querySelectorAll('.books-sub').forEach(s => s.classList.remove('visible'));
+  document.querySelectorAll('.books-chip').forEach(c => {
+    c.classList.remove('active');
+    c.setAttribute('aria-selected', 'false');
+  });
+  const subEl = document.getElementById('books-' + sub);
+  const chip = document.querySelector('.books-chip[data-sub="' + sub + '"]');
+  if (subEl) subEl.classList.add('visible');
+  if (chip) { chip.classList.add('active'); chip.setAttribute('aria-selected', 'true'); }
+  if (sub === 'income') incomeListRender();
+  if (sub === 'expenses') expenseListRender();
+  if (sub === 'bank') loadBankReconcile();
+}
+
 function setPanel(name) {
   try {
     sessionStorage.setItem('ledger_panel', name);
@@ -192,13 +207,10 @@ function setPanel(name) {
     btn.classList.add('active');
     btn.setAttribute('aria-selected', 'true');
   }
-  if (name === 'reports') runReport();
-  if (name === 'dashboard') renderDashboard();
-  if (name === 'income') incomeListRender();
-  if (name === 'expenses') expenseListRender();
-  if (name === 'bank') loadBankReconcile();
-  if (name === 'budget') renderBudgetPanel();
-  if (name === 'gf') loadGFPanel();
+  if (name === 'reports') { runReport(); loadGFPanel(); }
+  if (name === 'today') renderDashboard();
+  if (name === 'books') setBooksSub('income');
+  if (name === 'plan') renderBudgetPanel();
 }
 
 function initAuth() {
@@ -217,14 +229,14 @@ function initAuth() {
       }
       if (event === 'SIGNED_IN') {
         try {
-          sessionStorage.setItem('ledger_panel', 'dashboard');
+          sessionStorage.setItem('ledger_panel', 'today');
         } catch (_e) {}
-        setPanel('dashboard');
+        setPanel('today');
         return;
       }
-      let saved = 'dashboard';
+      let saved = 'today';
       try {
-        saved = sessionStorage.getItem('ledger_panel') || 'dashboard';
+        saved = sessionStorage.getItem('ledger_panel') || 'today';
       } catch (_e) {}
       setPanel(saved);
     } else {
@@ -239,61 +251,33 @@ function initAuth() {
     acctApi.onAuthChange((event, session) => setLoggedIn(session?.user, event));
   }
 
-  document.getElementById('auth-signin-btn')?.addEventListener('click', async () => {
+  async function sendOtp() {
     const email = document.getElementById('auth-email').value.trim();
-    const password = document.getElementById('auth-password').value;
     const errEl = document.getElementById('auth-error');
-    if (!email || !password) {
-      errEl.textContent = 'Email and password required';
-      errEl.style.display = 'block';
-      return;
-    }
-    const { error } = await acctApi.signIn(email, password);
-    if (error) {
-      const msg = typeof error === 'string'
-        ? error
-        : (error.message || error.error_description || 'Sign in failed');
-      errEl.textContent = msg;
+    if (!email) {
+      errEl.textContent = 'Email required';
       errEl.style.display = 'block';
       return;
     }
     errEl.style.display = 'none';
-  });
-
-  document.getElementById('auth-signup-btn')?.addEventListener('click', async () => {
-    const email = document.getElementById('signup-email').value.trim();
-    const password = document.getElementById('signup-password').value;
-    const errEl = document.getElementById('signup-error');
-    if (!email || !password) {
-      errEl.textContent = 'Email and password required';
-      errEl.style.display = 'block';
-      return;
-    }
-    if (password.length < 6) {
-      errEl.textContent = 'Password must be at least 6 characters';
-      errEl.style.display = 'block';
-      return;
-    }
-    const { error } = await acctApi.signUp(email, password);
+    const { error } = await acctApi.signInWithOtp(email);
     if (error) {
       const msg = typeof error === 'string'
         ? error
-        : (error.message || error.error_description || 'Sign up failed');
+        : (error.message || error.error_description || 'Could not send link');
       errEl.textContent = msg;
       errEl.style.display = 'block';
       return;
     }
-    errEl.textContent = 'Check your email to confirm, then sign in.';
-    errEl.style.display = 'block';
-  });
+    document.getElementById('auth-step-email').style.display = 'none';
+    document.getElementById('auth-step-sent').style.display = 'block';
+  }
 
-  document.getElementById('auth-show-signup')?.addEventListener('click', () => {
-    document.getElementById('auth-tab-signin').style.display = 'none';
-    document.getElementById('auth-tab-signup').style.display = 'block';
-  });
-  document.getElementById('auth-show-signin')?.addEventListener('click', () => {
-    document.getElementById('auth-tab-signup').style.display = 'none';
-    document.getElementById('auth-tab-signin').style.display = 'block';
+  document.getElementById('auth-otp-btn')?.addEventListener('click', sendOtp);
+  document.getElementById('auth-resend-btn')?.addEventListener('click', () => {
+    document.getElementById('auth-step-sent').style.display = 'none';
+    document.getElementById('auth-step-email').style.display = 'block';
+    sendOtp();
   });
 
   document.getElementById('signout-btn')?.addEventListener('click', () => {
@@ -302,6 +286,10 @@ function initAuth() {
 
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => setPanel(btn.dataset.panel));
+  });
+
+  document.querySelectorAll('.books-chip').forEach(chip => {
+    chip.addEventListener('click', () => setBooksSub(chip.dataset.sub));
   });
 
   document.getElementById('dash-apply')?.addEventListener('click', () => renderDashboard());

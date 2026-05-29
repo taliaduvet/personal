@@ -3,27 +3,25 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Ledger – Sole Prop Accounting</title>
+  <title>Ledger</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
   <div id="auth-screen" class="auth-screen">
     <h1>Ledger</h1>
-    <p>Sole proprietor income & expenses (Canada)</p>
+    <p>Sole proprietor income &amp; expenses (Canada)</p>
     <div class="auth-form">
-      <div id="auth-tab-signin">
+      <div id="auth-step-email">
         <input type="email" id="auth-email" placeholder="Email" autocomplete="email">
-        <input type="password" id="auth-password" placeholder="Password" autocomplete="current-password">
-        <button type="button" id="auth-signin-btn" class="btn-primary">Sign in</button>
+        <button type="button" id="auth-otp-btn" class="btn-primary">Send magic link</button>
         <p id="auth-error" class="error" style="display:none"></p>
-        <div class="toggle"><button type="button" id="auth-show-signup">Need an account? Sign up</button></div>
       </div>
-      <div id="auth-tab-signup" style="display:none">
-        <input type="email" id="signup-email" placeholder="Email" autocomplete="email">
-        <input type="password" id="signup-password" placeholder="Password" autocomplete="new-password">
-        <button type="button" id="auth-signup-btn" class="btn-primary">Create account</button>
-        <p id="signup-error" class="error" style="display:none"></p>
-        <div class="toggle"><button type="button" id="auth-show-signin">Already have an account? Sign in</button></div>
+      <div id="auth-step-sent" style="display:none">
+        <p class="auth-sent">Check your email for a sign-in link.</p>
+        <button type="button" id="auth-resend-btn" class="btn btn-secondary">Resend link</button>
       </div>
     </div>
   </div>
@@ -36,16 +34,14 @@
         <button type="button" id="signout-btn">Sign out</button>
       </header>
       <nav class="tabs" role="tablist" aria-label="Main sections">
-        <button type="button" id="tab-dashboard" role="tab" aria-selected="true" aria-controls="panel-dashboard" data-panel="dashboard" class="tab-btn active">Dashboard</button>
-        <button type="button" id="tab-income" role="tab" aria-selected="false" aria-controls="panel-income" data-panel="income" class="tab-btn">Income</button>
-        <button type="button" id="tab-expenses" role="tab" aria-selected="false" aria-controls="panel-expenses" data-panel="expenses" class="tab-btn">Expenses</button>
+        <button type="button" id="tab-today" role="tab" aria-selected="true" aria-controls="panel-today" data-panel="today" class="tab-btn active">Today</button>
+        <button type="button" id="tab-books" role="tab" aria-selected="false" aria-controls="panel-books" data-panel="books" class="tab-btn">Books</button>
+        <button type="button" id="tab-plan" role="tab" aria-selected="false" aria-controls="panel-plan" data-panel="plan" class="tab-btn">Plan</button>
         <button type="button" id="tab-reports" role="tab" aria-selected="false" aria-controls="panel-reports" data-panel="reports" class="tab-btn">Reports</button>
-        <button type="button" id="tab-bank" role="tab" aria-selected="false" aria-controls="panel-bank" data-panel="bank" class="tab-btn">Bank</button>
-        <button type="button" id="tab-budget" role="tab" aria-selected="false" aria-controls="panel-budget" data-panel="budget" class="tab-btn">Budget</button>
-        <button type="button" id="tab-gf" role="tab" aria-selected="false" aria-controls="panel-gf" data-panel="gf" class="tab-btn">Gluten-free medical</button>
       </nav>
 
-      <section id="panel-dashboard" role="tabpanel" aria-labelledby="tab-dashboard" class="panel visible">
+      <!-- TODAY (was Dashboard) -->
+      <section id="panel-today" role="tabpanel" aria-labelledby="tab-today" class="panel visible">
         <div class="period-controls">
           <label>From <input type="date" id="dash-period-from"></label>
           <label>To <input type="date" id="dash-period-to"></label>
@@ -56,58 +52,57 @@
         <div id="dash-recent" class="entry-list"></div>
       </section>
 
-      <section id="panel-income" role="tabpanel" aria-labelledby="tab-income" class="panel">
-        <div class="period-controls">
-          <label>From <input type="date" id="income-period-from"></label>
-          <label>To <input type="date" id="income-period-to"></label>
-          <button type="button" id="income-apply" class="btn btn-primary">Apply</button>
-        </div>
-        <div id="income-summary" class="panel-summary"></div>
-        <div id="income-by-type" class="panel-by-category"></div>
-        <button type="button" id="income-add-btn" class="btn btn-primary">Add income</button>
-        <div id="income-form-wrap" style="display:none" class="form-wrap"></div>
-        <div id="income-list" class="entry-list" style="margin-top:1rem"></div>
-      </section>
+      <!-- BOOKS (Income + Expenses + Bank) -->
+      <section id="panel-books" role="tabpanel" aria-labelledby="tab-books" class="panel">
+        <nav class="books-chips" role="tablist" aria-label="Books sections">
+          <button class="books-chip active" data-sub="income" role="tab" aria-selected="true">Income</button>
+          <button class="books-chip" data-sub="expenses" role="tab" aria-selected="false">Expenses</button>
+          <button class="books-chip" data-sub="bank" role="tab" aria-selected="false">Bank</button>
+        </nav>
 
-      <section id="panel-expenses" role="tabpanel" aria-labelledby="tab-expenses" class="panel">
-        <div class="period-controls">
-          <label>From <input type="date" id="expense-period-from"></label>
-          <label>To <input type="date" id="expense-period-to"></label>
-          <button type="button" id="expense-apply" class="btn btn-primary">Apply</button>
-        </div>
-        <div id="expense-summary" class="panel-summary"></div>
-        <div id="expense-by-category" class="panel-by-category"></div>
-        <button type="button" id="expense-add-btn" class="btn btn-primary">Add expense</button>
-        <div id="expense-form-wrap" style="display:none" class="form-wrap"></div>
-        <div id="expense-list" class="entry-list" style="margin-top:1rem"></div>
-      </section>
-
-      <section id="panel-reports" role="tabpanel" aria-labelledby="tab-reports" class="panel">
-        <div class="report-controls">
-          <label>From <input type="date" id="report-from"></label>
-          <label>To <input type="date" id="report-to"></label>
-          <button type="button" id="report-apply" class="btn btn-primary">Apply</button>
-        </div>
-        <div id="report-summary" class="report-summary"></div>
-        <div id="report-by-category" class="report-by-category"></div>
-        <div id="report-gst" class="report-summary" style="margin-top:1rem"></div>
-      </section>
-
-      <section id="panel-bank" role="tabpanel" aria-labelledby="tab-bank" class="panel">
-        <div class="bank-import">
-          <h3>Import bank CSV</h3>
-          <p class="empty-state" style="padding:0 0 1rem 0; text-align:left">Upload a CSV from your bank, map columns once, then create income/expenses from transactions. If your file has separate <strong>Debit</strong> and <strong>Credit</strong> columns (all positive numbers), map those instead of Amount—signed “Amount” CSVs (negative = withdrawal) still work as before.</p>
-          <p class="hint" style="margin:0 0 1rem 0"><strong>Receipts</strong> you attach here or on the Expenses tab are stored in your Supabase project’s private <code>acct_receipts</code> bucket (path <code>your-user-id / expense-id / file</code>). Open any time from <strong>Expenses → Edit expense → Existing receipts</strong>, or from Supabase Dashboard → Storage. Google Drive is not connected automatically.</p>
-          <div class="form-row">
-            <label>Bank CSV file</label>
-            <input type="file" id="bank-file" accept=".csv,text/csv">
+        <div id="books-income" class="books-sub visible">
+          <div class="period-controls">
+            <label>From <input type="date" id="income-period-from"></label>
+            <label>To <input type="date" id="income-period-to"></label>
+            <button type="button" id="income-apply" class="btn btn-primary">Apply</button>
           </div>
-          <div id="bank-mapping" style="display:none" class="form-row"></div>
+          <div id="income-summary" class="panel-summary"></div>
+          <div id="income-by-type" class="panel-by-category"></div>
+          <button type="button" id="income-add-btn" class="btn btn-primary">Add income</button>
+          <div id="income-form-wrap" style="display:none" class="form-wrap"></div>
+          <div id="income-list" class="entry-list" style="margin-top:1rem"></div>
         </div>
-        <div id="bank-reconcile" class="bank-reconcile" style="margin-top:1.5rem"></div>
+
+        <div id="books-expenses" class="books-sub">
+          <div class="period-controls">
+            <label>From <input type="date" id="expense-period-from"></label>
+            <label>To <input type="date" id="expense-period-to"></label>
+            <button type="button" id="expense-apply" class="btn btn-primary">Apply</button>
+          </div>
+          <div id="expense-summary" class="panel-summary"></div>
+          <div id="expense-by-category" class="panel-by-category"></div>
+          <button type="button" id="expense-add-btn" class="btn btn-primary">Add expense</button>
+          <div id="expense-form-wrap" style="display:none" class="form-wrap"></div>
+          <div id="expense-list" class="entry-list" style="margin-top:1rem"></div>
+        </div>
+
+        <div id="books-bank" class="books-sub">
+          <div class="bank-import">
+            <h3>Import bank CSV</h3>
+            <p class="empty-state" style="padding:0 0 1rem 0; text-align:left">Upload a CSV from your bank, map columns once, then create income/expenses from transactions. If your file has separate <strong>Debit</strong> and <strong>Credit</strong> columns (all positive numbers), map those instead of Amount—signed "Amount" CSVs (negative = withdrawal) still work as before.</p>
+            <p class="hint" style="margin:0 0 1rem 0"><strong>Receipts</strong> you attach here or on the Expenses tab are stored in your Supabase project's private <code>acct_receipts</code> bucket (path <code>your-user-id / expense-id / file</code>). Open any time from <strong>Expenses → Edit expense → Existing receipts</strong>, or from Supabase Dashboard → Storage. Google Drive is not connected automatically.</p>
+            <div class="form-row">
+              <label>Bank CSV file</label>
+              <input type="file" id="bank-file" accept=".csv,text/csv">
+            </div>
+            <div id="bank-mapping" style="display:none" class="form-row"></div>
+          </div>
+          <div id="bank-reconcile" class="bank-reconcile" style="margin-top:1.5rem"></div>
+        </div>
       </section>
 
-      <section id="panel-budget" role="tabpanel" aria-labelledby="tab-budget" class="panel">
+      <!-- PLAN (was Budget) -->
+      <section id="panel-plan" role="tabpanel" aria-labelledby="tab-plan" class="panel">
         <div class="budget-controls">
           <label>Period</label>
           <select id="budget-period">
@@ -155,9 +150,21 @@
         </div>
       </section>
 
-      <section id="panel-gf" role="tabpanel" aria-labelledby="tab-gf" class="panel">
+      <!-- REPORTS (P&L + GF medical) -->
+      <section id="panel-reports" role="tabpanel" aria-labelledby="tab-reports" class="panel">
+        <div class="report-controls">
+          <label>From <input type="date" id="report-from"></label>
+          <label>To <input type="date" id="report-to"></label>
+          <button type="button" id="report-apply" class="btn btn-primary">Apply</button>
+        </div>
+        <div id="report-summary" class="report-summary"></div>
+        <div id="report-by-category" class="report-by-category"></div>
+        <div id="report-gst" class="report-summary" style="margin-top:1rem"></div>
+
+        <hr class="gf-section-divider">
+        <h3>Gluten-free medical (CRA)</h3>
         <div class="gf-instructions">
-          <p><strong>Gluten-free medical expense (CRA)</strong> — Log only items that are specifically gluten-free. Enter the regular price you’d normally pay for the non-GF equivalent. The app calculates the incremental cost and builds a yearly summary for your medical expense claim (lines 33099/33199).</p>
+          <p><strong>Gluten-free medical expense (CRA)</strong> — Log only items that are specifically gluten-free. Enter the regular price you'd normally pay for the non-GF equivalent. The app calculates the incremental cost and builds a yearly summary for your medical expense claim (lines 33099/33199).</p>
           <p class="hint" style="margin:0.5rem 0 0 0;">Keep a letter from your doctor stating you have celiac disease and need a gluten-free diet; CRA may ask for it with your medical expenses.</p>
         </div>
         <div class="gf-layout">
@@ -173,7 +180,7 @@
               <div id="gf-receipt-has-current" style="display:none">
                 <span id="gf-receipt-current-name" class="gf-receipt-name"></span>
                 <button type="button" id="gf-receipt-done-btn" class="btn btn-secondary">Done with this receipt</button>
-                <span class="hint" style="display:block;margin-top:0.35rem;">Add line items below; click Done when you’ve entered everything for this receipt.</span>
+                <span class="hint" style="display:block;margin-top:0.35rem;">Add line items below; click Done when you've entered everything for this receipt.</span>
               </div>
             </div>
             <div class="form-row"><label>Date</label><input type="date" id="gf-purchase-date"></div>
@@ -191,7 +198,7 @@
                 <input type="number" id="gf-prod-size-value" min="0" step="any" placeholder="—" title="Regular size per unit">
                 <select id="gf-prod-size-unit" title="Unit"><option value="">—</option><option value="g">g</option><option value="kg">kg</option><option value="oz">oz</option><option value="lb">lb</option><option value="ml">mL</option><option value="l">L</option></select>
                 <button type="button" id="gf-prod-bc-avg-btn" class="btn btn-secondary">Use BC average</button>
-                <button type="button" id="gf-prod-add-use-btn" class="btn btn-primary">Add & use below</button>
+                <button type="button" id="gf-prod-add-use-btn" class="btn btn-primary">Add &amp; use below</button>
                 <button type="button" id="gf-prod-cancel-btn" class="btn btn-secondary">Cancel</button>
               </div>
               <span id="gf-prod-bc-hint" class="hint"></span>
@@ -201,7 +208,7 @@
               <label>GF total paid ($)</label>
               <div>
                 <input type="number" id="gf-total-paid" step="0.01" min="0" placeholder="0.00">
-                <label class="gf-per-unit-check"><input type="checkbox" id="gf-total-is-per-unit"> Per unit (we’ll multiply by quantity)</label>
+                <label class="gf-per-unit-check"><input type="checkbox" id="gf-total-is-per-unit"> Per unit (we'll multiply by quantity)</label>
               </div>
             </div>
             <div class="form-row"><label>Regular price per unit ($)</label><div><input type="number" id="gf-regular-unit" step="0.01" min="0" placeholder="0.00"> <span id="gf-bc-avg-hint" class="hint"></span></div></div>

@@ -258,18 +258,50 @@
   <div id="edit-modal" class="modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="edit-modal-title">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 id="edit-modal-title">Edit</h3>
+        <h3 id="edit-modal-title">Edit task</h3>
         <button id="close-edit" class="btn-close">×</button>
       </div>
       <div class="modal-body edit-form">
         <div class="edit-input-row">
-          <input id="edit-text" type="text" placeholder="Task description" autocomplete="off">
+          <input id="edit-text" type="text" placeholder="What needs to get done?" autocomplete="off">
         </div>
-        <div class="edit-options">
+
+        <div class="edit-options edit-section">
+          <div class="edit-section-title">When</div>
+          <div class="edit-dates-row">
+            <div class="edit-date-field">
+              <label>Must be done by</label>
+              <input id="edit-deadline" type="date">
+            </div>
+            <div class="edit-date-field">
+              <label>I'll work on it</label>
+              <input id="edit-doing-date" type="date" title="Plan to do on this day; task is auto-removed after">
+            </div>
+          </div>
+          <label>Repeats</label>
+          <select id="edit-recurrence">
+            <option value="">Doesn't repeat</option>
+            <option value="daily">Every day</option>
+            <option value="weekly">Every week</option>
+            <option value="monthly">Every month</option>
+            <option value="quarterly">Every 3 months</option>
+            <option value="semi_monthly">Twice a month (pick days)</option>
+          </select>
+          <div id="edit-semi-monthly-wrap" style="display:none">
+            <label>On which days of the month?</label>
+            <div class="edit-semi-day-inputs">
+              <span>Day</span>
+              <input id="edit-semi-day1" type="number" min="1" max="28" placeholder="1">
+              <span>and day</span>
+              <input id="edit-semi-day2" type="number" min="1" max="28" placeholder="15">
+            </div>
+          </div>
+        </div>
+
+        <div class="edit-options edit-section">
+          <div class="edit-section-title">Organize</div>
           <label>Category</label>
           <select id="edit-category"></select>
-          <label>First step (optional)</label>
-          <input id="edit-first-step" type="text" placeholder="e.g. Open the file and add the title" maxlength="200" title="What's the one tiny thing that would get you started?">
           <label>Project (optional)</label>
           <div class="select-with-new">
             <select id="edit-pile">
@@ -284,36 +316,19 @@
             </select>
             <button type="button" id="edit-person-new" class="btn-secondary btn-sm btn-inline-new">+ New</button>
           </div>
-          <label>Friction (optional)</label>
-          <select id="edit-friction">
-            <option value="">None</option>
-            <option value="quick">Quick</option>
-            <option value="medium">Medium</option>
-            <option value="deep">Deep</option>
-          </select>
-          <label>Deadline</label>
-          <input id="edit-deadline" type="date">
-          <label>Doing date (optional)</label>
-          <input id="edit-doing-date" type="date" title="Plan to do on this day; task is auto-removed after">
-          <label>Recurrence</label>
-          <select id="edit-recurrence">
-            <option value="">None</option>
-            <option value="daily">Daily</option>
-            <option value="weekly">Weekly</option>
-            <option value="monthly">Monthly</option>
-            <option value="quarterly">Quarterly</option>
-            <option value="semi_monthly">Semi-monthly (custom)</option>
-          </select>
-          <label id="edit-recurrence-rule-label" style="display:none">Semi-monthly rule</label>
-          <input id="edit-recurrence-rule-input" type="text" placeholder="days:1,15" style="display:none">
-          <label>Task notes (optional)</label>
-          <textarea id="edit-notes" class="column-note-textarea" rows="3" placeholder="Notes for this task..."></textarea>
+        </div>
+
+        <div class="edit-options edit-section">
+          <div class="edit-section-title">Details</div>
           <label>Priority</label>
           <select id="edit-priority"></select>
+          <label>Notes (optional)</label>
+          <textarea id="edit-notes" class="column-note-textarea" rows="3" placeholder="Notes for this task..."></textarea>
           <label>Remind me at</label>
           <input id="edit-reminder" type="datetime-local">
           <p class="settings-hint" style="margin-top:-0.5rem">Get a push notification at this time (requires notifications enabled in Settings)</p>
         </div>
+
         <button id="save-edit" class="btn-primary">Save</button>
       </div>
     </div>

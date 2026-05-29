@@ -202,6 +202,65 @@ h1, h2, h3, h4 {
   font-size: 1rem;
 }
 
+/* Auth screen */
+.auth-logo {
+  font-size: 3rem;
+  margin-bottom: 0.5rem;
+  line-height: 1;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.auth-email-input {
+  width: 100%;
+  padding: 0.8rem 1rem;
+  font-size: 1rem;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  text-align: center;
+  transition: border-color var(--dur-fast);
+}
+
+.auth-email-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.auth-sent-state {
+  margin-top: 1rem;
+  padding: 1.5rem;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.auth-sent-icon {
+  font-size: 2.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.auth-sent-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+/* Onboarding (pair-setup screen repurposed) */
+.ob-name-input {
+  width: 100%;
+  margin-bottom: 1rem;
+  text-align: center;
+  font-size: 1.1rem;
+  padding: 0.75rem 1rem;
+}
+
 .entry-link-form {
   margin-top: 1.5rem;
   padding-top: 1.5rem;

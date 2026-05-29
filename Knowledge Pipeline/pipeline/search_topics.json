@@ -1,0 +1,80 @@
+{
+  "_note": "Layer 2 search queries. Kept broad — no site: operators (DDG handles them poorly). The scoring layer filters for domain authority.",
+  "topics": [
+    {
+      "label": "bass production techniques",
+      "query": "bass production technique recording tutorial engineer",
+      "disciplines": ["bass"]
+    },
+    {
+      "label": "drum recording techniques",
+      "query": "drum recording technique mic placement producer engineer interview",
+      "disciplines": ["drums"]
+    },
+    {
+      "label": "low end mixing",
+      "query": "low end mixing bass kick relationship technique sidechain",
+      "disciplines": ["bass", "mixing"]
+    },
+    {
+      "label": "808 sub bass production",
+      "query": "808 bass production technique how to make synthesis trap hip hop",
+      "disciplines": ["bass"]
+    },
+    {
+      "label": "drum groove pocket",
+      "query": "drum groove pocket feel human quantization technique producer",
+      "disciplines": ["drums"]
+    },
+    {
+      "label": "sidechain compression",
+      "query": "sidechain compression technique kick bass pumping tutorial engineer",
+      "disciplines": ["bass", "drums", "mixing"]
+    },
+    {
+      "label": "parallel compression drums",
+      "query": "parallel compression drums technique new york compression bus mix",
+      "disciplines": ["drums", "mixing"]
+    },
+    {
+      "label": "bass recording DI amp",
+      "query": "bass guitar recording DI amp technique tone blend studio",
+      "disciplines": ["bass"]
+    },
+    {
+      "label": "reese bass synthesis",
+      "query": "reese bass synthesis technique how to make dnb jungle detuned",
+      "disciplines": ["bass"]
+    },
+    {
+      "label": "drum bus compression glue",
+      "query": "drum bus compression glue technique processing mix engineer",
+      "disciplines": ["drums", "mixing"]
+    },
+    {
+      "label": "classic tracks rhythm section breakdown",
+      "query": "classic tracks rhythm section drum bass recording breakdown engineer",
+      "disciplines": ["bass", "drums"]
+    },
+    {
+      "label": "ghost notes drum programming",
+      "query": "ghost notes drum programming technique groove feel velocity",
+      "disciplines": ["drums"]
+    },
+    {
+      "label": "bass EQ frequency fundamentals",
+      "query": "bass EQ technique frequency fundamental harmonic content mix",
+      "disciplines": ["bass", "mixing"]
+    },
+    {
+      "label": "producer engineer interview technique",
+      "query": "producer engineer interview recording technique studio bass drums",
+      "disciplines": ["bass", "drums"]
+    },
+    {
+      "label": "sub bass design synthesis",
+      "query": "sub bass design synthesis technique warmth movement production",
+      "disciplines": ["bass"]
+    }
+  ]
+}

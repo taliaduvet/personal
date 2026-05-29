@@ -21,44 +21,60 @@
     You're offline — tasks save locally. Sync will resume when you're back online.
   </div>
   <div id="app">
-    <!-- Entry screen (first-time: choose solo or couple) -->
+    <!-- Auth screen: email magic link login -->
     <div id="entry-screen" class="entry-screen" style="display:none">
+      <div class="auth-logo">🅿</div>
       <h1>Parking Lot</h1>
-      <p class="entry-hint">How would you like to use this?</p>
-      <div class="entry-actions">
-        <button id="entry-solo-btn" class="btn-primary btn-entry">Use on my own</button>
-        <button id="entry-couple-btn" class="btn-primary btn-entry">Use with my partner</button>
-        <div class="entry-divider">already set up?</div>
-        <button id="entry-link-btn" class="btn-secondary btn-entry">Sync from another device</button>
+      <p class="entry-hint">Your personal task vault. Enter your email to sign in — no password needed.</p>
+      <div id="auth-email-form" class="auth-form">
+        <input id="auth-email-input" type="email" placeholder="your@email.com" autocomplete="email" class="auth-email-input">
+        <button id="auth-send-btn" class="btn-primary btn-entry">Send sign-in link</button>
       </div>
-      <div id="entry-link-form" class="entry-link-form" style="display:none">
-        <p class="entry-hint">Enter the sync code from Settings on your other device. Your tasks and preferences will load automatically.</p>
-        <input id="entry-link-code" type="text" placeholder="e.g. abc12345" maxlength="20" autocomplete="off">
-        <div class="entry-link-actions">
-          <button id="entry-link-submit" class="btn-primary">Link</button>
-          <button id="entry-link-cancel" class="btn-secondary">Cancel</button>
-        </div>
+      <div id="auth-sent-state" style="display:none" class="auth-sent-state">
+        <div class="auth-sent-icon">✉️</div>
+        <p class="auth-sent-title">Check your email</p>
+        <p class="entry-hint">We sent a sign-in link to your inbox. Click it to get in — you can close this tab.</p>
+        <button id="auth-resend-btn" class="btn-secondary">Use a different email</button>
       </div>
     </div>
 
-    <!-- Pair setup (shown when choosing couple, no pair_id yet) -->
+    <!-- Onboarding: shown after first login when no profile exists yet -->
     <div id="pair-setup" class="pair-setup" style="display:none">
-      <h1>Parking Lot</h1>
-      <p class="pair-hint">Create a pair to get started, or join with a code from your partner.</p>
-      <div class="pair-actions">
-        <button id="create-pair-btn" class="btn-primary">Create pair</button>
-        <div class="pair-divider">or</div>
-        <div class="join-section">
-          <input id="join-code-input" type="text" placeholder="Enter pair code" maxlength="12" autocomplete="off">
-          <label class="join-who" for="join-as-name">Your name (shown to your partner)</label>
-          <input id="join-as-name" type="text" placeholder="e.g. Talia" maxlength="40" autocomplete="off" class="settings-name-input">
-          <button id="join-pair-btn" class="btn-primary">Join</button>
+      <div class="auth-logo">🅿</div>
+      <h1>Welcome!</h1>
+
+      <!-- Step 1: Name -->
+      <div id="ob-step-name">
+        <p class="pair-hint">What should we call you?</p>
+        <input id="ob-name-input" type="text" placeholder="Your name" maxlength="40" autocomplete="name" class="settings-name-input ob-name-input">
+        <button id="ob-name-next" class="btn-primary btn-entry">Continue →</button>
+      </div>
+
+      <!-- Step 2: Solo or with partner -->
+      <div id="ob-step-mode" style="display:none">
+        <p class="pair-hint">How are you using Parking Lot?</p>
+        <div class="entry-actions">
+          <button id="ob-solo-btn" class="btn-primary btn-entry">Just me</button>
+          <button id="ob-partner-btn" class="btn-primary btn-entry">With my partner</button>
         </div>
       </div>
-      <div id="pair-created" class="pair-created" style="display:none">
-        <p>Share this code with your partner:</p>
-        <p id="pair-code-display" class="pair-code"></p>
-        <button id="continue-after-create" class="btn-primary">Continue</button>
+
+      <!-- Step 3: Pair code (partner flow) -->
+      <div id="ob-step-pair" style="display:none">
+        <p class="pair-hint">Set up your shared space.</p>
+        <div class="pair-actions" id="ob-pair-actions">
+          <button id="ob-create-pair-btn" class="btn-primary btn-entry">Create a pair</button>
+          <div class="pair-divider">or join with a code from your partner</div>
+          <div class="join-section">
+            <input id="ob-join-code-input" type="text" placeholder="Enter pair code" maxlength="12" autocomplete="off">
+            <button id="ob-join-pair-btn" class="btn-primary">Join</button>
+          </div>
+        </div>
+        <div id="ob-pair-created" class="pair-created" style="display:none">
+          <p>Share this code with your partner:</p>
+          <p id="ob-pair-code-display" class="pair-code"></p>
+          <button id="ob-continue-btn" class="btn-primary btn-entry">Start using Parking Lot →</button>
+        </div>
       </div>
     </div>
 
@@ -601,6 +617,10 @@
           <a href="terms-of-use.html" target="_blank" rel="noopener">Terms</a>
         </p>
         <p id="settings-build-ref" class="settings-hint" style="margin-top:0.35rem;font-size:0.85rem;opacity:0.85" aria-live="polite"></p>
+        <div id="settings-account-section" style="display:none;margin-top:1.25rem;padding-top:1rem;border-top:1px solid var(--border)">
+          <p class="settings-hint" id="settings-account-email" style="margin-bottom:0.5rem"></p>
+          <button id="settings-sign-out-btn" class="btn-secondary btn-sm">Sign out</button>
+        </div>
         <button id="save-settings" class="btn-primary">Save</button>
       </div>
     </div>

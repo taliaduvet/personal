@@ -116,17 +116,21 @@ export function createNotesUI(d) {
     const notesView = document.getElementById('notes-view');
     const overview = document.getElementById('overview');
     const focusMode = document.getElementById('focus-mode');
+    const todayPanel = document.getElementById('today-panel-wrap');
     if (notesView) notesView.style.display = 'block';
     if (overview) overview.style.display = 'none';
     if (focusMode) focusMode.style.display = 'none';
+    if (todayPanel) todayPanel.style.display = 'none';
     renderNotesTab();
   }
 
   function hideNotesView() {
     const notesView = document.getElementById('notes-view');
     const overview = document.getElementById('overview');
+    const todayPanel = document.getElementById('today-panel-wrap');
     if (notesView) notesView.style.display = 'none';
     if (overview) overview.style.display = '';
+    if (todayPanel) todayPanel.style.display = '';
   }
 
   function bindNotesTabControls() {

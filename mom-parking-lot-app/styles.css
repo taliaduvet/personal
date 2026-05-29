@@ -1597,7 +1597,14 @@ body.week-planning-open .modal {
   flex-direction: column;
   gap: 0.5rem;
   min-width: 0;
-  min-height: 0;
+  min-height: 2rem; /* always a drop target even when empty */
+}
+
+.column-items.drag-over {
+  outline: 2px dashed var(--header-accent, var(--accent-button, var(--accent-coral)));
+  outline-offset: 2px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--header-accent, var(--accent-button, #e07a5f)) 7%, transparent);
 }
 
 .task-card {
@@ -1609,6 +1616,12 @@ body.week-planning-open .modal {
   border-radius: 8px;
   font-size: 0.9rem;
   border-left: 3px solid transparent;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.task-card:hover {
+  background: color-mix(in srgb, var(--text) 5%, var(--bg-soft));
 }
 
 .task-card.selected {
@@ -1633,6 +1646,7 @@ body.week-planning-open .modal {
   line-height: 1;
   flex-shrink: 0;
   user-select: none;
+  title: "Drag to move · Click to select for Today";
 }
 
 .task-drag-handle:active {

@@ -1,0 +1,133 @@
+{
+  "rss_feeds": [
+    {
+      "name": "Sound On Sound",
+      "url": "https://www.soundonsound.com/rss.xml",
+      "tier": 1,
+      "disciplines": ["bass", "drums", "mixing", "recording"]
+    },
+    {
+      "name": "Tape Op",
+      "url": "https://tapeop.com/rss",
+      "tier": 1,
+      "disciplines": ["bass", "drums", "mixing", "recording"]
+    },
+    {
+      "name": "Mix Online",
+      "url": "https://www.mixonline.com/rss",
+      "tier": 1,
+      "disciplines": ["bass", "drums", "mixing", "recording"]
+    },
+    {
+      "name": "Attack Magazine",
+      "url": "https://www.attackmagazine.com/feed/",
+      "tier": 1,
+      "disciplines": ["bass", "drums", "mixing", "sound design"]
+    },
+    {
+      "name": "Recording Magazine",
+      "url": "https://www.recordingmag.com/feed/",
+      "tier": 2,
+      "disciplines": ["bass", "drums", "mixing", "recording"]
+    },
+    {
+      "name": "Working Class Audio",
+      "url": "https://www.workingclassaudio.com/feed/",
+      "tier": 2,
+      "disciplines": ["bass", "drums", "mixing", "recording"]
+    },
+    {
+      "name": "Home Recording Show",
+      "url": "https://homerecordingshow.com/feed/podcast/",
+      "tier": 2,
+      "disciplines": ["bass", "drums", "mixing", "recording"]
+    },
+    {
+      "name": "Recording Studio Rockstars",
+      "url": "https://recordingstudiorockstars.com/feed/podcast/",
+      "tier": 2,
+      "disciplines": ["bass", "drums", "mixing", "recording"]
+    },
+    {
+      "name": "iZotope Blog",
+      "url": "https://www.izotope.com/en/learn/rss.xml",
+      "tier": 2,
+      "disciplines": ["mixing", "mastering"]
+    },
+    {
+      "name": "MusicRadar",
+      "url": "https://www.musicradar.com/feeds/all",
+      "tier": 2,
+      "disciplines": ["bass", "drums", "mixing", "production"]
+    }
+  ],
+  "youtube_channels": [
+    {
+      "name": "Pensado's Place",
+      "url": "https://www.youtube.com/@pensadosplace/videos",
+      "tier": 1,
+      "disciplines": ["mixing", "bass", "drums"]
+    },
+    {
+      "name": "Spectre Sound Studios",
+      "url": "https://www.youtube.com/@SpectreSound/videos",
+      "tier": 1,
+      "disciplines": ["drums", "bass", "recording"]
+    },
+    {
+      "name": "Produce Like A Pro",
+      "url": "https://www.youtube.com/@ProduceLikeAPro/videos",
+      "tier": 1,
+      "disciplines": ["bass", "drums", "mixing", "recording"]
+    },
+    {
+      "name": "In The Mix",
+      "url": "https://www.youtube.com/@InTheMix/videos",
+      "tier": 1,
+      "disciplines": ["mixing", "drums", "bass"]
+    },
+    {
+      "name": "Musician on a Mission",
+      "url": "https://www.youtube.com/@ReasonSound/videos",
+      "tier": 2,
+      "disciplines": ["mixing", "drums", "bass"]
+    },
+    {
+      "name": "AES",
+      "url": "https://www.youtube.com/@AESorg/videos",
+      "tier": 2,
+      "disciplines": ["bass", "drums", "mixing", "recording"]
+    }
+  ],
+  "high_authority_domains": [
+    "soundonsound.com",
+    "tapeop.com",
+    "mixonline.com",
+    "attackmagazine.com",
+    "recordingmag.com",
+    "workingclassaudio.com",
+    "homerecordingshow.com",
+    "recordingstudiorockstars.com",
+    "producelikeapro.com",
+    "aes.org",
+    "sweetwater.com",
+    "izotope.com",
+    "musicradar.com",
+    "reverb.com",
+    "gearspace.com",
+    "pensadosplace.tv",
+    "redbullmusicacademy.com",
+    "daily.redbullmusicacademy.com"
+  ],
+  "practitioner_names": [
+    "Steve Albini", "Tchad Blake", "Andrew Scheps", "Chris Lord-Alge",
+    "Tom Lord-Alge", "Tony Maserati", "Jaycen Joshua", "Dave Pensado",
+    "Sylvia Massy", "Joe Chiccarelli", "Al Schmitt", "Bob Weston",
+    "Warren Huart", "Questlove", "J Dilla", "Finneas", "Rick Rubin",
+    "Mike Senior", "Bobby Owsinski", "Mixerman", "Paul White",
+    "Hugh Robjohns", "Matt Houghton", "9th Wonder", "Flying Lotus",
+    "Mark Ronson", "Timbaland", "Scott Storch", "Dr Dre",
+    "Pharrell Williams", "Dave Bock", "Jack Joseph Puig", "Chris Shaw",
+    "Andy Wallace", "Manny Marroquin"
+  ]
+}

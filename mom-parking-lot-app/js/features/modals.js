@@ -282,11 +282,6 @@ export function createModalController(deps) {
       const inp = document.getElementById('edit-doing-date');
       if (inp) inp.value = doingDate;
     }
-    const friction = extractFriction(text);
-    if (friction) {
-      const sel = document.getElementById('edit-friction');
-      if (sel && sel.querySelector(`option[value="${friction}"]`)) sel.value = friction;
-    }
   }
 
   function addSingle() {
@@ -345,10 +340,6 @@ export function createModalController(deps) {
     ).join('');
     updatePileSelectOptions('edit-pile', item.pileId || '');
     updatePersonSelectOptions('edit-person', item.personId || '');
-    const editFriction = document.getElementById('edit-friction');
-    if (editFriction) editFriction.value = item.friction || '';
-    const editFirstStep = document.getElementById('edit-first-step');
-    if (editFirstStep) editFirstStep.value = item.firstStep || '';
     document.getElementById('edit-deadline').value = item.deadline || '';
     const editDoingEl = document.getElementById('edit-doing-date');
     if (editDoingEl) editDoingEl.value = item.doingDate || '';
@@ -359,13 +350,16 @@ export function createModalController(deps) {
     if (editRecurrence) editRecurrence.value = item.recurrence || '';
     const editNotes = document.getElementById('edit-notes');
     if (editNotes) editNotes.value = item.notes || '';
-    const editRuleInput = document.getElementById('edit-recurrence-rule-input');
-    const editRuleLabel = document.getElementById('edit-recurrence-rule-label');
-    if (editRuleInput && editRuleLabel) {
+    const semiWrap = document.getElementById('edit-semi-monthly-wrap');
+    if (semiWrap) {
       const show = item.recurrence === 'semi_monthly';
-      editRuleInput.style.display = show ? 'block' : 'none';
-      editRuleLabel.style.display = show ? 'block' : 'none';
-      editRuleInput.value = formatRecurrenceRuleInput(item.recurrenceRule);
+      semiWrap.style.display = show ? 'block' : 'none';
+      if (show && item.recurrenceRule?.type === 'days_of_month' && Array.isArray(item.recurrenceRule.days)) {
+        const d1 = document.getElementById('edit-semi-day1');
+        const d2 = document.getElementById('edit-semi-day2');
+        if (d1) d1.value = item.recurrenceRule.days[0] ?? '';
+        if (d2) d2.value = item.recurrenceRule.days[1] ?? '';
+      }
     }
     if (IS_MOM_APP && editNotes && !editNotes.dataset.noteToTaskWired) {
       const wrap = editNotes.closest('.edit-options') || editNotes.parentElement;
@@ -402,19 +396,17 @@ export function createModalController(deps) {
     item.pileId = (editPileEl && editPileEl.value) ? editPileEl.value : null;
     const editPersonEl = document.getElementById('edit-person');
     item.personId = (editPersonEl && editPersonEl.value) ? editPersonEl.value : null;
-    const editFrictionEl = document.getElementById('edit-friction');
-    item.friction = (editFrictionEl && editFrictionEl.value) ? editFrictionEl.value : null;
-    const editFirstStepEl = document.getElementById('edit-first-step');
-    item.firstStep = (editFirstStepEl && editFirstStepEl.value.trim()) ? editFirstStepEl.value.trim() : null;
     item.deadline = document.getElementById('edit-deadline').value || null;
     const editDoingEl = document.getElementById('edit-doing-date');
     item.doingDate = (editDoingEl && editDoingEl.value) ? editDoingEl.value : null;
     const editRecurrence = document.getElementById('edit-recurrence');
     item.recurrence = (editRecurrence && editRecurrence.value) ? editRecurrence.value : null;
-    const editRuleInput = document.getElementById('edit-recurrence-rule-input');
-    if (item.recurrence === 'semi_monthly' && editRuleInput) {
-      item.recurrenceRule = parseRecurrenceRuleInput(editRuleInput.value);
-    } else if (item.recurrence !== 'semi_monthly') {
+    if (item.recurrence === 'semi_monthly') {
+      const d1 = parseInt(document.getElementById('edit-semi-day1')?.value, 10);
+      const d2 = parseInt(document.getElementById('edit-semi-day2')?.value, 10);
+      const days = [d1, d2].filter(n => n >= 1 && n <= 31);
+      item.recurrenceRule = days.length ? { type: 'days_of_month', days } : null;
+    } else {
       item.recurrenceRule = null;
     }
     const editNotes = document.getElementById('edit-notes');

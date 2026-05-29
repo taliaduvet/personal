@@ -1,5 +1,7 @@
 /** @type {import('./types.js').AppState} */
 export const state = {
+  /** Authenticated user from Supabase Auth. Null when not logged in. */
+  authUser: null,
   items: [],
   todaySuggestionIds: [],
   completedTodayCount: 0,

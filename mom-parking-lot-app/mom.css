@@ -653,3 +653,376 @@ html.mom-app .columns-header {
     padding: 0.75rem 1rem;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   Design polish pass
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Header: borderless icon buttons, single row ─────────── */
+
+html.mom-app .btn-icon {
+  background: transparent;
+  border-color: transparent;
+  color: var(--mom-muted);
+  transition: background 0.12s var(--mom-ease), color 0.12s var(--mom-ease);
+}
+
+html.mom-app .btn-icon:hover {
+  background: var(--mom-surface-2);
+  color: var(--mom-ink);
+}
+
+html.mom-app .btn-hamburger {
+  background: transparent;
+  border-color: transparent;
+}
+
+html.mom-app .btn-hamburger:hover {
+  background: var(--mom-surface-2);
+  border-color: transparent;
+}
+
+html.mom-app .today-header-actions {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+/* ── Task meta: fix dark-mode tag leakage ─────────────────── */
+
+html.mom-app .task-meta .pile-tag,
+html.mom-app .task-meta .life-area-tag {
+  background: var(--mom-accent-soft);
+  color: var(--mom-accent);
+  padding: 0.1rem 0.5rem;
+  border-radius: var(--mom-radius-sm);
+  font-weight: 500;
+}
+
+html.mom-app .task-meta .person-tag {
+  background: rgba(109, 143, 123, 0.12);
+  color: #4a7a60;
+  padding: 0.1rem 0.5rem;
+  border-radius: var(--mom-radius-sm);
+  font-weight: 500;
+}
+
+html.mom-app .task-meta .friction-badge {
+  background: var(--mom-surface);
+  border: 1px solid var(--mom-line);
+  padding: 0.1rem 0.45rem;
+  border-radius: var(--mom-radius-sm);
+  font-weight: 500;
+}
+
+html.mom-app .task-meta .overdue-badge {
+  color: #b45309;
+  font-weight: 600;
+}
+
+html.mom-app .task-meta .doing-badge {
+  color: var(--mom-muted);
+}
+
+html.mom-app .task-meta .stale-badge {
+  color: var(--mom-faint);
+}
+
+html.mom-app .task-meta .recurrence-badge {
+  color: #4a7a60;
+}
+
+/* ── Task action buttons: touchable & balanced ────────────── */
+
+html.mom-app .task-actions {
+  gap: 0.1rem;
+  align-items: center;
+}
+
+html.mom-app .task-actions button {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: var(--mom-radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  transition: background 0.12s var(--mom-ease), color 0.12s var(--mom-ease);
+}
+
+html.mom-app .task-actions button:hover {
+  color: var(--mom-ink);
+  background: var(--mom-surface);
+}
+
+html.mom-app .task-actions .btn-done-card {
+  color: #4a7a60;
+}
+
+html.mom-app .task-actions .btn-done-card:hover {
+  background: rgba(74, 122, 96, 0.1);
+  color: #4a7a60;
+}
+
+/* ── Task card: subtle depth & first-step highlight ─────────── */
+
+html.mom-app .task-card {
+  box-shadow: 0 1px 2px rgba(26, 32, 44, 0.03);
+}
+
+html.mom-app .task-card:hover {
+  box-shadow: 0 2px 8px rgba(26, 32, 44, 0.07);
+}
+
+html.mom-app .task-first-step {
+  color: var(--mom-accent);
+  opacity: 0.75;
+  font-weight: 500;
+  margin-top: 0.3rem;
+}
+
+/* ── Today items: breathing room & hover polish ──────────── */
+
+html.mom-app .today-item {
+  padding: 0.7rem 0.9rem;
+  gap: 0.65rem;
+  transition: box-shadow 0.12s var(--mom-ease);
+}
+
+html.mom-app .today-item + .today-item {
+  margin-top: 0.35rem;
+}
+
+html.mom-app .today-item .btn-done:hover {
+  background: rgba(74, 122, 96, 0.1);
+  color: #4a7a60;
+}
+
+html.mom-app .today-item .btn-remove:hover {
+  background: var(--mom-surface-2);
+  color: var(--mom-ink);
+}
+
+/* ── Drag handle: lighter & subtler ──────────────────────── */
+
+html.mom-app .task-drag-handle {
+  color: var(--mom-line);
+  font-size: 0.8rem;
+}
+
+html.mom-app .task-drag-handle:hover {
+  color: var(--mom-faint);
+}
+
+/* ── btn-sm specificity fix (btn-primary overrides btn-sm in cascade) ── */
+
+html.mom-app .btn-primary.btn-sm,
+html.mom-app .btn-secondary.btn-sm {
+  padding: 0.35rem 0.7rem;
+  font-size: 0.85rem;
+}
+
+/* ── Notes view ──────────────────────────────────────────── */
+
+html.mom-app .notes-view {
+  padding: 1.5rem;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  row-gap: 0.75rem;
+  column-gap: 0.5rem;
+  align-content: start;
+}
+
+html.mom-app .notes-view-header {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--mom-line-soft);
+}
+
+html.mom-app .notes-view-header h2 {
+  margin: 0;
+}
+
+html.mom-app #notes-search-input {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+html.mom-app #notes-new-btn {
+  grid-column: 2;
+  grid-row: 2;
+  align-self: stretch;
+}
+
+html.mom-app #notes-tab-list,
+html.mom-app #notes-editor-panel {
+  grid-column: 1 / -1;
+}
+
+/* ── Archive calendar grid ────────────────────────────────── */
+
+html.mom-app #archive-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+  margin: 0.5rem 0 0.75rem;
+}
+
+html.mom-app .archive-cal-dow {
+  text-align: center;
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--mom-faint);
+  padding: 0.3rem 0;
+}
+
+html.mom-app .archive-cal-cell {
+  padding: 0.45rem 0;
+  text-align: center;
+  font-size: 0.8rem;
+  border-radius: var(--mom-radius-sm);
+  cursor: default;
+  line-height: 1;
+}
+
+html.mom-app .archive-cal-cell.has-data {
+  cursor: pointer;
+}
+
+html.mom-app .archive-cal-cell.archive-cal-empty {
+  background: transparent;
+  border-color: transparent;
+}
+
+html.mom-app .archive-cal-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+}
+
+html.mom-app #archive-month-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--mom-ink);
+  min-width: 7rem;
+  text-align: center;
+}
+
+html.mom-app #archive-search-input {
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+  margin-bottom: 0.75rem;
+}
+
+html.mom-app .archive-search-results {
+  margin-bottom: 0.5rem;
+}
+
+/* ── Edit modal sections ──────────────────────────────────── */
+html.mom-app #edit-modal-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--mom-ink);
+}
+
+html.mom-app .edit-section {
+  border-top: 1px solid var(--mom-line-soft);
+  padding-top: 0.85rem;
+  margin-top: 0.1rem;
+  gap: 0.45rem;
+}
+
+html.mom-app .edit-section-title {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--mom-faint);
+  margin-bottom: 0.15rem;
+}
+
+/* Two-column date row */
+html.mom-app .edit-dates-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+html.mom-app .edit-date-field label {
+  font-size: 0.75rem;
+  color: var(--mom-soft);
+  display: block;
+  margin-bottom: 0.2rem;
+  font-weight: 500;
+}
+
+html.mom-app .edit-date-field input[type="date"] {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Semi-monthly day picker */
+html.mom-app #edit-semi-monthly-wrap {
+  background: var(--mom-surface);
+  border: 1px solid var(--mom-line-soft);
+  border-radius: var(--mom-radius);
+  padding: 0.6rem 0.75rem;
+}
+
+html.mom-app #edit-semi-monthly-wrap > label {
+  font-size: 0.8rem;
+  color: var(--mom-soft);
+  display: block;
+  margin-bottom: 0.4rem;
+}
+
+html.mom-app .edit-semi-day-inputs {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+html.mom-app .edit-semi-day-inputs span {
+  font-size: 0.85rem;
+  color: var(--mom-soft);
+  white-space: nowrap;
+}
+
+html.mom-app .edit-semi-day-inputs input[type="number"] {
+  width: 3.5rem;
+  text-align: center;
+  padding: 0.4rem 0.4rem;
+  border: 1px solid var(--mom-line);
+  border-radius: var(--mom-radius-sm);
+  font-size: 1rem;
+  background: var(--mom-canvas);
+  color: var(--mom-ink);
+  -moz-appearance: textfield;
+}
+
+html.mom-app .edit-semi-day-inputs input[type="number"]::-webkit-inner-spin-button,
+html.mom-app .edit-semi-day-inputs input[type="number"]::-webkit-outer-spin-button {
+  opacity: 0.4;
+}
+
+/* Edit task name input — slightly more prominent */
+html.mom-app .edit-input-row input[type="text"] {
+  font-size: 1.05rem;
+  font-weight: 500;
+  padding: 0.65rem 0.8rem;
+  border-color: var(--mom-line);
+}
+
+html.mom-app .edit-input-row input[type="text"]:focus {
+  border-color: var(--mom-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mom-accent) 12%, transparent);
+}

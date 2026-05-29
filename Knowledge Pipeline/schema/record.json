@@ -1,0 +1,105 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "KnowledgeRecord",
+  "description": "A single production knowledge unit extracted from a source.",
+  "type": "object",
+  "required": ["discipline", "type", "title", "one_liner", "sections", "context", "sources", "attribution_tier", "depth_score"],
+  "properties": {
+    "discipline": {
+      "type": "string",
+      "enum": ["bass", "drums", "harmony", "arrangement", "mixing", "sound-design", "universal"]
+    },
+    "type": {
+      "type": "string",
+      "enum": ["style", "technique", "character", "principle", "problem", "writing", "reference"]
+    },
+    "title": { "type": "string", "minLength": 3 },
+    "one_liner": { "type": "string", "minLength": 10 },
+    "sections": {
+      "type": "object",
+      "description": "Content keyed by field name. Required keys depend on type.",
+      "minProperties": 2
+    },
+    "context": {
+      "type": "object",
+      "description": "Dimension tags for Start Here matching. Keys match song question IDs.",
+      "properties": {
+        "tempo":   { "type": "array", "items": { "type": "string" } },
+        "density": { "type": "array", "items": { "type": "string" } },
+        "tone":    { "type": "array", "items": { "type": "string" } },
+        "feel":    { "type": "array", "items": { "type": "string" } },
+        "genre":   { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["title", "tier"],
+        "properties": {
+          "title":     { "type": "string" },
+          "url":       { "type": "string" },
+          "author":    { "type": "string" },
+          "timestamp": { "type": "string", "description": "MM:SS for video/audio" },
+          "page":      { "type": "string", "description": "Page number for books" },
+          "quote":     { "type": "string", "description": "Direct quote from source" },
+          "tier": {
+            "type": "integer",
+            "enum": [1, 2, 3],
+            "description": "1=direct quote+timestamp, 2=clear paraphrase, 3=synthesised"
+          }
+        }
+      }
+    },
+    "attribution_tier": {
+      "type": "integer",
+      "enum": [1, 2, 3],
+      "description": "Lowest (worst) tier across all sources"
+    },
+    "depth_score": {
+      "type": "integer",
+      "enum": [1, 2, 3],
+      "description": "1=surface, 2=mechanism explained, 3=mechanism+pitfall+example"
+    },
+    "conflict_of_interest": {
+      "type": "boolean",
+      "description": "True if source has financial relationship with recommended product"
+    },
+    "scope": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Genres or contexts where this knowledge applies"
+    },
+    "filters": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Filter chips shown in the app (e.g. hip-hop, mixing, electronic)"
+    },
+    "meta": {
+      "type": "object",
+      "description": "App display metadata",
+      "properties": {
+        "tag":      { "type": "string" },
+        "category": { "type": "string" }
+      }
+    },
+    "criteria_evaluation": {
+      "type": "object",
+      "description": "Claude's self-evaluation of each quality criterion",
+      "properties": {
+        "specific":     { "type": "boolean" },
+        "principled":   { "type": "boolean" },
+        "attributable": { "type": "boolean" },
+        "actionable":   { "type": "boolean" },
+        "non_obvious":  { "type": ["boolean", "null"] },
+        "clear":        { "type": ["boolean", "null"] }
+      }
+    },
+    "flags": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Warnings or notes from extraction (e.g. 'version-specific', 'conflict-of-interest')"
+    }
+  }
+}

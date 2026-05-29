@@ -236,10 +236,12 @@ export function createBoardRenderer(d) {
         el.classList.remove('column-dragging');
       });
       el.addEventListener('dragover', (e) => {
+        if (e.dataTransfer.types.includes('task-drag')) return; // ignore task drags on column headers
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
       });
       el.addEventListener('drop', (e) => {
+        if (e.dataTransfer.types.includes('task-drag')) return; // ignore task drops on column headers
         e.preventDefault();
         const dragCat = e.dataTransfer.getData('text/plain');
         const dropCat = el.dataset.category;
@@ -257,18 +259,66 @@ export function createBoardRenderer(d) {
       });
     });
 
+    // Cross-column task drag-and-drop: drop zones on each column body
+    container.querySelectorAll('.column-items').forEach(colItems => {
+      const col = colItems.closest('.column');
+      if (!col) return;
+      colItems.addEventListener('dragover', (e) => {
+        if (!e.dataTransfer.types.includes('task-drag')) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        colItems.classList.add('drag-over');
+      });
+      colItems.addEventListener('dragleave', (e) => {
+        if (!colItems.contains(e.relatedTarget)) colItems.classList.remove('drag-over');
+      });
+      colItems.addEventListener('drop', (e) => {
+        e.preventDefault();
+        colItems.classList.remove('drag-over');
+        if (!e.dataTransfer.types.includes('task-drag')) return;
+        const taskId = e.dataTransfer.getData('text/plain');
+        if (!taskId) return;
+        const item = d.state.items.find(i => i.id === taskId);
+        if (!item) return;
+        if (d.state.viewMode === 'piles') {
+          const newPileId = col.dataset.uncategorized === 'true' ? null : (col.dataset.pileId || null);
+          if (item.pileId === newPileId) return;
+          item.pileId = newPileId;
+          const pileName = newPileId ? (getPiles().find(p => p.id === newPileId)?.name || 'project') : 'Uncategorized';
+          d.saveState();
+          renderColumns();
+          d.showToast('Moved to ' + pileName);
+        } else {
+          const newCatId = col.dataset.category;
+          if (!newCatId || item.category === newCatId) return;
+          item.category = newCatId;
+          d.saveState();
+          renderColumns();
+          d.showToast('Moved to ' + getCategoryOptionLabel(newCatId));
+        }
+      });
+    });
+
     container.querySelectorAll('.task-card').forEach(card => {
       card.addEventListener('click', (e) => {
-        if (e.target.closest('.task-actions') || e.target.closest('.task-meta-edit') || e.target.closest('.task-drag-handle')) return;
-        const id = card.dataset.id;
-        d.state.selectedIds.has(id) ? d.state.selectedIds.delete(id) : d.state.selectedIds.add(id);
-        card.classList.toggle('selected', d.state.selectedIds.has(id));
-        d.updateAddToSuggestionsBtn();
+        // Let action buttons, meta fields, drag handle, and meta row handle their own clicks
+        if (e.target.closest('.task-actions') || e.target.closest('.task-meta-edit') || e.target.closest('.task-meta-clickable') || e.target.closest('.task-drag-handle')) return;
+        d.openEditModal(card.dataset.id);
       });
     });
     container.querySelectorAll('.task-drag-handle').forEach(handle => {
+      // Click drag handle to toggle selection (for Add to Today)
+      handle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = handle.dataset.id;
+        d.state.selectedIds.has(id) ? d.state.selectedIds.delete(id) : d.state.selectedIds.add(id);
+        const card = handle.closest('.task-card');
+        if (card) card.classList.toggle('selected', d.state.selectedIds.has(id));
+        d.updateAddToSuggestionsBtn();
+      });
       handle.addEventListener('dragstart', (e) => {
         e.dataTransfer.setData('text/plain', handle.dataset.id);
+        e.dataTransfer.setData('task-drag', '1'); // marker so column bodies know this is a task drag
         e.dataTransfer.effectAllowed = 'move';
         const card = handle.closest('.task-card');
         if (card) card.classList.add('dragging');

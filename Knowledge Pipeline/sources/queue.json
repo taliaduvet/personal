@@ -1,0 +1,277 @@
+{
+  "_note": "Baseline source queue. Ingest with: python3 pipeline/ingest.py --url ... --type article|video|podcast|book --title ... --author ...",
+  "_note_js_rendered": "Sites marked js_rendered=true return almost no text via scraper. Copy article text manually then: pbpaste | python3 pipeline/ingest.py --stdin --type article --title '...' --author '...'",
+
+  "tier1_articles": [
+    {
+      "title": "Sound On Sound — How To Record Drums (comprehensive series)",
+      "url": "https://www.soundonsound.com/techniques/how-to-record-drums",
+      "type": "article",
+      "author": "Paul White / SOS",
+      "disciplines": ["drums"],
+      "notes": "Search SOS archive for 'record drums' — multiple parts. High density."
+    },
+    {
+      "title": "Sound On Sound — Recording Bass Guitar",
+      "url": "https://www.soundonsound.com/techniques/recording-bass-guitar",
+      "type": "article",
+      "author": "Mike Senior / SOS",
+      "disciplines": ["bass"],
+      "notes": "Foundational. Try fetching — SOS has good HTML article pages."
+    },
+    {
+      "title": "Sound On Sound — Producing Tight Low End",
+      "url": "https://www.soundonsound.com/techniques/producing-tight-low-end",
+      "type": "article",
+      "author": "Paul White / SOS",
+      "disciplines": ["bass", "mixing"],
+      "notes": "Bass-kick relationship, sidechaining, EQ approach."
+    },
+    {
+      "title": "Tape Op — Steve Albini Interview",
+      "url": "https://tapeop.com/interviews/84/steve-albini/",
+      "type": "article",
+      "author": "Steve Albini",
+      "disciplines": ["drums", "bass", "recording"],
+      "notes": "Albini on drum recording philosophy. Extremely dense with technique."
+    },
+    {
+      "title": "Tape Op — Tchad Blake Interview",
+      "url": "https://tapeop.com/interviews/77/tchad-blake/",
+      "type": "article",
+      "author": "Tchad Blake",
+      "disciplines": ["bass", "drums", "mixing"],
+      "notes": "Blake on texture, bass sound design, and unconventional mic placement."
+    },
+    {
+      "title": "Tape Op — Andrew Scheps Interview",
+      "url": "https://tapeop.com/interviews/106/andrew-scheps/",
+      "type": "article",
+      "author": "Andrew Scheps",
+      "disciplines": ["bass", "drums", "mixing"],
+      "notes": "Scheps on parallel processing, stem workflow, low end."
+    },
+    {
+      "title": "Tape Op — Joe Chiccarelli Interview",
+      "url": "https://tapeop.com/interviews/101/joe-chiccarelli/",
+      "type": "article",
+      "author": "Joe Chiccarelli",
+      "disciplines": ["bass", "drums", "recording"],
+      "notes": "Chiccarelli on tracking bass and drums for texture."
+    },
+    {
+      "title": "Tape Op — Sylvia Massy Interview",
+      "url": "https://tapeop.com/interviews/92/sylvia-massy/",
+      "type": "article",
+      "author": "Sylvia Massy",
+      "disciplines": ["drums", "recording"],
+      "notes": "Massy on unconventional drum recording. Extreme technique content."
+    },
+    {
+      "title": "Tape Op — Al Schmitt Interview",
+      "url": "https://tapeop.com/interviews/96/al-schmitt/",
+      "type": "article",
+      "author": "Al Schmitt",
+      "disciplines": ["drums", "bass", "mixing"],
+      "notes": "Schmitt on analog recording, room sound, low-end philosophy."
+    },
+    {
+      "title": "Attack Magazine — How To Make 808 Bass",
+      "url": "https://www.attackmagazine.com/technique/how-to-make/how-to-make-808-bass/",
+      "type": "article",
+      "author": "Attack Magazine",
+      "disciplines": ["bass"],
+      "js_rendered": true,
+      "notes": "Use --stdin. Practical 808 synthesis and production."
+    },
+    {
+      "title": "Attack Magazine — Understanding Sidechain Compression",
+      "url": "https://www.attackmagazine.com/technique/tutorials/understanding-sidechain-compression/",
+      "type": "article",
+      "author": "Attack Magazine",
+      "disciplines": ["bass", "drums", "mixing"],
+      "js_rendered": true,
+      "notes": "Use --stdin. Foundational technique."
+    },
+    {
+      "title": "Attack Magazine — How Ghost Notes Work",
+      "url": "https://www.attackmagazine.com/technique/tutorials/how-ghost-notes-work/",
+      "type": "article",
+      "author": "Attack Magazine",
+      "disciplines": ["drums"],
+      "js_rendered": true,
+      "notes": "Use --stdin. Ghost note programming from first principles."
+    },
+    {
+      "title": "RBMA Daily — The Science of Sub Bass",
+      "url": "https://daily.redbullmusicacademy.com/2016/01/the-science-of-sub-bass",
+      "type": "article",
+      "author": "Red Bull Music Academy Daily",
+      "disciplines": ["bass"],
+      "notes": "Sub bass physics and production. Check if URL still live — RBMA went offline."
+    },
+    {
+      "title": "RBMA Daily — J Dilla's MPC Technique",
+      "url": "https://daily.redbullmusicacademy.com/2014/02/j-dilla-mpc",
+      "type": "article",
+      "author": "Red Bull Music Academy Daily",
+      "disciplines": ["drums"],
+      "notes": "Dilla's quantization and swing. Check if URL still live."
+    },
+    {
+      "title": "Mix Online — Classic Tracks: Steely Dan 'Aja'",
+      "url": "https://www.mixonline.com/recording/classic-tracks-steely-dan-aja-366700",
+      "type": "article",
+      "author": "Mix Online",
+      "disciplines": ["drums", "bass", "recording"],
+      "notes": "Anatomy of one of the best-recorded rhythm sections. Verify URL."
+    },
+    {
+      "title": "Mix Online — Classic Tracks: Led Zeppelin 'When The Levee Breaks'",
+      "url": "https://www.mixonline.com/recording/classic-tracks-led-zeppelin-when-the-levee-breaks-366474",
+      "type": "article",
+      "author": "Mix Online",
+      "disciplines": ["drums", "recording"],
+      "notes": "Bonham's drum sound — stairwell recording, room acoustics. Verify URL."
+    },
+    {
+      "title": "Tape Op — Rick Rubin Interview",
+      "url": "https://tapeop.com/interviews/116/rick-rubin/",
+      "type": "article",
+      "author": "Rick Rubin",
+      "disciplines": ["bass", "drums", "arrangement"],
+      "notes": "Philosophy-level production thinking. Rich for principle records."
+    }
+  ],
+
+  "tier1_videos": [
+    {
+      "title": "YouTube — Finneas: How He Produces Billie Eilish",
+      "url": "https://www.youtube.com/watch?v=KvKe-2jiVqk",
+      "type": "video",
+      "author": "Finneas",
+      "disciplines": ["bass", "drums", "arrangement"],
+      "notes": "Direct from Finneas on production approach. Requires yt-dlp."
+    },
+    {
+      "title": "YouTube — Dave Pensado: Into The Lair — Low End Theory",
+      "url": "https://www.youtube.com/watch?v=lW-lRCSlIHE",
+      "type": "video",
+      "author": "Dave Pensado",
+      "disciplines": ["bass", "mixing"],
+      "notes": "Bass and kick relationship deep dive. Strong mixing authority."
+    },
+    {
+      "title": "YouTube — 9th Wonder: Sampling as Composition (Berklee Online)",
+      "url": "https://www.youtube.com/watch?v=HB9PAVInm2k",
+      "type": "video",
+      "author": "9th Wonder",
+      "disciplines": ["drums", "arrangement"],
+      "notes": "Sample-based production philosophy."
+    },
+    {
+      "title": "YouTube — Questlove: Drum Programming and the Pocket",
+      "url": "https://www.youtube.com/results?search_query=questlove+drum+programming+pocket+groove",
+      "type": "video",
+      "author": "Questlove",
+      "disciplines": ["drums"],
+      "notes": "Search YouTube for Questlove groove/pocket interviews — multiple exist."
+    },
+    {
+      "title": "YouTube — Spectre Sound: Drum Miking Series",
+      "url": "https://www.youtube.com/@SpectreSound/videos",
+      "type": "video",
+      "author": "Colin Hunter / Spectre Sound",
+      "disciplines": ["drums", "recording"],
+      "notes": "Search channel for drum mic placement series. High density technique."
+    },
+    {
+      "title": "YouTube — In The Mix: Low End Theory (bass-kick relationship)",
+      "url": "https://www.youtube.com/results?search_query=in+the+mix+low+end+bass+kick",
+      "type": "video",
+      "author": "In The Mix",
+      "disciplines": ["bass", "mixing"],
+      "notes": "Search channel for specific low end / sidechain episodes."
+    }
+  ],
+
+  "tier2_books": [
+    {
+      "title": "The Mixing Engineer's Handbook — Bobby Owsinski (4th ed.)",
+      "type": "book",
+      "author": "Bobby Owsinski",
+      "disciplines": ["bass", "drums", "mixing"],
+      "notes": "PDF or ebook — use --file. Chapter on low end and drums is the standard reference.",
+      "ingest_command": "python3 pipeline/ingest.py --file /path/to/mixing-engineers-handbook.pdf --type book --title 'The Mixing Engineer\\'s Handbook' --author 'Bobby Owsinski'"
+    },
+    {
+      "title": "The Recording Engineer's Handbook — Bobby Owsinski",
+      "type": "book",
+      "author": "Bobby Owsinski",
+      "disciplines": ["drums", "bass", "recording"],
+      "notes": "Drum mic placement section is definitive. PDF via --file."
+    },
+    {
+      "title": "Drum Recording Handbook — Bobby Owsinski & Dennis Moody",
+      "type": "book",
+      "author": "Bobby Owsinski",
+      "disciplines": ["drums"],
+      "notes": "Dedicated drum volume. More granular than the Mixing Engineer's Handbook."
+    },
+    {
+      "title": "Mixing Secrets for the Small Studio — Mike Senior",
+      "type": "book",
+      "author": "Mike Senior",
+      "disciplines": ["bass", "mixing"],
+      "notes": "Low-end management in compromised rooms. High priority for home studio use cases."
+    },
+    {
+      "title": "Zen and the Art of Mixing — Mixerman",
+      "type": "book",
+      "author": "Mixerman",
+      "disciplines": ["bass", "drums", "mixing"],
+      "notes": "Philosophy of rhythm section as mix foundation. Less technical, more conceptual."
+    },
+    {
+      "title": "Modern Recording Techniques — Huber & Runstein",
+      "type": "book",
+      "author": "David Huber / Robert Runstein",
+      "disciplines": ["drums", "bass", "recording"],
+      "notes": "The textbook. Dense but comprehensive. Drum recording chapters cover acoustics and signal chain."
+    },
+    {
+      "title": "Making Music: 74 Creative Strategies — Dennis DeSantis",
+      "type": "book",
+      "author": "Dennis DeSantis",
+      "disciplines": ["arrangement", "drums", "bass"],
+      "notes": "Ableton-published. Conceptual strategies for arrangement and rhythm. PDF available."
+    }
+  ],
+
+  "tier2_podcasts": [
+    {
+      "title": "Home Recording Show — drum recording episodes",
+      "url": "https://homerecordingshow.com",
+      "type": "podcast",
+      "author": "Home Recording Show",
+      "disciplines": ["drums", "bass", "recording"],
+      "notes": "Long-running podcast. Search episode list for drum recording, bass tracking, low end episodes."
+    },
+    {
+      "title": "Working Class Audio — engineer interviews",
+      "url": "https://www.workingclassaudio.com",
+      "type": "podcast",
+      "author": "Matt Boudreau",
+      "disciplines": ["bass", "drums", "mixing", "recording"],
+      "notes": "Journeyman engineers — practical constraints. RSS available."
+    },
+    {
+      "title": "Recording Studio Rockstars — sessions and production",
+      "url": "https://www.recordingstudiorockstars.com",
+      "type": "podcast",
+      "author": "Lij Shaw",
+      "disciplines": ["bass", "drums", "recording"],
+      "notes": "Interview format. Search episode list for bass and drum content."
+    }
+  ]
+}
