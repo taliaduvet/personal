@@ -200,8 +200,7 @@ export function createWeekPlanningUI(d) {
     if (hasSnap) {
       showEl('pre-plan-review-modal', true);
     } else {
-      ensureDraftFromState(lastPlanningOpts);
-      openPlanningOverlay();
+      openPlanningWizard();
     }
   }
 
@@ -234,19 +233,285 @@ export function createWeekPlanningUI(d) {
     showEl('plan-review-screen', false);
   }
 
+  // ── Weekly Planning Wizard ────────────────────────────────────────────────
+
+  let wizardStep = 0; // 0 = not active, 1-5
+
+  function setWizardStep(step) {
+    wizardStep = step;
+    const steps = [1, 2, 3, 5];
+    const isWizardScreen = steps.includes(step);
+    const isGrid = step === 4;
+
+    // Progress bar
+    const bar = document.getElementById('wp-progress-bar');
+    if (bar) {
+      bar.style.display = isWizardScreen ? 'flex' : step === 4 ? 'flex' : 'none';
+      bar.querySelectorAll('.wp-progress-step').forEach(el => {
+        const s = Number(el.dataset.step);
+        el.classList.toggle('wp-progress-step--done', s < step);
+        el.classList.toggle('wp-progress-step--active', s === step);
+      });
+    }
+
+    // Wizard screens
+    [1, 2, 3, 5].forEach(n => {
+      const el = document.getElementById(`wp-step-${n}`);
+      if (el) el.style.display = n === step ? 'flex' : 'none';
+    });
+
+    // Planning grid (step 4)
+    const header = document.getElementById('week-planning-header');
+    const scroll = document.getElementById('week-planning-scroll');
+    const lastWeek = document.getElementById('week-planning-last-week');
+    if (header) header.style.display = isGrid ? '' : 'none';
+    if (scroll) scroll.style.display = isGrid ? '' : 'none';
+    if (lastWeek) lastWeek.style.display = 'none'; // controlled separately
+  }
+
+  function buildLookbackStats() {
+    const grid = document.getElementById('wp-stats-grid');
+    if (!grid) return;
+
+    const items = d.state.items || [];
+    const mon = getMondayYYYYMMDD();
+    const prevMon = new Date(mon + 'T00:00:00');
+    prevMon.setDate(prevMon.getDate() - 7);
+    const prevMonStr = prevMon.toISOString().slice(0, 10);
+    const prevSunMs = new Date(mon + 'T00:00:00').getTime() - 1;
+    const prevMonMs = prevMon.getTime();
+
+    const completed = items.filter(i =>
+      i.completedAt && i.completedAt >= prevMonMs && i.completedAt <= prevSunMs
+    );
+
+    // Top category
+    const catCounts = {};
+    completed.forEach(i => { catCounts[i.category] = (catCounts[i.category] || 0) + 1; });
+    const topCat = Object.entries(catCounts).sort((a, b) => b[1] - a[1])[0];
+
+    // Focus blocks (from notes)
+    const focusBlocks = (d.state.notes || []).filter(n =>
+      n.source === 'focus-block' && n.date >= prevMonStr && n.date < mon
+    ).length;
+
+    const stats = [
+      { icon: '✅', value: completed.length, label: 'tasks done' },
+      { icon: '⏱', value: focusBlocks, label: 'focus blocks' },
+      { icon: '🗂', value: topCat ? topCat[0] : '—', label: topCat ? `top area (${topCat[1]})` : 'no top area' },
+    ];
+
+    grid.innerHTML = stats.map(s => `
+      <div class="wp-stat-card">
+        <span class="wp-stat-icon">${s.icon}</span>
+        <span class="wp-stat-value">${s.value}</span>
+        <span class="wp-stat-label">${s.label}</span>
+      </div>
+    `).join('');
+
+    // Streak badge
+    const streak = d.state.planningStreak || 0;
+    const streakWrap = document.getElementById('wp-streak-wrap');
+    const streakBadge = document.getElementById('wp-streak-badge');
+    if (streak > 0 && streakWrap && streakBadge) {
+      streakBadge.textContent = `🔥 ${streak} week${streak > 1 ? 's' : ''} in a row`;
+      streakWrap.style.display = 'flex';
+    } else if (streakWrap) {
+      streakWrap.style.display = 'none';
+    }
+
+    // Last wins
+    const wins = d.state.weekWins || [];
+    const winsWrap = document.getElementById('wp-last-wins-wrap');
+    const winsList = document.getElementById('wp-last-wins-list');
+    if (wins.length && winsWrap && winsList) {
+      winsList.innerHTML = wins.map(w => `<li>${escapeHtml(w)}</li>`).join('');
+      winsWrap.style.display = 'block';
+    } else if (winsWrap) {
+      winsWrap.style.display = 'none';
+    }
+  }
+
+  function collectWins() {
+    return [1, 2, 3].map(n => {
+      const el = document.getElementById(`wp-win-${n}`);
+      return el ? el.value.trim() : '';
+    }).filter(Boolean);
+  }
+
+  function computeStreak() {
+    const mon = getMondayYYYYMMDD();
+    const last = d.state.lastPlanningWeekMonday;
+    if (!last) return 1;
+    const lastDate = new Date(last + 'T00:00:00');
+    const thisDate = new Date(mon + 'T00:00:00');
+    const diffWeeks = Math.round((thisDate - lastDate) / (7 * 24 * 60 * 60 * 1000));
+    if (diffWeeks === 1) return (d.state.planningStreak || 0) + 1;
+    if (diffWeeks === 0) return d.state.planningStreak || 1;
+    return 1; // missed a week
+  }
+
+  function launchConfetti() {
+    const canvas = document.getElementById('wp-confetti-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    canvas.width = canvas.offsetWidth;
+    canvas.height = canvas.offsetHeight;
+
+    const COLORS = ['#7c3aed', '#f59e0b', '#10b981', '#3b82f6', '#ec4899', '#f97316'];
+    const particles = Array.from({ length: 80 }, () => ({
+      x: Math.random() * canvas.width,
+      y: -10 - Math.random() * 40,
+      r: 4 + Math.random() * 5,
+      color: COLORS[Math.floor(Math.random() * COLORS.length)],
+      vx: (Math.random() - 0.5) * 3,
+      vy: 2 + Math.random() * 3,
+      rotation: Math.random() * Math.PI * 2,
+      rotSpeed: (Math.random() - 0.5) * 0.2,
+      shape: Math.random() > 0.5 ? 'rect' : 'circle'
+    }));
+
+    let frame = 0;
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      particles.forEach(p => {
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rotation);
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = Math.max(0, 1 - frame / 90);
+        if (p.shape === 'rect') ctx.fillRect(-p.r, -p.r / 2, p.r * 2, p.r);
+        else { ctx.beginPath(); ctx.arc(0, 0, p.r / 2, 0, Math.PI * 2); ctx.fill(); }
+        ctx.restore();
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += 0.08;
+        p.rotation += p.rotSpeed;
+      });
+      frame++;
+      if (frame < 110) requestAnimationFrame(draw);
+    }
+    requestAnimationFrame(draw);
+  }
+
+  function showCelebration() {
+    const mon = getMondayYYYYMMDD();
+    const wins = collectWins();
+    const theme = d.state.weekTheme;
+    const streak = d.state.planningStreak || 1;
+
+    // Build summary
+    const days = getWeekDateKeys(mon);
+    const plannedDays = days.filter(k => {
+      const entry = d.state.weekPlan?.days?.[k];
+      return entry && (entry.pileId || (entry.orderedTaskIds || []).length || entry.note);
+    }).length;
+
+    const summary = document.getElementById('wp-celebrate-summary');
+    if (summary) {
+      const parts = [];
+      if (plannedDays) parts.push(`<span class="wp-cel-stat">${plannedDays} day${plannedDays > 1 ? 's' : ''} planned</span>`);
+      if (theme) parts.push(`<span class="wp-cel-stat">Theme: <em>${escapeHtml(theme)}</em></span>`);
+      if (wins.length) parts.push(`<span class="wp-cel-stat">${wins.length} win${wins.length > 1 ? 's' : ''} logged</span>`);
+      summary.innerHTML = parts.join('<span class="wp-cel-dot">·</span>');
+    }
+
+    const streakEl = document.getElementById('wp-celebrate-streak');
+    if (streakEl) {
+      if (streak >= 2) {
+        streakEl.textContent = `🔥 ${streak} weeks in a row — you're building a ritual`;
+        streakEl.style.display = 'block';
+      } else {
+        streakEl.style.display = 'none';
+      }
+    }
+
+    setWizardStep(5);
+    setTimeout(launchConfetti, 150);
+  }
+
+  function openWizard() {
+    ensureDraftFromState(lastPlanningOpts);
+    showEl('week-planning-overlay', true);
+    document.body.classList.add('week-planning-open');
+    buildLookbackStats();
+    setWizardStep(1);
+    bindWizardButtons();
+  }
+
+  function bindWizardButtons() {
+    // Step 1
+    document.getElementById('wp-step1-next')?.addEventListener('click', () => setWizardStep(2), { once: true });
+
+    // Step 2
+    document.getElementById('wp-step2-back')?.addEventListener('click', () => setWizardStep(1), { once: true });
+    document.getElementById('wp-step2-next')?.addEventListener('click', () => {
+      setWizardStep(3);
+      const themeInput = document.getElementById('wp-theme-input');
+      if (themeInput && d.state.weekTheme) themeInput.value = d.state.weekTheme;
+    }, { once: true });
+
+    // Step 3 — theme examples
+    document.querySelectorAll('.wp-theme-example').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const input = document.getElementById('wp-theme-input');
+        if (input) { input.value = btn.dataset.theme; input.focus(); }
+      });
+    });
+    document.getElementById('wp-step3-back')?.addEventListener('click', () => setWizardStep(2), { once: true });
+    document.getElementById('wp-step3-next')?.addEventListener('click', () => {
+      // Save theme
+      const themeInput = document.getElementById('wp-theme-input');
+      d.state.weekTheme = (themeInput?.value || '').trim() || null;
+      d.saveState();
+      renderWeekThemeBadge();
+      // Transition to planning grid (step 4)
+      setWizardStep(4);
+      renderPlanningDays();
+      const mon = draft.anchorWeekStart || getMondayYYYYMMDD();
+      renderCalendarWeekStrip(getWeekDateKeys(mon));
+    }, { once: true });
+
+    // Step 5
+    document.getElementById('wp-step5-done')?.addEventListener('click', closePlanningOverlay, { once: true });
+  }
+
+  function renderWeekThemeBadge() {
+    const el = document.getElementById('today-week-theme');
+    if (!el) return;
+    const theme = d.state.weekTheme;
+    if (theme) {
+      el.textContent = `✦ ${theme}`;
+      el.style.display = 'block';
+    } else {
+      el.style.display = 'none';
+    }
+  }
+
+  /** Opens straight to the grid (used for week navigation, Back from review). */
   function openPlanningOverlay() {
     renderPlanningDays();
-    // Async: fetch and render calendar capacity for the current week
     const mon = draft.anchorWeekStart || getMondayYYYYMMDD();
     renderCalendarWeekStrip(getWeekDateKeys(mon));
     showEl('week-planning-overlay', true);
     document.body.classList.add('week-planning-open');
+    setWizardStep(4);
     const wrap = document.getElementById('week-planning-days');
     if (pendingScrollDate && wrap) {
       const row = wrap.querySelector(`.plan-day-card[data-date="${pendingScrollDate}"]`);
       row?.scrollIntoView({ block: 'nearest', behavior: 'smooth', inline: 'center' });
       pendingScrollDate = null;
     }
+  }
+
+  /** Opens the planning ritual wizard at step 1 (normal entry point). */
+  function openPlanningWizard() {
+    ensureDraftFromState(lastPlanningOpts);
+    buildLookbackStats();
+    showEl('week-planning-overlay', true);
+    document.body.classList.add('week-planning-open');
+    setWizardStep(1);
+    bindWizardButtons();
   }
 
   function closePlanningOverlay() {
@@ -256,8 +521,19 @@ export function createWeekPlanningUI(d) {
 
   function commitPlanning() {
     persistPlanningDraft({ markCommitted: true, notify: false });
-    closePlanningOverlay();
+
+    // Save wins, streak, theme
+    const wins = collectWins();
+    if (wins.length) d.state.weekWins = wins;
+    const newStreak = computeStreak();
+    d.state.planningStreak = newStreak;
+    d.state.lastPlanningWeekMonday = getMondayYYYYMMDD();
+    d.saveState();
+
     if (typeof d.onCommitted === 'function') d.onCommitted();
+
+    // Show celebration instead of closing immediately
+    showCelebration();
   }
 
   function tryClosePlanning() {
@@ -664,8 +940,7 @@ export function createWeekPlanningUI(d) {
     });
     document.getElementById('plan-review-continue')?.addEventListener('click', () => {
       closeFourBlockReview();
-      ensureDraftFromState(lastPlanningOpts);
-      openPlanningOverlay();
+      openPlanningWizard();
     });
     document.getElementById('plan-review-back')?.addEventListener('click', () => {
       closeFourBlockReview();
@@ -844,6 +1119,7 @@ export function createWeekPlanningUI(d) {
     renderWeekStrip,
     renderWeekViewPanel,
     forceCloseAllPlanningUI,
-    refreshOpenPlanner
+    refreshOpenPlanner,
+    renderWeekThemeBadge
   };
 }

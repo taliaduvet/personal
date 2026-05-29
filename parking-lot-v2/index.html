@@ -82,6 +82,7 @@
               </div>
               <div class="focus-timer-widget" id="focus-timer-today"></div>
             </div>
+            <div id="today-week-theme" class="today-week-theme" style="display:none" aria-label="This week's theme"></div>
             <span id="completed-tally" class="tally">Completed today: 0</span>
             <div class="today-header-actions">
               <button id="menu-btn" class="btn-icon btn-hamburger" title="Menu" aria-label="Open menu" aria-expanded="false" aria-controls="sidebar"><span class="hamburger-line"></span><span class="hamburger-line"></span><span class="hamburger-line"></span></button>
@@ -891,7 +892,89 @@
 
   <div id="week-planning-overlay" class="week-plan-fullscreen week-plan-fullscreen-planning" style="display:none" role="dialog" aria-modal="true" aria-labelledby="week-planning-title">
     <div class="week-plan-fullscreen-inner week-planning-layout">
-      <header class="week-planning-header">
+
+      <!-- ── Wizard progress bar (steps 1–3 and 5) ── -->
+      <div id="wp-progress-bar" class="wp-progress-bar" style="display:none" aria-label="Planning ritual progress">
+        <div class="wp-progress-step" data-step="1">Look back</div>
+        <div class="wp-progress-step" data-step="2">3 Wins</div>
+        <div class="wp-progress-step" data-step="3">Theme</div>
+        <div class="wp-progress-step" data-step="4">Plan</div>
+        <div class="wp-progress-step" data-step="5">Done</div>
+      </div>
+
+      <!-- ── Step 1: Lookback ── -->
+      <div id="wp-step-1" class="wp-wizard-screen" style="display:none">
+        <div class="wp-wizard-body">
+          <p class="wp-step-eyebrow">Step 1 of 5</p>
+          <h2 class="wp-step-heading">Last week at a glance</h2>
+          <div class="wp-stats-grid" id="wp-stats-grid"></div>
+          <div class="wp-streak-wrap" id="wp-streak-wrap" style="display:none">
+            <span class="wp-streak-badge" id="wp-streak-badge"></span>
+          </div>
+          <div class="wp-last-wins-wrap" id="wp-last-wins-wrap" style="display:none">
+            <p class="wp-section-label">Your wins last week</p>
+            <ul class="wp-last-wins-list" id="wp-last-wins-list"></ul>
+          </div>
+        </div>
+        <div class="wp-wizard-footer">
+          <button type="button" id="wp-step1-next" class="btn-primary wp-next-btn">Let's do this →</button>
+        </div>
+      </div>
+
+      <!-- ── Step 2: 3 Wins ── -->
+      <div id="wp-step-2" class="wp-wizard-screen" style="display:none">
+        <div class="wp-wizard-body">
+          <p class="wp-step-eyebrow">Step 2 of 5</p>
+          <h2 class="wp-step-heading">Name 3 wins 🏆</h2>
+          <p class="wp-step-sub">What went well last week? Big or small — it counts.</p>
+          <div class="wp-wins-inputs">
+            <input type="text" id="wp-win-1" class="wp-win-input" placeholder="Win #1…" maxlength="200" autocomplete="off">
+            <input type="text" id="wp-win-2" class="wp-win-input" placeholder="Win #2…" maxlength="200" autocomplete="off">
+            <input type="text" id="wp-win-3" class="wp-win-input" placeholder="Win #3… (optional)" maxlength="200" autocomplete="off">
+          </div>
+        </div>
+        <div class="wp-wizard-footer">
+          <button type="button" id="wp-step2-back" class="btn-secondary">← Back</button>
+          <button type="button" id="wp-step2-next" class="btn-primary wp-next-btn">Next →</button>
+        </div>
+      </div>
+
+      <!-- ── Step 3: Theme ── -->
+      <div id="wp-step-3" class="wp-wizard-screen" style="display:none">
+        <div class="wp-wizard-body">
+          <p class="wp-step-eyebrow">Step 3 of 5</p>
+          <h2 class="wp-step-heading">What's this week about?</h2>
+          <p class="wp-step-sub">One sentence. This shows quietly in your Today header all week.</p>
+          <input type="text" id="wp-theme-input" class="wp-theme-input" placeholder="e.g. Ship the redesign · Deep work mode · Rest and reset…" maxlength="120" autocomplete="off">
+          <div class="wp-theme-examples" id="wp-theme-examples">
+            <button type="button" class="wp-theme-example" data-theme="Deep work mode">Deep work mode</button>
+            <button type="button" class="wp-theme-example" data-theme="Ship it week">Ship it week</button>
+            <button type="button" class="wp-theme-example" data-theme="Rest and recharge">Rest and recharge</button>
+            <button type="button" class="wp-theme-example" data-theme="Catch up and clear">Catch up and clear</button>
+          </div>
+        </div>
+        <div class="wp-wizard-footer">
+          <button type="button" id="wp-step3-back" class="btn-secondary">← Back</button>
+          <button type="button" id="wp-step3-next" class="btn-primary wp-next-btn">Start planning →</button>
+        </div>
+      </div>
+
+      <!-- ── Step 5: Celebrate ── -->
+      <div id="wp-step-5" class="wp-wizard-screen wp-celebrate-screen" style="display:none">
+        <canvas id="wp-confetti-canvas" class="wp-confetti-canvas" aria-hidden="true"></canvas>
+        <div class="wp-wizard-body wp-celebrate-body">
+          <div class="wp-celebrate-icon">🎉</div>
+          <h2 class="wp-step-heading">Week locked in!</h2>
+          <div class="wp-celebrate-summary" id="wp-celebrate-summary"></div>
+          <div class="wp-celebrate-streak" id="wp-celebrate-streak" style="display:none"></div>
+        </div>
+        <div class="wp-wizard-footer">
+          <button type="button" id="wp-step5-done" class="btn-primary wp-next-btn">Let's go →</button>
+        </div>
+      </div>
+
+      <!-- ── Step 4: Existing planning grid (shown/hidden by wizard) ── -->
+      <header class="week-planning-header" id="week-planning-header">
         <div class="week-planning-header-text">
           <h2 id="week-planning-title">Plan the week</h2>
           <p id="week-planning-range" class="week-planning-sub"></p>

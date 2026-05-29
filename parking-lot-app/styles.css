@@ -6234,3 +6234,292 @@ body.week-planning-open .modal {
   font-size: 0.8rem;
 }
 .settings-link:hover { text-decoration: underline; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Weekly Planning Wizard
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Progress bar */
+.wp-progress-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 0.75rem 1.5rem 0;
+  flex-shrink: 0;
+}
+.wp-progress-step {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  opacity: 0.45;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: opacity 0.2s, color 0.2s;
+}
+.wp-progress-step::before {
+  content: '';
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--border);
+  flex-shrink: 0;
+  transition: background 0.2s, transform 0.2s;
+}
+.wp-progress-step + .wp-progress-step::after {
+  content: '';
+  display: block;
+  width: 28px;
+  height: 1px;
+  background: var(--border);
+  margin: 0 0.3rem;
+  order: -1;
+}
+.wp-progress-step--done { opacity: 0.6; }
+.wp-progress-step--done::before { background: var(--accent-sage); }
+.wp-progress-step--active { opacity: 1; color: var(--text); }
+.wp-progress-step--active::before {
+  background: #7c3aed;
+  transform: scale(1.35);
+  box-shadow: 0 0 0 3px color-mix(in srgb, #7c3aed 20%, transparent);
+}
+
+/* Wizard screen shell */
+.wp-wizard-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  flex: 1;
+  min-height: 0;
+  padding: 2rem 1.5rem 1.5rem;
+  overflow-y: auto;
+}
+.wp-wizard-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+  width: 100%;
+  max-width: 520px;
+  text-align: center;
+}
+.wp-wizard-footer {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  padding-top: 1.5rem;
+  flex-shrink: 0;
+  width: 100%;
+  max-width: 520px;
+}
+
+/* Step typography */
+.wp-step-eyebrow {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin: 0;
+}
+.wp-step-heading {
+  font-size: 1.6rem;
+  font-weight: 700;
+  margin: 0;
+  line-height: 1.2;
+  color: var(--text);
+}
+.wp-step-sub {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  margin: 0;
+  max-width: 380px;
+}
+.wp-next-btn {
+  min-width: 160px;
+  padding: 0.6rem 1.5rem;
+  font-size: 0.92rem;
+  border-radius: 999px;
+}
+
+/* Step 1: Stats grid */
+.wp-stats-grid {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.wp-stat-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 0.9rem 1.4rem;
+  min-width: 100px;
+}
+.wp-stat-icon { font-size: 1.3rem; }
+.wp-stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1;
+}
+.wp-stat-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.wp-streak-wrap {
+  display: flex;
+  justify-content: center;
+}
+.wp-streak-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: color-mix(in srgb, #f97316 15%, transparent);
+  border: 1px solid color-mix(in srgb, #f97316 40%, transparent);
+  color: #c2410c;
+  font-weight: 600;
+  font-size: 0.82rem;
+  padding: 0.3rem 0.9rem;
+  border-radius: 999px;
+}
+.wp-section-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin: 0 0 0.3rem;
+}
+.wp-last-wins-wrap { width: 100%; max-width: 380px; text-align: left; }
+.wp-last-wins-list {
+  margin: 0;
+  padding: 0 0 0 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+}
+
+/* Step 2: Wins inputs */
+.wp-wins-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  width: 100%;
+  max-width: 420px;
+}
+.wp-win-input {
+  width: 100%;
+  font-size: 0.92rem;
+  padding: 0.6rem 0.85rem;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-soft);
+  color: var(--text);
+  transition: border-color var(--dur-fast);
+}
+.wp-win-input:focus { outline: none; border-color: #7c3aed; }
+.wp-win-input::placeholder { color: var(--text-muted); opacity: 0.6; }
+
+/* Step 3: Theme input */
+.wp-theme-input {
+  width: 100%;
+  max-width: 420px;
+  font-size: 1rem;
+  padding: 0.7rem 1rem;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-soft);
+  color: var(--text);
+  text-align: center;
+  transition: border-color var(--dur-fast);
+}
+.wp-theme-input:focus { outline: none; border-color: #7c3aed; }
+.wp-theme-input::placeholder { color: var(--text-muted); opacity: 0.55; font-style: italic; }
+.wp-theme-examples {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.wp-theme-example {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-soft);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background var(--dur-fast), border-color var(--dur-fast), color var(--dur-fast);
+}
+.wp-theme-example:hover {
+  background: var(--bg-card);
+  border-color: #7c3aed;
+  color: var(--text);
+}
+
+/* Step 5: Celebrate */
+.wp-celebrate-screen { position: relative; overflow: hidden; }
+.wp-confetti-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.wp-celebrate-body { gap: 1rem; }
+.wp-celebrate-icon { font-size: 3.5rem; line-height: 1; }
+.wp-celebrate-summary {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+.wp-cel-stat {
+  background: var(--bg-soft);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.2rem 0.65rem;
+  color: var(--text);
+  font-size: 0.82rem;
+}
+.wp-cel-stat em { font-style: normal; font-weight: 600; }
+.wp-cel-dot { color: var(--border); font-size: 0.7rem; }
+.wp-celebrate-streak {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #c2410c;
+  background: color-mix(in srgb, #f97316 12%, transparent);
+  border: 1px solid color-mix(in srgb, #f97316 35%, transparent);
+  border-radius: 999px;
+  padding: 0.3rem 1rem;
+}
+
+/* Today header — week theme badge */
+.today-week-theme {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  padding: 0.18rem 0.6rem;
+  background: color-mix(in srgb, #7c3aed 10%, transparent);
+  border: 1px solid color-mix(in srgb, #7c3aed 30%, transparent);
+  border-radius: 999px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+  font-style: italic;
+  letter-spacing: 0.01em;
+}

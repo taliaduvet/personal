@@ -2257,6 +2257,7 @@ function wireComposer() {
     updateAddToSuggestionsBtn();
     renderEnergyWidget();
     renderCalendarTodayStrip();
+    weekPlanningApi?.renderWeekThemeBadge();
     attachMainAppRealtime({
       state,
       win: window,
