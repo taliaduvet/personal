@@ -13,6 +13,7 @@ describe('backup-export contract', () => {
       previousWeekPlanSnapshot: null,
       showWeekStrip: false,
       otherCollapsedOnDate: null,
+      notes: [],
     };
     const data = buildBackupPayload(state);
     expect(Object.keys(data).sort()).toEqual(
@@ -22,6 +23,7 @@ describe('backup-export contract', () => {
         'items',
         'lastCommittedPlanSnapshot',
         'lastPlanCommittedAt',
+        'notes',
         'otherCollapsedOnDate',
         'previousWeekPlanSnapshot',
         'showWeekStrip',
