@@ -30,6 +30,18 @@
  */
 
 /**
+ * @typedef {Object} AppNote
+ * @property {string} id
+ * @property {string} date - YYYY-MM-DD local
+ * @property {string} text
+ * @property {string|null} taskId
+ * @property {'standalone'|'quick-capture'|'session'|'ai_research'} source
+ * @property {boolean} triaged
+ * @property {number} createdAt
+ * @property {number} updatedAt
+ */
+
+/**
  * @typedef {Object} TaskSession
  * @property {string} id
  * @property {string} start - ISO
@@ -153,4 +165,5 @@
  * @property {string|null} otherCollapsedOnDate
  * @property {Record<string, string[]>} hiddenFromTodayByDate
  * @property {ReturnType<typeof setTimeout>|null} [undoDoneTimeout]
+ * @property {AppNote[]} notes
  */

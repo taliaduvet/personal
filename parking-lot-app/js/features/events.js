@@ -219,7 +219,15 @@ export function wireMainEvents(deps) {
       if (e.key === 'n' || e.key === 'N') {
         if (inFormOrRichText) return;
         e.preventDefault();
-        d.modalApi.openAddModal();
+        d.openNotesPanel?.();
+      } else if ((e.key === 't' || e.key === 'T') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        if (inFormOrRichText) return;
+        e.preventDefault();
+        d.focusBrainDumpBar?.();
+      } else if ((e.key === 'i' || e.key === 'I') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        if (inFormOrRichText) return;
+        e.preventDefault();
+        d.openInboxSession?.();
       } else if (e.key === 'Escape') {
         if (shortcutsOverlay && shortcutsOverlay.style.display === 'flex') {
           closeShortcutsOverlay();
@@ -276,6 +284,11 @@ export function wireMainEvents(deps) {
             } else {
               closeRelationshipsPanel();
             }
+            return;
+          }
+          const notesPanel = document.getElementById('notes-panel');
+          if (notesPanel && notesPanel.style.display === 'flex') {
+            d.closeNotesPanel?.();
             return;
           }
         }

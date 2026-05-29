@@ -168,6 +168,20 @@ export function loadState() {
       if (parsed.hiddenFromTodayByDate && typeof parsed.hiddenFromTodayByDate === 'object') {
         state.hiddenFromTodayByDate = { ...parsed.hiddenFromTodayByDate };
       }
+      if (Array.isArray(parsed.notes)) {
+        state.notes = parsed.notes.map(function(n) {
+          return {
+            id: n.id,
+            date: n.date,
+            text: n.text || '',
+            taskId: n.taskId || null,
+            source: n.source || 'standalone',
+            triaged: !!n.triaged,
+            createdAt: n.createdAt || Date.now(),
+            updatedAt: n.updatedAt || Date.now()
+          };
+        });
+      }
     }
     pruneHabitCompletions(state);
     seedPeopleGroupsIfEmpty();
@@ -179,6 +193,7 @@ export function loadState() {
     if (!state.hiddenFromTodayByDate || typeof state.hiddenFromTodayByDate !== 'object') {
       state.hiddenFromTodayByDate = {};
     }
+    if (!Array.isArray(state.notes)) state.notes = [];
     const peopleIds = (state.people || []).map(function(p) { return p.id; });
     state.items = (state.items || []).map(i => ({
       ...i,
@@ -239,7 +254,8 @@ export function saveState(skipCloudSync, useRemoteTallyDate) {
       otherCollapsedOnDate: state.otherCollapsedOnDate || null,
       hiddenFromTodayByDate: state.hiddenFromTodayByDate && typeof state.hiddenFromTodayByDate === 'object'
         ? state.hiddenFromTodayByDate
-        : {}
+        : {},
+      notes: state.notes || []
     }));
     const tallyDate = useRemoteTallyDate && state.lastCompletedDate ? state.lastCompletedDate : getTallyDate();
     localStorage.setItem(STORAGE_PREFIX + 'tally', JSON.stringify({

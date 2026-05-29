@@ -126,6 +126,7 @@ import { createEmailTriageUI } from '../features/email-triage.js';
 import { createModalController } from '../features/modals.js';
 import { wireMainEvents } from '../features/events.js';
 import { createSessionController } from '../features/sessions.js';
+import { createNotesPanel } from '../features/notes-panel.js';
 
 wirePersist(() => saveState());
 
@@ -160,6 +161,8 @@ let submitAddFromTalk;
 let eventsWired = false;
 /** @type {ReturnType<typeof createSessionController>|null} */
 let sessionApi = null;
+/** @type {ReturnType<typeof createNotesPanel>|null} */
+let notesApi = null;
 
 /** Set in {@link wireComposer} — add/edit modal + voice/quick handlers. */
 let modalApi;
@@ -204,6 +207,13 @@ function wireComposer() {
     showToast,
     getRenderColumns: () => renderColumns,
     getRenderTodayList: () => renderTodayList
+  });
+
+  notesApi = createNotesPanel({
+    state,
+    saveState,
+    showToast,
+    openEditModal: (id) => modalApi.openEditModal(id)
   });
 
   const board = createBoardRenderer({
@@ -776,6 +786,7 @@ function wireComposer() {
     if (state.otherCollapsedOnDate) prefs.__otherCollapsedOnDate = state.otherCollapsedOnDate;
     if (state.energyLevel) prefs.__energyLevel = state.energyLevel;
     if (state.energyDate) prefs.__energyDate = state.energyDate;
+    if (Array.isArray(state.notes) && state.notes.length) prefs.__notes = state.notes;
     return prefs;
   }
 
@@ -852,6 +863,21 @@ function wireComposer() {
     }
     if (prefs.__energyLevel) { state.energyLevel = prefs.__energyLevel; delete prefs.__energyLevel; }
     if (prefs.__energyDate) { state.energyDate = prefs.__energyDate; delete prefs.__energyDate; }
+    if (Array.isArray(prefs.__notes)) {
+      state.notes = prefs.__notes.map(function(n) {
+        return {
+          id: n.id,
+          date: n.date,
+          text: n.text || '',
+          taskId: n.taskId || null,
+          source: n.source || 'standalone',
+          triaged: !!n.triaged,
+          createdAt: n.createdAt || Date.now(),
+          updatedAt: n.updatedAt || Date.now()
+        };
+      });
+      delete prefs.__notes;
+    }
     if (!state.columnColors || typeof state.columnColors !== 'object') state.columnColors = {};
     getValidCategoryIds().forEach(id => {
       const v = prefs[id];
@@ -1031,6 +1057,20 @@ function wireComposer() {
     widget.querySelectorAll('.energy-btn').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.level === current);
     });
+  }
+
+  function focusBrainDumpBar() {
+    const brainDumpBar = document.getElementById('brain-dump-bar');
+    const input = document.getElementById('brain-dump-input');
+    if (brainDumpBar) brainDumpBar.style.display = 'flex';
+    if (input) {
+      input.focus();
+      input.select();
+    }
+  }
+
+  function openInboxSessionStub() {
+    showToast('Inbox session — coming in Phase 3');
   }
 
   function submitBrainDump() {
@@ -1799,6 +1839,18 @@ function wireComposer() {
         }
         if (typeof data.showWeekStrip === 'boolean') state.showWeekStrip = data.showWeekStrip;
         if (typeof data.otherCollapsedOnDate === 'string') state.otherCollapsedOnDate = data.otherCollapsedOnDate;
+        if (Array.isArray(data.notes)) {
+          state.notes = data.notes.filter(n => n && typeof n.id === 'string').map(n => ({
+            id: n.id,
+            date: n.date || getTodayLocalYYYYMMDD(),
+            text: (n.text || '').trim(),
+            taskId: n.taskId || null,
+            source: n.source || 'standalone',
+            triaged: !!n.triaged,
+            createdAt: n.createdAt || Date.now(),
+            updatedAt: n.updatedAt || Date.now()
+          }));
+        }
         state.weekPlan = pruneWeekPlan(state.items, state.weekPlan);
         saveState();
         renderTodayList();
@@ -2031,8 +2083,13 @@ function wireComposer() {
     if (eventsWired) return;
     eventsWired = true;
     sessionApi?.bindEvents();
+    notesApi?.bindEvents();
     wireMainEvents({
       closeSessionModal: () => sessionApi?.cancelSession(),
+      openNotesPanel: () => notesApi?.openNotesPanel(),
+      closeNotesPanel: () => notesApi?.closeNotesPanel(),
+      focusBrainDumpBar,
+      openInboxSession: openInboxSessionStub,
       addTalkAbout,
       addToSuggestions,
       applyDevicePreferencesToState,

@@ -80,5 +80,7 @@ export const state = {
   /** YYYY-MM-DD of when energyLevel was last set — auto-clears to null on a new day. */
   energyDate: null,
   /** YYYY-MM-DD — if set to today, the overwhelm banner has been dismissed. */
-  todayOverwhelmDismissed: null
+  todayOverwhelmDismissed: null,
+  /** @type {import('./types.js').AppNote[]} */
+  notes: []
 };

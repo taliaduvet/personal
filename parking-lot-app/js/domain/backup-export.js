@@ -12,6 +12,7 @@ export function buildBackupPayload(state) {
     previousWeekPlanSnapshot: state.previousWeekPlanSnapshot ?? null,
     showWeekStrip: !!state.showWeekStrip,
     otherCollapsedOnDate: state.otherCollapsedOnDate ?? null,
+    notes: state.notes || [],
     exportedAt: new Date().toISOString(),
   };
 }

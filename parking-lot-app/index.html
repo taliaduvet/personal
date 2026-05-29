@@ -899,11 +899,33 @@
     </div>
   </div>
 
+  <div id="notes-panel" class="notes-panel" style="display:none">
+    <div class="notes-panel-header">
+      <h3>Notes</h3>
+      <button id="close-notes-panel" class="btn-close" aria-label="Close">×</button>
+    </div>
+    <div class="notes-panel-body">
+      <div class="notes-capture-row">
+        <textarea id="notes-quick-input" class="notes-quick-textarea" placeholder="Quick note... (Enter to save, Shift+Enter for new line)" rows="2" aria-label="Quick note"></textarea>
+      </div>
+      <div id="notes-today-section" class="notes-date-section">
+        <div class="notes-date-label">Today</div>
+        <div id="notes-today-list" class="notes-list"></div>
+      </div>
+      <div id="notes-older-section" class="notes-older-section">
+        <div id="notes-older-list" class="notes-list"></div>
+      </div>
+    </div>
+  </div>
+  <div id="notes-panel-overlay" class="notes-panel-overlay" style="display:none" aria-hidden="true"></div>
+
   <div id="shortcuts-overlay" class="shortcuts-overlay" style="display:none" aria-hidden="true">
     <div class="shortcuts-content">
       <h3>Keyboard shortcuts</h3>
       <dl class="shortcuts-list">
-        <dt>N</dt><dd>Add new task</dd>
+        <dt>N</dt><dd>New note</dd>
+        <dt>T</dt><dd>Brain dump (quick capture)</dd>
+        <dt>I</dt><dd>Open inbox session</dd>
         <dt>Esc</dt><dd>Close modal</dd>
         <dt>?</dt><dd>Show this help</dd>
       </dl>
