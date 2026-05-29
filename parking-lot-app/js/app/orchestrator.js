@@ -127,6 +127,7 @@ import { createModalController } from '../features/modals.js';
 import { wireMainEvents } from '../features/events.js';
 import { createSessionController } from '../features/sessions.js';
 import { createNotesPanel } from '../features/notes-panel.js';
+import { archiveDayNote, getNotesForDate } from '../domain/notes.js';
 import { createInboxSession } from '../features/inbox-session.js';
 import { createArchiveCalendar } from '../features/archive-calendar.js';
 import { createAiResearch } from '../features/ai-research.js';
@@ -2038,6 +2039,23 @@ function wireComposer() {
     });
   }
 
+  /**
+   * If yesterday had a non-empty day note that hasn't been archived yet,
+   * save it into state.notes so it appears in the archive calendar.
+   */
+  function archiveYesterdayNoteIfNeeded() {
+    const yd = new Date();
+    yd.setDate(yd.getDate() - 1);
+    const yesterday = yd.toLocaleDateString('en-CA'); // YYYY-MM-DD
+    const dayEntry = state.weekPlan && state.weekPlan.days && state.weekPlan.days[yesterday];
+    const note = dayEntry && typeof dayEntry.note === 'string' ? dayEntry.note.trim() : '';
+    if (!note) return;
+    const alreadyArchived = getNotesForDate(yesterday).some(n => n.source === 'day-note');
+    if (alreadyArchived) return;
+    archiveDayNote(yesterday, note);
+    saveState();
+  }
+
   async function showMainApp() {
     if (!renderColumns || !renderTodayList) {
       console.error('[orchestrator] showMainApp() called before wireComposer(). Call order is: wireComposer() → showMainApp()');
@@ -2067,6 +2085,7 @@ function wireComposer() {
       if (linkPartnerBtn) linkPartnerBtn.style.display = 'block';
     }
     loadState();
+    archiveYesterdayNoteIfNeeded();
     ensureInboxPile();
     const todayStr = getTodayLocalYYYYMMDD();
     if (state.energyDate && state.energyDate !== todayStr) {
@@ -2363,6 +2382,12 @@ function wireComposer() {
         }
       });
     }
+    // Archive yesterday's note whenever the app becomes visible (handles overnight stays)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        archiveYesterdayNoteIfNeeded();
+      }
+    });
     loadPairState();
     loadDeviceSyncState();
     if (state.pairId || hasChosenSolo() || state.deviceSyncId) {

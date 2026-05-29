@@ -1384,6 +1384,47 @@ body.sidebar-open .sidebar-overlay {
   resize: vertical;
 }
 
+.today-note-ghost {
+  margin-top: 0.5rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-soft);
+}
+.today-note-ghost-label {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+.today-note-ghost-text {
+  margin: 0.2rem 0 0.45rem;
+  font-size: 0.83rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  opacity: 0.75;
+}
+.today-note-carry-btn {
+  font-size: 0.75rem;
+  padding: 0.18rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out),
+              border-color var(--dur-fast) var(--ease-out),
+              color var(--dur-fast) var(--ease-out);
+}
+.today-note-carry-btn:hover {
+  background: var(--bg-card);
+  border-color: var(--accent-sage);
+  color: var(--text);
+}
+
 .unified-today-tasks-col {
   min-width: 0;
 }

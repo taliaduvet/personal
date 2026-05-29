@@ -44,6 +44,30 @@ export function triageNote(id) {
   note.triaged = true;
 }
 
+/**
+ * Save a day's plan note into the archive at a specific date.
+ * Called automatically when the day rolls over so the note shows in the archive calendar.
+ * @param {string} dateYmd - YYYY-MM-DD of the day the note belongs to
+ * @param {string} text
+ */
+export function archiveDayNote(dateYmd, text) {
+  if (!state.notes) state.notes = [];
+  const trimmed = (text || '').trim();
+  if (!trimmed) return null;
+  const note = {
+    id: 'note_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+    date: dateYmd,
+    text: trimmed,
+    taskId: null,
+    source: 'day-note',
+    triaged: false,
+    createdAt: Date.now(),
+    updatedAt: Date.now()
+  };
+  state.notes.push(note);
+  return note;
+}
+
 export function searchNotes(query) {
   const q = (query || '').trim().toLowerCase();
   if (!q) return getNotes();

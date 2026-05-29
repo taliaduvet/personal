@@ -43,7 +43,7 @@
  * @property {string} date - YYYY-MM-DD local
  * @property {string} text
  * @property {string|null} taskId
- * @property {'standalone'|'quick-capture'|'session'|'ai_research'} source
+ * @property {'standalone'|'quick-capture'|'session'|'ai_research'|'day-note'} source
  * @property {boolean} triaged
  * @property {number} createdAt
  * @property {number} updatedAt

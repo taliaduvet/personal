@@ -174,13 +174,53 @@ export function createUnifiedTodayRenderer(d) {
     });
   }
 
+  /** Compute yesterday's YYYY-MM-DD string */
+  function getYesterdayYmd() {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return d.toLocaleDateString('en-CA');
+  }
+
   /** Left column: always-visible day note (week plan day note field). */
   function notesColumnHtml(rootId) {
     const safeId = `today-main-note-${rootId.replace(/[^a-zA-Z0-9_-]/g, '')}`;
+    const todayStr = getTodayLocalYYYYMMDD();
+    const wp = normalizeWeekPlan(d.state.weekPlan);
+    const todayNote = (wp.days[todayStr] && typeof wp.days[todayStr].note === 'string')
+      ? wp.days[todayStr].note.trim() : '';
+    const yesterdayStr = getYesterdayYmd();
+    const yesterdayNote = (wp.days[yesterdayStr] && typeof wp.days[yesterdayStr].note === 'string')
+      ? wp.days[yesterdayStr].note.trim() : '';
+
+    const ghostHtml = (!todayNote && yesterdayNote)
+      ? `<div class="today-note-ghost">
+          <span class="today-note-ghost-label">Yesterday</span>
+          <p class="today-note-ghost-text">${escapeHtml(yesterdayNote)}</p>
+          <button type="button" class="today-note-carry-btn" data-carry="${escapeHtml(yesterdayNote)}">Carry forward →</button>
+        </div>`
+      : '';
+
     return `<div class="unified-today-notes-col">
       <label class="unified-today-notes-label" for="${safeId}">NOTES</label>
       <textarea id="${safeId}" class="settings-name-input today-main-note-field" rows="4" maxlength="400" placeholder="Jot something for today…" aria-label="Day note"></textarea>
+      ${ghostHtml}
     </div>`;
+  }
+
+  /** Bind the carry-forward button after any render that includes the notes column */
+  function bindCarryForwardBtn(root) {
+    const btn = root.querySelector('.today-note-carry-btn');
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+      const note = btn.dataset.carry || '';
+      const ta = root.querySelector('.today-main-note-field');
+      if (ta && note) {
+        ta.value = note;
+        ta.focus();
+        persistTodayNoteFromField(note);
+        refreshTodayAndFocus(); // re-render intentionally to hide the ghost
+      }
+    });
   }
 
   function layoutHtml(modeClass, rootId, rightInner) {
@@ -369,6 +409,7 @@ export function createUnifiedTodayRenderer(d) {
       );
       bindTodayListEvents(root, { removeFromToday, reorderExplicit: true });
       bindTodayRelationshipNudges(root);
+      bindCarryForwardBtn(root);
       root.querySelector('.unified-today-plan-cta-btn')?.addEventListener('click', () => d.openPlanningEntry({}));
       root.querySelector('.btn-dismiss-overwhelm')?.addEventListener('click', () => {
         d.state.todayOverwhelmDismissed = todayStr;
@@ -394,6 +435,7 @@ export function createUnifiedTodayRenderer(d) {
       );
       bindTodayListEvents(root, { removeFromToday });
       bindTodayRelationshipNudges(root);
+      bindCarryForwardBtn(root);
       root.querySelector('.set-plan-today-btn')?.addEventListener('click', () => d.openPlanningEntry({ scrollToDate: todayStr }));
       root.querySelector('.btn-dismiss-overwhelm')?.addEventListener('click', () => {
         d.state.todayOverwhelmDismissed = todayStr;
@@ -440,6 +482,7 @@ export function createUnifiedTodayRenderer(d) {
 
     bindTodayListEvents(root, { removeFromToday, focusPileReorderTodayStr: todayStr });
     bindTodayRelationshipNudges(root);
+    bindCarryForwardBtn(root);
     root.querySelector('.unified-today-review-plan-btn')?.addEventListener('click', () => {
       if (typeof d.openWeekView === 'function') d.openWeekView();
       else d.openPlanningEntry({ scrollToDate: todayStr });

@@ -118,7 +118,8 @@ export function createArchiveCalendar(deps) {
     if (dayNotes.length) {
       parts.push(`<div class="archive-day-section-title">NOTES (${dayNotes.length})</div>`);
       dayNotes.forEach(n => {
-        parts.push(`<div class="archive-completed-item">"${escapeHtml(n.text)}"</div>`);
+        const prefix = n.source === 'day-note' ? '📋 ' : '';
+        parts.push(`<div class="archive-completed-item">${prefix}"${escapeHtml(n.text)}"</div>`);
       });
     }
 
