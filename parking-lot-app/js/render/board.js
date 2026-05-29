@@ -234,14 +234,20 @@ export function createBoardRenderer(d) {
 
     container.querySelectorAll('.task-card').forEach(card => {
       card.addEventListener('click', (e) => {
-        if (e.target.closest('.task-actions') || e.target.closest('.task-meta-edit') || e.target.closest('.task-drag-handle')) return;
-        const id = card.dataset.id;
-        d.state.selectedIds.has(id) ? d.state.selectedIds.delete(id) : d.state.selectedIds.add(id);
-        card.classList.toggle('selected', d.state.selectedIds.has(id));
-        d.updateAddToSuggestionsBtn();
+        if (e.target.closest('.task-actions') || e.target.closest('.task-meta-edit') || e.target.closest('.task-drag-handle') || e.target.closest('.task-meta-clickable')) return;
+        d.openEditModal(card.dataset.id);
       });
     });
     container.querySelectorAll('.task-drag-handle').forEach(handle => {
+      // Click drag handle to toggle "Add to Today" selection
+      handle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = handle.dataset.id;
+        d.state.selectedIds.has(id) ? d.state.selectedIds.delete(id) : d.state.selectedIds.add(id);
+        const card = handle.closest('.task-card');
+        if (card) card.classList.toggle('selected', d.state.selectedIds.has(id));
+        d.updateAddToSuggestionsBtn();
+      });
       handle.addEventListener('dragstart', (e) => {
         e.dataTransfer.setData('text/plain', handle.dataset.id);
         e.dataTransfer.effectAllowed = 'move';

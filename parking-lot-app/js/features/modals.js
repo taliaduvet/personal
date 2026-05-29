@@ -417,7 +417,7 @@ export function createModalController(deps) {
     const editDoingEl = document.getElementById('edit-doing-date');
     if (editDoingEl) editDoingEl.value = item.doingDate || '';
     document.getElementById('edit-priority').innerHTML = PRIORITIES.map((p) =>
-      `<option value="${p}" ${p === item.priority ? 'selected' : ''}>${p}</option>`
+      `<option value="${p}" ${p === item.priority ? 'selected' : ''}>${p.charAt(0).toUpperCase() + p.slice(1)}</option>`
     ).join('');
     document.getElementById('edit-modal').style.display = 'flex';
   }

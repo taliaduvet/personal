@@ -176,23 +176,18 @@
             <input id="task-input" type="text" placeholder="e.g. work project due march 15" autocomplete="off">
             <button id="mic-btn" class="btn-icon" title="Voice input">🎤</button>
           </div>
-          <div class="add-options">
+
+          <div class="add-options edit-section">
+            <div class="edit-section-title">Organize</div>
             <label>Category</label>
             <select id="category-select"></select>
-            <label>Deadline (optional)</label>
-            <input id="deadline-input" type="date">
-            <label>Doing date (optional)</label>
-            <input id="doing-date-input" type="date" title="Plan to do on this day; task is auto-removed after">
-            <label>Recurrence</label>
-            <select id="recurrence-select">
-              <option value="">None</option>
-              <option value="daily">Daily</option>
-              <option value="weekly">Weekly</option>
-              <option value="monthly">Monthly</option>
+            <label>Priority <span class="hint-link" id="priority-hint" title="How to decide?">?</span></label>
+            <select id="priority-select">
+              <option value="critical">Critical</option>
+              <option value="high">High</option>
+              <option value="medium" selected>Medium</option>
+              <option value="low">Low</option>
             </select>
-            <label>First step (optional)</label>
-            <input id="first-step-input" type="text" placeholder="e.g. Open the file and add the title" maxlength="200" title="What's the one tiny thing that would get you started?">
-            <p class="settings-hint" style="margin-top:-0.25rem">Tip: For big tasks, set the deadline for the first small step.</p>
             <label>Pile (optional)</label>
             <select id="pile-select">
               <option value="">None</option>
@@ -201,6 +196,33 @@
             <select id="person-select">
               <option value="">None</option>
             </select>
+          </div>
+
+          <div class="add-options edit-section">
+            <div class="edit-section-title">When</div>
+            <div class="edit-dates-row">
+              <div class="edit-date-field">
+                <label>Must be done by</label>
+                <input id="deadline-input" type="date">
+              </div>
+              <div class="edit-date-field">
+                <label>I'll work on it</label>
+                <input id="doing-date-input" type="date" title="Plan to do on this day; task is auto-removed after">
+              </div>
+            </div>
+            <label>Repeats</label>
+            <select id="recurrence-select">
+              <option value="">Doesn't repeat</option>
+              <option value="daily">Every day</option>
+              <option value="weekly">Every week</option>
+              <option value="monthly">Every month</option>
+            </select>
+          </div>
+
+          <div class="add-options edit-section">
+            <div class="edit-section-title">Details</div>
+            <label>First step (optional)</label>
+            <input id="first-step-input" type="text" placeholder="e.g. Open the file and add the title" maxlength="200" title="What's the one tiny thing that would get you started?">
             <label>Friction (optional)</label>
             <select id="friction-select">
               <option value="">None</option>
@@ -217,14 +239,8 @@
               <option value="~2h+">~2 hours+</option>
             </select>
             <label class="checkbox-label"><input type="checkbox" id="income-check"> Income-generating task (◈)</label>
-            <label>Priority <span class="hint-link" id="priority-hint" title="How to decide?">?</span></label>
-            <select id="priority-select">
-              <option value="critical">Critical</option>
-              <option value="high">High</option>
-              <option value="medium" selected>Medium</option>
-              <option value="low">Low</option>
-            </select>
           </div>
+
           <button id="submit-single" class="btn-primary">Add</button>
         </div>
         <div id="quick-add" class="add-form" style="display:none">
