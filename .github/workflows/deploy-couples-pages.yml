@@ -45,7 +45,10 @@ jobs:
           mkdir -p deploy
           cp index.html deploy/
           cp -r parking-lot-app deploy/
-          echo "var SUPABASE_URL='${{ secrets.SUPABASE_URL }}'; var SUPABASE_ANON_KEY='${{ secrets.SUPABASE_KEY }}'; var AUTH_REDIRECT_URL='https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/parking-lot-app';" > deploy/parking-lot-app/config.js
+          {
+            echo "var SUPABASE_URL='${{ secrets.SUPABASE_URL }}';"
+            cat parking-lot-app/config.public.js
+          } > deploy/parking-lot-app/config.js
           cp -r mom-parking-lot-app deploy/
           echo "const SUPABASE_URL='${{ secrets.SUPABASE_URL }}'; const SUPABASE_ANON_KEY='${{ secrets.SUPABASE_KEY }}';" > deploy/mom-parking-lot-app/config.js
           mkdir -p deploy/accounting-app/js
@@ -70,6 +73,14 @@ jobs:
           fi
           if grep -qE "SUPABASE_ANON_KEY='sb_secret_" deploy/parking-lot-app/config.js; then
             echo "::error::SUPABASE_KEY is the secret key (sb_secret_…). Use the anon / publishable public key only — never deploy the secret key to GitHub Pages."
+            exit 1
+          fi
+          if grep -qE "SUPABASE_ANON_KEY='sb_publishable_" deploy/parking-lot-app/config.js; then
+            echo "::error::Deployed config still uses sb_publishable key. Ensure parking-lot-app/config.public.js is committed with the eyJ anon JWT."
+            exit 1
+          fi
+          if ! grep -qE "SUPABASE_ANON_KEY='eyJ" deploy/parking-lot-app/config.js; then
+            echo "::error::Deployed config must include anon JWT (eyJ…) from config.public.js."
             exit 1
           fi
 

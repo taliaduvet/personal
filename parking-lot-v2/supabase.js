@@ -69,6 +69,29 @@
       return session;
     },
 
+    /** Returns true if the stored session is valid on the server (not just localStorage). */
+    async validateSession() {
+      const client = getClient();
+      if (!client) return false;
+      const { data: { user }, error } = await client.auth.getUser();
+      return !error && !!user?.id;
+    },
+
+    clearAuthStorage() {
+      const client = getClient();
+      if (client) {
+        client.auth.signOut({ scope: 'local' }).catch(() => {});
+      }
+      try {
+        const m = typeof SUPABASE_URL === 'string' ? SUPABASE_URL.match(/https?:\/\/([^.]+)\.supabase/) : null;
+        const ref = m ? m[1] : '';
+        Object.keys(localStorage).forEach((k) => {
+          if (k.startsWith('sb-') || k.includes('supabase.auth')) localStorage.removeItem(k);
+        });
+        if (ref) localStorage.removeItem('sb-' + ref + '-auth-token');
+      } catch (_) { /* private mode */ }
+    },
+
     async signInWithOtp(email) {
       const client = getClient();
       if (!client) return { error: 'Supabase not configured' };

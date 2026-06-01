@@ -2215,6 +2215,7 @@ function wireComposer() {
   }
 
   async function showMainApp() {
+    hideBootSplash();
     if (!renderColumns || !renderTodayList) {
       console.error('[orchestrator] showMainApp() called before wireComposer(). Call order is: wireComposer() → showMainApp()');
     }
@@ -2467,7 +2468,13 @@ function wireComposer() {
 
   // ── Auth screen helpers ──────────────────────────────────────────
 
+  function hideBootSplash() {
+    const boot = document.getElementById('boot-splash');
+    if (boot) boot.style.display = 'none';
+  }
+
   function showAuthScreen() {
+    hideBootSplash();
     document.getElementById('entry-screen').style.display = 'block';
     document.getElementById('pair-setup').style.display = 'none';
     document.getElementById('main-app').style.display = 'none';
@@ -2525,11 +2532,12 @@ function wireComposer() {
       const profile = await window.talkAbout.getUserProfile(session.user.id);
 
       if (!profile) {
-        document.getElementById('entry-screen').style.display = 'none';
-        document.getElementById('pair-setup').style.display = 'block';
-        document.getElementById('main-app').style.display = 'none';
+        hideBootSplash();
         const floating = document.getElementById('floating-buttons');
         if (floating) floating.style.display = 'none';
+        document.getElementById('entry-screen').style.display = 'none';
+        document.getElementById('main-app').style.display = 'none';
+        document.getElementById('pair-setup').style.display = 'block';
         bindOnboardingScreen(session.user);
         return;
       }
@@ -2668,6 +2676,26 @@ function wireComposer() {
 
     // Auth-first flow: if Supabase is configured use real auth,
     // otherwise fall back to the legacy code-based flow.
+    async function getSessionWithTimeout(ms = 8000) {
+      if (!window.talkAbout?.getSession) return null;
+      try {
+        const result = await Promise.race([
+          window.talkAbout.getSession(),
+          new Promise((resolve) => setTimeout(() => resolve('__timeout__'), ms))
+        ]);
+        if (result === '__timeout__') {
+          console.warn('[auth] getSession timed out — clearing stale auth');
+          window.talkAbout.clearAuthStorage?.();
+          return null;
+        }
+        return result;
+      } catch (e) {
+        console.warn('[auth] getSession failed', e);
+        window.talkAbout.clearAuthStorage?.();
+        return null;
+      }
+    }
+
     if (!window.talkAbout || !hasSupabaseConfig()) {
       loadPairState();
       loadDeviceSyncState();
@@ -2683,6 +2711,10 @@ function wireComposer() {
       return;
     }
 
+    // Show login immediately so a slow/failed auth check never leaves a blank page
+    showAuthScreen();
+    bindAuthScreen();
+
     // Listen for auth state changes (fires when magic link is clicked)
     window.talkAbout.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session && !state.authUser) {
@@ -2694,13 +2726,20 @@ function wireComposer() {
       }
     });
 
-    // Check for an existing session
-    const session = await window.talkAbout.getSession();
-    if (session) {
-      await handleAuthSession(session);
-    } else {
-      showAuthScreen();
-      bindAuthScreen();
+    const session = await getSessionWithTimeout();
+    if (session?.user?.id) {
+      const valid = await Promise.race([
+        window.talkAbout.validateSession?.() ?? Promise.resolve(true),
+        new Promise((resolve) => setTimeout(() => resolve(false), 8000))
+      ]);
+      if (!valid) {
+        console.warn('[auth] stale session — signing out');
+        window.talkAbout.clearAuthStorage?.();
+        showAuthScreen();
+        bindAuthScreen();
+      } else {
+        await handleAuthSession(session);
+      }
     }
     } catch (e) {
       console.error('Init failed', e);

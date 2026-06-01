@@ -166,6 +166,19 @@ h1, h2, h3, h4 {
   border-color: var(--accent);
 }
 
+.boot-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg, #110f1c);
+  color: var(--text-muted, #a8a3b8);
+  font-size: 1rem;
+  letter-spacing: 0.02em;
+}
+
 #app {
   min-height: 100vh;
   padding-bottom: 80px;

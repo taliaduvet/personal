@@ -5,8 +5,14 @@
 -- After running this SQL, also do in the Supabase Dashboard:
 --   Authentication → Providers → Email: ensure "Enable Email provider" is ON
 --   Authentication → URL Configuration:
---     Site URL: your deployed app URL (e.g. https://yourname.github.io/parking-lot-app)
---     Redirect URLs: add the same URL (and http://localhost:5173 for local dev)
+--     Site URL: Hub app (e.g. https://hubapp-sage.vercel.app) OR Parking Lot — only one default;
+--               magic links use emailRedirectTo when that URL is allowlisted below.
+--     Redirect URLs (add ALL — shared Talia Duvet Hub project):
+--       https://taliaduvet.github.io/personal/parking-lot-app
+--       https://taliaduvet.github.io/personal/parking-lot-app/**
+--       https://YOUR-HUB.vercel.app/auth/callback
+--       http://localhost:5173/**
+--       http://localhost:5175/**
 -- ====================================================================
 
 -- 1. User profiles: links auth.users to app-level identity
@@ -26,16 +32,21 @@ create policy "Own profile full access" on user_profiles
 drop policy if exists "Partner profile read" on user_profiles;
 create policy "Partner profile read" on user_profiles
   for select using (
-    pair_id is not null and pair_id != '' and
-    pair_id = (select pair_id from user_profiles where user_id = auth.uid() limit 1)
+    pair_id is not null and pair_id != ''
+    and pair_id = get_my_pair_id()
   );
 
 -- 2. Helper function: returns the current auth user's pair_id
 --    Used in RLS policies below so pair-shared tables stay isolated.
 create or replace function get_my_pair_id()
-  returns text language sql stable security definer as $$
-    select pair_id from user_profiles where user_id = auth.uid() limit 1
-  $$;
+  returns text
+  language sql
+  stable
+  security definer
+  set search_path = public
+as $$
+  select pair_id from public.user_profiles where user_id = auth.uid() limit 1
+$$;
 
 -- ====================================================================
 -- 3. Personal tables: scoped to auth.uid()
