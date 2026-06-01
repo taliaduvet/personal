@@ -5,3 +5,4 @@ scripts/.ai-worker-state.json
 test-results/
 playwright-report/
 node_modules/
+supabase/.temp/
