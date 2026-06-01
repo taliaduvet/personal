@@ -101,7 +101,14 @@
           emailRedirectTo: getAuthRedirectUrl()
         }
       });
-      return { error };
+      if (error) {
+        const msg = (error.message || String(error)).toLowerCase();
+        if (msg.includes('rate limit') || error.code === 'over_email_send_rate_limit') {
+          return { error: 'Too many sign-in emails sent recently. Wait about an hour and try again, or check your inbox for an earlier link.' };
+        }
+        return { error: error.message || 'Could not send sign-in link' };
+      }
+      return { error: null };
     },
 
     async signOut() {

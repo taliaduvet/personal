@@ -2503,7 +2503,7 @@ function wireComposer() {
       const { error } = await window.talkAbout.signInWithOtp(email);
       if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = 'Send sign-in link'; }
       if (error) {
-        showToast('Could not send link — check your email and try again');
+        showToast(typeof error === 'string' ? error : (error.message || 'Could not send link — check your email and try again'));
         return;
       }
       if (emailForm) emailForm.style.display = 'none';
