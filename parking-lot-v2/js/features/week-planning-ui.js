@@ -691,7 +691,7 @@ export function createWeekPlanningUI(d) {
   }
 
   function setDayPile(dateKey, pileId) {
-    if (!draft.days[dateKey]) draft.days[dateKey] = { pileId: null, orderedTaskIds: [], note: '', excludedTaskIds: [] };
+    if (!draft.days[dateKey]) draft.days[dateKey] = { pileId: null, orderedTaskIds: [], note: '', excludedTaskIds: [], flexTaskIds: [] };
     const v = pileId || null;
     const prev = draft.days[dateKey].pileId || null;
     draft.days[dateKey].pileId = v;
@@ -702,6 +702,59 @@ export function createWeekPlanningUI(d) {
     });
     markDraftDirty();
     renderPlanningDays();
+  }
+
+  function alsoTodaySectionHtml(dateKey, entry) {
+    const piles = (d.state.piles || []).filter(p => !p.archived);
+    if (!piles.length) return '';
+    const dk = escapeHtml(dateKey);
+    const opts = piles.map(p => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`).join('');
+    return `<div class="plan-also-today-section" data-date="${dk}">
+      <div class="plan-also-today-label">Also add today</div>
+      <select class="plan-flex-pile-select" data-date="${dk}">
+        <option value="">Pick a pile…</option>
+        ${opts}
+      </select>
+      <div class="plan-flex-task-list" data-date="${dk}"></div>
+    </div>`;
+  }
+
+  function renderFlexTaskList(dateKey, selectedPileId) {
+    const container = document.querySelector(`.plan-flex-task-list[data-date="${dateKey}"]`);
+    if (!container) return;
+    if (!selectedPileId) { container.innerHTML = ''; return; }
+    const entry = draft.days[dateKey] || {};
+    const flexIds = new Set(entry.flexTaskIds || []);
+    const tasks = (d.state.items || []).filter(
+      it => !it.archived && (it.pileId || null) === selectedPileId
+    );
+    if (!tasks.length) {
+      container.innerHTML = '<div class="plan-flex-empty">No tasks in this pile</div>';
+      return;
+    }
+    container.innerHTML = tasks.map(it => {
+      const checked = flexIds.has(it.id) ? ' checked' : '';
+      const cbId = `flex-cb-${escapeHtml(it.id)}`;
+      return `<label class="plan-flex-task-row" for="${cbId}">
+        <input type="checkbox" id="${cbId}" class="plan-flex-task-cb" data-date="${escapeHtml(dateKey)}" data-id="${escapeHtml(it.id)}"${checked}>
+        <span class="plan-flex-task-text">${escapeHtml(it.text)}</span>
+      </label>`;
+    }).join('');
+    container.querySelectorAll('.plan-flex-task-cb').forEach(cb => {
+      cb.addEventListener('change', () => {
+        if (!draft.days[dateKey]) draft.days[dateKey] = { pileId: null, orderedTaskIds: [], note: '', excludedTaskIds: [], flexTaskIds: [] };
+        const ids = draft.days[dateKey].flexTaskIds || [];
+        const taskId = cb.dataset.id;
+        if (cb.checked) {
+          if (!ids.includes(taskId)) ids.push(taskId);
+        } else {
+          const idx = ids.indexOf(taskId);
+          if (idx !== -1) ids.splice(idx, 1);
+        }
+        draft.days[dateKey].flexTaskIds = ids;
+        markDraftDirty();
+      });
+    });
   }
 
   function renderPlanningDays() {
@@ -733,7 +786,7 @@ export function createWeekPlanningUI(d) {
     const todayStr = getTodayLocalYYYYMMDD();
     wrap.innerHTML = keys
       .map((dateKey) => {
-        if (!draft.days[dateKey]) draft.days[dateKey] = { pileId: null, orderedTaskIds: [], note: '', excludedTaskIds: [] };
+        if (!draft.days[dateKey]) draft.days[dateKey] = { pileId: null, orderedTaskIds: [], note: '', excludedTaskIds: [], flexTaskIds: [] };
         const entry = draft.days[dateKey];
         const excluded = new Set(entry.excludedTaskIds || []);
         const inPile = (d.state.items || []).filter(
@@ -778,6 +831,7 @@ export function createWeekPlanningUI(d) {
         </div>
         ${pileQuickRowHtml(dateKey, entry)}
         <div class="plan-day-list" data-date="${dateKey}">${listHtml}</div>
+        ${alsoTodaySectionHtml(dateKey, entry)}
       </div>`;
       })
       .join('');
@@ -871,7 +925,7 @@ export function createWeekPlanningUI(d) {
         if (fromDate !== toDate) {
           const item = d.state.items.find(x => x.id === id);
           if (!item || item.archived) return;
-          if (!draft.days[toDate]) draft.days[toDate] = { pileId: null, orderedTaskIds: [], note: '', excludedTaskIds: [] };
+          if (!draft.days[toDate]) draft.days[toDate] = { pileId: null, orderedTaskIds: [], note: '', excludedTaskIds: [], flexTaskIds: [] };
           const toPile = draft.days[toDate].pileId;
           if (!toPile || (item.pileId || null) !== toPile) return;
           Object.keys(draft.days).forEach(k => {
@@ -906,6 +960,31 @@ export function createWeekPlanningUI(d) {
         });
         markDraftDirty();
         renderPlanningDays();
+      });
+    });
+
+    // Wire "Also add today" pile selects and pre-populate any existing flex selections
+    wrap.querySelectorAll('.plan-flex-pile-select').forEach(sel => {
+      const dateKey = sel.dataset.date;
+      if (!dateKey) return;
+      // Pre-select the pile that contains the most flex tasks (if any)
+      const flexIds = (draft.days[dateKey] || {}).flexTaskIds || [];
+      if (flexIds.length) {
+        const piles = (d.state.piles || []).filter(p => !p.archived);
+        const counts = {};
+        piles.forEach(p => { counts[p.id] = 0; });
+        flexIds.forEach(id => {
+          const it = (d.state.items || []).find(x => x.id === id && !x.archived);
+          if (it && it.pileId && counts[it.pileId] !== undefined) counts[it.pileId]++;
+        });
+        const best = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+        if (best && best[1] > 0) {
+          sel.value = best[0];
+          renderFlexTaskList(dateKey, best[0]);
+        }
+      }
+      sel.addEventListener('change', () => {
+        renderFlexTaskList(dateKey, sel.value || null);
       });
     });
 
@@ -960,7 +1039,7 @@ export function createWeekPlanningUI(d) {
       if (!(t instanceof HTMLTextAreaElement) || !t.classList.contains('plan-day-note-input')) return;
       const dk = t.dataset.date;
       if (!dk) return;
-      if (!draft.days[dk]) draft.days[dk] = { pileId: null, orderedTaskIds: [], note: '', excludedTaskIds: [] };
+      if (!draft.days[dk]) draft.days[dk] = { pileId: null, orderedTaskIds: [], note: '', excludedTaskIds: [], flexTaskIds: [] };
       draft.days[dk].note = (t.value || '').slice(0, WEEK_DAY_PLAN_NOTE_MAX_LEN);
       markDraftDirty();
     });
@@ -969,7 +1048,7 @@ export function createWeekPlanningUI(d) {
       if (!(t instanceof HTMLTextAreaElement) || !t.classList.contains('plan-day-note-input')) return;
       const dk = t.dataset.date;
       if (!dk) return;
-      if (!draft.days[dk]) draft.days[dk] = { pileId: null, orderedTaskIds: [], note: '', excludedTaskIds: [] };
+      if (!draft.days[dk]) draft.days[dk] = { pileId: null, orderedTaskIds: [], note: '', excludedTaskIds: [], flexTaskIds: [] };
       draft.days[dk].note = (t.value || '').slice(0, WEEK_DAY_PLAN_NOTE_MAX_LEN);
       if (persistDraftTimer) {
         clearTimeout(persistDraftTimer);

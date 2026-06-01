@@ -7,7 +7,7 @@ import { getPileName } from './piles-people.js';
 /** Max length for each day’s planning note (calendar column). */
 export const WEEK_DAY_PLAN_NOTE_MAX_LEN = 400;
 
-/** @typedef {{ anchorWeekStart: string | null, days: Record<string, { pileId: string | null, orderedTaskIds: string[], note: string, excludedTaskIds: string[] }> }} WeekPlan */
+/** @typedef {{ anchorWeekStart: string | null, days: Record<string, { pileId: string | null, orderedTaskIds: string[], note: string, excludedTaskIds: string[], flexTaskIds: string[] }> }} WeekPlan */
 
 /**
  * Monday (local) of the week containing `d`, as YYYY-MM-DD.
@@ -78,7 +78,8 @@ export function extractDaysForCalendarWeek(wp, mondayStr) {
         pileId: e.pileId != null ? e.pileId : null,
         orderedTaskIds: Array.isArray(e.orderedTaskIds) ? [...e.orderedTaskIds] : [],
         note: typeof e.note === 'string' ? e.note : '',
-        excludedTaskIds: Array.isArray(e.excludedTaskIds) ? [...e.excludedTaskIds] : []
+        excludedTaskIds: Array.isArray(e.excludedTaskIds) ? [...e.excludedTaskIds] : [],
+        flexTaskIds: Array.isArray(e.flexTaskIds) ? [...e.flexTaskIds] : []
       })
     );
   });
@@ -126,11 +127,16 @@ export function normalizeWeekPlan(wp) {
       if (e && Array.isArray(e.excludedTaskIds)) {
         excludedTaskIds = [...new Set(e.excludedTaskIds.filter(id => typeof id === 'string' && id.length))];
       }
+      let flexTaskIds = [];
+      if (e && Array.isArray(e.flexTaskIds)) {
+        flexTaskIds = [...new Set(e.flexTaskIds.filter(id => typeof id === 'string' && id.length))];
+      }
       days[k] = {
         pileId,
         orderedTaskIds: Array.isArray(e && e.orderedTaskIds) ? [...e.orderedTaskIds] : [],
         note,
-        excludedTaskIds: pileId == null ? [] : excludedTaskIds
+        excludedTaskIds: pileId == null ? [] : excludedTaskIds,
+        flexTaskIds
       };
     });
   }
@@ -144,7 +150,7 @@ export function normalizeWeekPlan(wp) {
         legacy = legacy.slice(0, WEEK_DAY_PLAN_NOTE_MAX_LEN);
       }
       if (!days[monKey]) {
-        days[monKey] = { pileId: null, orderedTaskIds: [], note: legacy, excludedTaskIds: [] };
+        days[monKey] = { pileId: null, orderedTaskIds: [], note: legacy, excludedTaskIds: [], flexTaskIds: [] };
       } else if (!days[monKey].note) {
         days[monKey] = { ...days[monKey], note: legacy };
       }
@@ -179,6 +185,7 @@ export function removeTaskIdFromAllDays(wp, taskId) {
   Object.keys(out.days).forEach(k => {
     out.days[k].orderedTaskIds = (out.days[k].orderedTaskIds || []).filter(id => id !== taskId);
     out.days[k].excludedTaskIds = (out.days[k].excludedTaskIds || []).filter(id => id !== taskId);
+    out.days[k].flexTaskIds = (out.days[k].flexTaskIds || []).filter(id => id !== taskId);
   });
   return out;
 }
@@ -192,7 +199,7 @@ export function removeTaskIdFromAllDays(wp, taskId) {
 export function insertTaskInDayOrder(wp, dateKey, taskId, position) {
   let next = removeTaskIdFromAllDays(wp, taskId);
   if (!next.days[dateKey]) {
-    next.days[dateKey] = { pileId: null, orderedTaskIds: [], note: '', excludedTaskIds: [] };
+    next.days[dateKey] = { pileId: null, orderedTaskIds: [], note: '', excludedTaskIds: [], flexTaskIds: [] };
   }
   const list = [...(next.days[dateKey].orderedTaskIds || [])].filter(id => id !== taskId);
   if (position === 'top') list.unshift(taskId);
@@ -225,6 +232,10 @@ export function pruneWeekPlan(items, wp) {
       if (!it || it.archived) return false;
       if (pid == null) return false;
       return (it.pileId || null) === pid;
+    });
+    e.flexTaskIds = (e.flexTaskIds || []).filter(id => {
+      const it = byId[id];
+      return it && !it.archived;
     });
   });
   return norm;
