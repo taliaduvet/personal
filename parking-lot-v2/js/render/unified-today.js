@@ -264,6 +264,18 @@ export function createUnifiedTodayRenderer(d) {
     </div>`;
   }
 
+  /** Main tasks left, Fun stuff in its own box on the right */
+  function focusFunRowHtml(leftColClass, leftInnerHtml, todayStr) {
+    const fun = funStuffSectionHtml(todayStr);
+    if (!fun) {
+      return `<div class="${leftColClass}" data-section="focus">${leftInnerHtml}</div>`;
+    }
+    return `<div class="unified-today-focus-row">
+      <div class="${leftColClass}" data-section="focus">${leftInnerHtml}</div>
+      <aside class="unified-today-fun-aside" aria-label="Fun stuff">${fun}</aside>
+    </div>`;
+  }
+
   function bindFunStuffSection(root, todayStr) {
     root.querySelectorAll('.habit-cb').forEach(cb => {
       cb.addEventListener('change', () => {
@@ -433,8 +445,7 @@ export function createUnifiedTodayRenderer(d) {
         rid,
         `${bannersHtml(items, todayStr)}
         ${planBlock}
-        <div class="unified-today-section-body" data-section="single">${taskBody}</div>
-        ${funStuffSectionHtml(todayStr)}`
+        ${focusFunRowHtml('unified-today-focus-tasks unified-today-single-tasks', `<div class="unified-today-section-body" data-section="single">${taskBody}</div>`, todayStr)}`
       );
       bindTodayListEvents(root, { removeFromToday, reorderExplicit: true });
       bindTodayRelationshipNudges(root);
@@ -461,8 +472,7 @@ export function createUnifiedTodayRenderer(d) {
         rid,
         `${bannersHtml(otherItems, todayStr)}
         ${pileHeaderHtml('<span class="unified-today-pile-title">No focus pile for today</span> — <button type="button" class="btn-link set-plan-today-btn">Plan your week →</button>')}
-        ${funStuffSectionHtml(todayStr)}
-        ${otherSectionHtml('Also today', otherItems, 'Nothing here yet')}`
+        ${focusFunRowHtml('unified-today-focus-tasks unified-today-also-col', otherSectionHtml('Also today', otherItems, 'Nothing here yet'), todayStr)}`
       );
       bindTodayListEvents(root, { removeFromToday });
       bindTodayRelationshipNudges(root);
@@ -517,10 +527,7 @@ export function createUnifiedTodayRenderer(d) {
           <button type="button" class="btn-link pile-change-today-btn" title="Switch today's pile">↻ Switch pile</button>
           · <button type="button" class="btn-link unified-today-review-plan-btn">Review week</button>
         </span>`)}
-      <div class="unified-today-focus-tasks" data-section="focus">
-        <div class="unified-today-section-body">${focusBody}</div>
-      </div>
-      ${funStuffSectionHtml(todayStr)}
+      ${focusFunRowHtml('unified-today-focus-tasks', `<div class="unified-today-section-body">${focusBody}</div>`, todayStr)}
       ${otherSectionHtml('Also today', otherItems, 'Nothing else dated or pinned for today')}`
     );
 
