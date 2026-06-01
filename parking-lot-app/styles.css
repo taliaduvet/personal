@@ -1539,6 +1539,110 @@ body.sidebar-open .sidebar-overlay {
   margin-bottom: 0.35rem;
 }
 
+/* Fun stuff section — habits */
+.unified-today-fun-section {
+  margin-top: 0.35rem;
+  margin-bottom: 0.1rem;
+  padding: 0.45rem 0.6rem 0.5rem;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent, #7c3aed) 6%, var(--bg-soft, #f5f3ff));
+  border: 1px solid color-mix(in srgb, var(--accent, #7c3aed) 15%, transparent);
+}
+
+.unified-today-fun-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.habit-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.88rem;
+  cursor: pointer;
+  padding: 0.15rem 0;
+  user-select: none;
+}
+
+.habit-row input[type="checkbox"] {
+  flex-shrink: 0;
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--accent, #7c3aed);
+  cursor: pointer;
+}
+
+.habit-label {
+  color: var(--text-primary);
+  transition: color 0.15s, text-decoration 0.15s;
+}
+
+.habit-row--done .habit-label {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+/* Also-add-today section in week planner */
+.plan-also-today-section {
+  margin-top: 0.6rem;
+  padding-top: 0.5rem;
+  border-top: 1px dashed var(--border);
+}
+
+.plan-also-today-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: 0.4rem;
+}
+
+.plan-flex-pile-select {
+  width: 100%;
+  padding: 0.3rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  margin-bottom: 0.35rem;
+}
+
+.plan-flex-task-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.plan-flex-task-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  font-size: 0.84rem;
+  cursor: pointer;
+  padding: 0.1rem 0;
+}
+
+.plan-flex-task-row input[type="checkbox"] {
+  flex-shrink: 0;
+  margin-top: 0.15rem;
+  accent-color: var(--accent, #7c3aed);
+  cursor: pointer;
+}
+
+.plan-flex-task-text {
+  color: var(--text-primary);
+  line-height: 1.35;
+}
+
+.plan-flex-empty {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
 .unified-today-plan-hint-muted {
   margin: 0 0 0.6rem;
   font-size: 0.85rem;

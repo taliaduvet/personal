@@ -23,6 +23,7 @@ import {
   WEEK_DAY_PLAN_NOTE_MAX_LEN
 } from '../domain/weekly-planning.js';
 import { clearHiddenFromTodayForTaskState } from '../domain/task-actions.js';
+import { getHabits, isHabitDoneOnDate, toggleHabitManual } from '../domain/habits.js';
 
 /**
  * @param {object} d
@@ -68,7 +69,8 @@ export function createUnifiedTodayRenderer(d) {
         pileId: null,
         orderedTaskIds: [],
         note: '',
-        excludedTaskIds: []
+        excludedTaskIds: [],
+        flexTaskIds: []
       };
     }
     d.state.weekPlan.days[todayStr].note = note;
@@ -246,6 +248,32 @@ export function createUnifiedTodayRenderer(d) {
     </div>`;
   }
 
+  function funStuffSectionHtml(todayStr) {
+    const habits = getHabits();
+    if (!habits.length) return '';
+    const rows = habits.map(h => {
+      const done = isHabitDoneOnDate(h.id, todayStr);
+      return `<label class="habit-row${done ? ' habit-row--done' : ''}">
+        <input type="checkbox" class="habit-cb" data-habit-id="${escapeHtml(h.id)}"${done ? ' checked' : ''}>
+        <span class="habit-label">${escapeHtml(h.name)}</span>
+      </label>`;
+    }).join('');
+    return `<div class="unified-today-fun-section">
+      <div class="unified-today-other-heading">Fun stuff</div>
+      <div class="unified-today-fun-rows">${rows}</div>
+    </div>`;
+  }
+
+  function bindFunStuffSection(root, todayStr) {
+    root.querySelectorAll('.habit-cb').forEach(cb => {
+      cb.addEventListener('change', () => {
+        toggleHabitManual(cb.dataset.habitId, todayStr);
+        d.saveState();
+        refreshTodayAndFocus();
+      });
+    });
+  }
+
   function relationshipNudgesHtml() {
     return `${upcomingBirthdaysHtml()}${overdueReconnectHtml()}`;
   }
@@ -405,10 +433,12 @@ export function createUnifiedTodayRenderer(d) {
         rid,
         `${bannersHtml(items, todayStr)}
         ${planBlock}
-        <div class="unified-today-section-body" data-section="single">${taskBody}</div>`
+        <div class="unified-today-section-body" data-section="single">${taskBody}</div>
+        ${funStuffSectionHtml(todayStr)}`
       );
       bindTodayListEvents(root, { removeFromToday, reorderExplicit: true });
       bindTodayRelationshipNudges(root);
+      bindFunStuffSection(root, todayStr);
       bindCarryForwardBtn(root);
       root.querySelector('.unified-today-plan-cta-btn')?.addEventListener('click', () => d.openPlanningEntry({}));
       root.querySelector('.btn-dismiss-overwhelm')?.addEventListener('click', () => {
@@ -431,10 +461,12 @@ export function createUnifiedTodayRenderer(d) {
         rid,
         `${bannersHtml(otherItems, todayStr)}
         ${pileHeaderHtml('<span class="unified-today-pile-title">No focus pile for today</span> — <button type="button" class="btn-link set-plan-today-btn">Plan your week →</button>')}
-        ${otherSectionHtml('Other', otherItems, 'Nothing here yet')}`
+        ${funStuffSectionHtml(todayStr)}
+        ${otherSectionHtml('Also today', otherItems, 'Nothing here yet')}`
       );
       bindTodayListEvents(root, { removeFromToday });
       bindTodayRelationshipNudges(root);
+      bindFunStuffSection(root, todayStr);
       bindCarryForwardBtn(root);
       root.querySelector('.set-plan-today-btn')?.addEventListener('click', () => d.openPlanningEntry({ scrollToDate: todayStr }));
       root.querySelector('.btn-dismiss-overwhelm')?.addEventListener('click', () => {
@@ -445,18 +477,29 @@ export function createUnifiedTodayRenderer(d) {
       return;
     }
 
-    const dayEntry = wp.days[todayStr] || { pileId: null, orderedTaskIds: [], note: '', excludedTaskIds: [] };
+    const dayEntry = wp.days[todayStr] || { pileId: null, orderedTaskIds: [], note: '', excludedTaskIds: [], flexTaskIds: [] };
     const pileId = dayEntry.pileId;
     const pileLabel = pileId ? (getPileName(pileId) || pileId) : '—';
     const hidden = hiddenSetFor(todayStr);
     const focusItems = getFocusPileTasks(d.state.items, todayStr, dayEntry, hidden);
-    const otherItems = getOtherBlockTasks(
+    const datedOtherItems = getOtherBlockTasks(
       d.state.items,
       todayStr,
       pileId,
       d.state.todaySuggestionIds,
       hidden
     );
+    // Merge flex task IDs into the "Also today" block, deduplicating by ID
+    const flexIds = Array.isArray(dayEntry.flexTaskIds) ? dayEntry.flexTaskIds : [];
+    const datedOtherIds = new Set(datedOtherItems.map(i => i.id));
+    const focusIds = new Set(focusItems.map(i => i.id));
+    const byId = {};
+    (d.state.items || []).forEach(i => { byId[i.id] = i; });
+    const flexExtras = flexIds
+      .filter(id => !datedOtherIds.has(id) && !focusIds.has(id) && !hidden.has(id))
+      .map(id => byId[id])
+      .filter(it => it && !it.archived);
+    const otherItems = [...datedOtherItems, ...flexExtras];
     const allTodayItems = [...focusItems, ...otherItems];
     const focusBody = focusItems.length
       ? focusItems.map((i, idx) => {
@@ -477,11 +520,13 @@ export function createUnifiedTodayRenderer(d) {
       <div class="unified-today-focus-tasks" data-section="focus">
         <div class="unified-today-section-body">${focusBody}</div>
       </div>
-      ${otherSectionHtml('Outside the plan', otherItems, 'Nothing else dated or pinned for today')}`
+      ${funStuffSectionHtml(todayStr)}
+      ${otherSectionHtml('Also today', otherItems, 'Nothing else dated or pinned for today')}`
     );
 
     bindTodayListEvents(root, { removeFromToday, focusPileReorderTodayStr: todayStr });
     bindTodayRelationshipNudges(root);
+    bindFunStuffSection(root, todayStr);
     bindCarryForwardBtn(root);
     root.querySelector('.unified-today-review-plan-btn')?.addEventListener('click', () => {
       if (typeof d.openWeekView === 'function') d.openWeekView();
@@ -503,7 +548,7 @@ export function createUnifiedTodayRenderer(d) {
     const mon = getMondayYYYYMMDD();
     d.state.weekPlan = normalizeWeekPlan(d.state.weekPlan);
     if (!d.state.weekPlan.days[todayStr]) {
-      d.state.weekPlan.days[todayStr] = { pileId: null, orderedTaskIds: [], note: '', excludedTaskIds: [] };
+      d.state.weekPlan.days[todayStr] = { pileId: null, orderedTaskIds: [], note: '', excludedTaskIds: [], flexTaskIds: [] };
     }
     d.state.weekPlan.days[todayStr].pileId = newPileId;
     d.state.weekPlan.anchorWeekStart = mon;
