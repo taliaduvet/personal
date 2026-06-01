@@ -23,7 +23,7 @@ import {
   WEEK_DAY_PLAN_NOTE_MAX_LEN
 } from '../domain/weekly-planning.js';
 import { clearHiddenFromTodayForTaskState } from '../domain/task-actions.js';
-import { getHabits, isHabitDoneOnDate, toggleHabitManual } from '../domain/habits.js';
+import { getHabits, isHabitDoneOnDate } from '../domain/habits.js';
 
 /**
  * @param {object} d
@@ -276,14 +276,8 @@ export function createUnifiedTodayRenderer(d) {
     </div>`;
   }
 
-  function bindFunStuffSection(root, todayStr) {
-    root.querySelectorAll('.habit-cb').forEach(cb => {
-      cb.addEventListener('change', () => {
-        toggleHabitManual(cb.dataset.habitId, todayStr);
-        d.saveState();
-        refreshTodayAndFocus();
-      });
-    });
+  function bindFunStuffSection(_root, _todayStr) {
+    /* habit check/uncheck: delegated on #main-app in orchestrator (Today + Focus) */
   }
 
   function relationshipNudgesHtml() {
@@ -305,7 +299,7 @@ export function createUnifiedTodayRenderer(d) {
         : '';
     return `<div class="today-item today-item-accent ${extraClass}" data-id="${escapeHtml(item.id)}" style="--today-accent: ${accent}">
       ${order}
-      <span class="task-text">${escapeHtml(item.text)}</span>
+      <span class="task-text today-item-open" role="button" tabindex="0" title="Open task — edit, AI answers, history">${escapeHtml(item.text)}</span>
       <button type="button" class="btn-done btn-done-check" title="Done">✓</button>
       <button type="button" class="btn-remove" title="Remove from Today">Remove</button>
     </div>`;

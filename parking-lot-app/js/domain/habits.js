@@ -88,12 +88,9 @@ function deleteHabit(id) {
 
 function toggleHabitManual(habitId, date) {
   if (isHabitDoneOnDate(habitId, date)) {
-    const list = state.habitCompletions || [];
-    const idx = list.findIndex(c => c.habitId === habitId && c.date === date && c.source === 'manual');
-    if (idx !== -1) {
-      list.splice(idx, 1);
-      state.habitCompletions = list;
-    }
+    state.habitCompletions = (state.habitCompletions || []).filter(
+      (c) => !(c.habitId === habitId && c.date === date)
+    );
   } else {
     recordCompletion(habitId, date, 'manual');
   }

@@ -39,6 +39,16 @@ describe('domain/habits', () => {
     vi.useRealTimers();
   });
 
+  it('toggleHabitManual() unchecks completions from any source', () => {
+    const h1 = addHabit('Stretch', 2);
+    state.habitCompletions.push({ habitId: h1, date: '2026-06-01', source: 'task', taskId: 't99' });
+    expect(computeWeightedPct('2026-06-01')).toBe(100);
+    toggleHabitManual(h1, '2026-06-01');
+    expect(computeWeightedPct('2026-06-01')).toBe(0);
+    toggleHabitManual(h1, '2026-06-01');
+    expect(computeWeightedPct('2026-06-01')).toBe(100);
+  });
+
   it('getZoneLabel() returns expected labels', () => {
     expect(getZoneLabel(75)).toBe('Strong');
     expect(getZoneLabel(55)).toBe('Unstable but recoverable');

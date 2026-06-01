@@ -1875,6 +1875,18 @@ body.week-planning-open .modal {
   flex: 1;
 }
 
+.today-item .task-text.today-item-open {
+  cursor: pointer;
+  border-radius: 4px;
+  padding: 0.1rem 0.2rem;
+  margin: -0.1rem -0.2rem;
+}
+
+.today-item .task-text.today-item-open:hover {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
 .today-item .btn-done, .today-item .btn-remove {
   padding: 0.25rem 0.5rem;
   font-size: 0.8rem;

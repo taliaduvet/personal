@@ -98,7 +98,8 @@ import {
   getZoneLabel,
   addHabit,
   updateHabit,
-  deleteHabit
+  deleteHabit,
+  toggleHabitManual
 } from '../domain/habits.js';
 import { applyThemeColors } from '../ui/theme.js';
 import { showToast } from '../features/toast.js';
@@ -352,6 +353,18 @@ function wireComposer() {
 
   const mainAppEl = document.getElementById('main-app');
   if (mainAppEl) {
+    mainAppEl.addEventListener('change', (e) => {
+      const cb = e.target && e.target.closest ? e.target.closest('.habit-cb') : null;
+      if (!cb) return;
+      const todayRoot = document.getElementById('today-list');
+      const focusRoot = document.getElementById('focus-list');
+      if (!todayRoot?.contains(cb) && !focusRoot?.contains(cb)) return;
+      toggleHabitManual(cb.dataset.habitId, getTodayLocalYYYYMMDD());
+      saveState();
+      unifiedApi.renderTodayList();
+      unifiedApi.renderFocusUnified();
+    });
+
     mainAppEl.addEventListener('click', (e) => {
       const t = e.target;
       const el = t && t.nodeType === Node.ELEMENT_NODE ? t : t && t.parentElement;
@@ -361,17 +374,33 @@ function wireComposer() {
       const inToday = todayRoot && todayRoot.contains(el);
       const inFocus = focusRoot && focusRoot.contains(el);
       if (!inToday && !inFocus) return;
+
+      if (el.closest('.unified-today-fun-section, .habit-row, .habit-cb')) return;
+      if (el.closest('textarea, select, .today-main-note-field, .unified-today-pile-actions')) return;
+
       const doneBtn = el.closest('.btn-done');
       const removeBtn = el.closest('.btn-remove');
-      const btn = (inToday || inFocus) && (doneBtn || removeBtn) ? (doneBtn || removeBtn) : null;
-      if (!btn || (!todayRoot?.contains(btn) && !focusRoot?.contains(btn))) return;
-      const row = btn.closest('.today-item');
+      if (doneBtn || removeBtn) {
+        const btn = doneBtn || removeBtn;
+        if (!todayRoot?.contains(btn) && !focusRoot?.contains(btn)) return;
+        const row = btn.closest('.today-item');
+        if (!row) return;
+        const id = row.getAttribute('data-id') || row.dataset.id;
+        if (!id) return;
+        e.preventDefault();
+        if (doneBtn) markDone(id);
+        else unifiedApi.removeFromToday(id);
+        return;
+      }
+
+      if (el.closest('.btn-order, .btn-link, button, a, input')) return;
+
+      const row = el.closest('.today-item');
       if (!row) return;
       const id = row.getAttribute('data-id') || row.dataset.id;
-      if (!id) return;
+      if (!id || !modalApi?.openEditModal) return;
       e.preventDefault();
-      if (doneBtn) markDone(id);
-      else unifiedApi.removeFromToday(id);
+      modalApi.openEditModal(id);
     });
   }
 
