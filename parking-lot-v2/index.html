@@ -26,10 +26,15 @@
     <div id="entry-screen" class="entry-screen" style="display:none">
       <div class="auth-logo">🅿</div>
       <h1>Parking Lot</h1>
-      <p class="entry-hint">Your personal task vault. Enter your email to sign in — no password needed.</p>
-      <div id="auth-email-form" class="auth-form">
+      <p class="entry-hint">Open your task vault — no email required.</p>
+      <div id="auth-vault-form" class="auth-form">
+        <input id="auth-vault-code-input" type="text" value="a82qqk8g" placeholder="Vault code" autocomplete="off" class="auth-email-input" autocapitalize="off">
+        <button id="auth-vault-open-btn" class="btn-primary btn-entry">Open my Parking Lot</button>
+      </div>
+      <p class="auth-divider-hint">Optional: sign in with email to sync across new devices</p>
+      <div id="auth-email-form" class="auth-form auth-form-secondary">
         <input id="auth-email-input" type="email" placeholder="your@email.com" autocomplete="email" class="auth-email-input">
-        <button id="auth-send-btn" class="btn-primary btn-entry">Send sign-in link</button>
+        <button id="auth-send-btn" class="btn-secondary btn-entry">Send sign-in link</button>
       </div>
       <div id="auth-sent-state" style="display:none" class="auth-sent-state">
         <div class="auth-sent-icon">✉️</div>

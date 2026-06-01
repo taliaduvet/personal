@@ -2484,6 +2484,49 @@ function wireComposer() {
     const emailForm = document.getElementById('auth-email-form');
     if (sentState) sentState.style.display = 'none';
     if (emailForm) emailForm.style.display = 'flex';
+    loadPairState();
+    const vaultInput = document.getElementById('auth-vault-code-input');
+    if (vaultInput && state.pairId && !vaultInput.value) vaultInput.value = state.pairId;
+  }
+
+  function applyVaultCode(rawCode) {
+    const c = (rawCode || '').trim().toLowerCase();
+    if (!c) return false;
+    if (c.includes('_')) {
+      state.deviceSyncId = c;
+      const idx = c.indexOf('_');
+      state.pairId = c.slice(0, idx);
+      state.addedBy = c.slice(idx + 1) || 'Talia';
+    } else {
+      state.pairId = c;
+      state.addedBy = 'Talia';
+      state.deviceSyncId = c + '_talia';
+    }
+    setChosenSolo();
+    savePairState();
+    saveDeviceSyncState();
+    return true;
+  }
+
+  function hasLocalVaultReady() {
+    loadPairState();
+    loadDeviceSyncState();
+    if (state.pairId || hasChosenSolo() || state.deviceSyncId) return true;
+    try {
+      const stored = localStorage.getItem(STORAGE_PREFIX + 'data');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed && Array.isArray(parsed.items) && parsed.items.length > 0) return true;
+      }
+    } catch (_) { /* ignore */ }
+    return false;
+  }
+
+  async function enterMainAppDirect() {
+    document.getElementById('entry-screen').style.display = 'none';
+    document.getElementById('pair-setup').style.display = 'none';
+    await showMainApp();
+    bindEvents();
   }
 
   function bindAuthScreen() {
@@ -2492,6 +2535,8 @@ function wireComposer() {
     const resendBtn = document.getElementById('auth-resend-btn');
     const emailForm = document.getElementById('auth-email-form');
     const sentState = document.getElementById('auth-sent-state');
+    const vaultOpenBtn = document.getElementById('auth-vault-open-btn');
+    const vaultCodeInput = document.getElementById('auth-vault-code-input');
 
     async function sendLink() {
       const email = (emailInput ? emailInput.value : '').trim();
@@ -2510,6 +2555,19 @@ function wireComposer() {
       if (sentState) sentState.style.display = 'block';
     }
 
+    async function openVault() {
+      const code = vaultCodeInput ? vaultCodeInput.value : '';
+      if (!applyVaultCode(code)) {
+        showToast('Enter your vault code (e.g. a82qqk8g)');
+        return;
+      }
+      await enterMainAppDirect();
+    }
+
+    if (vaultOpenBtn) vaultOpenBtn.addEventListener('click', openVault);
+    if (vaultCodeInput) {
+      vaultCodeInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') openVault(); });
+    }
     if (sendBtn) sendBtn.addEventListener('click', sendLink);
     if (emailInput) emailInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendLink(); });
     if (resendBtn) resendBtn.addEventListener('click', () => {
@@ -2696,26 +2754,62 @@ function wireComposer() {
       }
     }
 
+    function getDefaultVaultCode() {
+      try {
+        if (typeof DEFAULT_VAULT_CODE !== 'undefined' && DEFAULT_VAULT_CODE) {
+          return String(DEFAULT_VAULT_CODE).trim();
+        }
+      } catch (_) { /* not in config */ }
+      return '';
+    }
+
+    async function tryOpenWithDefaultVault() {
+      const code = getDefaultVaultCode();
+      if (!code || hasLocalVaultReady()) return false;
+      applyVaultCode(code);
+      await enterMainAppDirect();
+      return true;
+    }
+
+    async function openVaultIfReady() {
+      if (hasLocalVaultReady()) {
+        await enterMainAppDirect();
+        return true;
+      }
+      return tryOpenWithDefaultVault();
+    }
+
     if (!window.talkAbout || !hasSupabaseConfig()) {
-      loadPairState();
-      loadDeviceSyncState();
-      if (state.pairId || hasChosenSolo() || state.deviceSyncId) {
-        document.getElementById('entry-screen').style.display = 'none';
-        document.getElementById('pair-setup').style.display = 'none';
-        await showMainApp();
-        bindEvents();
-      } else {
+      if (!(await openVaultIfReady())) {
         showAuthScreen();
         bindAuthScreen();
       }
       return;
     }
 
-    // Show login immediately so a slow/failed auth check never leaves a blank page
+    // Returning user: local vault or device code — open tasks without waiting on email
+    if (await openVaultIfReady()) {
+      bindAuthScreen();
+      window.talkAbout.onAuthStateChange(async (event, session) => {
+        if (event === 'SIGNED_IN' && session?.user?.id && !state.authUser) {
+          try {
+            await handleAuthSession(session);
+          } catch (e) {
+            console.warn('[auth] background session link failed', e);
+          }
+        }
+      });
+      const session = await getSessionWithTimeout(5000);
+      if (session?.user?.id) {
+        const valid = await window.talkAbout.validateSession?.();
+        if (valid) await handleAuthSession(session);
+      }
+      return;
+    }
+
     showAuthScreen();
     bindAuthScreen();
 
-    // Listen for auth state changes (fires when magic link is clicked)
     window.talkAbout.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session && !state.authUser) {
         await handleAuthSession(session);
@@ -2735,10 +2829,9 @@ function wireComposer() {
       if (!valid) {
         console.warn('[auth] stale session — signing out');
         window.talkAbout.clearAuthStorage?.();
-        showAuthScreen();
-        bindAuthScreen();
       } else {
         await handleAuthSession(session);
+        return;
       }
     }
     } catch (e) {
