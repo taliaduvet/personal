@@ -32,16 +32,21 @@ create policy "Own profile full access" on user_profiles
 drop policy if exists "Partner profile read" on user_profiles;
 create policy "Partner profile read" on user_profiles
   for select using (
-    pair_id is not null and pair_id != '' and
-    pair_id = (select pair_id from user_profiles where user_id = auth.uid() limit 1)
+    pair_id is not null and pair_id != ''
+    and pair_id = get_my_pair_id()
   );
 
 -- 2. Helper function: returns the current auth user's pair_id
 --    Used in RLS policies below so pair-shared tables stay isolated.
 create or replace function get_my_pair_id()
-  returns text language sql stable security definer as $$
-    select pair_id from user_profiles where user_id = auth.uid() limit 1
-  $$;
+  returns text
+  language sql
+  stable
+  security definer
+  set search_path = public
+as $$
+  select pair_id from public.user_profiles where user_id = auth.uid() limit 1
+$$;
 
 -- ====================================================================
 -- 3. Personal tables: scoped to auth.uid()

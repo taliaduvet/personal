@@ -2513,37 +2513,49 @@ function wireComposer() {
   }
 
   async function handleAuthSession(session) {
-    window.talkAbout.setCurrentUser(session.user.id);
-    state.authUser = { id: session.user.id, email: session.user.email };
+    try {
+      if (!session?.user?.id) {
+        showAuthScreen();
+        bindAuthScreen();
+        return;
+      }
+      window.talkAbout.setCurrentUser(session.user.id);
+      state.authUser = { id: session.user.id, email: session.user.email };
 
-    const profile = await window.talkAbout.getUserProfile(session.user.id);
+      const profile = await window.talkAbout.getUserProfile(session.user.id);
 
-    if (!profile) {
+      if (!profile) {
+        document.getElementById('entry-screen').style.display = 'none';
+        document.getElementById('pair-setup').style.display = 'block';
+        document.getElementById('main-app').style.display = 'none';
+        const floating = document.getElementById('floating-buttons');
+        if (floating) floating.style.display = 'none';
+        bindOnboardingScreen(session.user);
+        return;
+      }
+
+      state.displayName = profile.display_name || '';
+      state.pairId = profile.pair_id || null;
+      state.addedBy = profile.display_name || '';
+
+      loadDeviceSyncState();
+      if (state.deviceSyncId) {
+        try { await window.talkAbout.claimDevicePreferences(state.deviceSyncId); } catch (e) {}
+      } else {
+        state.deviceSyncId = window.talkAbout.generatePairId();
+        saveDeviceSyncState();
+      }
+
       document.getElementById('entry-screen').style.display = 'none';
-      document.getElementById('pair-setup').style.display = 'block';
-      document.getElementById('main-app').style.display = 'none';
-      const floating = document.getElementById('floating-buttons');
-      if (floating) floating.style.display = 'none';
-      bindOnboardingScreen(session.user);
-      return;
+      document.getElementById('pair-setup').style.display = 'none';
+      await showMainApp();
+      bindEvents();
+    } catch (e) {
+      console.error('[auth] handleAuthSession failed', e);
+      showToast('Could not finish sign-in — try again');
+      showAuthScreen();
+      bindAuthScreen();
     }
-
-    state.displayName = profile.display_name || '';
-    state.pairId = profile.pair_id || null;
-    state.addedBy = profile.display_name || '';
-
-    loadDeviceSyncState();
-    if (state.deviceSyncId) {
-      try { await window.talkAbout.claimDevicePreferences(state.deviceSyncId); } catch (e) {}
-    } else {
-      state.deviceSyncId = window.talkAbout.generatePairId();
-      saveDeviceSyncState();
-    }
-
-    document.getElementById('entry-screen').style.display = 'none';
-    document.getElementById('pair-setup').style.display = 'none';
-    await showMainApp();
-    bindEvents();
   }
 
   function bindOnboardingScreen(user) {
@@ -2618,6 +2630,7 @@ function wireComposer() {
   }
 
   async function init() {
+    try {
     await loadPublicProductConfig();
     setStorageNotify((msg) => showToast(msg));
     setCloudSyncHook(() => saveDevicePreferencesToSupabase());
@@ -2689,6 +2702,12 @@ function wireComposer() {
       showAuthScreen();
       bindAuthScreen();
     }
+    } catch (e) {
+      console.error('Init failed', e);
+      showToast('Something went wrong loading the app — try refreshing');
+      showAuthScreen();
+      bindAuthScreen();
+    }
   }
 
 
@@ -2709,7 +2728,7 @@ function wireComposer() {
   bindLinkPartnerModal();
 
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => init().catch(e => console.error('Init failed', e)));
+  document.addEventListener('DOMContentLoaded', () => { void init(); });
 } else {
-  init().catch(e => console.error('Init failed', e));
+  void init();
 }

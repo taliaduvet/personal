@@ -8,10 +8,18 @@
 
   function getClient() {
     if (supabase) return supabase;
+    if (!window.supabase || typeof window.supabase.createClient !== 'function') {
+      console.warn('Supabase JS library not loaded (CDN blocked or failed).');
+      return null;
+    }
     const url = typeof SUPABASE_URL !== 'undefined' ? SUPABASE_URL : '';
     const key = typeof SUPABASE_ANON_KEY !== 'undefined' ? SUPABASE_ANON_KEY : '';
     if (!url || !key || url === 'your-project-id.supabase.co' || key === 'your-anon-key-here') {
       console.warn('Supabase config missing. Add URL and anon key to config.js');
+      return null;
+    }
+    if (String(key).startsWith('sb_secret_')) {
+      console.error('Invalid Supabase key: use the anon/public key, not the secret key.');
       return null;
     }
     supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -96,7 +104,11 @@
         .select('*')
         .eq('user_id', userId)
         .maybeSingle();
-      return error ? null : data;
+      if (error) {
+        console.warn('[auth] getUserProfile failed', error.message || error);
+        return null;
+      }
+      return data;
     },
 
     async saveUserProfile(userId, { displayName, pairId }) {
