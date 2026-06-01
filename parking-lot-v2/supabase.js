@@ -31,6 +31,20 @@
     return id;
   }
 
+  /** Canonical post-login URL for magic links (must be allowlisted in Supabase Auth → URL Configuration). */
+  function getAuthRedirectUrl() {
+    let redirect = globalThis.AUTH_REDIRECT_URL;
+    if (typeof redirect !== 'string' || !redirect.length) {
+      redirect = typeof AUTH_REDIRECT_URL !== 'undefined' ? AUTH_REDIRECT_URL : '';
+    }
+    if (redirect && String(redirect).trim()) {
+      return String(redirect).trim().replace(/\/$/, '');
+    }
+    let path = window.location.pathname.replace(/\/$/, '') || '';
+    if (path.endsWith('/index.html')) path = path.replace(/\/index\.html$/, '') || '';
+    return window.location.origin + path;
+  }
+
   window.talkAbout = {
     generatePairId: generatePairId,
 
@@ -53,7 +67,7 @@
       const { error } = await client.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo: window.location.origin + window.location.pathname.replace(/\/$/, '')
+          emailRedirectTo: getAuthRedirectUrl()
         }
       });
       return { error };

@@ -4,3 +4,5 @@
 
 var SUPABASE_URL = 'https://feodlwvjcayfgujkxcxm.supabase.co';
 var SUPABASE_ANON_KEY = 'your-hub-anon-key-here';
+// Where magic links land after email verify (must be in Supabase Auth → Redirect URLs).
+var AUTH_REDIRECT_URL = 'https://taliaduvet.github.io/personal/parking-lot-app';

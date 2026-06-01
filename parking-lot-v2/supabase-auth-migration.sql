@@ -5,8 +5,14 @@
 -- After running this SQL, also do in the Supabase Dashboard:
 --   Authentication → Providers → Email: ensure "Enable Email provider" is ON
 --   Authentication → URL Configuration:
---     Site URL: your deployed app URL (e.g. https://yourname.github.io/parking-lot-app)
---     Redirect URLs: add the same URL (and http://localhost:5173 for local dev)
+--     Site URL: Hub app (e.g. https://hubapp-sage.vercel.app) OR Parking Lot — only one default;
+--               magic links use emailRedirectTo when that URL is allowlisted below.
+--     Redirect URLs (add ALL — shared Talia Duvet Hub project):
+--       https://taliaduvet.github.io/personal/parking-lot-app
+--       https://taliaduvet.github.io/personal/parking-lot-app/**
+--       https://YOUR-HUB.vercel.app/auth/callback
+--       http://localhost:5173/**
+--       http://localhost:5175/**
 -- ====================================================================
 
 -- 1. User profiles: links auth.users to app-level identity

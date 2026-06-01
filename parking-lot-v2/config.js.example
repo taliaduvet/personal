@@ -2,5 +2,7 @@
 // Get them from: Supabase Dashboard → Project Settings → API
 // Use var (not const) so values live on globalThis and the ES module app can read them.
 
-var SUPABASE_URL = 'https://your-project-id.supabase.co';
-var SUPABASE_ANON_KEY = 'your-anon-key-here';
+var SUPABASE_URL = 'https://feodlwvjcayfgujkxcxm.supabase.co';
+var SUPABASE_ANON_KEY = 'your-hub-anon-key-here';
+// Magic links return here — must be listed in Supabase Auth → Redirect URLs.
+var AUTH_REDIRECT_URL = 'https://taliaduvet.github.io/personal/parking-lot-app';
