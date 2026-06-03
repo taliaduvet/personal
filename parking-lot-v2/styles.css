@@ -1913,6 +1913,18 @@ body.week-planning-open .modal {
   align-items: center;
   gap: 0.25rem;
   flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.today-item:hover .today-item-actions,
+.today-item:focus-within .today-item-actions,
+.today-item:has(.btn-session-active) .today-item-actions {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .today-item-actions { opacity: 1; }
 }
 
 .today-item-actions button {
@@ -2412,6 +2424,28 @@ body.week-planning-open .modal {
 .task-actions {
   display: flex;
   gap: 0.25rem;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+/* Reveal on hover, focus-within, active session, or touch */
+.task-card:hover .task-actions,
+.task-card:focus-within .task-actions,
+.task-card.task-card-ai-open .task-actions,
+.task-card .btn-session-active ~ .task-actions,
+.task-card:has(.btn-session-active) .task-actions {
+  opacity: 1;
+}
+
+/* Always show when session is actively running so it's never hidden */
+.task-actions:has(.btn-session-active),
+.btn-session-active {
+  opacity: 1 !important;
+}
+
+@media (hover: none) {
+  /* Touch devices — always show */
+  .task-actions { opacity: 1; }
 }
 
 .task-actions button {

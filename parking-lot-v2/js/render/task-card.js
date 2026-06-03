@@ -102,7 +102,6 @@ export function renderTaskCard(item, opts) {
             ${multiSessionBadge}
           </div>
           <div class="task-actions">
-            <button type="button" class="btn-multi-session-toggle ${isMultiSession ? 'btn-multi-session-on' : ''}" data-id="${item.id}" title="${isMultiSession ? 'Multi-session task — click to turn off' : 'Mark as ongoing / multi-session task'}">↻</button>
             <button type="button" class="btn-ai-research" data-id="${item.id}" title="Queue web research for this task">⚡</button>
             <button type="button" class="btn-task-history" data-id="${item.id}" title="${historyTitle}" aria-label="${historyTitle}">📋${historyCount ? `<span class="task-history-count">${historyCount}</span>` : ''}</button>
             <button type="button" class="btn-session ${isSessionActive ? 'btn-session-active' : ''}" data-id="${item.id}" title="${isSessionActive ? 'Session in progress — click to open' : 'Start a session'}">${isSessionActive ? '■' : '▶'}</button>

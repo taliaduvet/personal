@@ -296,12 +296,6 @@ export function createBoardRenderer(d) {
       });
     });
 
-    container.querySelectorAll('.btn-multi-session-toggle').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        d.toggleMultiSession?.(btn.dataset.id);
-      });
-    });
     container.querySelectorAll('.btn-done-today').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();

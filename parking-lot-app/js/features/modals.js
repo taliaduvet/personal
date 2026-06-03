@@ -489,6 +489,8 @@ export function createModalController(deps) {
     if (editEstimate) editEstimate.value = item.estimate || '';
     const editIncome = document.getElementById('edit-income');
     if (editIncome) editIncome.checked = !!(item.income);
+    const editMultiSession = document.getElementById('edit-multi-session');
+    if (editMultiSession) editMultiSession.checked = !!(item.multiSession);
     const editFirstStep = document.getElementById('edit-first-step');
     if (editFirstStep) editFirstStep.value = item.firstStep || '';
     document.getElementById('edit-deadline').value = item.deadline || '';
@@ -529,6 +531,8 @@ export function createModalController(deps) {
     item.estimate = (editEstimateEl && editEstimateEl.value) ? editEstimateEl.value : null;
     const editIncomeEl = document.getElementById('edit-income');
     item.income = !!(editIncomeEl && editIncomeEl.checked);
+    const editMultiSessionEl = document.getElementById('edit-multi-session');
+    item.multiSession = !!(editMultiSessionEl && editMultiSessionEl.checked);
     const editFirstStepEl = document.getElementById('edit-first-step');
     item.firstStep = (editFirstStepEl && editFirstStepEl.value.trim()) ? editFirstStepEl.value.trim() : null;
     item.deadline = document.getElementById('edit-deadline').value || null;
