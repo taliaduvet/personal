@@ -473,4 +473,31 @@ export function rollWeekPlanIfStale(weekPlan, currentMonday) {
   return { weekPlan: normalizeWeekPlan(weekPlan), previousWeekPlanSnapshot: null, rolled: false };
 }
 
+/**
+ * Merge two week plans, preferring the local plan's data for any day where local has a pileId set.
+ * Used when applying cloud-synced preferences so a freshly-planned week isn't stomped by a stale
+ * cloud copy from another device.
+ * @param {WeekPlan | null | undefined} local
+ * @param {WeekPlan | null | undefined} cloud
+ * @returns {WeekPlan}
+ */
+export function mergeWeekPlansPreferLocal(local, cloud) {
+  const l = normalizeWeekPlan(local);
+  const c = normalizeWeekPlan(cloud);
+  const allKeys = new Set([...Object.keys(l.days), ...Object.keys(c.days)]);
+  const mergedDays = {};
+  allKeys.forEach((k) => {
+    const ld = l.days[k];
+    const cd = c.days[k];
+    if (!ld) { mergedDays[k] = cd; return; }
+    if (!cd) { mergedDays[k] = ld; return; }
+    // Both have this day: prefer local if it has a planned pile, otherwise prefer cloud.
+    mergedDays[k] = (ld.pileId != null) ? ld : (cd.pileId != null ? cd : ld);
+  });
+  return normalizeWeekPlan({
+    anchorWeekStart: l.anchorWeekStart || c.anchorWeekStart,
+    days: mergedDays
+  });
+}
+
 export { getTodayLocalYYYYMMDD };

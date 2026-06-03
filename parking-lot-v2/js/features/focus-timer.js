@@ -16,9 +16,9 @@ const TIMER_KEY = STORAGE_PREFIX + 'focusTimer';
 const WARNING_MS = 10 * 60 * 1000;
 
 /**
- * @param {{ saveState: () => void, showToast: (msg: string) => void }} deps
+ * @param {{ saveState: () => void, showToast: (msg: string) => void, getActiveSession?: () => { id: string, text: string } | null, stopSession?: (id: string) => void }} deps
  */
-export function createFocusTimer({ saveState, showToast }) {
+export function createFocusTimer({ saveState, showToast, getActiveSession, stopSession }) {
   let tickInterval = null;
   let inSummarize = false;
 
@@ -74,24 +74,35 @@ export function createFocusTimer({ saveState, showToast }) {
 
   // ── Notifications ─────────────────────────────────────────────────────
 
+  const NOTIF_OPTS = (body) => ({
+    body,
+    icon: '/icon-192.png',
+    tag: 'focus-timer',
+    renotify: true
+  });
+
   async function fireNotification(title, body) {
     if (!('Notification' in window)) return;
-    const send = () => {
-      try {
-        new Notification(title, {
-          body,
-          icon: '/icon-192.png',
-          tag: 'focus-timer',
-          renotify: true
-        });
-      } catch { /* */ }
-    };
-    if (Notification.permission === 'granted') {
-      send();
-    } else if (Notification.permission === 'default') {
-      const perm = await Notification.requestPermission();
-      if (perm === 'granted') send();
+
+    let permission = Notification.permission;
+    if (permission === 'default') {
+      permission = await Notification.requestPermission();
     }
+    if (permission !== 'granted') return;
+
+    // Prefer SW notification — fires even when the tab is backgrounded/screen locked.
+    if ('serviceWorker' in navigator) {
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        if (reg && reg.showNotification) {
+          await reg.showNotification(title, NOTIF_OPTS(body));
+          return;
+        }
+      } catch { /* fall through */ }
+    }
+
+    // Fallback: direct tab notification.
+    try { new Notification(title, NOTIF_OPTS(body)); } catch { /* */ }
   }
 
   async function requestNotificationPermission() {
@@ -108,7 +119,10 @@ export function createFocusTimer({ saveState, showToast }) {
     const sub = modal.querySelector('.focus-summary-sub');
     if (sub) sub.textContent = label ? `${label} block complete` : 'Block complete';
     const ta = document.getElementById('focus-summary-text');
-    if (ta) { ta.value = ''; }
+    if (ta) {
+      const activeSession = typeof getActiveSession === 'function' ? getActiveSession() : null;
+      ta.value = activeSession ? `Working on: ${activeSession.text}` : '';
+    }
     modal.style.display = 'flex';
     if (ta) setTimeout(() => ta.focus(), 60);
   }
@@ -238,6 +252,10 @@ export function createFocusTimer({ saveState, showToast }) {
     const r = 18;
     const circ = 2 * Math.PI * r;
     const dash = (pct / 100) * circ;
+    const activeSession = typeof getActiveSession === 'function' ? getActiveSession() : null;
+    const taskLine = activeSession
+      ? `<span class="ft-active-task" title="Current task: ${activeSession.text}">▶ ${activeSession.text.length > 30 ? activeSession.text.slice(0, 30) + '…' : activeSession.text}</span>`
+      : '';
     return `<div class="ft-running${isWarning ? ' ft-warning' : ''}">
       <svg class="ft-ring" viewBox="0 0 40 40" aria-hidden="true">
         <circle class="ft-ring-track" cx="20" cy="20" r="${r}"/>
@@ -248,6 +266,7 @@ export function createFocusTimer({ saveState, showToast }) {
       <div class="ft-running-inner">
         <span class="ft-countdown">${formatRemaining(remaining)}</span>
         <span class="ft-running-label">${ts.label}</span>
+        ${taskLine}
       </div>
       <button type="button" class="ft-end-btn" title="End block & summarize">✕</button>
     </div>`;

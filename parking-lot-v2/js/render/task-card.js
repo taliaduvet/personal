@@ -82,24 +82,34 @@ export function renderTaskCard(item, opts) {
     aiResultTaskId: state.aiResultTaskId || null
   });
   const aiExpanded = !!(state.aiPromptTaskId === item.id || state.aiResultTaskId === item.id || item.aiAction === 'research' || (item.aiResult && !item.aiResultRead));
+  const isMultiSession = !!(item.multiSession);
+  const sessionDoneCount = (item.sessions || []).filter(s => s.doneForToday).length;
   const historyCount = (item.sessions || []).length;
   const historyTitle = historyCount
     ? `View history (${historyCount} ${historyCount === 1 ? 'entry' : 'entries'}) — no timer`
     : 'View history — no timer';
+  const multiSessionBadge = isMultiSession && sessionDoneCount > 0
+    ? `<span class="multi-session-badge" title="${sessionDoneCount} day${sessionDoneCount !== 1 ? 's' : ''} completed">↻ ${sessionDoneCount}d</span>`
+    : '';
   return `
-      <div class="task-card ${overdue ? 'overdue' : ''} ${checked ? 'selected' : ''} ${daysParked >= 30 ? 'stale-nudge' : ''} ${aiExpanded ? 'task-card-ai-open' : ''}" data-id="${item.id}"${staleNudge}>
+      <div class="task-card ${overdue ? 'overdue' : ''} ${checked ? 'selected' : ''} ${daysParked >= 30 ? 'stale-nudge' : ''} ${aiExpanded ? 'task-card-ai-open' : ''} ${isMultiSession ? 'task-card-multi-session' : ''}" data-id="${item.id}"${staleNudge}>
         <div class="task-card-row">
           <span class="task-drag-handle" draggable="true" data-id="${item.id}" title="Click to select for Today · Drag to reorder" aria-label="Select or drag task">⋮⋮</span>
           <div class="task-content">
             <div class="task-text">${escapeHtml(item.text)}</div>
             ${firstStepHtml}
             ${metaRow}
+            ${multiSessionBadge}
           </div>
           <div class="task-actions">
+            <button type="button" class="btn-multi-session-toggle ${isMultiSession ? 'btn-multi-session-on' : ''}" data-id="${item.id}" title="${isMultiSession ? 'Multi-session task — click to turn off' : 'Mark as ongoing / multi-session task'}">↻</button>
             <button type="button" class="btn-ai-research" data-id="${item.id}" title="Queue web research for this task">⚡</button>
             <button type="button" class="btn-task-history" data-id="${item.id}" title="${historyTitle}" aria-label="${historyTitle}">📋${historyCount ? `<span class="task-history-count">${historyCount}</span>` : ''}</button>
             <button type="button" class="btn-session ${isSessionActive ? 'btn-session-active' : ''}" data-id="${item.id}" title="${isSessionActive ? 'Session in progress — click to open' : 'Start a session'}">${isSessionActive ? '■' : '▶'}</button>
-            <button class="btn-done-card" data-id="${item.id}" title="Done">✓</button>
+            ${isMultiSession
+              ? `<button class="btn-done-today" data-id="${item.id}" title="Done for today (task continues tomorrow)">✓ today</button>
+                 <button class="btn-done-card" data-id="${item.id}" title="Fully complete — archive this task">✓✓</button>`
+              : `<button class="btn-done-card" data-id="${item.id}" title="Done">✓</button>`}
             <button class="btn-edit" data-id="${item.id}" title="Edit">✎</button>
             <button class="btn-drop" data-id="${item.id}" title="Drop">×</button>
           </div>

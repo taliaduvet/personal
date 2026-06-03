@@ -110,7 +110,8 @@ import {
   pruneWeekPlan,
   removeTaskIdFromAllDays,
   getMondayYYYYMMDD,
-  insertTaskInDayOrder
+  insertTaskInDayOrder,
+  mergeWeekPlansPreferLocal
 } from '../domain/weekly-planning.js';
 import {
   applyMarkDone,
@@ -247,7 +248,18 @@ function wireComposer() {
     openEditModal: (id) => modalApi.openEditModal(id)
   });
 
-  focusTimerApi = createFocusTimer({ saveState, showToast });
+  focusTimerApi = createFocusTimer({
+    saveState,
+    showToast,
+    getActiveSession: () => {
+      const item = (state.items || []).find(i => i.activeSessionStart);
+      return item ? { id: item.id, text: item.text } : null;
+    },
+    stopSession: (id) => {
+      void id;
+      sessionApi?.stopSession();
+    }
+  });
   focusTimerApi.boot();
 
   inboxApi = createInboxSession({
@@ -282,7 +294,9 @@ function wireComposer() {
     openSessionModal: (id) => sessionApi?.openSessionModal(id),
     openTaskHistory: (id) => sessionApi?.openTaskHistory(id),
     bindAiResearchEvents: (container) => aiResearchApi?.bindCardEvents(container),
-    updateAddToSuggestionsBtn: () => tfApi.updateAddToSuggestionsBtn()
+    updateAddToSuggestionsBtn: () => tfApi.updateAddToSuggestionsBtn(),
+    toggleMultiSession,
+    markDoneForToday
   });
   renderColumns = board.renderColumns;
   updateColumnNoteTurnPopover = board.updateColumnNoteTurnPopover;
@@ -379,17 +393,27 @@ function wireComposer() {
       if (el.closest('textarea, select, .today-main-note-field, .unified-today-pile-actions')) return;
 
       const doneBtn = el.closest('.btn-done');
+      const doneTodayBtn = el.closest('.btn-done-today');
+      const doneCardBtn = el.closest('.btn-done-card');
       const removeBtn = el.closest('.btn-remove');
-      if (doneBtn || removeBtn) {
-        const btn = doneBtn || removeBtn;
+      const sessionBtn = el.closest('.btn-session');
+      const aiBtn = el.closest('.btn-ai-research');
+
+      if (doneBtn || doneTodayBtn || doneCardBtn || removeBtn || sessionBtn || aiBtn) {
+        const btn = doneBtn || doneTodayBtn || doneCardBtn || removeBtn || sessionBtn || aiBtn;
         if (!todayRoot?.contains(btn) && !focusRoot?.contains(btn)) return;
         const row = btn.closest('.today-item');
         if (!row) return;
-        const id = row.getAttribute('data-id') || row.dataset.id;
+        const id = row.getAttribute('data-id') || row.dataset.id || btn.dataset.id;
         if (!id) return;
         e.preventDefault();
-        if (doneBtn) markDone(id);
-        else unifiedApi.removeFromToday(id);
+        e.stopPropagation();
+        if (doneBtn) { markDone(id); return; }
+        if (doneTodayBtn) { markDoneForToday(id); return; }
+        if (doneCardBtn) { markDone(id); return; }
+        if (removeBtn) { unifiedApi.removeFromToday(id); return; }
+        if (sessionBtn) { sessionApi?.openSessionModal(id); return; }
+        if (aiBtn) { aiResearchApi?.togglePrompt(id); return; }
         return;
       }
 
@@ -552,6 +576,41 @@ function wireComposer() {
     } finally {
       state.processingIds.delete(id);
     }
+  }
+
+  function toggleMultiSession(id) {
+    const item = state.items.find(i => i.id === id);
+    if (!item) return;
+    item.multiSession = !item.multiSession;
+    saveState();
+    renderTodayList();
+    renderFocusList();
+    renderColumns();
+    showToast(item.multiSession ? 'Marked as ongoing task' : 'Multi-session removed');
+  }
+
+  function markDoneForToday(id) {
+    const item = state.items.find(i => i.id === id);
+    if (!item) return;
+    const todayStr = getTodayLocalYYYYMMDD();
+    if (!Array.isArray(item.sessions)) item.sessions = [];
+    item.sessions.push({ doneForToday: true, date: todayStr, completedAt: Date.now() });
+    // Hide from today without archiving
+    if (!state.hiddenFromTodayByDate || typeof state.hiddenFromTodayByDate !== 'object') {
+      state.hiddenFromTodayByDate = {};
+    }
+    if (!Array.isArray(state.hiddenFromTodayByDate[todayStr])) {
+      state.hiddenFromTodayByDate[todayStr] = [];
+    }
+    if (!state.hiddenFromTodayByDate[todayStr].includes(id)) {
+      state.hiddenFromTodayByDate[todayStr].push(id);
+    }
+    state.todaySuggestionIds = state.todaySuggestionIds.filter(x => x !== id);
+    saveState();
+    renderTodayList();
+    renderFocusList();
+    renderColumns();
+    showToast('Done for today — will reappear tomorrow ↻');
   }
 
   function deleteItem(id, showUndo = true) {
@@ -959,7 +1018,7 @@ function wireComposer() {
       delete prefs.__seedReflections;
     }
     if (prefs.__weekPlan && typeof prefs.__weekPlan === 'object') {
-      state.weekPlan = normalizeWeekPlan(prefs.__weekPlan);
+      state.weekPlan = mergeWeekPlansPreferLocal(state.weekPlan, prefs.__weekPlan);
       delete prefs.__weekPlan;
     }
     if (typeof prefs.__lastPlanCommittedAt === 'string') {

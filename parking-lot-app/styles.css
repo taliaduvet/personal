@@ -1907,6 +1907,59 @@ body.week-planning-open .modal {
   color: var(--text);
 }
 
+/* Today item action buttons row */
+.today-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.today-item-actions button {
+  padding: 0.2rem 0.4rem;
+  font-size: 0.8rem;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  background: transparent;
+  color: var(--text-muted);
+  transition: background 0.12s, color 0.12s;
+}
+
+.today-item-actions .btn-done,
+.today-item-actions .btn-done-today { color: var(--accent-sage); }
+.today-item-actions .btn-done:hover,
+.today-item-actions .btn-done-today:hover { background: var(--accent-sage); color: var(--bg); }
+.today-item-actions .btn-done-card { font-size: 0.7rem; opacity: 0.7; }
+.today-item-actions .btn-done-card:hover { background: var(--accent-sage); color: var(--bg); opacity: 1; }
+.today-item-actions .btn-remove:hover { background: var(--bg-soft); color: var(--text); }
+.today-item-actions .btn-session-active { color: var(--accent); }
+.today-item-actions .btn-session:hover { color: var(--accent); }
+.today-done-today-label { font-size: 0.7em; }
+
+/* Focus timer — active task line */
+.ft-active-task {
+  font-size: 0.7rem;
+  opacity: 0.75;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+}
+
+/* Multi-session task card */
+.task-card-multi-session .btn-done-today { font-size: 0.75rem; }
+.btn-multi-session-toggle { opacity: 0.4; font-size: 0.85rem; }
+.btn-multi-session-on { opacity: 1; color: var(--accent) !important; }
+.btn-multi-session-toggle:hover { opacity: 1; }
+.multi-session-badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  color: var(--accent);
+  margin-left: 0.25rem;
+}
+.today-item-multi-session { border-left-style: dashed; }
+
 /* Overview - 4 columns */
 .overview {
   padding: 1.5rem;

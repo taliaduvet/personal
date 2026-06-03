@@ -297,11 +297,20 @@ export function createUnifiedTodayRenderer(d) {
           <button type="button" class="btn-order" data-action="down" ${!orderOpt.canDown ? 'disabled' : ''} title="Move down">↓</button>
         </div>`
         : '';
-    return `<div class="today-item today-item-accent ${extraClass}" data-id="${escapeHtml(item.id)}" style="--today-accent: ${accent}">
+    const isSessionActive = !!(item.activeSessionStart);
+    const isMultiSession = !!(item.multiSession);
+    const doneTitle = isMultiSession ? 'Done for today (task continues tomorrow)' : 'Done';
+    const doneBtnClass = isMultiSession ? 'btn-done-today btn-done-check' : 'btn-done btn-done-check';
+    return `<div class="today-item today-item-accent ${extraClass}${isMultiSession ? ' today-item-multi-session' : ''}" data-id="${escapeHtml(item.id)}" style="--today-accent: ${accent}">
       ${order}
       <span class="task-text today-item-open" role="button" tabindex="0" title="Open task — edit, AI answers, history">${escapeHtml(item.text)}</span>
-      <button type="button" class="btn-done btn-done-check" title="Done">✓</button>
-      <button type="button" class="btn-remove" title="Remove from Today">Remove</button>
+      <div class="today-item-actions">
+        <button type="button" class="btn-ai-research" data-id="${escapeHtml(item.id)}" title="Queue web research">⚡</button>
+        <button type="button" class="btn-session ${isSessionActive ? 'btn-session-active' : ''}" data-id="${escapeHtml(item.id)}" title="${isSessionActive ? 'Session in progress — click to open' : 'Start a session'}">${isSessionActive ? '■' : '▶'}</button>
+        <button type="button" class="${doneBtnClass}" data-id="${escapeHtml(item.id)}" title="${doneTitle}">✓${isMultiSession ? '<span class="today-done-today-label"> today</span>' : ''}</button>
+        ${isMultiSession ? `<button type="button" class="btn-done-card today-btn-complete-forever" data-id="${escapeHtml(item.id)}" title="Mark fully complete (archives task)">✓✓</button>` : ''}
+        <button type="button" class="btn-remove" data-id="${escapeHtml(item.id)}" title="Remove from Today">−</button>
+      </div>
     </div>`;
   }
 
