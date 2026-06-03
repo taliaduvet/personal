@@ -4745,6 +4745,19 @@ body.week-planning-open .modal {
   color: var(--text-muted);
 }
 
+.backup-slot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.85rem;
+}
+.backup-slot:last-child { border-bottom: none; }
+.backup-slot-meta { color: var(--text-muted); flex: 1; }
+.settings-backup-list { margin-bottom: 1rem; }
+
 .settings-column-inputs {
   display: flex;
   flex-direction: column;

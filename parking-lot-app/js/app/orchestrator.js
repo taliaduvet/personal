@@ -26,7 +26,9 @@ import {
   setCloudSyncHook,
   getTallyDate,
   getTallyDateYYYYMMDD,
-  migrateStoragePrefixIfNeeded
+  migrateStoragePrefixIfNeeded,
+  loadItemBackups,
+  restoreItemsFromBackup
 } from '../storage/local.js';
 import {
   getCategories,
@@ -735,6 +737,43 @@ function wireComposer() {
     modalBody.dataset.accordionized = 'true';
   }
 
+  function renderBackupList() {
+    const el = document.getElementById('settings-backup-list');
+    if (!el) return;
+    const backups = loadItemBackups();
+    if (!backups.length) {
+      el.innerHTML = '<p class="settings-hint" style="color:var(--text-muted)">No snapshots yet — one is saved on every change.</p>';
+      return;
+    }
+    el.innerHTML = [...backups].reverse().map((snap, i) => {
+      const realIdx = backups.length - 1 - i;
+      const active = snap.items.filter(x => !x.archived).length;
+      const total = snap.items.length;
+      const when = new Date(snap.savedAt).toLocaleString('en-CA', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+      return `<div class="backup-slot">
+        <span class="backup-slot-meta">${when} · ${active} active tasks (${total} total)</span>
+        <button type="button" class="btn-secondary btn-sm backup-restore-btn" data-idx="${realIdx}">Restore</button>
+      </div>`;
+    }).join('');
+    el.querySelectorAll('.backup-restore-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = Number(btn.dataset.idx);
+        const snap = loadItemBackups()[idx];
+        if (!snap) return;
+        const active = snap.items.filter(x => !x.archived).length;
+        const when = new Date(snap.savedAt).toLocaleString('en-CA', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        if (!confirm(`Restore ${active} active tasks from ${when}?\n\nThis will replace your current task list. Your week plan, journal, habits and notes are NOT affected.`)) return;
+        state.items = snap.items;
+        saveState();
+        renderTodayList();
+        renderFocusList();
+        renderColumns();
+        showToast(`Restored ${active} tasks from ${when}`);
+        renderBackupList();
+      });
+    });
+  }
+
   function openSettingsModal() {
     ensureSettingsAccordion();
     bindCalendarSettings();
@@ -747,6 +786,8 @@ function wireComposer() {
     }
     const displayNameEl = document.getElementById('settings-display-name');
     if (displayNameEl) displayNameEl.value = state.displayName || '';
+
+    renderBackupList();
 
     // Account section (shown when authenticated)
     const accountSection = document.getElementById('settings-account-section');

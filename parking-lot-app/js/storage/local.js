@@ -1,6 +1,51 @@
 import { STORAGE_PREFIX } from '../constants.js';
 import { state } from '../state.js';
 
+// ── Rolling item backup ───────────────────────────────────────────────────────
+// Keeps the last 5 snapshots of state.items, taken before every saveState call.
+// Lets us recover from accidental deletions or bad syncs.
+
+const BACKUP_KEY = STORAGE_PREFIX + 'itemsBackup';
+const BACKUP_SLOTS = 5;
+
+/**
+ * @returns {{ savedAt: number, items: import('../types.js').Task[] }[]}
+ */
+export function loadItemBackups() {
+  try {
+    const raw = localStorage.getItem(BACKUP_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch { return []; }
+}
+
+function snapshotItemsBeforeSave() {
+  try {
+    const current = state.items;
+    if (!Array.isArray(current) || current.length === 0) return;
+    const backups = loadItemBackups();
+    // Don't duplicate if nothing changed
+    const last = backups[backups.length - 1];
+    if (last && JSON.stringify(last.items) === JSON.stringify(current)) return;
+    backups.push({ savedAt: Date.now(), items: JSON.parse(JSON.stringify(current)) });
+    if (backups.length > BACKUP_SLOTS) backups.splice(0, backups.length - BACKUP_SLOTS);
+    localStorage.setItem(BACKUP_KEY, JSON.stringify(backups));
+  } catch { /* storage full — skip */ }
+}
+
+/**
+ * Restore items from a backup slot (index into loadItemBackups() array).
+ * Returns the restored items array, or null if slot not found.
+ * @param {number} slotIndex
+ */
+export function restoreItemsFromBackup(slotIndex) {
+  const backups = loadItemBackups();
+  const slot = backups[slotIndex];
+  if (!slot) return null;
+  return slot.items;
+}
+
 /** @deprecated Legacy prefix — migration copies into {@link STORAGE_PREFIX}. */
 const OLD_STORAGE_PREFIX = 'parkingLotCouples_';
 
@@ -231,6 +276,7 @@ export function loadState() {
 
 export function saveState(skipCloudSync, useRemoteTallyDate) {
   try {
+    snapshotItemsBeforeSave();
     localStorage.setItem(STORAGE_PREFIX + 'data', JSON.stringify({
       items: state.items,
       todaySuggestionIds: state.todaySuggestionIds,
