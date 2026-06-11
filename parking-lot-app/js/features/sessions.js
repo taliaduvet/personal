@@ -10,6 +10,10 @@ export function createSessionController(deps) {
   let timerInterval = null;
   let activeTaskId = null;
   let historyOnlyMode = false;
+  // True when the current modal-open is what started the timer, so that
+  // Cancel/Esc means "never mind" (discard) rather than leaking a session
+  // that keeps running invisibly in the background.
+  let startedOnThisOpen = false;
 
   function formatDuration(seconds) {
     const h = Math.floor(seconds / 3600);
@@ -96,6 +100,7 @@ export function createSessionController(deps) {
       getRenderTodayList()?.();
     }
 
+    startedOnThisOpen = !item.activeSessionStart;
     if (!item.activeSessionStart) {
       item.activeSessionStart = new Date().toISOString();
       saveState();
@@ -203,6 +208,18 @@ export function createSessionController(deps) {
 
   function cancelSession() {
     clearInterval(timerInterval);
+    // If ▶ on this open started the timer, Cancel means "never mind":
+    // discard without recording. If it was already running before the
+    // modal opened (just peeking), leave it running.
+    if (startedOnThisOpen) {
+      const item = state.items.find(i => i.id === activeTaskId);
+      if (item && item.activeSessionStart) {
+        item.activeSessionStart = null;
+        saveState();
+        getRenderColumns()?.();
+        getRenderTodayList()?.();
+      }
+    }
     closeSessionModal();
   }
 
@@ -210,10 +227,68 @@ export function createSessionController(deps) {
     clearInterval(timerInterval);
     activeTaskId = null;
     historyOnlyMode = false;
+    startedOnThisOpen = false;
     const modal = document.getElementById('session-modal');
     if (modal) {
       modal.style.display = 'none';
       delete modal.dataset.mode;
+    }
+  }
+
+  /**
+   * Stop & record the running session on a task by id, without needing the
+   * session modal to be open (e.g. when a focus block ends).
+   * @param {string} taskId
+   * @param {string|null} [notes]
+   * @returns {boolean} whether a session was stopped
+   */
+  function stopSessionForTask(taskId, notes = null) {
+    const item = state.items.find(i => i.id === taskId);
+    if (!item || !item.activeSessionStart) return false;
+    const start = item.activeSessionStart;
+    const end = new Date().toISOString();
+    const durationSeconds = getElapsedSeconds(start);
+    if (!item.sessions) item.sessions = [];
+    item.sessions.push({
+      id: 'sess_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+      start,
+      end,
+      durationSeconds,
+      notes: notes || null,
+      paused: false,
+      aiPickup: null
+    });
+    item.activeSessionStart = null;
+    item.totalTimeSeconds = (item.totalTimeSeconds || 0) + durationSeconds;
+    saveState();
+    getRenderColumns()?.();
+    getRenderTodayList()?.();
+    showToast(`Session saved — ${formatDuration(durationSeconds)} on "${item.text.length > 25 ? item.text.slice(0, 25) + '…' : item.text}"`);
+    return true;
+  }
+
+  const STALE_SESSION_MS = 12 * 60 * 60 * 1000;
+
+  /**
+   * Discard any "running" session older than 12h — these are leaked timers
+   * (e.g. modal closed without Stop in an old version), not real work, so
+   * no time is recorded.
+   */
+  function clearStaleSessions() {
+    let cleared = null;
+    (state.items || []).forEach(item => {
+      if (!item.activeSessionStart) return;
+      const age = Date.now() - new Date(item.activeSessionStart).getTime();
+      if (Number.isNaN(age) || age > STALE_SESSION_MS) {
+        item.activeSessionStart = null;
+        cleared = item.text;
+      }
+    });
+    if (cleared) {
+      saveState();
+      getRenderColumns()?.();
+      getRenderTodayList()?.();
+      showToast(`Cleared stuck timer on "${cleared.length > 25 ? cleared.slice(0, 25) + '…' : cleared}" — no time recorded`);
     }
   }
 
@@ -250,6 +325,8 @@ export function createSessionController(deps) {
     openSessionModal,
     openTaskHistory,
     stopSession,
+    stopSessionForTask,
+    clearStaleSessions,
     cancelSession,
     closeSessionModal,
     bindEvents

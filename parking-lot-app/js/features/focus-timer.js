@@ -161,6 +161,13 @@ export function createFocusTimer({ saveState, showToast, getActiveSession, stopS
     if (modal) modal.style.display = 'none';
   }
 
+  /** Ending a focus block also stops & records the running task session. */
+  function stopActiveTaskSession() {
+    if (typeof getActiveSession !== 'function' || typeof stopSession !== 'function') return;
+    const active = getActiveSession();
+    if (active) stopSession(active.id);
+  }
+
   function saveSummaryAndClose() {
     const ta = document.getElementById('focus-summary-text');
     const text = (ta ? ta.value : '').trim();
@@ -170,6 +177,7 @@ export function createFocusTimer({ saveState, showToast, getActiveSession, stopS
       saveState();
       showToast('Focus summary saved');
     }
+    stopActiveTaskSession();
     clearTs();
     stopInterval();
     renderWidgets();
@@ -177,6 +185,7 @@ export function createFocusTimer({ saveState, showToast, getActiveSession, stopS
   }
 
   function skipSummary() {
+    stopActiveTaskSession();
     clearTs();
     stopInterval();
     renderWidgets();
