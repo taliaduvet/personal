@@ -257,7 +257,7 @@ function wireComposer() {
       const item = (state.items || []).find(i => i.activeSessionStart);
       return item ? { id: item.id, text: item.text } : null;
     },
-    stopSession: (id) => sessionApi?.stopSessionForTask(id)
+    stopSession: (id, notes) => sessionApi?.stopSessionForTask(id, notes)
   });
   // Heal leaked timers before the focus widget reads getActiveSession().
   sessionApi.clearStaleSessions();

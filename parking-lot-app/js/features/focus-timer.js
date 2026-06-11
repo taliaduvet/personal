@@ -16,7 +16,7 @@ const TIMER_KEY = STORAGE_PREFIX + 'focusTimer';
 const WARNING_MS = 10 * 60 * 1000;
 
 /**
- * @param {{ saveState: () => void, showToast: (msg: string) => void, getActiveSession?: () => { id: string, text: string } | null, stopSession?: (id: string) => void }} deps
+ * @param {{ saveState: () => void, showToast: (msg: string) => void, getActiveSession?: () => { id: string, text: string } | null, stopSession?: (id: string, notes?: string|null) => void }} deps
  */
 export function createFocusTimer({ saveState, showToast, getActiveSession, stopSession }) {
   let tickInterval = null;
@@ -161,23 +161,28 @@ export function createFocusTimer({ saveState, showToast, getActiveSession, stopS
     if (modal) modal.style.display = 'none';
   }
 
-  /** Ending a focus block also stops & records the running task session. */
-  function stopActiveTaskSession() {
+  /**
+   * Ending a focus block also stops & records the running task session.
+   * The written summary is attached as the session's notes so the task
+   * keeps a running tab of what happened in each block.
+   */
+  function stopActiveTaskSession(summaryText = null) {
     if (typeof getActiveSession !== 'function' || typeof stopSession !== 'function') return;
     const active = getActiveSession();
-    if (active) stopSession(active.id);
+    if (active) stopSession(active.id, summaryText);
   }
 
   function saveSummaryAndClose() {
     const ta = document.getElementById('focus-summary-text');
     const text = (ta ? ta.value : '').trim();
     if (text) {
+      // Daily archive copy — independent of any task session.
       const note = createNote(text, null, 'focus-block');
       note.date = getTodayLocalYYYYMMDD();
       saveState();
       showToast('Focus summary saved');
     }
-    stopActiveTaskSession();
+    stopActiveTaskSession(text || null);
     clearTs();
     stopInterval();
     renderWidgets();
