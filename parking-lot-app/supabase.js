@@ -409,6 +409,39 @@
       return { error };
     },
 
+    // ── Parking lot task cloud sync ──────────────────────────────────────────
+    // Stores items/habits/notes/week_plan in parking_lot_tasks keyed by owner_id.
+    // owner_id = auth user id when logged in, device_sync_id when anonymous.
+
+    async saveUserTasks(ownerId, payload) {
+      const client = getClient();
+      if (!client || !ownerId) return { error: 'not configured' };
+      const row = {
+        owner_id: ownerId,
+        items: payload.items || [],
+        habits: payload.habits || [],
+        habit_completions: payload.habitCompletions || [],
+        notes: payload.notes || [],
+        week_plan: payload.weekPlan || {},
+        updated_at: new Date().toISOString()
+      };
+      const { error } = await client
+        .from('parking_lot_tasks')
+        .upsert(row, { onConflict: 'owner_id' });
+      return { error };
+    },
+
+    async loadUserTasks(ownerId) {
+      const client = getClient();
+      if (!client || !ownerId) return { data: null, error: 'not configured' };
+      const { data, error } = await client
+        .from('parking_lot_tasks')
+        .select('items, habits, habit_completions, notes, week_plan, updated_at')
+        .eq('owner_id', ownerId)
+        .single();
+      return { data, error };
+    },
+
     subscribeEmailTasks(pairId, addedBy, callback) {
       const client = getClient();
       if (!client) {

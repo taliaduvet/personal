@@ -257,10 +257,11 @@ function wireComposer() {
       const item = (state.items || []).find(i => i.activeSessionStart);
       return item ? { id: item.id, text: item.text } : null;
     },
-    stopSession: (id, notes) => sessionApi?.stopSessionForTask(id, notes)
+    stopSession: (id) => {
+      void id;
+      sessionApi?.stopSession();
+    }
   });
-  // Heal leaked timers before the focus widget reads getActiveSession().
-  sessionApi.clearStaleSessions();
   focusTimerApi.boot();
 
   inboxApi = createInboxSession({
@@ -1160,6 +1161,72 @@ function wireComposer() {
         state.savePrefsTimeout = null;
       }
     }, 500);
+  }
+
+  // ── Task cloud sync ───────────────────────────────────────────────────────
+  // Saves items/habits/notes/week_plan to parking_lot_tasks in Supabase so
+  // Claude can query them for planning. Owner = auth user_id when logged in,
+  // device_sync_id as anonymous fallback.
+
+  function getTaskSyncOwnerId() {
+    return (state.authUser && state.authUser.id) ? state.authUser.id : state.deviceSyncId;
+  }
+
+  function saveTasksToSupabase() {
+    if (!window.talkAbout) return;
+    const ownerId = getTaskSyncOwnerId();
+    if (!ownerId) return;
+    if (state.saveTasksTimeout) clearTimeout(state.saveTasksTimeout);
+    state.saveTasksTimeout = setTimeout(async () => {
+      try {
+        const { error } = await window.talkAbout.saveUserTasks(ownerId, {
+          items: state.items || [],
+          habits: state.habits || [],
+          habitCompletions: state.habitCompletions || [],
+          notes: state.notes || [],
+          weekPlan: state.weekPlan || {}
+        });
+        if (error) {
+          console.warn('[task-sync] save failed', error);
+        } else {
+          localStorage.setItem('parkingLot_lastSyncedAt', String(Date.now()));
+        }
+      } catch (e) {
+        console.warn('[task-sync] save error', e);
+      } finally {
+        state.saveTasksTimeout = null;
+      }
+    }, 3000);
+  }
+
+  async function loadTasksFromSupabase() {
+    if (!window.talkAbout) return;
+    const ownerId = getTaskSyncOwnerId();
+    if (!ownerId) return;
+    try {
+      const { data, error } = await window.talkAbout.loadUserTasks(ownerId);
+      if (error || !data) return;
+      // Only use cloud data if it's meaningfully newer than local (>30s) and has items
+      const cloudUpdatedAt = data.updated_at ? new Date(data.updated_at).getTime() : 0;
+      const localUpdatedAt = parseInt(localStorage.getItem('parkingLot_lastSyncedAt') || '0', 10);
+      if (cloudUpdatedAt > localUpdatedAt + 30000 && Array.isArray(data.items) && data.items.length > 0) {
+        // Cloud is newer — merge (prefer whichever has more items to avoid data loss)
+        if (data.items.length >= (state.items || []).length) {
+          state.items = data.items;
+          if (Array.isArray(data.habits) && data.habits.length) state.habits = data.habits;
+          if (Array.isArray(data.habit_completions)) state.habitCompletions = data.habit_completions;
+          if (Array.isArray(data.notes)) state.notes = data.notes;
+          if (data.week_plan && typeof data.week_plan === 'object') {
+            const { normalizeWeekPlan } = await import('../domain/weekly-planning.js');
+            state.weekPlan = normalizeWeekPlan(data.week_plan);
+          }
+          localStorage.setItem('parkingLot_lastSyncedAt', String(cloudUpdatedAt));
+          console.info('[task-sync] Loaded', data.items.length, 'tasks from cloud');
+        }
+      }
+    } catch (e) {
+      console.warn('[task-sync] load error', e);
+    }
   }
 
   async function forcePushToCloud() {
@@ -2395,6 +2462,7 @@ function wireComposer() {
       console.warn('Preferences fetch failed', e);
       showToast('Using local settings');
     }
+    await loadTasksFromSupabase();
     applyThemeColors();
     updateCategorySelectOptions();
     ensureViewToggle();
@@ -2827,11 +2895,12 @@ function wireComposer() {
     try {
     await loadPublicProductConfig();
     setStorageNotify((msg) => showToast(msg));
-    setCloudSyncHook(() => saveDevicePreferencesToSupabase());
+    setCloudSyncHook(() => { saveDevicePreferencesToSupabase(); saveTasksToSupabase(); });
     window.addEventListener('online', () => {
       updateOfflineBanner();
       showToast('Back online — sync resumed');
       if (window.talkAbout && state.deviceSyncId) saveDevicePreferencesToSupabase();
+      saveTasksToSupabase();
     });
     window.addEventListener('offline', updateOfflineBanner);
     updateOfflineBanner();
