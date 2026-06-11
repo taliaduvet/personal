@@ -1229,6 +1229,43 @@ function wireComposer() {
     }
   }
 
+  // Subscribe to real-time updates from Supabase (e.g. Claude editing tasks).
+  // Skips events caused by our own recent push (loop prevention: 10s window).
+  function attachUserTasksRealtime() {
+    if (!window.talkAbout) return;
+    const ownerId = getTaskSyncOwnerId();
+    if (!ownerId) return;
+    if (state.tasksRealtimeUnsubscribe) {
+      state.tasksRealtimeUnsubscribe();
+      state.tasksRealtimeUnsubscribe = null;
+    }
+    state.tasksRealtimeUnsubscribe = window.talkAbout.subscribeUserTasks(ownerId, async (row) => {
+      // Skip if we pushed within the last 10 seconds (our own echo)
+      const lastPush = parseInt(localStorage.getItem('parkingLot_lastSyncedAt') || '0', 10);
+      if (Date.now() - lastPush < 10000) return;
+      // Apply remote data to state
+      try {
+        if (Array.isArray(row.items)) state.items = row.items;
+        if (Array.isArray(row.habits) && row.habits.length) state.habits = row.habits;
+        if (Array.isArray(row.habit_completions)) state.habitCompletions = row.habit_completions;
+        if (Array.isArray(row.notes)) state.notes = row.notes;
+        if (row.week_plan && typeof row.week_plan === 'object') {
+          const { normalizeWeekPlan } = await import('../domain/weekly-planning.js');
+          state.weekPlan = normalizeWeekPlan(row.week_plan);
+        }
+        // Persist to localStorage so it survives a refresh
+        saveState(true); // skipCloudSync=true to avoid re-triggering push
+        renderColumns();
+        renderTodayList();
+        updateTally();
+        showToast('✦ Tasks updated by Claude');
+        console.info('[task-sync] Real-time update applied from Supabase');
+      } catch (e) {
+        console.warn('[task-sync] realtime apply error', e);
+      }
+    });
+  }
+
   async function forcePushToCloud() {
     const btn = document.getElementById('settings-push-now-btn');
     const statusEl = document.getElementById('settings-push-notifications-status');
@@ -2484,6 +2521,7 @@ function wireComposer() {
       renderTalkAbout,
       renderEmailTriage
     });
+    attachUserTasksRealtime();
   }
 
 

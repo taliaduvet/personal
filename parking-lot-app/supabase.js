@@ -442,6 +442,24 @@
       return { data, error };
     },
 
+    // Real-time subscription — fires when Claude (or another device) updates the row.
+    // callback receives the full row payload. Returns unsubscribe fn.
+    subscribeUserTasks(ownerId, callback) {
+      const client = getClient();
+      if (!client || !ownerId) return () => {};
+      const channel = client.channel('parking_lot_tasks_' + ownerId)
+        .on('postgres_changes', {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'parking_lot_tasks',
+          filter: 'owner_id=eq.' + ownerId
+        }, (payload) => {
+          if (payload?.new) callback(payload.new);
+        })
+        .subscribe();
+      return () => client.removeChannel(channel);
+    },
+
     subscribeEmailTasks(pairId, addedBy, callback) {
       const client = getClient();
       if (!client) {
