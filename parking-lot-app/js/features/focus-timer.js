@@ -44,11 +44,25 @@ export function createFocusTimer({ saveState, showToast, getActiveSession, stopS
 
   // ── Audio ─────────────────────────────────────────────────────────────
 
-  function playTone(type) {
+  // Shared AudioContext, created/resumed during a user gesture (start click).
+  // A context created outside a gesture starts 'suspended' and plays nothing,
+  // which is why timer chimes were silent.
+  let audioCtx = null;
+
+  function unlockAudio() {
     try {
       const Ctx = window.AudioContext || window.webkitAudioContext;
-      if (!Ctx) return;
-      const ctx = new Ctx();
+      if (!Ctx) return null;
+      if (!audioCtx) audioCtx = new Ctx();
+      if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => { /* */ });
+      return audioCtx;
+    } catch { return null; }
+  }
+
+  function playTone(type) {
+    try {
+      const ctx = unlockAudio();
+      if (!ctx) return;
       const beep = (freq, t, dur) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
@@ -83,17 +97,18 @@ export function createFocusTimer({ saveState, showToast, getActiveSession, stopS
 
   async function fireNotification(title, body) {
     if (!('Notification' in window)) return;
-
-    let permission = Notification.permission;
-    if (permission === 'default') {
-      permission = await Notification.requestPermission();
-    }
-    if (permission !== 'granted') return;
+    if (Notification.permission !== 'granted') return;
 
     // Prefer SW notification — fires even when the tab is backgrounded/screen locked.
+    // Race against a timeout: serviceWorker.ready never rejects, so without
+    // this it can hang forever (e.g. registration failed) and block the
+    // fallback below plus everything queued after the await.
     if ('serviceWorker' in navigator) {
       try {
-        const reg = await navigator.serviceWorker.ready;
+        const reg = await Promise.race([
+          navigator.serviceWorker.ready,
+          new Promise((res) => setTimeout(() => res(null), 3000))
+        ]);
         if (reg && reg.showNotification) {
           await reg.showNotification(title, NOTIF_OPTS(body));
           return;
@@ -105,9 +120,22 @@ export function createFocusTimer({ saveState, showToast, getActiveSession, stopS
     try { new Notification(title, NOTIF_OPTS(body)); } catch { /* */ }
   }
 
-  async function requestNotificationPermission() {
-    if (!('Notification' in window) || Notification.permission !== 'default') return;
-    await Notification.requestPermission();
+  /**
+   * Request permission (must run during a user gesture) and tell the user
+   * if alerts can't pop up, instead of failing silently.
+   */
+  async function ensureNotificationPermission() {
+    if (!('Notification' in window)) {
+      showToast('🔕 This browser can\'t show timer notifications — keep the app visible');
+      return;
+    }
+    let permission = Notification.permission;
+    if (permission === 'default') {
+      try { permission = await Notification.requestPermission(); } catch { /* */ }
+    }
+    if (permission !== 'granted') {
+      showToast('🔕 Notifications are blocked — timer alerts won\'t pop up. Enable them for this app in browser site settings and macOS System Settings → Notifications.');
+    }
   }
 
   // ── Summarize modal ───────────────────────────────────────────────────
@@ -175,17 +203,17 @@ export function createFocusTimer({ saveState, showToast, getActiveSession, stopS
     if (!ts.warningSent && remaining <= WARNING_MS && remaining > 0) {
       ts.warningSent = true;
       saveTs(ts);
-      await fireNotification('Focus Block — 10 minutes left', 'Start landing. Time to wrap up and summarize.');
       playTone('warning');
+      await fireNotification('Focus Block — 10 minutes left', 'Start landing. Time to wrap up and summarize.');
     }
 
     if (!ts.endSent && remaining <= 0) {
       ts.endSent = true;
       saveTs(ts);
       stopInterval();
-      await fireNotification('Focus Block complete ✓', 'Nice work. Take a moment to capture what you did.');
       playTone('end');
       openSummarize(ts.label);
+      await fireNotification('Focus Block complete ✓', 'Nice work. Take a moment to capture what you did.');
     }
 
     renderWidgets();
@@ -196,7 +224,9 @@ export function createFocusTimer({ saveState, showToast, getActiveSession, stopS
     saveTs(ts);
     startInterval();
     renderWidgets();
-    requestNotificationPermission();
+    // Both must happen inside the user gesture that started the block:
+    unlockAudio();
+    ensureNotificationPermission();
   }
 
   function endBlockEarly() {
