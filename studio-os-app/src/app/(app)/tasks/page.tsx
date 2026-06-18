@@ -1,11 +1,5 @@
-import { ScreenStub } from "@/components/ScreenStub";
+import { TasksLot } from "@/components/TasksLot";
 
 export default function TasksPage() {
-  return (
-    <ScreenStub
-      title="Tasks"
-      blurb="The full tracker — filter, search, and complete tasks pulled live from your Sheet."
-      phase="M1"
-    />
-  );
+  return <TasksLot />;
 }
