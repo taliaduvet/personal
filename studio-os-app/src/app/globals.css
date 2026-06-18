@@ -1,0 +1,61 @@
+@import "tailwindcss";
+
+/* ------------------------------------------------------------------ *
+ * Soft Desk design system — tokens mirror the Sheet engine's Config.gs
+ * so the app and the Sheet feel like one product.
+ * ------------------------------------------------------------------ */
+@theme {
+  --font-display: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+
+  /* Surfaces & text */
+  --color-canvas: #f6f8fa;
+  --color-surface: #ffffff;
+  --color-surface-2: #fbfcfd;
+  --color-ink: #181c22;
+  --color-muted: #8b95a1;
+  --color-faint: #9aa4b0;
+  --color-border: #e6ebef;
+  --color-line: #eef2f5;
+
+  /* Accent */
+  --color-accent: #5b61e8;
+  --color-accent-ink: #4044c4;
+  --color-accent-soft: #eeeffb;
+  --color-danger: #bb4a2e;
+
+  /* Category palette (matches the Sheet pills) */
+  --color-grant: #6a5dc0;
+  --color-grant-soft: #efeafb;
+  --color-release: #3c8262;
+  --color-release-soft: #e2f1e8;
+  --color-touring: #3d6f9f;
+  --color-touring-soft: #e5eef6;
+  --color-promo: #bc6740;
+  --color-promo-soft: #fbeadf;
+  --color-admin: #69737e;
+  --color-admin-soft: #eceff2;
+
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+}
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Respect iOS safe areas (bottom tab bar, notch) */
+.pb-safe {
+  padding-bottom: calc(env(safe-area-inset-bottom) + 0.5rem);
+}
+.pt-safe {
+  padding-top: env(safe-area-inset-top);
+}

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Studio OS">
+  <rect width="512" height="512" fill="#5b61e8"/>
+  <g fill="#ffffff">
+    <rect x="176" y="196" width="36" height="120" rx="18"/>
+    <rect x="244" y="164" width="36" height="184" rx="18"/>
+    <rect x="312" y="228" width="36" height="64" rx="18"/>
+  </g>
+</svg>
