@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTasks } from "@/lib/store";
-import { lifeAreaName, workModeName } from "@/lib/lenses";
+import { isInboxTask, lifeAreaName, workModeName } from "@/lib/lenses";
 
 export function InboxView() {
   const { tasks, addTask, completeTask, sendToToday, openTask } = useTasks();
@@ -10,20 +10,9 @@ export function InboxView() {
   const [flash, setFlash] = useState(false);
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // The triage pile: captured, but with no project, no plan, no deadline,
-  // and not yet pulled into Today.
-  const items = useMemo(
-    () =>
-      tasks.filter(
-        (t) =>
-          t.projectId === null &&
-          t.doDateInDays === null &&
-          t.deadlineInDays === null &&
-          t.status !== "done" &&
-          !t.inToday
-      ),
-    [tasks]
-  );
+  // The triage pile: captures that haven't been filed into an area, project,
+  // or day yet. Sorting one anywhere removes it from here.
+  const items = useMemo(() => tasks.filter(isInboxTask), [tasks]);
 
   useEffect(
     () => () => {

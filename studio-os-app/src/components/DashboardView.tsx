@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useTasks } from "@/lib/store";
 import { LIFE_AREAS } from "@/lib/sample-data";
-import { deadlineLabel, lifeAreaColor, lifeAreaName, planLabel } from "@/lib/lenses";
+import { deadlineLabel, isInboxTask, lifeAreaColor, planLabel } from "@/lib/lenses";
 
 function greetingFor(hour: number): string {
   if (hour < 12) return "Good morning";
@@ -41,17 +41,7 @@ export function DashboardView() {
     [active]
   );
 
-  const inboxCount = useMemo(
-    () =>
-      active.filter(
-        (t) =>
-          t.projectId === null &&
-          t.doDateInDays === null &&
-          t.deadlineInDays === null &&
-          !t.inToday
-      ).length,
-    [active]
-  );
+  const inboxCount = useMemo(() => tasks.filter(isInboxTask).length, [tasks]);
 
   const balance = useMemo(() => {
     const rows = LIFE_AREAS.map((a) => ({

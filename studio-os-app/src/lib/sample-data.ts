@@ -60,9 +60,10 @@ export const TASKS: Task[] = [
   { id: "t14", title: "Tour two apartment listings", lifeAreaId: "home", projectId: "apartment", workModeId: "errands", doDateInDays: 7, deadlineInDays: null, status: "todo", inToday: false },
   { id: "t15", title: "Cancel unused subscription", lifeAreaId: "home", projectId: null, workModeId: "admin", doDateInDays: null, deadlineInDays: null, status: "todo", inToday: false },
 
-  // Fresh captures (no project, no plan yet)
-  { id: "t16", title: "Idea: lyric video for the single", lifeAreaId: "music", projectId: null, workModeId: "creative", doDateInDays: null, deadlineInDays: null, status: "todo", inToday: false },
-  { id: "t17", title: "Look into sync licensing", lifeAreaId: "music", projectId: null, workModeId: null, doDateInDays: null, deadlineInDays: null, status: "todo", inToday: false },
+  // Fresh captures — truly unsorted (no area, project, or plan yet). These are
+  // what the Inbox is for: untriaged thoughts waiting for a home.
+  { id: "t16", title: "Idea: lyric video for the single", lifeAreaId: "", projectId: null, workModeId: null, doDateInDays: null, deadlineInDays: null, status: "todo", inToday: false },
+  { id: "t17", title: "Look into sync licensing", lifeAreaId: "", projectId: null, workModeId: null, doDateInDays: null, deadlineInDays: null, status: "todo", inToday: false },
 
   // Already done (excluded from the Lot, still findable in search)
   { id: "t18", title: "Pay June rent", lifeAreaId: "home", projectId: null, workModeId: "admin", doDateInDays: null, deadlineInDays: -5, status: "done", inToday: false },

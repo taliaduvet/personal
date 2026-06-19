@@ -92,6 +92,27 @@ export function groupTasks(tasks: Task[], lens: LensId): TaskGroup[] {
   return [...modes, none].filter((g) => g.tasks.length > 0);
 }
 
+/** A task with no real life area yet — a still-unfiled capture. */
+export function isUnsorted(task: Task): boolean {
+  return !areaById[task.lifeAreaId];
+}
+
+/**
+ * The Inbox = the truly untriaged pile. The moment a capture is filed into a
+ * life area, project, OR given a day (soft plan or hard deadline), it has a
+ * home and leaves the Inbox. Done / in-Today tasks are never in the Inbox.
+ */
+export function isInboxTask(task: Task): boolean {
+  return (
+    task.status !== "done" &&
+    !task.inToday &&
+    isUnsorted(task) &&
+    task.projectId === null &&
+    task.doDateInDays === null &&
+    task.deadlineInDays === null
+  );
+}
+
 /** Global search spans EVERYTHING — active, in-Today, and done. */
 export function searchTasks(tasks: Task[], query: string): Task[] {
   const q = query.trim().toLowerCase();

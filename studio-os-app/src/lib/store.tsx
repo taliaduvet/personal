@@ -12,7 +12,7 @@ import { TASKS } from "./sample-data";
  * Bump the version suffix whenever the sample seed changes so stale local data
  * doesn't mask new demo content during the build phase.
  */
-const STORAGE_KEY = "studio-os.tasks.v1";
+const STORAGE_KEY = "studio-os.tasks.v2";
 
 type TasksContextValue = {
   tasks: Task[];
@@ -65,7 +65,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     if (!clean) return;
     setTasks((ts) => [
       {
-        id: `t-${Date.now()}`,
+        id: `t-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         title: clean,
         lifeAreaId: "", // unsorted until triaged
         projectId: null,
