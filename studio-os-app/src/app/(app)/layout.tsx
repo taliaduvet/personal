@@ -1,6 +1,7 @@
 import { Sidebar } from "@/components/Sidebar";
 import { BottomNav } from "@/components/BottomNav";
 import { TopBar } from "@/components/TopBar";
+import { TaskDetailSheet } from "@/components/TaskDetailSheet";
 import { TasksProvider } from "@/lib/store";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -15,6 +16,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </main>
         </div>
         <BottomNav />
+        <TaskDetailSheet />
       </div>
     </TasksProvider>
   );

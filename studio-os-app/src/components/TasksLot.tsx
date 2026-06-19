@@ -21,7 +21,7 @@ const LENSES: { id: LensId; label: string }[] = [
 ];
 
 export function TasksLot() {
-  const { tasks, completeTask } = useTasks();
+  const { tasks, completeTask, openTask } = useTasks();
   const [lens, setLens] = useState<LensId>("area");
   const [query, setQuery] = useState("");
 
@@ -48,7 +48,7 @@ export function TasksLot() {
       />
 
       {searching ? (
-        <SearchResults results={results} onComplete={complete} />
+        <SearchResults results={results} onComplete={complete} onOpen={openTask} />
       ) : (
         <>
           <div className="mt-4 inline-flex rounded-lg border border-border bg-surface p-0.5">
@@ -107,9 +107,11 @@ export function TasksLot() {
 function SearchResults({
   results,
   onComplete,
+  onOpen,
 }: {
   results: Task[];
   onComplete: (id: string) => void;
+  onOpen: (id: string) => void;
 }) {
   if (results.length === 0) {
     return (
@@ -126,14 +128,14 @@ function SearchResults({
       <div className="space-y-2">
         {results.map((t) => (
           <div key={t.id} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface px-3 py-2.5">
-            <div className="min-w-0">
+            <button type="button" onClick={() => onOpen(t.id)} className="min-w-0 flex-1 text-left">
               <p className={["text-sm", t.status === "done" ? "text-faint line-through" : "text-ink"].join(" ")}>
                 {t.title}
               </p>
               <p className="mt-0.5 truncate text-xs text-muted">
                 {lifeAreaName(t.lifeAreaId)} · {projectName(t.projectId)}
               </p>
-            </div>
+            </button>
             <StatusBadge task={t} onComplete={onComplete} />
           </div>
         ))}

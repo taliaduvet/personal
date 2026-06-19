@@ -5,7 +5,7 @@ import { useTasks } from "@/lib/store";
 import { lifeAreaName, workModeName } from "@/lib/lenses";
 
 export function InboxView() {
-  const { tasks, addTask, completeTask, sendToToday } = useTasks();
+  const { tasks, addTask, completeTask, sendToToday, openTask } = useTasks();
   const [text, setText] = useState("");
   const [flash, setFlash] = useState(false);
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -96,10 +96,15 @@ export function InboxView() {
                 aria-label="Mark done"
                 className="h-4 w-4 shrink-0 rounded-full border-2 border-faint transition-colors hover:border-accent"
               />
-              <div className="min-w-0 flex-1">
+              <button
+                type="button"
+                onClick={() => openTask(it.id)}
+                className="min-w-0 flex-1 text-left"
+                aria-label={`Open ${it.title}`}
+              >
                 <p className="truncate text-sm text-ink">{it.title}</p>
-                <p className="mt-0.5 text-xs text-faint">{lifeAreaName(it.lifeAreaId)}</p>
-              </div>
+                <p className="mt-0.5 text-xs text-faint">{lifeAreaName(it.lifeAreaId)} · tap to sort</p>
+              </button>
               {it.workModeId && (
                 <span className="shrink-0 rounded bg-canvas px-1.5 py-0.5 text-xs text-muted">
                   {workModeName(it.workModeId)}

@@ -1,4 +1,7 @@
+"use client";
+
 import type { Task } from "@/lib/types";
+import { useTasks } from "@/lib/store";
 import {
   deadlineLabel,
   lifeAreaColor,
@@ -19,6 +22,7 @@ export function TaskCard({
   hideArea?: boolean;
   hideProject?: boolean;
 }) {
+  const { openTask } = useTasks();
   const accent = lifeAreaColor(task.lifeAreaId);
   const done = task.status === "done";
   const plan = planLabel(task.doDateInDays);
@@ -44,7 +48,12 @@ export function TaskCard({
         />
       )}
 
-      <div className="min-w-0 flex-1">
+      <button
+        type="button"
+        onClick={() => openTask(task.id)}
+        className="min-w-0 flex-1 text-left"
+        aria-label={`Open ${task.title}`}
+      >
         <p className={["text-sm", done ? "text-faint line-through" : "text-ink"].join(" ")}>
           {task.title}
         </p>
@@ -62,7 +71,7 @@ export function TaskCard({
           {plan && <span className="text-faint">{plan}</span>}
           {task.status === "in_progress" && <span className="text-accent">In progress</span>}
         </div>
-      </div>
+      </button>
 
       {deadline && (
         <span

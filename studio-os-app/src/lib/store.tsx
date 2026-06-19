@@ -18,9 +18,15 @@ type TasksContextValue = {
   tasks: Task[];
   /** Quick capture: a loose, unsorted thought with no area/project/date yet. */
   addTask: (title: string) => void;
+  updateTask: (id: string, patch: Partial<Task>) => void;
+  deleteTask: (id: string) => void;
   completeTask: (id: string) => void;
   sendToToday: (id: string) => void;
   removeFromToday: (id: string) => void;
+  /** The task currently open in the detail sheet (null = closed). */
+  openId: string | null;
+  openTask: (id: string) => void;
+  closeTask: () => void;
 };
 
 const TasksContext = createContext<TasksContextValue | null>(null);
@@ -30,6 +36,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
   // hydration stable); swap in any saved list right after mount.
   const [tasks, setTasks] = useState<Task[]>(TASKS);
   const [hydrated, setHydrated] = useState(false);
+  const [openId, setOpenId] = useState<string | null>(null);
 
   useEffect(() => {
     try {
@@ -72,9 +79,21 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     ]);
   }, []);
 
+  const updateTask = useCallback((id: string, patch: Partial<Task>) => {
+    setTasks((ts) => ts.map((t) => (t.id === id ? { ...t, ...patch } : t)));
+  }, []);
+
+  const deleteTask = useCallback((id: string) => {
+    setTasks((ts) => ts.filter((t) => t.id !== id));
+    setOpenId((cur) => (cur === id ? null : cur));
+  }, []);
+
   const completeTask = useCallback((id: string) => {
     setTasks((ts) => ts.map((t) => (t.id === id ? { ...t, status: "done" } : t)));
   }, []);
+
+  const openTask = useCallback((id: string) => setOpenId(id), []);
+  const closeTask = useCallback(() => setOpenId(null), []);
 
   const sendToToday = useCallback((id: string) => {
     setTasks((ts) => ts.map((t) => (t.id === id ? { ...t, inToday: true } : t)));
@@ -85,7 +104,20 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <TasksContext.Provider value={{ tasks, addTask, completeTask, sendToToday, removeFromToday }}>
+    <TasksContext.Provider
+      value={{
+        tasks,
+        addTask,
+        updateTask,
+        deleteTask,
+        completeTask,
+        sendToToday,
+        removeFromToday,
+        openId,
+        openTask,
+        closeTask,
+      }}
+    >
       {children}
     </TasksContext.Provider>
   );
