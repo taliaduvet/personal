@@ -8,7 +8,7 @@ const projectById = Object.fromEntries(PROJECTS.map((p) => [p.id, p]));
 const modeById = Object.fromEntries(WORK_MODES.map((m) => [m.id, m]));
 
 export function lifeAreaName(id: string): string {
-  return areaById[id]?.name ?? id;
+  return areaById[id]?.name ?? "Unsorted";
 }
 export function lifeAreaColor(id: string): string {
   return areaById[id]?.color ?? NEUTRAL;
@@ -63,9 +63,17 @@ export function groupTasks(tasks: Task[], lens: LensId): TaskGroup[] {
   if (lens === "when") return groupByWhen(lot);
 
   if (lens === "area") {
-    return LIFE_AREAS.map((a) =>
+    const known = LIFE_AREAS.map((a) =>
       buildGroup(a.id, a.name, lot.filter((t) => t.lifeAreaId === a.id), a.color)
-    ).filter((g) => g.tasks.length > 0);
+    );
+    // Fresh captures have no area yet — keep them visible, never dropped.
+    const unsorted = buildGroup(
+      "unsorted",
+      "Unsorted",
+      lot.filter((t) => !areaById[t.lifeAreaId]),
+      NEUTRAL
+    );
+    return [...known, unsorted].filter((g) => g.tasks.length > 0);
   }
 
   if (lens === "project") {

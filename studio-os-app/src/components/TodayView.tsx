@@ -1,24 +1,29 @@
 "use client";
 
-import { useState } from "react";
-import { TASKS } from "@/lib/sample-data";
-import type { Task } from "@/lib/types";
+import { useMemo } from "react";
+import { useTasks } from "@/lib/store";
 import { TaskCard } from "@/components/TaskCard";
 
 export function TodayView() {
-  const [tasks, setTasks] = useState<Task[]>(() =>
-    TASKS.filter((t) => t.inToday && t.status !== "done").sort((a, b) => {
-      const ea = a.doDateInDays ?? a.deadlineInDays ?? 99;
-      const eb = b.doDateInDays ?? b.deadlineInDays ?? 99;
-      return ea - eb;
-    })
-  );
-  const [doneCount, setDoneCount] = useState(0);
+  const { tasks: all, completeTask } = useTasks();
 
-  const complete = (id: string) => {
-    setTasks((ts) => ts.filter((t) => t.id !== id));
-    setDoneCount((n) => n + 1);
-  };
+  const tasks = useMemo(
+    () =>
+      all
+        .filter((t) => t.inToday && t.status !== "done")
+        .sort((a, b) => {
+          const ea = a.doDateInDays ?? a.deadlineInDays ?? 99;
+          const eb = b.doDateInDays ?? b.deadlineInDays ?? 99;
+          return ea - eb;
+        }),
+    [all]
+  );
+  const doneCount = useMemo(
+    () => all.filter((t) => t.inToday && t.status === "done").length,
+    [all]
+  );
+
+  const complete = completeTask;
 
   return (
     <section className="mx-auto max-w-2xl">

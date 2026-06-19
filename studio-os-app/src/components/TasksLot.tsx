@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { TASKS } from "@/lib/sample-data";
+import { useTasks } from "@/lib/store";
 import type { LensId, Task } from "@/lib/types";
 import {
   deadlineLabel,
@@ -21,7 +21,7 @@ const LENSES: { id: LensId; label: string }[] = [
 ];
 
 export function TasksLot() {
-  const [tasks, setTasks] = useState<Task[]>(TASKS);
+  const { tasks, completeTask } = useTasks();
   const [lens, setLens] = useState<LensId>("area");
   const [query, setQuery] = useState("");
 
@@ -30,8 +30,7 @@ export function TasksLot() {
   const searching = query.trim().length > 0;
   const lotCount = groups.reduce((n, g) => n + g.tasks.length, 0);
 
-  const complete = (id: string) =>
-    setTasks((ts) => ts.map((t) => (t.id === id ? { ...t, status: "done" } : t)));
+  const complete = completeTask;
 
   return (
     <section>

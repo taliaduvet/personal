@@ -1,11 +1,5 @@
-import { ScreenStub } from "@/components/ScreenStub";
+import { DashboardView } from "@/components/DashboardView";
 
 export default function DashboardPage() {
-  return (
-    <ScreenStub
-      title="Dashboard"
-      blurb="Your calm morning overview — KPIs, today's focus, deadlines, and goals."
-      phase="M1"
-    />
-  );
+  return <DashboardView />;
 }

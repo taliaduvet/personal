@@ -1,0 +1,211 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useTasks } from "@/lib/store";
+import { LIFE_AREAS } from "@/lib/sample-data";
+import { deadlineLabel, lifeAreaColor, lifeAreaName, planLabel } from "@/lib/lenses";
+
+function greetingFor(hour: number): string {
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
+  return "Good evening";
+}
+
+export function DashboardView() {
+  const { tasks, completeTask } = useTasks();
+
+  // Time-of-day greeting is client-only to avoid SSR/client hydration drift.
+  const [now, setNow] = useState<Date | null>(null);
+  useEffect(() => setNow(new Date()), []);
+
+  const active = useMemo(() => tasks.filter((t) => t.status !== "done"), [tasks]);
+
+  const todayTasks = useMemo(
+    () =>
+      active
+        .filter((t) => t.inToday)
+        .sort((a, b) => {
+          const ea = a.doDateInDays ?? a.deadlineInDays ?? 99;
+          const eb = b.doDateInDays ?? b.deadlineInDays ?? 99;
+          return ea - eb;
+        }),
+    [active]
+  );
+
+  const deadlines = useMemo(
+    () =>
+      active
+        .filter((t) => t.deadlineInDays !== null)
+        .sort((a, b) => (a.deadlineInDays ?? 0) - (b.deadlineInDays ?? 0)),
+    [active]
+  );
+
+  const inboxCount = useMemo(
+    () =>
+      active.filter(
+        (t) =>
+          t.projectId === null &&
+          t.doDateInDays === null &&
+          t.deadlineInDays === null &&
+          !t.inToday
+      ).length,
+    [active]
+  );
+
+  const balance = useMemo(() => {
+    const rows = LIFE_AREAS.map((a) => ({
+      id: a.id,
+      name: a.name,
+      color: a.color,
+      count: active.filter((t) => t.lifeAreaId === a.id).length,
+    })).filter((r) => r.count > 0);
+    const max = rows.reduce((m, r) => Math.max(m, r.count), 0) || 1;
+    return { rows, max };
+  }, [active]);
+
+  return (
+    <section className="space-y-5">
+      <header>
+        <h1 className="font-display text-2xl font-semibold tracking-tight text-ink">
+          {now ? greetingFor(now.getHours()) : "Hello"}
+        </h1>
+        <p className="mt-1 text-muted">
+          {now
+            ? now.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })
+            : "Your calm overview"}
+        </p>
+      </header>
+
+      {/* At-a-glance counters */}
+      <div className="grid grid-cols-3 gap-3">
+        <StatCard href="/today" label="In Today" value={todayTasks.length} accent="text-accent" />
+        <StatCard
+          href="/tasks"
+          label="Deadlines"
+          value={deadlines.length}
+          accent={deadlines.length > 0 ? "text-danger" : "text-muted"}
+        />
+        <StatCard href="/inbox" label="To sort" value={inboxCount} accent="text-muted" />
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        {/* Today's focus */}
+        <Card>
+          <CardHead title="Today's focus" href="/today" cta="Open Today" />
+          {todayTasks.length > 0 ? (
+            <ul className="mt-3 space-y-1">
+              {todayTasks.slice(0, 4).map((t) => {
+                const deadline = deadlineLabel(t.deadlineInDays);
+                const plan = planLabel(t.doDateInDays);
+                return (
+                  <li key={t.id} className="flex items-center gap-2.5 py-1">
+                    <button
+                      type="button"
+                      onClick={() => completeTask(t.id)}
+                      aria-label="Mark complete"
+                      className="h-3.5 w-3.5 shrink-0 rounded-full border-2 transition-colors hover:border-accent"
+                      style={{ borderColor: lifeAreaColor(t.lifeAreaId) }}
+                    />
+                    <span className="min-w-0 flex-1 truncate text-sm text-ink">{t.title}</span>
+                    {deadline ? (
+                      <span className={["shrink-0 text-xs font-medium", deadline.tone === "danger" ? "text-danger" : "text-muted"].join(" ")}>
+                        {deadline.text}
+                      </span>
+                    ) : plan ? (
+                      <span className="shrink-0 text-xs text-faint">{plan}</span>
+                    ) : null}
+                  </li>
+                );
+              })}
+              {todayTasks.length > 4 && (
+                <li className="pt-1 text-xs text-faint">+{todayTasks.length - 4} more in Today</li>
+              )}
+            </ul>
+          ) : (
+            <Empty>Nothing queued yet. Pull a few in from the Lot to shape your day.</Empty>
+          )}
+        </Card>
+
+        {/* Deadline radar — the only pressure surface */}
+        <Card>
+          <CardHead title="Deadline radar" href="/tasks" cta="See all" />
+          {deadlines.length > 0 ? (
+            <ul className="mt-3 space-y-1">
+              {deadlines.slice(0, 4).map((t) => {
+                const deadline = deadlineLabel(t.deadlineInDays);
+                return (
+                  <li key={t.id} className="flex items-center gap-2.5 py-1">
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: lifeAreaColor(t.lifeAreaId) }} />
+                    <span className="min-w-0 flex-1 truncate text-sm text-ink">{t.title}</span>
+                    {deadline && (
+                      <span className={["shrink-0 text-xs font-medium", deadline.tone === "danger" ? "text-danger" : "text-muted"].join(" ")}>
+                        {deadline.text}
+                      </span>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <Empty>No hard deadlines on the horizon. Breathe easy.</Empty>
+          )}
+        </Card>
+      </div>
+
+      {/* Life balance */}
+      <Card>
+        <CardHead title="Life balance" href="/tasks" cta="By area" />
+        {balance.rows.length > 0 ? (
+          <div className="mt-3 space-y-2.5">
+            {balance.rows.map((r) => (
+              <div key={r.id} className="flex items-center gap-3">
+                <span className="w-28 shrink-0 truncate text-sm text-muted">{r.name}</span>
+                <div className="h-2 flex-1 overflow-hidden rounded-full bg-canvas">
+                  <div
+                    className="h-full rounded-full"
+                    style={{ width: `${(r.count / balance.max) * 100}%`, background: r.color }}
+                  />
+                </div>
+                <span className="w-6 shrink-0 text-right text-xs text-faint">{r.count}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <Empty>No active tasks. A rare and beautiful thing.</Empty>
+        )}
+      </Card>
+    </section>
+  );
+}
+
+function StatCard({ href, label, value, accent }: { href: string; label: string; value: number; accent: string }) {
+  return (
+    <Link
+      href={href}
+      className="rounded-xl border border-border bg-surface px-3 py-3 transition-colors hover:border-accent"
+    >
+      <div className={["font-display text-2xl font-semibold tabular-nums", accent].join(" ")}>{value}</div>
+      <div className="mt-0.5 text-xs text-muted">{label}</div>
+    </Link>
+  );
+}
+
+function Card({ children }: { children: React.ReactNode }) {
+  return <div className="rounded-xl border border-border bg-surface p-4">{children}</div>;
+}
+
+function CardHead({ title, href, cta }: { title: string; href: string; cta: string }) {
+  return (
+    <div className="flex items-baseline justify-between">
+      <h2 className="font-display text-base font-semibold text-ink">{title}</h2>
+      <Link href={href} className="text-xs font-medium text-accent hover:text-accent-ink">
+        {cta} →
+      </Link>
+    </div>
+  );
+}
+
+function Empty({ children }: { children: React.ReactNode }) {
+  return <p className="mt-3 text-sm text-muted">{children}</p>;
+}

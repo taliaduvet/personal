@@ -1,37 +1,46 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { TASKS } from "@/lib/sample-data";
-import { workModeName } from "@/lib/lenses";
-
-type InboxItem = { id: string; title: string; workModeId: string | null };
-
-// The true triage pile: captured, but with no project, no plan, no deadline yet.
-const SEED: InboxItem[] = TASKS.filter(
-  (t) => t.projectId === null && t.doDateInDays === null && t.deadlineInDays === null && t.status !== "done"
-).map((t) => ({ id: t.id, title: t.title, workModeId: t.workModeId }));
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useTasks } from "@/lib/store";
+import { lifeAreaName, workModeName } from "@/lib/lenses";
 
 export function InboxView() {
-  const [items, setItems] = useState<InboxItem[]>(SEED);
+  const { tasks, addTask, completeTask, sendToToday } = useTasks();
   const [text, setText] = useState("");
   const [flash, setFlash] = useState(false);
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => () => {
-    if (flashTimer.current) clearTimeout(flashTimer.current);
-  }, []);
+  // The triage pile: captured, but with no project, no plan, no deadline,
+  // and not yet pulled into Today.
+  const items = useMemo(
+    () =>
+      tasks.filter(
+        (t) =>
+          t.projectId === null &&
+          t.doDateInDays === null &&
+          t.deadlineInDays === null &&
+          t.status !== "done" &&
+          !t.inToday
+      ),
+    [tasks]
+  );
+
+  useEffect(
+    () => () => {
+      if (flashTimer.current) clearTimeout(flashTimer.current);
+    },
+    []
+  );
 
   const capture = () => {
     const v = text.trim();
     if (!v) return;
-    setItems((i) => [{ id: `new-${Date.now()}`, title: v, workModeId: null }, ...i]);
+    addTask(v);
     setText("");
     setFlash(true);
     if (flashTimer.current) clearTimeout(flashTimer.current);
     flashTimer.current = setTimeout(() => setFlash(false), 2400);
   };
-
-  const triage = (id: string) => setItems((i) => i.filter((x) => x.id !== id));
 
   return (
     <section className="mx-auto max-w-2xl">
@@ -83,18 +92,27 @@ export function InboxView() {
             >
               <button
                 type="button"
-                onClick={() => triage(it.id)}
-                aria-label="Clear from inbox"
+                onClick={() => completeTask(it.id)}
+                aria-label="Mark done"
                 className="h-4 w-4 shrink-0 rounded-full border-2 border-faint transition-colors hover:border-accent"
               />
-              <span className="min-w-0 flex-1 truncate text-sm text-ink">{it.title}</span>
-              {it.workModeId ? (
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm text-ink">{it.title}</p>
+                <p className="mt-0.5 text-xs text-faint">{lifeAreaName(it.lifeAreaId)}</p>
+              </div>
+              {it.workModeId && (
                 <span className="shrink-0 rounded bg-canvas px-1.5 py-0.5 text-xs text-muted">
                   {workModeName(it.workModeId)}
                 </span>
-              ) : (
-                <span className="shrink-0 text-xs text-faint">Unsorted</span>
               )}
+              <button
+                type="button"
+                onClick={() => sendToToday(it.id)}
+                className="shrink-0 rounded-md border border-border px-2 py-1 text-xs font-medium text-muted transition-colors hover:border-accent hover:text-accent"
+                title="Pull into Today"
+              >
+                → Today
+              </button>
             </div>
           ))}
         </div>
