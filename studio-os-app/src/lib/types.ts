@@ -29,6 +29,16 @@ export type LifeArea = { id: string; name: string; color: string };
 export type Project = { id: string; name: string; lifeAreaId: string };
 export type WorkMode = { id: string; name: string };
 
+export type Goal = {
+  id: string;
+  name: string;
+  lifeAreaId: string;
+  /** Tie the goal to one project, or null to span the whole life area. */
+  projectId: string | null;
+  /** Soft milestone date, in days from today. null = no target date / someday. */
+  targetInDays: number | null;
+};
+
 export type LensId = "area" | "project" | "when" | "mode";
 
 export type TaskGroup = {

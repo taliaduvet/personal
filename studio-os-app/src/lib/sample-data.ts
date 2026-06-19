@@ -1,4 +1,4 @@
-import type { LifeArea, Project, WorkMode, Task } from "./types";
+import type { LifeArea, Project, WorkMode, Task, Goal } from "./types";
 
 /**
  * Stand-in data so the lens model is usable before the live Sheet is wired.
@@ -27,6 +27,16 @@ export const WORK_MODES: WorkMode[] = [
   { id: "creative", name: "Creative" },
   { id: "outreach", name: "Outreach" },
   { id: "errands", name: "Errands" },
+];
+
+// Goals auto-count progress from the tasks in their scope (a project, or the
+// whole life area when projectId is null).
+export const GOALS: Goal[] = [
+  { id: "g1", name: "Release the Spring EP", lifeAreaId: "music", projectId: "spring-ep", targetInDays: 30 },
+  { id: "g2", name: "Win the FACTOR grant", lifeAreaId: "music", projectId: "factor-grant", targetInDays: 14 },
+  { id: "g3", name: "Book the fall tour", lifeAreaId: "music", projectId: "fall-tour", targetInDays: 60 },
+  { id: "g4", name: "Build a 3-month runway", lifeAreaId: "income", projectId: null, targetInDays: 90 },
+  { id: "g5", name: "Feel good in my body", lifeAreaId: "health", projectId: null, targetInDays: null },
 ];
 
 // Most tasks carry only a soft doing date. Hard deadlines are rare and external.

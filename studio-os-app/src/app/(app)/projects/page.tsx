@@ -1,11 +1,5 @@
-import { ScreenStub } from "@/components/ScreenStub";
+import { ProjectsView } from "@/components/ProjectsView";
 
 export default function ProjectsPage() {
-  return (
-    <ScreenStub
-      title="Projects"
-      blurb="Every project as a card — progress, next deadline, and its tasks."
-      phase="M5"
-    />
-  );
+  return <ProjectsView />;
 }
