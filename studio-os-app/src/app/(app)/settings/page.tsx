@@ -1,11 +1,5 @@
-import { ScreenStub } from "@/components/ScreenStub";
+import { SettingsView } from "@/components/SettingsView";
 
 export default function SettingsPage() {
-  return (
-    <ScreenStub
-      title="Settings"
-      blurb="Name, accent color, density, weekly review timing, and your connected Sheet."
-      phase="M5"
-    />
-  );
+  return <SettingsView />;
 }

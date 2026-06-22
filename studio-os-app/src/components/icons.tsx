@@ -93,3 +93,20 @@ export function BrandMark(p: IconProps) {
     </svg>
   );
 }
+
+export function FolderIcon(p: IconProps) {
+  return (
+    <svg {...S} {...p}>
+      <path d="M3 7a2 2 0 0 1 2-2h5l2 2h9a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
+    </svg>
+  );
+}
+
+export function DocIcon(p: IconProps) {
+  return (
+    <svg {...S} {...p}>
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+      <path d="M14 2v6h6M10 13H8M16 13h-4M10 17H8M16 17h-4" />
+    </svg>
+  );
+}

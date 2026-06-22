@@ -1,5 +1,8 @@
-import type { Task, LensId, TaskGroup } from "./types";
+import type { Task, LensId, TaskGroup, DoPlan } from "./types";
+import type { WeekStartDay } from "./week";
 import { LIFE_AREAS, PROJECTS, WORK_MODES } from "./sample-data";
+import { doPlanLabel, doPlanSortKey, isCarriedDoPlan } from "./do-plan";
+import { weekRange } from "./week";
 
 const NEUTRAL = "#8b95a1";
 
@@ -23,57 +26,116 @@ export function workModeName(id: string | null): string {
   return id ? modeById[id]?.name ?? id : "No mode";
 }
 
-/** When you'll actually engage: your plan, or — if none — the external deadline. */
-function effectiveWhen(t: Task): number | null {
-  return t.doDateInDays ?? t.deadlineInDays;
+function effectiveWhen(t: Task, weekStartsOn: WeekStartDay): number | null {
+  const planKey = doPlanSortKey(t.doPlan, weekStartsOn);
+  if (planKey !== null) return planKey;
+  return t.deadlineInDays;
 }
 
-function sortTasks(a: Task, b: Task): number {
-  const ea = effectiveWhen(a);
-  const eb = effectiveWhen(b);
+function sortTasks(a: Task, b: Task, weekStartsOn: WeekStartDay): number {
+  const ea = effectiveWhen(a, weekStartsOn);
+  const eb = effectiveWhen(b, weekStartsOn);
   if (ea === null && eb === null) return 0;
   if (ea === null) return 1;
   if (eb === null) return -1;
   return ea - eb;
 }
 
-function buildGroup(key: string, label: string, tasks: Task[], color?: string): TaskGroup {
-  return { key, label, color, tasks: [...tasks].sort(sortTasks) };
+function buildGroup(
+  key: string,
+  label: string,
+  tasks: Task[],
+  weekStartsOn: WeekStartDay,
+  color?: string
+): TaskGroup {
+  return {
+    key,
+    label,
+    color,
+    tasks: [...tasks].sort((a, b) => sortTasks(a, b, weekStartsOn)),
+  };
 }
 
-/** Active tasks that aren't already in Today — "the Lot" is everything else. */
 function activeLot(tasks: Task[]): Task[] {
   return tasks.filter((t) => t.status !== "done" && !t.inToday);
 }
 
-function groupByWhen(lot: Task[]): TaskGroup[] {
-  // No "overdue" bucket on purpose: a past doing date is just "carried" → folds
-  // calmly into Today. The app refuses to manufacture overdue anxiety.
-  const buckets: { key: string; label: string; color: string; test: (e: number | null) => boolean }[] = [
-    { key: "today", label: "Today", color: "#5b61e8", test: (e) => e !== null && e <= 0 },
-    { key: "week", label: "This week", color: "#3c8262", test: (e) => e !== null && e >= 1 && e <= 7 },
-    { key: "later", label: "Later", color: "#3d6f9f", test: (e) => e !== null && e > 7 },
-    { key: "someday", label: "Someday", color: NEUTRAL, test: (e) => e === null },
+function groupByWhen(lot: Task[], weekStartsOn: WeekStartDay): TaskGroup[] {
+  const { start: weekStart, end: weekEnd } = weekRange(weekStartsOn, 0);
+
+  const buckets: {
+    key: string;
+    label: string;
+    color: string;
+    test: (t: Task) => boolean;
+  }[] = [
+    {
+      key: "today",
+      label: "Today",
+      color: "#5b61e8",
+      test: (t) => {
+        const e = effectiveWhen(t, weekStartsOn);
+        return e !== null && e <= 0;
+      },
+    },
+    {
+      key: "week",
+      label: "This week",
+      color: "#3c8262",
+      test: (t) => {
+        if (t.doPlan?.kind === "week") {
+          const key = doPlanSortKey(t.doPlan, weekStartsOn);
+          return key !== null && key >= weekStart && key <= weekEnd;
+        }
+        const e = effectiveWhen(t, weekStartsOn);
+        return e !== null && e >= Math.max(1, weekStart) && e <= weekEnd;
+      },
+    },
+    {
+      key: "later",
+      label: "Later",
+      color: "#3d6f9f",
+      test: (t) => {
+        const e = effectiveWhen(t, weekStartsOn);
+        if (e === null) return false;
+        return e > weekEnd;
+      },
+    },
+    {
+      key: "someday",
+      label: "Someday",
+      color: NEUTRAL,
+      test: (t) => effectiveWhen(t, weekStartsOn) === null,
+    },
   ];
+
   return buckets
-    .map((b) => buildGroup(b.key, b.label, lot.filter((t) => b.test(effectiveWhen(t))), b.color))
+    .map((b) =>
+      buildGroup(b.key, b.label, lot.filter((t) => b.test(t)), weekStartsOn, b.color)
+    )
     .filter((g) => g.tasks.length > 0);
 }
 
-export function groupTasks(tasks: Task[], lens: LensId): TaskGroup[] {
+export function groupTasks(tasks: Task[], lens: LensId, weekStartsOn: WeekStartDay = 0): TaskGroup[] {
   const lot = activeLot(tasks);
 
-  if (lens === "when") return groupByWhen(lot);
+  if (lens === "when") return groupByWhen(lot, weekStartsOn);
 
   if (lens === "area") {
     const known = LIFE_AREAS.map((a) =>
-      buildGroup(a.id, a.name, lot.filter((t) => t.lifeAreaId === a.id), a.color)
+      buildGroup(
+        a.id,
+        a.name,
+        lot.filter((t) => t.lifeAreaId === a.id),
+        weekStartsOn,
+        a.color
+      )
     );
-    // Fresh captures have no area yet — keep them visible, never dropped.
     const unsorted = buildGroup(
       "unsorted",
       "Unsorted",
       lot.filter((t) => !areaById[t.lifeAreaId]),
+      weekStartsOn,
       NEUTRAL
     );
     return [...known, unsorted].filter((g) => g.tasks.length > 0);
@@ -81,49 +143,58 @@ export function groupTasks(tasks: Task[], lens: LensId): TaskGroup[] {
 
   if (lens === "project") {
     const projects = PROJECTS.map((p) =>
-      buildGroup(p.id, p.name, lot.filter((t) => t.projectId === p.id), lifeAreaColor(p.lifeAreaId))
+      buildGroup(
+        p.id,
+        p.name,
+        lot.filter((t) => t.projectId === p.id),
+        weekStartsOn,
+        lifeAreaColor(p.lifeAreaId)
+      )
     );
-    const loose = buildGroup("no-project", "No project", lot.filter((t) => t.projectId === null), NEUTRAL);
+    const loose = buildGroup(
+      "no-project",
+      "No project",
+      lot.filter((t) => t.projectId === null),
+      weekStartsOn,
+      NEUTRAL
+    );
     return [...projects, loose].filter((g) => g.tasks.length > 0);
   }
 
-  // mode
   const modes = WORK_MODES.map((m) =>
-    buildGroup(m.id, m.name, lot.filter((t) => t.workModeId === m.id))
+    buildGroup(m.id, m.name, lot.filter((t) => t.workModeId === m.id), weekStartsOn)
   );
-  const none = buildGroup("no-mode", "No mode", lot.filter((t) => t.workModeId === null), NEUTRAL);
+  const none = buildGroup(
+    "no-mode",
+    "No mode",
+    lot.filter((t) => t.workModeId === null),
+    weekStartsOn,
+    NEUTRAL
+  );
   return [...modes, none].filter((g) => g.tasks.length > 0);
 }
 
-/** A task with no real life area yet — a still-unfiled capture. */
 export function isUnsorted(task: Task): boolean {
   return !areaById[task.lifeAreaId];
 }
 
-/**
- * The Inbox = the truly untriaged pile. The moment a capture is filed into a
- * life area, project, OR given a day (soft plan or hard deadline), it has a
- * home and leaves the Inbox. Done / in-Today tasks are never in the Inbox.
- */
 export function isInboxTask(task: Task): boolean {
   return (
     task.status !== "done" &&
     !task.inToday &&
     isUnsorted(task) &&
     task.projectId === null &&
-    task.doDateInDays === null &&
+    task.doPlan === null &&
     task.deadlineInDays === null
   );
 }
 
-/** Active tasks with a hard external deadline, soonest first. */
 export function deadlineTasks(tasks: Task[]): Task[] {
   return tasks
     .filter((t) => t.status !== "done" && t.deadlineInDays !== null)
     .sort((a, b) => (a.deadlineInDays ?? 0) - (b.deadlineInDays ?? 0));
 }
 
-/** Bucket hard deadlines for the Horizon view — separate from the soft When lens. */
 export function groupDeadlines(tasks: Task[]): TaskGroup[] {
   const items = deadlineTasks(tasks);
   const buckets: { key: string; label: string; test: (d: number) => boolean }[] = [
@@ -137,31 +208,38 @@ export function groupDeadlines(tasks: Task[]): TaskGroup[] {
       buildGroup(
         b.key,
         b.label,
-        items.filter((t) => b.test(t.deadlineInDays!))
+        items.filter((t) => b.test(t.deadlineInDays!)),
+        0
       )
     )
     .filter((g) => g.tasks.length > 0);
 }
 
-/** Global search spans EVERYTHING — active, in-Today, and done. */
-export function searchTasks(tasks: Task[], query: string): Task[] {
+export function searchTasks(tasks: Task[], query: string, weekStartsOn: WeekStartDay = 0): Task[] {
   const q = query.trim().toLowerCase();
   if (!q) return [];
-  return tasks.filter((t) => t.title.toLowerCase().includes(q)).sort(sortTasks);
+  return tasks
+    .filter((t) => t.title.toLowerCase().includes(q))
+    .sort((a, b) => sortTasks(a, b, weekStartsOn));
 }
 
-/** Soft plan-to-do label. Past plans read as "carried", never "overdue". */
-export function planLabel(doDateInDays: number | null): string | null {
-  if (doDateInDays === null) return null;
-  if (doDateInDays < 0) return "carried";
-  if (doDateInDays === 0) return "today";
-  if (doDateInDays === 1) return "tomorrow";
-  return `in ${doDateInDays}d`;
+export function planLabel(plan: DoPlan, weekStartsOn: WeekStartDay = 0): string | null {
+  if (plan === null) return null;
+  const label = doPlanLabel(plan, weekStartsOn);
+  if (label === "Doing") return null;
+  if (label === "Today") return "today";
+  if (label === "Tomorrow") return "tomorrow";
+  if (label === "Yesterday") return "yesterday";
+  if (label === "This week") return "this week";
+  return label.toLowerCase();
+}
+
+export function isCarriedTask(task: Task, weekStartsOn: WeekStartDay): boolean {
+  return isCarriedDoPlan(task.doPlan, weekStartsOn);
 }
 
 export type DeadlineTone = "danger" | "muted";
 
-/** Hard external deadline — the only thing allowed to apply gentle pressure. */
 export function deadlineLabel(
   deadlineInDays: number | null
 ): { text: string; tone: DeadlineTone } | null {

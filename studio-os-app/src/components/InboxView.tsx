@@ -8,12 +8,18 @@ import { isInboxTask } from "@/lib/lenses";
 
 export function InboxView() {
   const router = useRouter();
-  const { tasks, addTask, completeTask, sendToToday, openQuickEdit } = useTasks();
+  const { tasks, addTask, completeTask, sendToToday, openQuickEdit, quickEditId, quickEditCapture } = useTasks();
   const [text, setText] = useState("");
   const [flash, setFlash] = useState(false);
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const items = useMemo(() => tasks.filter(isInboxTask), [tasks]);
+  const items = useMemo(
+    () =>
+      tasks
+        .filter(isInboxTask)
+        .filter((t) => !(quickEditCapture && t.id === quickEditId)),
+    [tasks, quickEditCapture, quickEditId]
+  );
 
   useEffect(
     () => () => {

@@ -1,26 +1,78 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTasks } from "@/lib/store";
-import { classifyChipLabels } from "@/lib/parse";
-import { lifeAreaColor, lifeAreaName } from "@/lib/lenses";
-import { ClassifyEditor } from "@/components/TaskClassify";
+import { useSettings } from "@/lib/settings-store";
+import { parseTaskTitle } from "@/lib/parse";
+import { doPlanEquals } from "@/lib/do-plan";
+import { lifeAreaColor } from "@/lib/lenses";
+import { TaskClassifyDropdowns } from "@/components/TaskClassify";
 import type { Task } from "@/lib/types";
+
+type ClassifyField = "projectId" | "workModeId" | "doPlan" | "deadlineInDays";
 
 /**
  * QUICK EDIT — bottom sheet for fast filing while browsing.
+ * Capture mode (New / Inbox add): live smart parse, Enter to confirm.
  * Work View is the full page at /tasks/[id].
  */
 export function TaskDetailSheet() {
-  const { tasks, quickEditId, closeQuickEdit, updateTask, deleteTask, completeTask } = useTasks();
-  const [showClassify, setShowClassify] = useState(false);
+  const {
+    tasks,
+    quickEditId,
+    quickEditCapture,
+    captureDraft,
+    closeQuickEdit,
+    updateTask,
+    deleteTask,
+    completeTask,
+  } = useTasks();
+  const { weekStartsOn } = useSettings();
+  const [draftTitle, setDraftTitle] = useState("");
+  const titleRef = useRef<HTMLInputElement>(null);
+  const manualClassify = useRef(new Set<ClassifyField>());
   const task = quickEditId ? tasks.find((t) => t.id === quickEditId) ?? null : null;
+  const taskRef = useRef(task);
+  taskRef.current = task;
+  const isCapture = quickEditCapture && task !== null;
+
+  const confirmCapture = useCallback(() => {
+    if (!task) return;
+    const parsed = parseTaskTitle(draftTitle.trim(), weekStartsOn);
+    if (!parsed.title.trim()) {
+      deleteTask(task.id);
+      return;
+    }
+    updateTask(task.id, { title: parsed.title });
+    closeQuickEdit();
+  }, [task, draftTitle, weekStartsOn, updateTask, deleteTask, closeQuickEdit]);
+
+  const abandonCapture = useCallback(() => {
+    if (!task) return;
+    deleteTask(task.id);
+  }, [task, deleteTask]);
+
+  const handleClose = useCallback(() => {
+    if (isCapture) {
+      if (!draftTitle.trim()) {
+        abandonCapture();
+      } else {
+        confirmCapture();
+      }
+      return;
+    }
+    closeQuickEdit();
+  }, [isCapture, draftTitle, abandonCapture, confirmCapture, closeQuickEdit]);
 
   useEffect(() => {
     if (!task) return;
-    setShowClassify(false);
+    manualClassify.current = new Set();
+    if (quickEditCapture) {
+      setDraftTitle(captureDraft ?? task.title);
+    }
+    titleRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeQuickEdit();
+      if (e.key === "Escape") handleClose();
     };
     document.addEventListener("keydown", onKey);
     const prev = document.body.style.overflow;
@@ -29,18 +81,51 @@ export function TaskDetailSheet() {
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = prev;
     };
-  }, [task, closeQuickEdit]);
+  }, [task?.id, quickEditCapture, captureDraft, handleClose]);
+
+  useEffect(() => {
+    if (!isCapture || !quickEditId) return;
+    const current = taskRef.current;
+    if (!current) return;
+    const parsed = parseTaskTitle(draftTitle, weekStartsOn);
+    const patch: Partial<Task> = {};
+    if (!manualClassify.current.has("projectId")) {
+      if (current.projectId !== parsed.projectId || current.lifeAreaId !== parsed.lifeAreaId) {
+        patch.projectId = parsed.projectId;
+        patch.lifeAreaId = parsed.lifeAreaId;
+      }
+    }
+    if (!manualClassify.current.has("workModeId") && current.workModeId !== parsed.workModeId) {
+      patch.workModeId = parsed.workModeId;
+    }
+    if (!manualClassify.current.has("doPlan") && !doPlanEquals(current.doPlan, parsed.doPlan)) {
+      patch.doPlan = parsed.doPlan;
+    }
+    if (!manualClassify.current.has("deadlineInDays") && current.deadlineInDays !== parsed.deadlineInDays) {
+      patch.deadlineInDays = parsed.deadlineInDays;
+    }
+    if (Object.keys(patch).length > 0) updateTask(quickEditId, patch);
+  }, [draftTitle, isCapture, quickEditId, weekStartsOn, updateTask]);
 
   if (!task) return null;
 
   const set = (patch: Partial<Task>) => updateTask(task.id, patch);
-  const chips = classifyChipLabels(task);
+
+  const setClassify = (patch: Partial<Task>) => {
+    if ("projectId" in patch || "lifeAreaId" in patch) manualClassify.current.add("projectId");
+    if ("workModeId" in patch) manualClassify.current.add("workModeId");
+    if ("doPlan" in patch) manualClassify.current.add("doPlan");
+    if ("deadlineInDays" in patch) manualClassify.current.add("deadlineInDays");
+    set(patch);
+  };
+
   const done = task.status === "done";
+  const chipAreaColor = lifeAreaColor(task.lifeAreaId);
 
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-ink/30 p-0 sm:items-center sm:p-4"
-      onClick={closeQuickEdit}
+      onClick={handleClose}
       role="presentation"
     >
       <div
@@ -48,14 +133,14 @@ export function TaskDetailSheet() {
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
-        aria-label="Quick edit task"
+        aria-label={isCapture ? "Capture task" : "Quick edit task"}
       >
         <div className="flex items-center justify-between border-b border-line px-4 py-3">
           <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted">
-            <span className="h-2 w-2 rounded-full" style={{ background: lifeAreaColor(task.lifeAreaId) }} />
-            {done ? "Completed" : task.status === "in_progress" ? "In progress" : "Task"}
+            <span className="h-2 w-2 rounded-full" style={{ background: chipAreaColor }} />
+            {isCapture ? "Capture" : done ? "Completed" : task.status === "in_progress" ? "In progress" : "Task"}
           </span>
-          <button type="button" onClick={closeQuickEdit} aria-label="Close" className="grid h-7 w-7 place-items-center rounded-full text-muted hover:bg-canvas hover:text-ink">
+          <button type="button" onClick={handleClose} aria-label="Close" className="grid h-7 w-7 place-items-center rounded-full text-muted hover:bg-canvas hover:text-ink">
             <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
               <path d="M6 6l12 12M18 6L6 18" />
             </svg>
@@ -63,45 +148,34 @@ export function TaskDetailSheet() {
         </div>
 
         <div className="flex-1 space-y-4 overflow-y-auto px-4 py-4">
-          <input
-            value={task.title}
-            onChange={(e) => set({ title: e.target.value })}
-            aria-label="Task title"
-            className="w-full bg-transparent font-display text-xl font-semibold text-ink outline-none placeholder:text-faint"
-          />
-
           <div>
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-wide text-faint">Classify</p>
-              <button type="button" onClick={() => setShowClassify((v) => !v)} className="text-xs font-medium text-accent hover:text-accent-ink">
-                {showClassify ? "Done" : "Edit"}
-              </button>
-            </div>
-
-            {!showClassify ? (
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {chips.project && (
-                  <SummaryChip dot={lifeAreaColor(task.lifeAreaId)} accent>
-                    {chips.project}
-                  </SummaryChip>
-                )}
-                {chips.doing && <SummaryChip>{chips.doing}</SummaryChip>}
-                {chips.deadline && <SummaryChip danger>{chips.deadline}</SummaryChip>}
-                {chips.mode && <SummaryChip>{chips.mode}</SummaryChip>}
-                {!chips.project && !chips.doing && !chips.deadline && !chips.mode && (
-                  <span className="text-sm text-faint">No tags yet — tap Edit</span>
-                )}
-              </div>
-            ) : (
-              <div className="mt-2">
-                <ClassifyEditor task={task} onChange={set} />
-              </div>
-            )}
-
-            {task.projectId && !showClassify && (
-              <p className="mt-1.5 text-xs text-faint">{lifeAreaName(task.lifeAreaId)} · inherited from project</p>
+            <input
+              ref={titleRef}
+              value={isCapture ? draftTitle : task.title}
+              onChange={(e) => {
+                if (isCapture) setDraftTitle(e.target.value);
+                else set({ title: e.target.value });
+              }}
+              onKeyDown={(e) => {
+                if (isCapture && e.key === "Enter") {
+                  e.preventDefault();
+                  confirmCapture();
+                }
+              }}
+              aria-label="Task title"
+              placeholder={
+                isCapture
+                  ? "Try \"Email venues tomorrow\" or \"FACTOR grant due Friday\""
+                  : "What needs doing?"
+              }
+              className="w-full bg-transparent font-display text-xl font-semibold text-ink outline-none placeholder:text-faint"
+            />
+            {isCapture && (
+              <p className="mt-1.5 text-xs text-faint">Tags suggest as you type · Press Enter to capture</p>
             )}
           </div>
+
+          <TaskClassifyDropdowns task={task} onChange={isCapture ? setClassify : set} />
 
           <button
             type="button"
@@ -118,54 +192,48 @@ export function TaskDetailSheet() {
         </div>
 
         <div className="flex items-center justify-between gap-2 border-t border-line px-4 py-3">
-          <button type="button" onClick={() => deleteTask(task.id)} className="rounded-lg px-3 py-2 text-sm font-medium text-danger hover:bg-danger/10">
-            Delete
-          </button>
-          {done ? (
-            <button type="button" onClick={() => set({ status: "todo" })} className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-muted hover:border-accent">
-              Reopen
-            </button>
+          {isCapture ? (
+            <>
+              <button type="button" onClick={abandonCapture} className="rounded-lg px-3 py-2 text-sm font-medium text-muted hover:bg-canvas hover:text-ink">
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmCapture}
+                disabled={!draftTitle.trim()}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-ink disabled:opacity-50"
+              >
+                Capture
+              </button>
+            </>
           ) : (
-            <button
-              type="button"
-              onClick={() => {
-                completeTask(task.id);
-                closeQuickEdit();
-              }}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-ink"
-            >
-              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-                <path d="m5 13 4 4L19 7" />
-              </svg>
-              Mark done
-            </button>
+            <>
+              <button type="button" onClick={() => deleteTask(task.id)} className="rounded-lg px-3 py-2 text-sm font-medium text-danger hover:bg-danger/10">
+                Delete
+              </button>
+              {done ? (
+                <button type="button" onClick={() => set({ status: "todo" })} className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-muted hover:border-accent">
+                  Reopen
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    completeTask(task.id);
+                    closeQuickEdit();
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-ink"
+                >
+                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                    <path d="m5 13 4 4L19 7" />
+                  </svg>
+                  Mark done
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>
     </div>
-  );
-}
-
-function SummaryChip({
-  children,
-  dot,
-  accent = false,
-  danger = false,
-}: {
-  children: React.ReactNode;
-  dot?: string;
-  accent?: boolean;
-  danger?: boolean;
-}) {
-  return (
-    <span
-      className={[
-        "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-sm",
-        danger ? "border-danger/30 text-danger" : accent ? "border-accent/30 text-accent" : "border-border text-muted",
-      ].join(" ")}
-    >
-      {dot && <span className="h-1.5 w-1.5 rounded-full" style={{ background: dot }} />}
-      {children}
-    </span>
   );
 }

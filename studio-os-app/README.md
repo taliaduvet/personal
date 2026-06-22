@@ -22,19 +22,21 @@ phone home screen, no app store required.
 **M1 — Core loop prototype ✅ (local sample data)**
 
 - Shared task store (persists in browser via localStorage)
-- **Dashboard** — greeting, Today count, deadline radar, inbox nudge, life-balance bars
+- **Dashboard** — greeting, week planning ritual, Today count, deadline radar, inbox nudge, life-balance bars
 - **Today** — curated daily focus list
 - **Tasks (Lot)** — 4 lenses, column board, global search
 - **Inbox** — capture + smart title parsing → Quick Edit confirmation
 - **Quick Edit** — slim Classify sheet (project · doing · deadline · mode · Today)
 - **Work View** — full page at `/tasks/[id]` (why, context, sub-tasks, notes)
-- **Projects** — by life area, project why, auto progress
+- **Projects** — by life area, project why, active tasks
 - **Horizon** — hard-deadline timeline at `/deadlines`
 - **Weekly Review** — week switcher, shipped / in-flight / carry-over boards, life balance, project progress, reflection + intentions (persisted)
+- **Settings** — week start day (Sun–Sat); drives calendars, planning, and review windows
+- **Week planning** — Dashboard card: place week-bucket tasks, pull to Today, Done planning → summary + Re-plan
 
-**Still stubs:** Settings
+**Still stubs:** —
 
-**Next:** Settings → Horizon calendar toggle → Supabase wiring
+**Next:** Horizon calendar toggle → Supabase wiring
 
 See the blueprint canvas **Overview** tab for the live screen map and locked decisions.
 

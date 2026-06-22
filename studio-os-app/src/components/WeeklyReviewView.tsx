@@ -3,7 +3,9 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTasks } from "@/lib/store";
+import { useSettings } from "@/lib/settings-store";
 import { openTaskWork } from "@/lib/navigation";
+import { weekKey, weekRange } from "@/lib/week";
 import {
   carryOver,
   deadlinesHit,
@@ -12,22 +14,21 @@ import {
   projectProgressWeek,
   shippedThisWeek,
   taskMetaLine,
-  weekKey,
-  weekRange,
 } from "@/lib/weekly-review";
 
 export function WeeklyReviewView() {
   const { tasks, reviewNotes, saveReviewNotes } = useTasks();
+  const { weekStartsOn } = useSettings();
   const [weekOffset, setWeekOffset] = useState(0);
 
-  const range = useMemo(() => weekRange(weekOffset), [weekOffset]);
-  const key = useMemo(() => weekKey(weekOffset), [weekOffset]);
-  const shipped = useMemo(() => shippedThisWeek(tasks, weekOffset), [tasks, weekOffset]);
-  const carried = useMemo(() => carryOver(tasks, weekOffset), [tasks, weekOffset]);
-  const flying = useMemo(() => inFlight(tasks, weekOffset), [tasks, weekOffset]);
-  const deadlines = useMemo(() => deadlinesHit(tasks, weekOffset), [tasks, weekOffset]);
-  const balance = useMemo(() => lifeBalanceWeek(tasks, weekOffset), [tasks, weekOffset]);
-  const projects = useMemo(() => projectProgressWeek(tasks, weekOffset), [tasks, weekOffset]);
+  const range = useMemo(() => weekRange(weekStartsOn, weekOffset), [weekStartsOn, weekOffset]);
+  const key = useMemo(() => weekKey(weekStartsOn, weekOffset), [weekStartsOn, weekOffset]);
+  const shipped = useMemo(() => shippedThisWeek(tasks, weekStartsOn, weekOffset), [tasks, weekStartsOn, weekOffset]);
+  const carried = useMemo(() => carryOver(tasks, weekStartsOn, weekOffset), [tasks, weekStartsOn, weekOffset]);
+  const flying = useMemo(() => inFlight(tasks, weekStartsOn, weekOffset), [tasks, weekStartsOn, weekOffset]);
+  const deadlines = useMemo(() => deadlinesHit(tasks, weekStartsOn, weekOffset), [tasks, weekStartsOn, weekOffset]);
+  const balance = useMemo(() => lifeBalanceWeek(tasks, weekStartsOn, weekOffset), [tasks, weekStartsOn, weekOffset]);
+  const projects = useMemo(() => projectProgressWeek(tasks, weekStartsOn, weekOffset), [tasks, weekStartsOn, weekOffset]);
 
   const notes = reviewNotes[key] ?? { reflection: "", intentions: "" };
   const maxBalance = balance.reduce((m, r) => Math.max(m, r.shipped + r.active), 0) || 1;
@@ -122,26 +123,18 @@ export function WeeklyReviewView() {
 
       {/* Project progress */}
       {projects.length > 0 && (
-        <Card title="Project progress">
-          <div className="space-y-3">
+        <Card title="Projects this week">
+          <ul className="space-y-2">
             {projects.map((p) => (
-              <div key={p.id}>
-                <div className="flex items-baseline justify-between gap-2">
-                  <span className="text-sm font-medium text-ink">{p.name}</span>
-                  <span className="text-xs text-muted">
-                    {p.shippedThisWeek > 0 && `${p.shippedThisWeek} this week · `}
-                    {p.totalDone}/{p.total} done
-                  </span>
-                </div>
-                <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-canvas">
-                  <div
-                    className="h-full rounded-full"
-                    style={{ width: `${p.total > 0 ? (p.totalDone / p.total) * 100 : 0}%`, background: p.color }}
-                  />
-                </div>
-              </div>
+              <li key={p.id} className="flex items-baseline justify-between gap-2">
+                <span className="text-sm font-medium text-ink">{p.name}</span>
+                <span className="shrink-0 text-xs text-muted">
+                  {p.shippedThisWeek > 0 && `${p.shippedThisWeek} shipped · `}
+                  {p.total - p.totalDone} active
+                </span>
+              </li>
             ))}
-          </div>
+          </ul>
         </Card>
       )}
 

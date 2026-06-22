@@ -1,39 +1,52 @@
 "use client";
 
 import { useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { useTasks } from "@/lib/store";
-import { LIFE_AREAS, PROJECTS } from "@/lib/sample-data";
-import type { Project, Task } from "@/lib/types";
-import { TaskCard } from "@/components/TaskCard";
+import { useProjects } from "@/lib/projects-store";
+import { LIFE_AREAS } from "@/lib/sample-data";
+import { openProjectDetail } from "@/lib/navigation";
+import type { Project } from "@/lib/types";
+import { FolderIcon } from "@/components/icons";
 
 export function ProjectsView() {
-  const { tasks, completeTask } = useTasks();
+  const router = useRouter();
+  const { tasks } = useTasks();
+  const { projects } = useProjects();
 
   const areas = useMemo(
     () =>
-      LIFE_AREAS.map((a) => ({ area: a, projects: PROJECTS.filter((p) => p.lifeAreaId === a.id) })).filter(
+      LIFE_AREAS.map((a) => ({ area: a, projects: projects.filter((p) => p.lifeAreaId === a.id) })).filter(
         (g) => g.projects.length > 0
       ),
-    []
+    [projects]
   );
 
   return (
     <section className="mx-auto max-w-3xl">
       <div className="flex items-baseline justify-between">
         <h1 className="font-display text-2xl font-semibold tracking-tight text-ink">Projects</h1>
-        <span className="text-sm text-muted">{PROJECTS.length} initiatives</span>
+        <span className="text-sm text-muted">{projects.length} initiatives</span>
       </div>
-      <p className="mt-1 text-muted">Initiatives inside each life area — the &ldquo;why&rdquo; lives here, progress counts itself.</p>
+      <p className="mt-1 text-muted">
+        Initiatives inside each life area — tap one to open its workspace and tasks.
+      </p>
 
-      {areas.map(({ area, projects }) => (
+      {areas.map(({ area, projects: areaProjects }) => (
         <div key={area.id} className="mt-7">
           <div className="flex items-center gap-2">
             <span className="h-2.5 w-2.5 rounded-full" style={{ background: area.color }} />
             <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">{area.name}</h2>
           </div>
-          <div className="mt-3 space-y-3">
-            {projects.map((p) => (
-              <ProjectCard key={p.id} project={p} color={area.color} tasks={tasks} onComplete={completeTask} />
+          <div className="mt-3 space-y-2">
+            {areaProjects.map((p) => (
+              <ProjectRow
+                key={p.id}
+                project={p}
+                color={area.color}
+                activeCount={tasks.filter((t) => t.projectId === p.id && t.status !== "done").length}
+                onOpen={() => openProjectDetail(router, p.id)}
+              />
             ))}
           </div>
         </div>
@@ -42,54 +55,55 @@ export function ProjectsView() {
   );
 }
 
-function ProjectCard({
+function ProjectRow({
   project,
   color,
-  tasks,
-  onComplete,
+  activeCount,
+  onOpen,
 }: {
   project: Project;
   color: string;
-  tasks: Task[];
-  onComplete: (id: string) => void;
+  activeCount: number;
+  onOpen: () => void;
 }) {
-  const mine = tasks.filter((t) => t.projectId === project.id);
-  const done = mine.filter((t) => t.status === "done").length;
-  const total = mine.length;
-  const active = mine.filter((t) => t.status !== "done");
-  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  const hasFolder = Boolean(project.driveFolder);
+  const docCount = project.driveDocs?.length ?? 0;
+  const linkHint =
+    hasFolder && docCount > 0
+      ? "Folder + docs"
+      : hasFolder
+        ? "Drive linked"
+        : docCount > 0
+          ? `${docCount} doc${docCount === 1 ? "" : "s"}`
+          : null;
 
   return (
-    <div className="rounded-xl border border-border bg-surface p-4" style={{ borderLeft: `3px solid ${color}` }}>
-      <div className="flex items-baseline justify-between gap-3">
-        <h3 className="font-display text-base font-semibold text-ink">{project.name}</h3>
-        <span className="shrink-0 text-xs text-muted">
-          {total > 0 ? `${done}/${total} done` : "No tasks yet"}
-        </span>
-      </div>
-
-      {project.why && (
-        <p className="mt-1 text-sm italic text-muted">&ldquo;{project.why}&rdquo;</p>
-      )}
-
-      <div className="mt-3 flex items-center gap-3">
-        <div className="h-2 flex-1 overflow-hidden rounded-full bg-canvas">
-          <div className="h-full rounded-full" style={{ width: `${pct}%`, background: color }} />
+    <button
+      type="button"
+      onClick={onOpen}
+      className="flex w-full items-start gap-3 rounded-xl border border-border bg-surface p-4 text-left transition-colors hover:border-accent/40 hover:bg-canvas/40"
+      style={{ borderLeft: `3px solid ${color}` }}
+    >
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline justify-between gap-3">
+          <h3 className="font-display text-base font-semibold text-ink">{project.name}</h3>
+          <span className="shrink-0 text-xs text-muted">
+            {activeCount > 0 ? `${activeCount} active` : "Open"}
+          </span>
         </div>
-        <span className="w-9 shrink-0 text-right text-xs tabular-nums text-faint">{pct}%</span>
+        {project.why && (
+          <p className="mt-1 line-clamp-2 text-sm text-muted">&ldquo;{project.why}&rdquo;</p>
+        )}
+        {linkHint && (
+          <span className="mt-2 inline-flex items-center gap-1 text-xs text-muted">
+            {hasFolder && <FolderIcon className="h-3.5 w-3.5 text-accent" aria-hidden />}
+            {linkHint}
+          </span>
+        )}
       </div>
-
-      {active.length > 0 ? (
-        <div className="mt-3 space-y-2">
-          {active.map((t) => (
-            <TaskCard key={t.id} task={t} onComplete={onComplete} hideProject />
-          ))}
-        </div>
-      ) : (
-        <p className="mt-3 text-sm text-muted">
-          {total > 0 ? "Everything here is done. Nice." : "Nothing queued — open a task and assign it here."}
-        </p>
-      )}
-    </div>
+      <span className="mt-0.5 shrink-0 text-muted" aria-hidden>
+        →
+      </span>
+    </button>
   );
 }

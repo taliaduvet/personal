@@ -3,8 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useTasks } from "@/lib/store";
+import { useSettings } from "@/lib/settings-store";
+import { doPlanSortKey } from "@/lib/do-plan";
 import { LIFE_AREAS } from "@/lib/sample-data";
 import { deadlineLabel, deadlineTasks, isInboxTask, lifeAreaColor, planLabel, projectName } from "@/lib/lenses";
+import { WeekPlanningCard } from "@/components/WeekPlanningCard";
 
 function greetingFor(hour: number): string {
   if (hour < 12) return "Good morning";
@@ -14,6 +17,10 @@ function greetingFor(hour: number): string {
 
 export function DashboardView() {
   const { tasks, completeTask } = useTasks();
+  const { weekStartsOn } = useSettings();
+
+  const sortWhen = (t: (typeof tasks)[number]) =>
+    doPlanSortKey(t.doPlan, weekStartsOn) ?? t.deadlineInDays ?? 99;
 
   // Time-of-day greeting is client-only to avoid SSR/client hydration drift.
   const [now, setNow] = useState<Date | null>(null);
@@ -25,12 +32,8 @@ export function DashboardView() {
     () =>
       active
         .filter((t) => t.inToday)
-        .sort((a, b) => {
-          const ea = a.doDateInDays ?? a.deadlineInDays ?? 99;
-          const eb = b.doDateInDays ?? b.deadlineInDays ?? 99;
-          return ea - eb;
-        }),
-    [active]
+        .sort((a, b) => sortWhen(a) - sortWhen(b)),
+    [active, weekStartsOn]
   );
 
   const deadlines = useMemo(() => deadlineTasks(active), [active]);
@@ -61,6 +64,8 @@ export function DashboardView() {
         </p>
       </header>
 
+      <WeekPlanningCard />
+
       {/* At-a-glance counters */}
       <div className="grid grid-cols-3 gap-3">
         <StatCard href="/today" label="In Today" value={todayTasks.length} accent="text-accent" />
@@ -81,7 +86,7 @@ export function DashboardView() {
             <ul className="mt-3 space-y-1">
               {todayTasks.slice(0, 4).map((t) => {
                 const deadline = deadlineLabel(t.deadlineInDays);
-                const plan = planLabel(t.doDateInDays);
+                const plan = planLabel(t.doPlan, weekStartsOn);
                 return (
                   <li key={t.id} className="flex items-center gap-2.5 py-1">
                     <button

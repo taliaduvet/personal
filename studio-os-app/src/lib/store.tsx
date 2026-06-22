@@ -1,25 +1,30 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import type { SubTask, Task } from "./types";
 import { TASKS, PROJECTS } from "./sample-data";
-import { parseTaskTitle } from "./parse";
+import { isInboxTask } from "./lenses";
+import { normalizeDoPlan } from "./do-plan";
 
-const STORAGE_KEY = "studio-os.tasks.v5";
+const STORAGE_KEY = "studio-os.tasks.v7";
 const REVIEW_KEY = "studio-os.reviews.v1";
 
 export type WeekReviewNotes = { reflection: string; intentions: string };
 
-function normalizeTask(t: Partial<Task> & Pick<Task, "id" | "title">): Task {
+function normalizeTask(
+  t: Partial<Task> & Pick<Task, "id" | "title"> & { doDateInDays?: number | null; parkedAt?: number }
+): Task {
+  const { doDateInDays, doPlan: rawPlan, parkedAt, ...rest } = t;
   return {
     lifeAreaId: "",
     projectId: null,
     workModeId: null,
-    doDateInDays: null,
     deadlineInDays: null,
     status: "todo",
     inToday: false,
-    ...t,
+    ...rest,
+    doPlan: normalizeDoPlan(rawPlan, doDateInDays),
+    parkedAt: parkedAt ?? Date.now(),
     notes: t.notes ?? "",
     subtasks: t.subtasks ?? [],
     completedAtInDays: t.completedAtInDays ?? (t.status === "done" ? 0 : null),
@@ -34,6 +39,8 @@ type TasksContextValue = {
   tasks: Task[];
   /** Capture with smart parse; opens Quick Edit for chip confirmation. Returns new id. */
   addTask: (title: string) => string;
+  /** Blank task — opens Quick Edit in place; lands in Inbox until classified. */
+  createBlankTask: () => string;
   updateTask: (id: string, patch: Partial<Task>) => void;
   deleteTask: (id: string) => void;
   completeTask: (id: string) => void;
@@ -43,6 +50,10 @@ type TasksContextValue = {
   toggleSubtask: (taskId: string, subtaskId: string) => void;
   /** Quick Edit bottom sheet (fast filing). */
   quickEditId: string | null;
+  /** True while capturing a new task — live parse, Enter to confirm. */
+  quickEditCapture: boolean;
+  /** Raw capture text when the sheet opens (New button or Inbox add). */
+  captureDraft: string | null;
   openQuickEdit: (id: string) => void;
   closeQuickEdit: () => void;
   /** Weekly review notes keyed by week start date (YYYY-MM-DD). */
@@ -56,6 +67,10 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
   const [tasks, setTasks] = useState<Task[]>(() => TASKS.map(normalizeTask));
   const [hydrated, setHydrated] = useState(false);
   const [quickEditId, setQuickEditId] = useState<string | null>(null);
+  const [quickEditCapture, setQuickEditCapture] = useState(false);
+  const [captureDraft, setCaptureDraft] = useState<string | null>(null);
+  const quickEditIdRef = useRef<string | null>(null);
+  quickEditIdRef.current = quickEditId;
   const [reviewNotes, setReviewNotes] = useState<Record<string, WeekReviewNotes>>({});
 
   useEffect(() => {
@@ -88,22 +103,37 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
   }, [tasks, reviewNotes, hydrated]);
 
   const addTask = useCallback((title: string) => {
-    const parsed = parseTaskTitle(title);
+    const raw = title.trim();
+    if (!raw) return "";
     const id = newId("t");
     const task = normalizeTask({
       id,
-      title: parsed.title,
-      lifeAreaId: parsed.lifeAreaId,
-      projectId: parsed.projectId,
-      workModeId: parsed.workModeId,
-      doDateInDays: parsed.doDateInDays,
-      deadlineInDays: parsed.deadlineInDays,
+      title: "",
       status: "todo",
       inToday: false,
       notes: "",
       subtasks: [],
     });
     setTasks((ts) => [task, ...ts]);
+    setCaptureDraft(raw);
+    setQuickEditCapture(true);
+    setQuickEditId(id);
+    return id;
+  }, []);
+
+  const createBlankTask = useCallback(() => {
+    const id = newId("t");
+    const task = normalizeTask({
+      id,
+      title: "",
+      status: "todo",
+      inToday: false,
+      notes: "",
+      subtasks: [],
+    });
+    setTasks((ts) => [task, ...ts]);
+    setCaptureDraft("");
+    setQuickEditCapture(true);
     setQuickEditId(id);
     return id;
   }, []);
@@ -112,7 +142,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     setTasks((ts) =>
       ts.map((t) => {
         if (t.id !== id) return t;
-        const next = { ...t, ...patch };
+        const next = normalizeTask({ ...t, ...patch });
         if (patch.status === "done") {
           next.completedAtInDays = next.completedAtInDays ?? 0;
         }
@@ -132,6 +162,8 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
   const deleteTask = useCallback((id: string) => {
     setTasks((ts) => ts.filter((t) => t.id !== id));
     setQuickEditId((cur) => (cur === id ? null : cur));
+    setQuickEditCapture(false);
+    setCaptureDraft(null);
   }, []);
 
   const completeTask = useCallback((id: string) => {
@@ -142,8 +174,25 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     );
   }, []);
 
-  const openQuickEdit = useCallback((id: string) => setQuickEditId(id), []);
-  const closeQuickEdit = useCallback(() => setQuickEditId(null), []);
+  const openQuickEdit = useCallback((id: string) => {
+    setQuickEditCapture(false);
+    setCaptureDraft(null);
+    setQuickEditId(id);
+  }, []);
+  const closeQuickEdit = useCallback(() => {
+    const id = quickEditIdRef.current;
+    setQuickEditId(null);
+    setQuickEditCapture(false);
+    setCaptureDraft(null);
+    if (!id) return;
+    setTasks((ts) => {
+      const t = ts.find((x) => x.id === id);
+      if (t && !t.title.trim() && isInboxTask(t)) {
+        return ts.filter((x) => x.id !== id);
+      }
+      return ts;
+    });
+  }, []);
 
   const sendToToday = useCallback((id: string) => {
     setTasks((ts) => ts.map((t) => (t.id === id ? { ...t, inToday: true } : t)));
@@ -192,6 +241,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       value={{
         tasks,
         addTask,
+        createBlankTask,
         updateTask,
         deleteTask,
         completeTask,
@@ -200,6 +250,8 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
         addSubtask,
         toggleSubtask,
         quickEditId,
+        quickEditCapture,
+        captureDraft,
         openQuickEdit,
         closeQuickEdit,
         reviewNotes,

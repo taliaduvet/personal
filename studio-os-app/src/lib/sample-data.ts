@@ -1,4 +1,6 @@
 import type { LifeArea, Project, WorkMode, Task } from "./types";
+import { normalizeDoPlan, weekPlan } from "./do-plan";
+import { weekKey } from "./week";
 
 /**
  * Stand-in data so the lens model is usable before the live Sheet is wired.
@@ -74,11 +76,29 @@ const TASK_SEED = [
   { id: "t19", title: "Post release announcement", lifeAreaId: "music", projectId: "spring-ep", workModeId: "outreach", doDateInDays: -3, deadlineInDays: null, status: "done", inToday: false, completedAtInDays: -2 },
 ];
 
-export const TASKS: Task[] = TASK_SEED.map(
-  (t) =>
-    ({
-      notes: "",
-      subtasks: [],
-      ...t,
-    }) as Task
-);
+/** Demo spread — some tasks feel freshly parked, others have been sitting. */
+const PARKED_DAYS_AGO: Record<string, number> = {
+  t4: 12,
+  t9: 38,
+  t10: 21,
+  t12: 5,
+  t16: 2,
+  t17: 45,
+};
+
+export const TASKS: Task[] = TASK_SEED.map((raw) => {
+  const t = raw as (typeof raw) & { completedAtInDays?: number | null };
+  const { doDateInDays, ...rest } = t;
+  let doPlan = normalizeDoPlan(undefined, doDateInDays ?? null);
+  if (t.id === "t5") doPlan = weekPlan(weekKey(0, 0));
+  if (t.id === "t3") doPlan = weekPlan(weekKey(0, 1));
+  const daysAgo = PARKED_DAYS_AGO[t.id] ?? 1;
+  return {
+    ...rest,
+    doPlan,
+    parkedAt: Date.now() - daysAgo * 86_400_000,
+    notes: t.notes ?? "",
+    subtasks: t.subtasks ?? [],
+    completedAtInDays: t.completedAtInDays ?? null,
+  } as Task;
+});

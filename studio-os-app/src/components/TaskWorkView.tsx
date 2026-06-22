@@ -3,15 +3,15 @@
 import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTasks } from "@/lib/store";
-import { PROJECTS } from "@/lib/sample-data";
+import { useProjects } from "@/lib/projects-store";
 import { projectWhy } from "@/lib/lenses";
-import { returnFromTaskWork } from "@/lib/navigation";
-import { TaskContextTags } from "@/components/TaskClassify";
+import { returnFromTaskWork, openProjectDetail } from "@/lib/navigation";
+import { TaskClassifyDropdowns } from "@/components/TaskClassify";
 
 export function TaskWorkView({ taskId }: { taskId: string }) {
   const router = useRouter();
   const returnTo = useCallback(() => returnFromTaskWork(router), [router]);
-  const { tasks, updateTask, deleteTask, completeTask, openQuickEdit, addSubtask, toggleSubtask } = useTasks();
+  const { tasks, updateTask, deleteTask, completeTask, addSubtask, toggleSubtask } = useTasks();
   const [newSubtask, setNewSubtask] = useState("");
 
   const task = tasks.find((t) => t.id === taskId);
@@ -31,7 +31,8 @@ export function TaskWorkView({ taskId }: { taskId: string }) {
     );
   }
 
-  const project = task.projectId ? PROJECTS.find((p) => p.id === task.projectId) : null;
+  const { getProject } = useProjects();
+  const project = task.projectId ? getProject(task.projectId) : null;
   const why = projectWhy(task.projectId);
   const done = task.status === "done";
   const doneSubs = task.subtasks.filter((s) => s.done).length;
@@ -71,11 +72,30 @@ export function TaskWorkView({ taskId }: { taskId: string }) {
             <p className="text-xs font-semibold uppercase tracking-wide text-faint">Working toward</p>
             <p className="mt-1 font-display text-base font-semibold text-ink">{project.name}</p>
             {why && <p className="mt-2 text-sm leading-relaxed text-muted">&ldquo;{why}&rdquo;</p>}
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={() => openProjectDetail(router, project.id)}
+                className="text-sm font-medium text-accent hover:text-accent-ink"
+              >
+                Open project →
+              </button>
+              {project.driveFolder && (
+                <a
+                  href={project.driveFolder.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-muted hover:text-ink"
+                >
+                  Open Drive folder
+                </a>
+              )}
+            </div>
           </section>
         )}
 
         <section className="mt-6 space-y-5">
-          <TaskContextTags task={task} onEdit={() => openQuickEdit(task.id)} />
+          <TaskClassifyDropdowns task={task} onChange={(patch) => updateTask(task.id, patch)} />
 
           <button
             type="button"

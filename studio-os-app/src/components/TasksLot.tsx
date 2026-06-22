@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTasks } from "@/lib/store";
+import { useSettings } from "@/lib/settings-store";
 import { openTaskWork } from "@/lib/navigation";
 import type { LensId, Task } from "@/lib/types";
 import {
@@ -25,11 +26,12 @@ const LENSES: { id: LensId; label: string }[] = [
 export function TasksLot() {
   const router = useRouter();
   const { tasks, completeTask, openQuickEdit } = useTasks();
+  const { weekStartsOn } = useSettings();
   const [lens, setLens] = useState<LensId>("area");
   const [query, setQuery] = useState("");
 
-  const groups = useMemo(() => groupTasks(tasks, lens), [tasks, lens]);
-  const results = useMemo(() => searchTasks(tasks, query), [tasks, query]);
+  const groups = useMemo(() => groupTasks(tasks, lens, weekStartsOn), [tasks, lens, weekStartsOn]);
+  const results = useMemo(() => searchTasks(tasks, query, weekStartsOn), [tasks, query, weekStartsOn]);
   const searching = query.trim().length > 0;
   const lotCount = groups.reduce((n, g) => n + g.tasks.length, 0);
 
@@ -152,11 +154,12 @@ function SearchResults({
 }
 
 function StatusBadge({ task, onComplete }: { task: Task; onComplete: (id: string) => void }) {
+  const { weekStartsOn } = useSettings();
   if (task.status === "done") {
     return <span className="shrink-0 rounded-full bg-canvas px-2 py-0.5 text-xs text-muted">Done</span>;
   }
   const deadline = deadlineLabel(task.deadlineInDays);
-  const plan = planLabel(task.doDateInDays);
+  const plan = planLabel(task.doPlan, weekStartsOn);
   const label = task.inToday
     ? "In Today"
     : deadline

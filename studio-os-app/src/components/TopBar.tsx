@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { BrandMark, PlusIcon } from "./icons";
+import { BrandMark } from "./icons";
+import { NewTaskButton } from "./NewTaskButton";
 
 export function TopBar() {
   return (
@@ -13,13 +14,9 @@ export function TopBar() {
 
       <div className="hidden md:block" />
 
-      <Link
-        href="/inbox"
+      <NewTaskButton
         className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-accent-ink"
-      >
-        <PlusIcon className="h-4 w-4" />
-        New
-      </Link>
+      />
     </header>
   );
 }

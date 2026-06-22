@@ -7,6 +7,7 @@ export function rememberReturnPath() {
   if (typeof window === "undefined") return;
   const path = window.location.pathname + window.location.search;
   if (/^\/tasks\/[^/]+$/.test(path)) return;
+  if (/^\/projects\/[^/]+$/.test(path)) return;
   sessionStorage.setItem(RETURN_KEY, path);
 }
 
@@ -28,4 +29,13 @@ export function returnFromTaskWork(router: AppRouterInstance, fallback = "/tasks
   } else {
     router.push(fallback);
   }
+}
+
+export function openProjectDetail(router: AppRouterInstance, projectId: string) {
+  rememberReturnPath();
+  router.push(`/projects/${projectId}`);
+}
+
+export function returnFromProjectDetail(router: AppRouterInstance, fallback = "/projects") {
+  returnFromTaskWork(router, fallback);
 }

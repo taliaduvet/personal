@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import type { Task } from "@/lib/types";
 import { useTasks } from "@/lib/store";
+import { useSettings } from "@/lib/settings-store";
 import { openTaskWork } from "@/lib/navigation";
 import {
   deadlineLabel,
@@ -12,6 +13,7 @@ import {
   projectName,
   workModeName,
 } from "@/lib/lenses";
+import { isStaleParked, parkedLabel } from "@/lib/parked";
 
 export function TaskCard({
   task,
@@ -26,10 +28,13 @@ export function TaskCard({
 }) {
   const router = useRouter();
   const { openQuickEdit } = useTasks();
+  const { weekStartsOn } = useSettings();
   const accent = lifeAreaColor(task.lifeAreaId);
   const done = task.status === "done";
-  const plan = planLabel(task.doDateInDays);
+  const plan = planLabel(task.doPlan, weekStartsOn);
   const deadline = deadlineLabel(task.deadlineInDays);
+  const parked = parkedLabel(task.parkedAt);
+  const stale = !done && isStaleParked(task.parkedAt);
 
   return (
     <div
@@ -78,10 +83,16 @@ export function TaskCard({
             </span>
           )}
           {!hideProject && !task.projectId && <span className="text-faint">No project</span>}
+          <span className={stale ? "text-faint" : "text-muted"}>{parked}</span>
           {task.workModeId && (
             <span className="rounded bg-canvas px-1.5 py-0.5">{workModeName(task.workModeId)}</span>
           )}
           {plan && <span className="text-faint">{plan}</span>}
+          {stale && (
+            <span className="rounded bg-canvas px-1.5 py-0.5 text-faint" title="Consider doing or dropping">
+              stale
+            </span>
+          )}
           {task.status === "in_progress" && <span className="text-accent">In progress</span>}
         </button>
       </div>
