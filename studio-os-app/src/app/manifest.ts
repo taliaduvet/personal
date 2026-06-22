@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Studio OS",
     short_name: "Studio OS",
-    description: "A calm task, goal & calendar system for independent artists.",
+    description: "A calm task, project & calendar system for independent artists.",
     start_url: "/",
     scope: "/",
     display: "standalone",

@@ -1,4 +1,4 @@
-import type { LifeArea, Project, WorkMode, Task, Goal } from "./types";
+import type { LifeArea, Project, WorkMode, Task } from "./types";
 
 /**
  * Stand-in data so the lens model is usable before the live Sheet is wired.
@@ -15,11 +15,11 @@ export const LIFE_AREAS: LifeArea[] = [
 ];
 
 export const PROJECTS: Project[] = [
-  { id: "spring-ep", name: "Spring EP", lifeAreaId: "music" },
-  { id: "fall-tour", name: "Fall Tour", lifeAreaId: "music" },
-  { id: "factor-grant", name: "FACTOR Grant", lifeAreaId: "music" },
-  { id: "day-job", name: "Day Job", lifeAreaId: "income" },
-  { id: "apartment", name: "Cheaper apartment", lifeAreaId: "home" },
+  { id: "spring-ep", name: "Spring EP", lifeAreaId: "music", why: "Put the body of work I'm proudest of into the world." },
+  { id: "fall-tour", name: "Fall Tour", lifeAreaId: "music", why: "Play these songs live and meet the people who listen." },
+  { id: "factor-grant", name: "FACTOR Grant", lifeAreaId: "music", why: "Fund the next record without going into debt." },
+  { id: "day-job", name: "Day Job", lifeAreaId: "income", why: "Keep the lights on so the music doesn't have to pay rent yet." },
+  { id: "apartment", name: "Cheaper apartment", lifeAreaId: "home", why: "Lower my overhead so I can take more creative risks." },
 ];
 
 export const WORK_MODES: WorkMode[] = [
@@ -29,18 +29,8 @@ export const WORK_MODES: WorkMode[] = [
   { id: "errands", name: "Errands" },
 ];
 
-// Goals auto-count progress from the tasks in their scope (a project, or the
-// whole life area when projectId is null).
-export const GOALS: Goal[] = [
-  { id: "g1", name: "Release the Spring EP", lifeAreaId: "music", projectId: "spring-ep", targetInDays: 30 },
-  { id: "g2", name: "Win the FACTOR grant", lifeAreaId: "music", projectId: "factor-grant", targetInDays: 14 },
-  { id: "g3", name: "Book the fall tour", lifeAreaId: "music", projectId: "fall-tour", targetInDays: 60 },
-  { id: "g4", name: "Build a 3-month runway", lifeAreaId: "income", projectId: null, targetInDays: 90 },
-  { id: "g5", name: "Feel good in my body", lifeAreaId: "health", projectId: null, targetInDays: null },
-];
-
 // Most tasks carry only a soft doing date. Hard deadlines are rare and external.
-export const TASKS: Task[] = [
+const TASK_SEED = [
   // Music · Spring EP
   { id: "t1", title: "Master 'Lowlight' (final mix)", lifeAreaId: "music", projectId: "spring-ep", workModeId: "creative", doDateInDays: 2, deadlineInDays: null, status: "in_progress", inToday: true },
   { id: "t2", title: "Approve single artwork", lifeAreaId: "music", projectId: "spring-ep", workModeId: "creative", doDateInDays: 5, deadlineInDays: null, status: "todo", inToday: false },
@@ -51,7 +41,11 @@ export const TASKS: Task[] = [
   { id: "t5", title: "Draft tour budget", lifeAreaId: "music", projectId: "fall-tour", workModeId: "admin", doDateInDays: 4, deadlineInDays: null, status: "todo", inToday: false },
 
   // Music · FACTOR Grant (real external deadline)
-  { id: "t6", title: "Finish grant narrative", lifeAreaId: "music", projectId: "factor-grant", workModeId: "creative", doDateInDays: 0, deadlineInDays: 1, status: "in_progress", inToday: true },
+  { id: "t6", title: "Finish grant narrative", lifeAreaId: "music", projectId: "factor-grant", workModeId: "creative", doDateInDays: 0, deadlineInDays: 1, status: "in_progress", inToday: true, notes: "Need to mention the community workshop series and touring plan. Budget section is mostly done.", subtasks: [
+    { id: "s1", title: "Draft opening paragraph", done: true },
+    { id: "s2", title: "Write budget justification", done: false },
+    { id: "s3", title: "Get a second pair of eyes on it", done: false },
+  ] },
   { id: "t7", title: "Gather expense receipts", lifeAreaId: "music", projectId: "factor-grant", workModeId: "admin", doDateInDays: 6, deadlineInDays: null, status: "todo", inToday: false },
 
   // Income · Day Job (external deadline)
@@ -79,3 +73,12 @@ export const TASKS: Task[] = [
   { id: "t18", title: "Pay June rent", lifeAreaId: "home", projectId: null, workModeId: "admin", doDateInDays: null, deadlineInDays: -5, status: "done", inToday: false },
   { id: "t19", title: "Post release announcement", lifeAreaId: "music", projectId: "spring-ep", workModeId: "outreach", doDateInDays: -3, deadlineInDays: null, status: "done", inToday: false },
 ];
+
+export const TASKS: Task[] = TASK_SEED.map(
+  (t) =>
+    ({
+      notes: "",
+      subtasks: [],
+      ...t,
+    }) as Task
+);

@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import type { Task } from "@/lib/types";
 import { useTasks } from "@/lib/store";
 import {
@@ -22,7 +23,8 @@ export function TaskCard({
   hideArea?: boolean;
   hideProject?: boolean;
 }) {
-  const { openTask } = useTasks();
+  const router = useRouter();
+  const { openQuickEdit } = useTasks();
   const accent = lifeAreaColor(task.lifeAreaId);
   const done = task.status === "done";
   const plan = planLabel(task.doDateInDays);
@@ -48,30 +50,40 @@ export function TaskCard({
         />
       )}
 
-      <button
-        type="button"
-        onClick={() => openTask(task.id)}
-        className="min-w-0 flex-1 text-left"
-        aria-label={`Open ${task.title}`}
-      >
-        <p className={["text-sm", done ? "text-faint line-through" : "text-ink"].join(" ")}>
-          {task.title}
-        </p>
-        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
+      <div className="min-w-0 flex-1">
+        <button
+          type="button"
+          onClick={() => router.push(`/tasks/${task.id}`)}
+          className="w-full text-left"
+          aria-label={`Work on ${task.title}`}
+        >
+          <p className={["text-sm", done ? "text-faint line-through" : "text-ink"].join(" ")}>
+            {task.title}
+          </p>
+        </button>
+        <button
+          type="button"
+          onClick={() => openQuickEdit(task.id)}
+          className="mt-1 flex w-full flex-wrap items-center gap-x-2 gap-y-1 text-left text-xs text-muted hover:text-ink"
+          aria-label={`Quick edit ${task.title}`}
+        >
+          {!hideProject && task.projectId && (
+            <span className="font-medium text-accent">→ {projectName(task.projectId)}</span>
+          )}
           {!hideArea && (
             <span className="inline-flex items-center gap-1">
               <span className="h-1.5 w-1.5 rounded-full" style={{ background: accent }} />
               {lifeAreaName(task.lifeAreaId)}
             </span>
           )}
-          {!hideProject && <span>{projectName(task.projectId)}</span>}
+          {!hideProject && !task.projectId && <span className="text-faint">No project</span>}
           {task.workModeId && (
             <span className="rounded bg-canvas px-1.5 py-0.5">{workModeName(task.workModeId)}</span>
           )}
           {plan && <span className="text-faint">{plan}</span>}
           {task.status === "in_progress" && <span className="text-accent">In progress</span>}
-        </div>
-      </button>
+        </button>
+      </div>
 
       {deadline && (
         <span

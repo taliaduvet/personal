@@ -23,7 +23,7 @@ export function ProjectsView() {
         <h1 className="font-display text-2xl font-semibold tracking-tight text-ink">Projects</h1>
         <span className="text-sm text-muted">{PROJECTS.length} initiatives</span>
       </div>
-      <p className="mt-1 text-muted">The specific efforts inside each life area. Progress counts itself.</p>
+      <p className="mt-1 text-muted">Initiatives inside each life area — the &ldquo;why&rdquo; lives here, progress counts itself.</p>
 
       {areas.map(({ area, projects }) => (
         <div key={area.id} className="mt-7">
@@ -68,7 +68,11 @@ function ProjectCard({
         </span>
       </div>
 
-      <div className="mt-2 flex items-center gap-3">
+      {project.why && (
+        <p className="mt-1 text-sm italic text-muted">&ldquo;{project.why}&rdquo;</p>
+      )}
+
+      <div className="mt-3 flex items-center gap-3">
         <div className="h-2 flex-1 overflow-hidden rounded-full bg-canvas">
           <div className="h-full rounded-full" style={{ width: `${pct}%`, background: color }} />
         </div>

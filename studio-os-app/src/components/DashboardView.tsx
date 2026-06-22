@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useTasks } from "@/lib/store";
 import { LIFE_AREAS } from "@/lib/sample-data";
-import { deadlineLabel, isInboxTask, lifeAreaColor, planLabel } from "@/lib/lenses";
+import { deadlineLabel, deadlineTasks, isInboxTask, lifeAreaColor, planLabel, projectName } from "@/lib/lenses";
 
 function greetingFor(hour: number): string {
   if (hour < 12) return "Good morning";
@@ -33,13 +33,7 @@ export function DashboardView() {
     [active]
   );
 
-  const deadlines = useMemo(
-    () =>
-      active
-        .filter((t) => t.deadlineInDays !== null)
-        .sort((a, b) => (a.deadlineInDays ?? 0) - (b.deadlineInDays ?? 0)),
-    [active]
-  );
+  const deadlines = useMemo(() => deadlineTasks(active), [active]);
 
   const inboxCount = useMemo(() => tasks.filter(isInboxTask).length, [tasks]);
 
@@ -71,7 +65,7 @@ export function DashboardView() {
       <div className="grid grid-cols-3 gap-3">
         <StatCard href="/today" label="In Today" value={todayTasks.length} accent="text-accent" />
         <StatCard
-          href="/tasks"
+          href="/deadlines"
           label="Deadlines"
           value={deadlines.length}
           accent={deadlines.length > 0 ? "text-danger" : "text-muted"}
@@ -119,7 +113,7 @@ export function DashboardView() {
 
         {/* Deadline radar — the only pressure surface */}
         <Card>
-          <CardHead title="Deadline radar" href="/tasks" cta="See all" />
+          <CardHead title="Deadline radar" href="/deadlines" cta="Horizon" />
           {deadlines.length > 0 ? (
             <ul className="mt-3 space-y-1">
               {deadlines.slice(0, 4).map((t) => {
@@ -128,6 +122,11 @@ export function DashboardView() {
                   <li key={t.id} className="flex items-center gap-2.5 py-1">
                     <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: lifeAreaColor(t.lifeAreaId) }} />
                     <span className="min-w-0 flex-1 truncate text-sm text-ink">{t.title}</span>
+                    {t.projectId && (
+                      <span className="hidden shrink-0 truncate text-xs text-faint sm:inline">
+                        → {projectName(t.projectId)}
+                      </span>
+                    )}
                     {deadline && (
                       <span className={["shrink-0 text-xs font-medium", deadline.tone === "danger" ? "text-danger" : "text-muted"].join(" ")}>
                         {deadline.text}

@@ -1,7 +1,7 @@
 # Studio OS — App (Stage 2)
 
 The mobile-first PWA companion to the Studio OS Google Sheet. A calm home for an
-independent artist's tasks, goals, projects, and weekly review — installable on a
+independent artist's tasks, projects, and weekly review — installable on a
 phone home screen, no app store required.
 
 - **Stack:** Next.js 16 (App Router, Turbopack) · React 19 · TypeScript · Tailwind v4
@@ -12,15 +12,42 @@ phone home screen, no app store required.
 
 ## Milestone status
 
-**M0 — Foundations ✅ (this milestone)**
+**M0 — Foundations ✅**
 
 - Soft Desk design system (tokens, Space Grotesk + Inter, category palette)
 - Installable PWA (web manifest, service worker, icons, theme color)
 - Responsive app shell — desktop sidebar + phone bottom tab bar
-- All screens stubbed and navigable: Dashboard, Today, Tasks, Inbox, Projects, Goals, Weekly Review, Settings
 - Supabase Google sign-in scaffolding + route protection (active once keys are added)
 
-Next: **M1** wires the live Sheet (read tasks) into the Dashboard and Tasks screens.
+**M1 — Core loop prototype ✅ (local sample data)**
+
+- Shared task store (persists in browser via localStorage)
+- **Dashboard** — greeting, Today count, deadline radar, inbox nudge, life-balance bars
+- **Today** — curated daily focus list
+- **Tasks (Lot)** — 4 lenses, column board, global search
+- **Inbox** — capture + smart title parsing → Quick Edit confirmation
+- **Quick Edit** — slim Classify sheet (project · doing · deadline · mode · Today)
+- **Work View** — full page at `/tasks/[id]` (why, context, sub-tasks, notes)
+- **Projects** — by life area, project why, auto progress
+- **Horizon** — hard-deadline timeline at `/deadlines`
+
+**Still stubs:** Weekly Review, Settings
+
+**Next:** Weekly Review (needs completion timestamps) → Settings → Horizon calendar toggle → Supabase wiring
+
+See the blueprint canvas **Overview** tab for the live screen map and locked decisions.
+
+---
+
+## Data model (prototype)
+
+```
+Life area  →  Project (with why)  →  Task (notes, sub-tasks)
+Work mode  →  optional tag / lens
+Quick Edit = fast filing  ·  Work View = deep work
+```
+
+Goals are not a separate entity — the project's **why** carries the north star.
 
 ---
 
@@ -59,9 +86,12 @@ src/
     (app)/                authenticated shell + screens
       layout.tsx          sidebar + top bar + bottom nav
       page.tsx            Dashboard
-      today/ tasks/ inbox/ projects/ goals/ weekly-review/ settings/
-  components/             Sidebar, BottomNav, TopBar, icons, ScreenStub, nav config
-  lib/supabase/           browser/server clients, env guard, session refresh
+      today/ tasks/ inbox/ projects/ deadlines/ weekly-review/ settings/
+      tasks/[id]/         Task Work View (full page)
+  components/             TaskCard, TaskDetailSheet (Quick Edit), TaskWorkView, TasksLot, …
+  lib/store.tsx           shared task store
+  lib/parse.ts            smart title parsing on capture
+  lib/lenses.ts           lens grouping + inbox logic
   proxy.ts                session refresh + private-route protection (Next 16 proxy)
 public/
   sw.js                   minimal service worker (installability + offline shell)

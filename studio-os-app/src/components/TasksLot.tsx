@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useTasks } from "@/lib/store";
 import type { LensId, Task } from "@/lib/types";
 import {
@@ -17,11 +18,12 @@ const LENSES: { id: LensId; label: string }[] = [
   { id: "area", label: "Life Area" },
   { id: "project", label: "Project" },
   { id: "when", label: "When" },
-  { id: "mode", label: "Mode" },
+  { id: "mode", label: "Mode · optional" },
 ];
 
 export function TasksLot() {
-  const { tasks, completeTask, openTask } = useTasks();
+  const router = useRouter();
+  const { tasks, completeTask, openQuickEdit } = useTasks();
   const [lens, setLens] = useState<LensId>("area");
   const [query, setQuery] = useState("");
 
@@ -48,7 +50,7 @@ export function TasksLot() {
       />
 
       {searching ? (
-        <SearchResults results={results} onComplete={complete} onOpen={openTask} />
+        <SearchResults results={results} onComplete={complete} onOpenWork={(id) => router.push(`/tasks/${id}`)} onQuickEdit={openQuickEdit} />
       ) : (
         <>
           <div className="mt-4 inline-flex rounded-lg border border-border bg-surface p-0.5">
@@ -107,11 +109,13 @@ export function TasksLot() {
 function SearchResults({
   results,
   onComplete,
-  onOpen,
+  onOpenWork,
+  onQuickEdit,
 }: {
   results: Task[];
   onComplete: (id: string) => void;
-  onOpen: (id: string) => void;
+  onOpenWork: (id: string) => void;
+  onQuickEdit: (id: string) => void;
 }) {
   if (results.length === 0) {
     return (
@@ -128,14 +132,16 @@ function SearchResults({
       <div className="space-y-2">
         {results.map((t) => (
           <div key={t.id} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface px-3 py-2.5">
-            <button type="button" onClick={() => onOpen(t.id)} className="min-w-0 flex-1 text-left">
-              <p className={["text-sm", t.status === "done" ? "text-faint line-through" : "text-ink"].join(" ")}>
-                {t.title}
-              </p>
-              <p className="mt-0.5 truncate text-xs text-muted">
-                {lifeAreaName(t.lifeAreaId)} · {projectName(t.projectId)}
-              </p>
-            </button>
+            <div className="min-w-0 flex-1">
+              <button type="button" onClick={() => onOpenWork(t.id)} className="block w-full text-left">
+                <p className={["text-sm", t.status === "done" ? "text-faint line-through" : "text-ink"].join(" ")}>
+                  {t.title}
+                </p>
+              </button>
+              <button type="button" onClick={() => onQuickEdit(t.id)} className="mt-0.5 truncate text-xs text-muted hover:text-accent">
+                {lifeAreaName(t.lifeAreaId)} · {projectName(t.projectId)} · classify
+              </button>
+            </div>
             <StatusBadge task={t} onComplete={onComplete} />
           </div>
         ))}

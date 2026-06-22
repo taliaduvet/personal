@@ -16,6 +16,9 @@ export function lifeAreaColor(id: string): string {
 export function projectName(id: string | null): string {
   return id ? projectById[id]?.name ?? id : "No project";
 }
+export function projectWhy(id: string | null): string | null {
+  return id ? projectById[id]?.why ?? null : null;
+}
 export function workModeName(id: string | null): string {
   return id ? modeById[id]?.name ?? id : "No mode";
 }
@@ -111,6 +114,33 @@ export function isInboxTask(task: Task): boolean {
     task.doDateInDays === null &&
     task.deadlineInDays === null
   );
+}
+
+/** Active tasks with a hard external deadline, soonest first. */
+export function deadlineTasks(tasks: Task[]): Task[] {
+  return tasks
+    .filter((t) => t.status !== "done" && t.deadlineInDays !== null)
+    .sort((a, b) => (a.deadlineInDays ?? 0) - (b.deadlineInDays ?? 0));
+}
+
+/** Bucket hard deadlines for the Horizon view — separate from the soft When lens. */
+export function groupDeadlines(tasks: Task[]): TaskGroup[] {
+  const items = deadlineTasks(tasks);
+  const buckets: { key: string; label: string; test: (d: number) => boolean }[] = [
+    { key: "today", label: "Today", test: (d) => d <= 0 },
+    { key: "week", label: "This week", test: (d) => d >= 1 && d <= 7 },
+    { key: "month", label: "This month", test: (d) => d >= 8 && d <= 30 },
+    { key: "later", label: "Later", test: (d) => d > 30 },
+  ];
+  return buckets
+    .map((b) =>
+      buildGroup(
+        b.key,
+        b.label,
+        items.filter((t) => b.test(t.deadlineInDays!))
+      )
+    )
+    .filter((g) => g.tasks.length > 0);
 }
 
 /** Global search spans EVERYTHING — active, in-Today, and done. */

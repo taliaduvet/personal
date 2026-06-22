@@ -17,7 +17,7 @@ const sans = Inter({
 
 export const metadata: Metadata = {
   title: "Studio OS",
-  description: "A calm task, goal & calendar system for independent artists.",
+  description: "A calm task, project & calendar system for independent artists.",
   applicationName: "Studio OS",
   manifest: "/manifest.webmanifest",
   appleWebApp: { capable: true, statusBarStyle: "default", title: "Studio OS" },

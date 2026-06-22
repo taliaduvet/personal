@@ -1,17 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useTasks } from "@/lib/store";
-import { isInboxTask, lifeAreaName, workModeName } from "@/lib/lenses";
+import { isInboxTask } from "@/lib/lenses";
 
 export function InboxView() {
-  const { tasks, addTask, completeTask, sendToToday, openTask } = useTasks();
+  const router = useRouter();
+  const { tasks, addTask, completeTask, sendToToday, openQuickEdit } = useTasks();
   const [text, setText] = useState("");
   const [flash, setFlash] = useState(false);
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // The triage pile: captures that haven't been filed into an area, project,
-  // or day yet. Sorting one anywhere removes it from here.
   const items = useMemo(() => tasks.filter(isInboxTask), [tasks]);
 
   useEffect(
@@ -24,7 +24,7 @@ export function InboxView() {
   const capture = () => {
     const v = text.trim();
     if (!v) return;
-    addTask(v);
+    addTask(v); // parses title + opens Quick Edit for chip confirmation
     setText("");
     setFlash(true);
     if (flashTimer.current) clearTimeout(flashTimer.current);
@@ -35,7 +35,7 @@ export function InboxView() {
     <section className="mx-auto max-w-2xl">
       <h1 className="font-display text-2xl font-semibold tracking-tight text-ink">Inbox</h1>
       <p className="mt-1 text-muted">
-        Dump it here now — sort it into a life area, project, or day whenever. Capture beats structure.
+        Type naturally — try &ldquo;Email venues tomorrow&rdquo; or &ldquo;FACTOR grant due Friday&rdquo;. We&apos;ll suggest tags to confirm.
       </p>
 
       <form
@@ -67,7 +67,7 @@ export function InboxView() {
             <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
               <path d="m5 13 4 4L19 7" />
             </svg>
-            Captured — it&apos;s safe in your Inbox.
+            Captured — confirm the suggested tags, or just close.
           </span>
         )}
       </div>
@@ -85,20 +85,22 @@ export function InboxView() {
                 aria-label="Mark done"
                 className="h-4 w-4 shrink-0 rounded-full border-2 border-faint transition-colors hover:border-accent"
               />
-              <button
-                type="button"
-                onClick={() => openTask(it.id)}
-                className="min-w-0 flex-1 text-left"
-                aria-label={`Open ${it.title}`}
-              >
-                <p className="truncate text-sm text-ink">{it.title}</p>
-                <p className="mt-0.5 text-xs text-faint">{lifeAreaName(it.lifeAreaId)} · tap to sort</p>
-              </button>
-              {it.workModeId && (
-                <span className="shrink-0 rounded bg-canvas px-1.5 py-0.5 text-xs text-muted">
-                  {workModeName(it.workModeId)}
-                </span>
-              )}
+              <div className="min-w-0 flex-1">
+                <button
+                  type="button"
+                  onClick={() => router.push(`/tasks/${it.id}`)}
+                  className="block w-full truncate text-left text-sm text-ink"
+                >
+                  {it.title}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => openQuickEdit(it.id)}
+                  className="mt-0.5 text-xs text-faint hover:text-accent"
+                >
+                  tap to classify →
+                </button>
+              </div>
               <button
                 type="button"
                 onClick={() => sendToToday(it.id)}

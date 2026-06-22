@@ -34,7 +34,7 @@ export default function LoginPage() {
         </span>
         <h1 className="font-display text-2xl font-semibold tracking-tight text-ink">Studio OS</h1>
         <p className="mt-2 text-sm text-muted">
-          A calm home for your tasks, goals, and deadlines.
+          A calm home for your tasks, projects, and deadlines.
         </p>
 
         {hasSupabaseEnv ? (
