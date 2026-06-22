@@ -70,7 +70,7 @@ export function TaskCard({
         <button
           type="button"
           onClick={() => openQuickEdit(task.id)}
-          className="mt-1 flex w-full flex-wrap items-center gap-x-2 gap-y-1 text-left text-xs text-muted hover:text-ink"
+          className="mt-1 flex w-full flex-wrap items-center gap-x-2 gap-y-0.5 text-left text-xs text-muted hover:text-ink"
           aria-label={`Quick edit ${task.title}`}
         >
           {!hideProject && task.projectId && (
@@ -83,6 +83,18 @@ export function TaskCard({
             </span>
           )}
           {!hideProject && !task.projectId && <span className="text-faint">No project</span>}
+          {deadline && (
+            <span
+              className={[
+                "rounded px-1.5 py-0.5 font-medium",
+                deadline.tone === "danger"
+                  ? "bg-danger/10 text-danger"
+                  : "bg-canvas text-muted",
+              ].join(" ")}
+            >
+              {deadline.text}
+            </span>
+          )}
           <span className={stale ? "text-faint" : "text-muted"}>{parked}</span>
           {task.workModeId && (
             <span className="rounded bg-canvas px-1.5 py-0.5">{workModeName(task.workModeId)}</span>
@@ -96,20 +108,6 @@ export function TaskCard({
           {task.status === "in_progress" && <span className="text-accent">In progress</span>}
         </button>
       </div>
-
-      {deadline && (
-        <span
-          className={[
-            "inline-flex shrink-0 items-center gap-1 text-xs font-medium",
-            deadline.tone === "danger" ? "text-danger" : "text-muted",
-          ].join(" ")}
-        >
-          <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-            <path d="M4 4v16M4 4h12l-2 4 2 4H4" />
-          </svg>
-          {deadline.text}
-        </span>
-      )}
     </div>
   );
 }

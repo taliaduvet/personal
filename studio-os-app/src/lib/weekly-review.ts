@@ -2,7 +2,8 @@ import type { Task } from "./types";
 import type { WeekStartDay } from "./week";
 import { isDayInWeek, weekRange } from "./week";
 import { doPlanSortKey } from "./do-plan";
-import { LIFE_AREAS, PROJECTS } from "./sample-data";
+import { getActiveLifeAreas } from "./life-area-registry";
+import { getActiveProjects } from "./project-registry";
 import { lifeAreaName, projectName } from "./lenses";
 
 export { weekRange, weekKey } from "./week";
@@ -53,7 +54,7 @@ export type AreaBalance = {
 export function lifeBalanceWeek(tasks: Task[], weekStartsOn: WeekStartDay, weekOffset = 0): AreaBalance[] {
   const shipped = shippedThisWeek(tasks, weekStartsOn, weekOffset);
   const active = tasks.filter((t) => t.status !== "done");
-  return LIFE_AREAS.map((a) => ({
+  return getActiveLifeAreas().map((a) => ({
     id: a.id,
     name: a.name,
     color: a.color,
@@ -73,9 +74,9 @@ export type ProjectWeekProgress = {
 
 export function projectProgressWeek(tasks: Task[], weekStartsOn: WeekStartDay, weekOffset = 0): ProjectWeekProgress[] {
   const shipped = shippedThisWeek(tasks, weekStartsOn, weekOffset);
-  return PROJECTS.map((p) => {
+  return getActiveProjects().map((p) => {
     const mine = tasks.filter((t) => t.projectId === p.id);
-    const area = LIFE_AREAS.find((a) => a.id === p.lifeAreaId);
+    const area = getActiveLifeAreas().find((a) => a.id === p.lifeAreaId);
     return {
       id: p.id,
       name: p.name,

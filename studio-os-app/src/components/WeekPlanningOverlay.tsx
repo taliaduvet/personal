@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTasks } from "@/lib/store";
 import { useSettings } from "@/lib/settings-store";
-import { PROJECTS, WORK_MODES } from "@/lib/sample-data";
+import { WORK_MODES } from "@/lib/sample-data";
+import { useProjects } from "@/lib/projects-store";
 import { lifeAreaColor } from "@/lib/lenses";
 import { weekRange } from "@/lib/week";
 import { carriedForPlanning } from "@/lib/week-planning";
@@ -350,6 +351,7 @@ function ReferenceBoard({
   tasks: Task[];
   tab: "mode" | "project";
 }) {
+  const { projects } = useProjects();
   const active = tasks.filter((t) => t.status !== "done");
 
   if (tab === "mode") {
@@ -375,7 +377,7 @@ function ReferenceBoard({
 
   return (
     <div className="mt-3 space-y-3">
-      {PROJECTS.map((proj) => {
+      {projects.map((proj) => {
         const items = active.filter((t) => t.projectId === proj.id);
         if (items.length === 0) return null;
         return (

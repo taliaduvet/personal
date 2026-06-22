@@ -2,70 +2,69 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useGoogleAccessToken } from "@/lib/google/use-google-access-token";
+import { subscribeGoogleAuthChange } from "@/lib/google/oauth-callback";
 import {
   connectCalendarDirect,
   disconnectCalendarDirect,
   getCalendarAccessToken,
-  isCalendarDirectConnected,
+  isCalendarOptOut,
   refreshCalendarDirectSilent,
 } from "@/lib/google/calendar-auth";
+import { isGoogleUnifiedConnected } from "@/lib/google/google-unified-auth";
 
-/** Calendar token: direct GIS connect first, then Supabase provider_token fallback. */
+/** Calendar token + connect/disconnect — single hook so UI stays in sync. */
 export function useCalendarAccessToken(): {
   token: string | null;
   directConnected: boolean;
+  optedOut: boolean;
+  connect: (clientId?: string) => Promise<void>;
+  disconnect: () => void;
   refresh: () => void;
 } {
   const supabaseToken = useGoogleAccessToken();
-  const [directToken, setDirectToken] = useState<string | null>(null);
-  const [tick, setTick] = useState(0);
+  const [rev, setRev] = useState(0);
 
-  const refresh = useCallback(() => setTick((t) => t + 1), []);
+  useEffect(() => subscribeGoogleAuthChange(() => setRev((v) => v + 1)), []);
+
+  const refresh = useCallback(() => setRev((v) => v + 1), []);
 
   useEffect(() => {
     let cancelled = false;
-
-    async function load() {
+    (async () => {
+      if (isCalendarOptOut()) return;
       const existing = getCalendarAccessToken();
-      if (existing) {
-        if (!cancelled) setDirectToken(existing);
-        return;
-      }
-      if (isCalendarDirectConnected()) {
-        const refreshed = await refreshCalendarDirectSilent();
-        if (!cancelled) setDirectToken(refreshed);
-      } else if (!cancelled) {
-        setDirectToken(null);
-      }
-    }
-
-    load();
+      if (existing || cancelled) return;
+      await refreshCalendarDirectSilent();
+      if (!cancelled) setRev((v) => v + 1);
+    })();
     return () => {
       cancelled = true;
     };
-  }, [tick]);
+  }, [rev]);
 
-  const token = directToken ?? supabaseToken;
+  void rev;
 
-  return {
-    token,
-    directConnected: Boolean(directToken),
-    refresh,
-  };
-}
-
-export function useCalendarConnectActions() {
-  const { refresh } = useCalendarAccessToken();
+  const optedOut = isCalendarOptOut();
+  const directToken = getCalendarAccessToken();
+  const token = optedOut ? directToken : (directToken ?? supabaseToken);
+  const directConnected = Boolean(directToken) && !optedOut;
+  const unifiedConnected = isGoogleUnifiedConnected();
 
   const connect = useCallback(async (clientId?: string) => {
     await connectCalendarDirect(clientId);
-    refresh();
-  }, [refresh]);
+    setRev((v) => v + 1);
+  }, []);
 
   const disconnect = useCallback(() => {
     disconnectCalendarDirect();
-    refresh();
-  }, [refresh]);
+    setRev((v) => v + 1);
+  }, []);
 
+  return { token, directConnected: directConnected || unifiedConnected, optedOut, connect, disconnect, refresh };
+}
+
+/** @deprecated Use useCalendarAccessToken — connect/disconnect are on the same hook now. */
+export function useCalendarConnectActions() {
+  const { connect, disconnect, refresh } = useCalendarAccessToken();
   return { connect, disconnect, refresh };
 }

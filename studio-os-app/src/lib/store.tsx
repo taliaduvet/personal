@@ -2,9 +2,18 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import type { SubTask, Task } from "./types";
-import { TASKS, PROJECTS } from "./sample-data";
+import { TASKS } from "./sample-data";
 import { isInboxTask } from "./lenses";
 import { normalizeDoPlan } from "./do-plan";
+import { useProjects } from "./projects-store";
+import {
+  createTaskId,
+  queueSheetTaskDelete,
+  queueSheetTaskUpsert,
+  patchTouchesSheet,
+  patchTouchesAppData,
+} from "./sheet/push-registry";
+import { queueAppDataTaskUpsert } from "./sheet/app-data-notify";
 
 const STORAGE_KEY = "studio-os.tasks.v7";
 const REVIEW_KEY = "studio-os.reviews.v1";
@@ -32,7 +41,27 @@ function normalizeTask(
 }
 
 function newId(prefix: string): string {
+  if (prefix === "t") return createTaskId();
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+function applyTaskPatch(
+  t: Task,
+  patch: Partial<Task>,
+  projects: { id: string; lifeAreaId: string }[]
+): Task {
+  const next = normalizeTask({ ...t, ...patch });
+  if (patch.status === "done") {
+    next.completedAtInDays = next.completedAtInDays ?? 0;
+  }
+  if (patch.status === "todo" || patch.status === "in_progress") {
+    if (t.status === "done") next.completedAtInDays = null;
+  }
+  if (patch.projectId !== undefined && patch.projectId !== null) {
+    const p = projects.find((x) => x.id === patch.projectId);
+    if (p) next.lifeAreaId = p.lifeAreaId;
+  }
+  return next;
 }
 
 type TasksContextValue = {
@@ -59,11 +88,16 @@ type TasksContextValue = {
   /** Weekly review notes keyed by week start date (YYYY-MM-DD). */
   reviewNotes: Record<string, WeekReviewNotes>;
   saveReviewNotes: (weekKey: string, patch: Partial<WeekReviewNotes>) => void;
+  /** Replace tasks from a Sheet pull — preserves app-local inToday + subtasks. */
+  replaceTasksFromSheet: (incoming: Task[]) => void;
+  /** After a sheet append assigns a stable UUID to a new task. */
+  replaceTaskId: (oldId: string, newId: string, task: Task) => void;
 };
 
 const TasksContext = createContext<TasksContextValue | null>(null);
 
 export function TasksProvider({ children }: { children: React.ReactNode }) {
+  const { projects } = useProjects();
   const [tasks, setTasks] = useState<Task[]>(() => TASKS.map(normalizeTask));
   const [hydrated, setHydrated] = useState(false);
   const [quickEditId, setQuickEditId] = useState<string | null>(null);
@@ -71,6 +105,8 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
   const [captureDraft, setCaptureDraft] = useState<string | null>(null);
   const quickEditIdRef = useRef<string | null>(null);
   quickEditIdRef.current = quickEditId;
+  const tasksRef = useRef(tasks);
+  tasksRef.current = tasks;
   const [reviewNotes, setReviewNotes] = useState<Record<string, WeekReviewNotes>>({});
 
   useEffect(() => {
@@ -139,39 +175,29 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const updateTask = useCallback((id: string, patch: Partial<Task>) => {
-    setTasks((ts) =>
-      ts.map((t) => {
-        if (t.id !== id) return t;
-        const next = normalizeTask({ ...t, ...patch });
-        if (patch.status === "done") {
-          next.completedAtInDays = next.completedAtInDays ?? 0;
-        }
-        if (patch.status === "todo" || patch.status === "in_progress") {
-          if (t.status === "done") next.completedAtInDays = null;
-        }
-        // Project always sets life area
-        if (patch.projectId !== undefined && patch.projectId !== null) {
-          const p = PROJECTS.find((x) => x.id === patch.projectId);
-          if (p) next.lifeAreaId = p.lifeAreaId;
-        }
-        return next;
-      })
-    );
-  }, []);
+    const current = tasksRef.current.find((t) => t.id === id);
+    if (!current) return;
+    const next = applyTaskPatch(current, patch, projects);
+    setTasks((ts) => ts.map((t) => (t.id === id ? next : t)));
+    if (patchTouchesSheet(patch)) queueSheetTaskUpsert(next);
+    if (patchTouchesAppData(patch)) queueAppDataTaskUpsert(next);
+  }, [projects]);
 
   const deleteTask = useCallback((id: string) => {
     setTasks((ts) => ts.filter((t) => t.id !== id));
+    queueSheetTaskDelete(id);
     setQuickEditId((cur) => (cur === id ? null : cur));
     setQuickEditCapture(false);
     setCaptureDraft(null);
   }, []);
 
   const completeTask = useCallback((id: string) => {
-    setTasks((ts) =>
-      ts.map((t) =>
-        t.id === id ? { ...t, status: "done", completedAtInDays: 0, inToday: false } : t
-      )
-    );
+    const current = tasksRef.current.find((t) => t.id === id);
+    if (!current) return;
+    const next: Task = { ...current, status: "done", completedAtInDays: 0, inToday: false };
+    setTasks((ts) => ts.map((t) => (t.id === id ? next : t)));
+    queueSheetTaskUpsert(next);
+    queueAppDataTaskUpsert(next);
   }, []);
 
   const openQuickEdit = useCallback((id: string) => {
@@ -195,35 +221,43 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const sendToToday = useCallback((id: string) => {
-    setTasks((ts) => ts.map((t) => (t.id === id ? { ...t, inToday: true } : t)));
+    const current = tasksRef.current.find((t) => t.id === id);
+    if (!current) return;
+    const next = { ...current, inToday: true };
+    setTasks((ts) => ts.map((t) => (t.id === id ? next : t)));
+    queueAppDataTaskUpsert(next);
   }, []);
 
   const removeFromToday = useCallback((id: string) => {
-    setTasks((ts) => ts.map((t) => (t.id === id ? { ...t, inToday: false } : t)));
+    const current = tasksRef.current.find((t) => t.id === id);
+    if (!current) return;
+    const next = { ...current, inToday: false };
+    setTasks((ts) => ts.map((t) => (t.id === id ? next : t)));
+    queueAppDataTaskUpsert(next);
   }, []);
 
   const addSubtask = useCallback((taskId: string, title: string) => {
     const clean = title.trim();
     if (!clean) return;
     const sub: SubTask = { id: newId("s"), title: clean, done: false };
-    setTasks((ts) =>
-      ts.map((t) => (t.id === taskId ? { ...t, subtasks: [...t.subtasks, sub] } : t))
-    );
+    const current = tasksRef.current.find((t) => t.id === taskId);
+    if (!current) return;
+    const next = { ...current, subtasks: [...current.subtasks, sub] };
+    setTasks((ts) => ts.map((t) => (t.id === taskId ? next : t)));
+    queueAppDataTaskUpsert(next);
   }, []);
 
   const toggleSubtask = useCallback((taskId: string, subtaskId: string) => {
-    setTasks((ts) =>
-      ts.map((t) =>
-        t.id === taskId
-          ? {
-              ...t,
-              subtasks: t.subtasks.map((s) =>
-                s.id === subtaskId ? { ...s, done: !s.done } : s
-              ),
-            }
-          : t
-      )
-    );
+    const current = tasksRef.current.find((t) => t.id === taskId);
+    if (!current) return;
+    const next = {
+      ...current,
+      subtasks: current.subtasks.map((s) =>
+        s.id === subtaskId ? { ...s, done: !s.done } : s
+      ),
+    };
+    setTasks((ts) => ts.map((t) => (t.id === taskId ? next : t)));
+    queueAppDataTaskUpsert(next);
   }, []);
 
   const saveReviewNotes = useCallback((key: string, patch: Partial<WeekReviewNotes>) => {
@@ -234,6 +268,17 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
         ...patch,
       },
     }));
+  }, []);
+
+  const replaceTasksFromSheet = useCallback((incoming: Task[]) => {
+    setTasks(incoming.map(normalizeTask));
+  }, []);
+
+  const replaceTaskId = useCallback((oldId: string, newId: string, task: Task) => {
+    setTasks((ts) =>
+      ts.map((t) => (t.id === oldId ? normalizeTask({ ...task, id: newId }) : t))
+    );
+    setQuickEditId((cur) => (cur === oldId ? newId : cur));
   }, []);
 
   return (
@@ -256,6 +301,8 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
         closeQuickEdit,
         reviewNotes,
         saveReviewNotes,
+        replaceTasksFromSheet,
+        replaceTaskId,
       }}
     >
       {children}

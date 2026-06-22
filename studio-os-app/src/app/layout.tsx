@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Space_Grotesk, Inter } from "next/font/google";
 import "./globals.css";
 import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
+import { GoogleGsiPreload } from "@/components/GoogleGsiPreload";
 
 const display = Space_Grotesk({
   variable: "--font-space-grotesk",
@@ -37,6 +38,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${display.variable} ${sans.variable} h-full`}>
       <body className="min-h-full">
+        <GoogleGsiPreload />
         {children}
         <ServiceWorkerRegister />
       </body>

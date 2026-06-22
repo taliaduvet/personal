@@ -1,22 +1,26 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTasks } from "@/lib/store";
 import { useProjects } from "@/lib/projects-store";
-import { LIFE_AREAS } from "@/lib/sample-data";
+import { useSettings } from "@/lib/settings-store";
 import { returnFromProjectDetail } from "@/lib/navigation";
 import { TaskCard } from "@/components/TaskCard";
 import { ProjectLinksSidebar } from "@/components/ProjectLinksSidebar";
+import { ProjectForm } from "@/components/ProjectForm";
 
 export function ProjectDetailView({ projectId }: { projectId: string }) {
   const router = useRouter();
   const returnTo = useCallback(() => returnFromProjectDetail(router), [router]);
-  const { getProject } = useProjects();
+  const { getProject, updateProject, deleteProject, isLocalProject } = useProjects();
+  const { lifeAreas } = useSettings();
   const { tasks, completeTask } = useTasks();
+  const [editing, setEditing] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const project = getProject(projectId);
-  const area = project ? LIFE_AREAS.find((a) => a.id === project.lifeAreaId) : null;
+  const area = project ? lifeAreas.find((a) => a.id === project.lifeAreaId) : null;
 
   const { active, done } = useMemo(() => {
     const mine = tasks.filter((t) => t.projectId === projectId);
@@ -43,32 +47,85 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
 
   const color = area?.color ?? "#5b61e8";
 
+  function handleDelete() {
+    const err = deleteProject(projectId);
+    if (err) {
+      setDeleteError(err);
+      return;
+    }
+    returnTo();
+  }
+
   return (
     <div className="mx-auto min-h-[calc(100dvh-8rem)] max-w-5xl pb-24">
       <header className="flex items-center justify-between border-b border-line py-3">
         <button type="button" onClick={returnTo} className="text-sm font-medium text-muted hover:text-ink">
           ← Back
         </button>
-        {area && (
-          <span className="flex items-center gap-1.5 text-xs font-medium text-muted">
-            <span className="h-2 w-2 rounded-full" style={{ background: color }} />
-            {area.name}
-          </span>
-        )}
+        <div className="flex items-center gap-3">
+          {area && (
+            <span className="flex items-center gap-1.5 text-xs font-medium text-muted">
+              <span className="h-2 w-2 rounded-full" style={{ background: color }} />
+              {area.name}
+            </span>
+          )}
+          {!editing && (
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              className="text-xs font-medium text-accent hover:text-accent-ink"
+            >
+              Edit
+            </button>
+          )}
+        </div>
       </header>
 
       <div className="border-b border-line py-6">
-        <h1 className="font-display text-3xl font-semibold tracking-tight text-ink md:text-[2rem]">
-          {project.name}
-        </h1>
-        {project.why ? (
-          <p className="mt-3 max-w-2xl text-base leading-relaxed text-muted">&ldquo;{project.why}&rdquo;</p>
+        {editing ? (
+          <ProjectForm
+            lifeAreas={lifeAreas}
+            initial={{
+              name: project.name,
+              why: project.why,
+              lifeAreaId: project.lifeAreaId,
+            }}
+            submitLabel="Save changes"
+            onSubmit={(draft) => {
+              updateProject(projectId, draft);
+              setEditing(false);
+            }}
+            onCancel={() => setEditing(false)}
+          />
         ) : (
-          <p className="mt-3 text-sm text-muted">What is this initiative for?</p>
+          <>
+            <h1 className="font-display text-3xl font-semibold tracking-tight text-ink md:text-[2rem]">
+              {project.name}
+            </h1>
+            {project.why ? (
+              <p className="mt-3 max-w-2xl text-base leading-relaxed text-muted">
+                &ldquo;{project.why}&rdquo;
+              </p>
+            ) : (
+              <p className="mt-3 text-sm text-muted">What is this initiative for? Tap Edit to add a why.</p>
+            )}
+            <div className="mt-4 flex flex-wrap gap-3">
+              {isLocalProject(projectId) && (
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  className="text-xs text-muted hover:text-[#bc6740]"
+                >
+                  Delete project
+                </button>
+              )}
+              {deleteError && <p className="text-xs text-[#bc6740]">{deleteError}</p>}
+            </div>
+          </>
         )}
       </div>
 
-      <div className="grid grid-cols-1 items-start gap-8 py-6 lg:grid-cols-[minmax(0,1fr)_240px] lg:gap-10">
+      <div className="grid grid-cols-1 items-start gap-8 py-6 lg:grid-cols-[minmax(0,1fr)_260px] lg:gap-10">
         <section>
           <div className="flex items-baseline justify-between">
             <h2 className="font-display text-lg font-semibold text-ink">Tasks</h2>

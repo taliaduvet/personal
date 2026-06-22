@@ -1,7 +1,8 @@
 "use client";
 
 import { CalendarConnect } from "@/components/CalendarConnect";
-import { PROJECTS, WORK_MODES } from "@/lib/sample-data";
+import { WORK_MODES } from "@/lib/sample-data";
+import { useProjects } from "@/lib/projects-store";
 import { commitmentBarFill } from "@/lib/calendar/commitment";
 import type { AllDayDisposition, DayCommitment } from "@/lib/calendar/types";
 import { allDayDispositionKey } from "@/lib/calendar/types";
@@ -46,6 +47,7 @@ export function DayPlanningPanel({
   onAllDayDisposition,
   onClose,
 }: Props) {
+  const { projects } = useProjects();
   const matching = entry.focus
     ? tasksForDayFocus(tasks, entry.focus, slot.offset, weekStartsOn).slice(0, 5)
     : [];
@@ -188,7 +190,7 @@ export function DayPlanningPanel({
 
           <p className="mt-3 text-[11px] font-semibold uppercase tracking-wide text-faint">Project override</p>
           <div className="mt-2 flex flex-wrap gap-1.5">
-            {PROJECTS.map((p) => (
+            {projects.map((p) => (
               <button
                 key={p.id}
                 type="button"

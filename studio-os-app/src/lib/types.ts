@@ -12,6 +12,13 @@ export type SubTask = {
   done: boolean;
 };
 
+export type TaskSheetMeta = {
+  priority?: string;
+  goal?: string;
+  driveLink?: string;
+  eventId?: string;
+};
+
 export type Task = {
   id: string;
   title: string;
@@ -28,6 +35,11 @@ export type Task = {
   parkedAt: number;
   notes: string;
   subtasks: SubTask[];
+  /** Optional person assigned to this task (app overlay, synced via _AppData). */
+  personId?: string | null;
+  personName?: string | null;
+  /** Sheet-only columns preserved on read/write (priority, goal, calendar IDs). */
+  sheetMeta?: TaskSheetMeta;
 };
 
 export type LifeArea = { id: string; name: string; color: string };
@@ -59,6 +71,8 @@ export type Project = {
   driveFolder?: DriveFolderLink | null;
   /** User-linked Google Docs — optional. */
   driveDocs?: DriveDocLink[];
+  /** People explicitly attached to this project (app overlay). */
+  personIds?: string[];
 };
 
 export type WorkMode = { id: string; name: string };

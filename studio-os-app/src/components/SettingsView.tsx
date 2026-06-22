@@ -2,10 +2,12 @@
 
 import { useSettings } from "@/lib/settings-store";
 import { WEEK_START_OPTIONS } from "@/lib/week";
-import { CalendarConnect } from "@/components/CalendarConnect";
+import { GoogleConnect } from "@/components/GoogleConnect";
+import { LifeAreasSettings } from "@/components/LifeAreasSettings";
+import { SheetConnect } from "@/components/SheetConnect";
 
 export function SettingsView() {
-  const { weekStartsOn, setWeekStartsOn } = useSettings();
+  const { weekStartsOn, setWeekStartsOn, lifeAreas, upsertLifeArea, removeLifeArea } = useSettings();
 
   return (
     <section className="mx-auto max-w-2xl space-y-6">
@@ -38,18 +40,30 @@ export function SettingsView() {
         </div>
       </div>
 
+      <LifeAreasSettings lifeAreas={lifeAreas} onSave={upsertLifeArea} onRemove={removeLifeArea} />
+
       <div className="rounded-xl border border-border bg-surface p-4">
-        <h2 className="font-display text-base font-semibold text-ink">Google Calendar</h2>
+        <h2 className="font-display text-base font-semibold text-ink">Google account</h2>
         <p className="mt-1 text-sm text-muted">
-          Read-only — shows commitment hours when you plan your week. Separate from app sign-in.
+          Calendar, Drive picker, Contacts, and Sheet API access — one connection.
         </p>
         <div className="mt-3">
-          <CalendarConnect />
+          <GoogleConnect />
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-border bg-surface p-4">
+        <h2 className="font-display text-base font-semibold text-ink">Studio OS Sheet</h2>
+        <p className="mt-1 text-sm text-muted">
+          Your tasks and projects live in Google Sheets — connect your copy to load real data.
+        </p>
+        <div className="mt-3">
+          <SheetConnect />
         </div>
       </div>
 
       <p className="text-xs text-faint">
-        More settings (accent, Sheet link, review timing) coming soon.
+        Sheet settings (accent, review timing) sync from your _Settings tab on pull.
       </p>
     </section>
   );

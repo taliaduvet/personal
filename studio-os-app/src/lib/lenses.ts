@@ -1,26 +1,25 @@
 import type { Task, LensId, TaskGroup, DoPlan } from "./types";
 import type { WeekStartDay } from "./week";
-import { LIFE_AREAS, PROJECTS, WORK_MODES } from "./sample-data";
+import { WORK_MODES } from "./sample-data";
+import { activeLifeAreaById, getActiveLifeAreas } from "./life-area-registry";
+import { activeProjectName, activeProjectWhy, getActiveProjects } from "./project-registry";
 import { doPlanLabel, doPlanSortKey, isCarriedDoPlan } from "./do-plan";
 import { weekRange } from "./week";
 
 const NEUTRAL = "#8b95a1";
-
-const areaById = Object.fromEntries(LIFE_AREAS.map((a) => [a.id, a]));
-const projectById = Object.fromEntries(PROJECTS.map((p) => [p.id, p]));
 const modeById = Object.fromEntries(WORK_MODES.map((m) => [m.id, m]));
 
 export function lifeAreaName(id: string): string {
-  return areaById[id]?.name ?? "Unsorted";
+  return activeLifeAreaById()[id]?.name ?? "Unsorted";
 }
 export function lifeAreaColor(id: string): string {
-  return areaById[id]?.color ?? NEUTRAL;
+  return activeLifeAreaById()[id]?.color ?? NEUTRAL;
 }
 export function projectName(id: string | null): string {
-  return id ? projectById[id]?.name ?? id : "No project";
+  return activeProjectName(id);
 }
 export function projectWhy(id: string | null): string | null {
-  return id ? projectById[id]?.why ?? null : null;
+  return activeProjectWhy(id);
 }
 export function workModeName(id: string | null): string {
   return id ? modeById[id]?.name ?? id : "No mode";
@@ -122,7 +121,9 @@ export function groupTasks(tasks: Task[], lens: LensId, weekStartsOn: WeekStartD
   if (lens === "when") return groupByWhen(lot, weekStartsOn);
 
   if (lens === "area") {
-    const known = LIFE_AREAS.map((a) =>
+    const areas = getActiveLifeAreas();
+    const areaMap = activeLifeAreaById();
+    const known = areas.map((a) =>
       buildGroup(
         a.id,
         a.name,
@@ -134,7 +135,7 @@ export function groupTasks(tasks: Task[], lens: LensId, weekStartsOn: WeekStartD
     const unsorted = buildGroup(
       "unsorted",
       "Unsorted",
-      lot.filter((t) => !areaById[t.lifeAreaId]),
+      lot.filter((t) => !areaMap[t.lifeAreaId]),
       weekStartsOn,
       NEUTRAL
     );
@@ -142,7 +143,7 @@ export function groupTasks(tasks: Task[], lens: LensId, weekStartsOn: WeekStartD
   }
 
   if (lens === "project") {
-    const projects = PROJECTS.map((p) =>
+    const projects = getActiveProjects().map((p) =>
       buildGroup(
         p.id,
         p.name,
@@ -175,7 +176,7 @@ export function groupTasks(tasks: Task[], lens: LensId, weekStartsOn: WeekStartD
 }
 
 export function isUnsorted(task: Task): boolean {
-  return !areaById[task.lifeAreaId];
+  return !activeLifeAreaById()[task.lifeAreaId];
 }
 
 export function isInboxTask(task: Task): boolean {
@@ -244,7 +245,7 @@ export function deadlineLabel(
   deadlineInDays: number | null
 ): { text: string; tone: DeadlineTone } | null {
   if (deadlineInDays === null) return null;
-  if (deadlineInDays < 0) return { text: "deadline passed", tone: "danger" };
+  if (deadlineInDays < 0) return { text: "overdue", tone: "danger" };
   if (deadlineInDays === 0) return { text: "due today", tone: "danger" };
   if (deadlineInDays <= 3) return { text: `due in ${deadlineInDays}d`, tone: "danger" };
   return { text: `due in ${deadlineInDays}d`, tone: "muted" };

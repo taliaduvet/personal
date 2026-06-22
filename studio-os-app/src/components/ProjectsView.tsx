@@ -1,54 +1,120 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTasks } from "@/lib/store";
 import { useProjects } from "@/lib/projects-store";
-import { LIFE_AREAS } from "@/lib/sample-data";
+import { useSettings } from "@/lib/settings-store";
 import { openProjectDetail } from "@/lib/navigation";
+import { ProjectForm } from "@/components/ProjectForm";
 import type { Project } from "@/lib/types";
 import { FolderIcon } from "@/components/icons";
 
 export function ProjectsView() {
   const router = useRouter();
   const { tasks } = useTasks();
-  const { projects } = useProjects();
+  const { projects, createProject } = useProjects();
+  const { lifeAreas } = useSettings();
+  const [showNew, setShowNew] = useState(false);
+  const [newAreaId, setNewAreaId] = useState<string | null>(null);
 
   const areas = useMemo(
     () =>
-      LIFE_AREAS.map((a) => ({ area: a, projects: projects.filter((p) => p.lifeAreaId === a.id) })).filter(
-        (g) => g.projects.length > 0
-      ),
-    [projects]
+      lifeAreas.map((a) => ({
+        area: a,
+        projects: projects.filter((p) => p.lifeAreaId === a.id),
+      })),
+    [lifeAreas, projects]
   );
+
+  function handleCreate(draft: Parameters<typeof createProject>[0]) {
+    const created = createProject(draft);
+    setShowNew(false);
+    setNewAreaId(null);
+    openProjectDetail(router, created.id);
+  }
 
   return (
     <section className="mx-auto max-w-3xl">
-      <div className="flex items-baseline justify-between">
-        <h1 className="font-display text-2xl font-semibold tracking-tight text-ink">Projects</h1>
-        <span className="text-sm text-muted">{projects.length} initiatives</span>
+      <div className="flex items-baseline justify-between gap-3">
+        <div>
+          <h1 className="font-display text-2xl font-semibold tracking-tight text-ink">Projects</h1>
+          <p className="mt-1 text-muted">
+            Initiatives inside each life area — tap one to open its workspace and tasks.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setShowNew(true);
+            setNewAreaId(null);
+          }}
+          className="shrink-0 rounded-lg border border-border bg-canvas px-3 py-1.5 text-sm font-medium text-accent hover:border-accent/40"
+        >
+          + New project
+        </button>
       </div>
-      <p className="mt-1 text-muted">
-        Initiatives inside each life area — tap one to open its workspace and tasks.
-      </p>
+
+      {showNew && !newAreaId && (
+        <div className="mt-5">
+          <ProjectForm
+            lifeAreas={lifeAreas}
+            submitLabel="Create project"
+            onSubmit={handleCreate}
+            onCancel={() => setShowNew(false)}
+          />
+        </div>
+      )}
 
       {areas.map(({ area, projects: areaProjects }) => (
         <div key={area.id} className="mt-7">
-          <div className="flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full" style={{ background: area.color }} />
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">{area.name}</h2>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="h-2.5 w-2.5 rounded-full" style={{ background: area.color }} />
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">{area.name}</h2>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setNewAreaId(area.id);
+                setShowNew(true);
+              }}
+              className="text-xs text-muted hover:text-accent"
+            >
+              + Add
+            </button>
           </div>
-          <div className="mt-3 space-y-2">
-            {areaProjects.map((p) => (
-              <ProjectRow
-                key={p.id}
-                project={p}
-                color={area.color}
-                activeCount={tasks.filter((t) => t.projectId === p.id && t.status !== "done").length}
-                onOpen={() => openProjectDetail(router, p.id)}
+
+          {showNew && newAreaId === area.id && (
+            <div className="mt-3">
+              <ProjectForm
+                lifeAreas={lifeAreas}
+                initial={{ lifeAreaId: area.id }}
+                submitLabel="Create project"
+                onSubmit={handleCreate}
+                onCancel={() => {
+                  setShowNew(false);
+                  setNewAreaId(null);
+                }}
               />
-            ))}
-          </div>
+            </div>
+          )}
+
+          {areaProjects.length === 0 ? (
+            <p className="mt-3 text-sm text-muted">No projects here yet.</p>
+          ) : (
+            <div className="mt-3 space-y-2">
+              {areaProjects.map((p) => (
+                <ProjectRow
+                  key={p.id}
+                  project={p}
+                  color={area.color}
+                  activeCount={tasks.filter((t) => t.projectId === p.id && t.status !== "done").length}
+                  onOpen={() => openProjectDetail(router, p.id)}
+                />
+              ))}
+            </div>
+          )}
         </div>
       ))}
     </section>
@@ -68,6 +134,7 @@ function ProjectRow({
 }) {
   const hasFolder = Boolean(project.driveFolder);
   const docCount = project.driveDocs?.length ?? 0;
+  const peopleCount = project.personIds?.length ?? 0;
   const linkHint =
     hasFolder && docCount > 0
       ? "Folder + docs"
@@ -75,7 +142,9 @@ function ProjectRow({
         ? "Drive linked"
         : docCount > 0
           ? `${docCount} doc${docCount === 1 ? "" : "s"}`
-          : null;
+          : peopleCount > 0
+            ? `${peopleCount} people`
+            : null;
 
   return (
     <button

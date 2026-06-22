@@ -124,3 +124,4 @@ export async function fetchCalendarEvents(
 }
 
 export const CALENDAR_READONLY_SCOPE = "https://www.googleapis.com/auth/calendar.readonly";
+export { CALENDAR_WRITE_SCOPE } from "../calendar/calendar-write";

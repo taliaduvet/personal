@@ -46,7 +46,7 @@ declare global {
     };
     google?: {
       picker: {
-        ViewId: { FOLDERS: string };
+        ViewId: { FOLDERS: string; DOCS: string };
         Feature: { NAV_HIDDEN: boolean; MULTISELECT_ENABLED: boolean };
         Action: { PICKED: string; CANCEL: string };
         DocsView: new (viewId: string) => {
@@ -61,6 +61,8 @@ declare global {
           initTokenClient: (config: {
             client_id: string;
             scope: string;
+            ux_mode?: "popup" | "redirect";
+            redirect_uri?: string;
             callback: (resp: {
               error?: string;
               error_description?: string;

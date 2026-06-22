@@ -1,18 +1,21 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { PROJECTS, WORK_MODES } from "@/lib/sample-data";
+import { WORK_MODES } from "@/lib/sample-data";
+import { useProjects } from "@/lib/projects-store";
 import { classifyChipLabels } from "@/lib/parse";
 import { lifeAreaColor, lifeAreaName } from "@/lib/lenses";
 import { useSettings } from "@/lib/settings-store";
+import { createGoogleContact, parseContactSearchQuery, type CreateContactInput } from "@/lib/google/contacts-auth";
+import { getDriveAccessToken } from "@/lib/google/drive-auth";
 import { DoPlanCalendar, DeadlineCalendar } from "@/components/DoPlanCalendar";
 import type { DoPlan, Task } from "@/lib/types";
 
-type FieldKey = "project" | "doing" | "deadline" | "mode";
+type FieldKey = "project" | "doing" | "deadline" | "mode" | "person";
 
 type ClassifyTask = Pick<
   Task,
-  "projectId" | "lifeAreaId" | "doPlan" | "deadlineInDays" | "workModeId"
+  "projectId" | "lifeAreaId" | "doPlan" | "deadlineInDays" | "workModeId" | "personId" | "personName"
 >;
 
 /**
@@ -27,10 +30,26 @@ export function TaskClassifyDropdowns({
   onChange: (patch: Partial<Task>) => void;
   label?: string;
 }) {
-  const { weekStartsOn } = useSettings();
+  const { weekStartsOn, contacts, setGoogleContacts } = useSettings();
+  const { projects } = useProjects();
   const [open, setOpen] = useState<FieldKey | null>(null);
+  const [personQuery, setPersonQuery] = useState("");
+  const [creatingContact, setCreatingContact] = useState(false);
+  const [contactCreateError, setContactCreateError] = useState<string | null>(null);
+  const personSearchRef = useRef<HTMLInputElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const chips = classifyChipLabels(task, weekStartsOn);
+
+  useEffect(() => {
+    if (open !== "person") {
+      setPersonQuery("");
+      setContactCreateError(null);
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (open === "person") personSearchRef.current?.focus();
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -46,7 +65,7 @@ export function TaskClassifyDropdowns({
   const pickProject = (projectId: string | null) => {
     if (!projectId) onChange({ projectId: null });
     else {
-      const p = PROJECTS.find((x) => x.id === projectId);
+      const p = projects.find((x) => x.id === projectId);
       if (p) onChange({ projectId: p.id, lifeAreaId: p.lifeAreaId });
     }
     setOpen(null);
@@ -66,6 +85,38 @@ export function TaskClassifyDropdowns({
     onChange({ workModeId });
     setOpen(null);
   };
+
+  const pickPerson = (id: string | null) => {
+    const person = id ? contacts.find((c) => c.id === id) : null;
+    onChange({ personId: id, personName: person?.name ?? null });
+    setOpen(null);
+  };
+
+  const createPersonFromDraft = async (draft: CreateContactInput) => {
+    if (!draft.name.trim()) return;
+
+    const token = getDriveAccessToken();
+    if (!token) {
+      setContactCreateError("Connect Google in Settings first.");
+      return;
+    }
+
+    setCreatingContact(true);
+    setContactCreateError(null);
+    try {
+      const created = await createGoogleContact(token, draft);
+      const next = [...contacts, created].sort((a, b) => a.name.localeCompare(b.name));
+      setGoogleContacts(next);
+      onChange({ personId: created.id, personName: created.name });
+      setOpen(null);
+    } catch (e) {
+      setContactCreateError(e instanceof Error ? e.message : "Could not add contact");
+    } finally {
+      setCreatingContact(false);
+    }
+  };
+
+  const showPerson = contacts.length > 0 || Boolean(getDriveAccessToken());
 
   return (
     <div ref={rootRef}>
@@ -100,11 +151,17 @@ export function TaskClassifyDropdowns({
         <ContextPill active={open === "mode"} onClick={() => toggle("mode")} filled={!!task.workModeId}>
           {chips.mode ?? "Mode"}
         </ContextPill>
+
+        {showPerson && (
+          <ContextPill active={open === "person"} onClick={() => toggle("person")} filled={!!task.personId}>
+            {task.personName ?? "Person"}
+          </ContextPill>
+        )}
       </div>
 
       {open === "project" && (
         <DropdownPanel title="Project">
-          {PROJECTS.map((p) => (
+          {projects.map((p) => (
             <DropdownOption
               key={p.id}
               selected={task.projectId === p.id}
@@ -152,9 +209,167 @@ export function TaskClassifyDropdowns({
         </DropdownPanel>
       )}
 
+      {open === "person" && (
+        <PersonSearchPanel
+          query={personQuery}
+          onQueryChange={setPersonQuery}
+          inputRef={personSearchRef}
+          contacts={contacts}
+          selectedId={task.personId}
+          onPick={pickPerson}
+          onCreate={createPersonFromDraft}
+          creating={creatingContact}
+          createError={contactCreateError}
+        />
+      )}
+
       {task.projectId && (
         <p className="mt-1.5 text-xs text-faint">{lifeAreaName(task.lifeAreaId)} · inherited from project</p>
       )}
+    </div>
+  );
+}
+
+function contactSubtitle(c: { email?: string | null; phone?: string | null }): string | undefined {
+  const parts = [c.email?.trim(), c.phone?.trim()].filter(Boolean) as string[];
+  return parts.length ? parts.join(" · ") : undefined;
+}
+
+function PersonSearchPanel({
+  query,
+  onQueryChange,
+  inputRef,
+  contacts,
+  selectedId,
+  onPick,
+  onCreate,
+  creating = false,
+  createError = null,
+}: {
+  query: string;
+  onQueryChange: (q: string) => void;
+  inputRef: React.RefObject<HTMLInputElement | null>;
+  contacts: { id: string; name: string; email?: string | null; phone?: string | null }[];
+  selectedId?: string | null;
+  onPick: (id: string | null) => void;
+  onCreate: (draft: CreateContactInput) => void;
+  creating?: boolean;
+  createError?: string | null;
+}) {
+  const q = query.trim().toLowerCase();
+  const qRaw = query.trim();
+  const selected = selectedId ? contacts.find((c) => c.id === selectedId) : null;
+  const filtered = q
+    ? contacts.filter(
+        (c) =>
+          c.name.toLowerCase().includes(q) ||
+          (c.email?.toLowerCase().includes(q) ?? false) ||
+          (c.phone?.replace(/\D/g, "").includes(q.replace(/\D/g, "")) ?? false)
+      )
+    : [];
+  const parsed = parseContactSearchQuery(qRaw);
+  const showAddForm = Boolean(q && filtered.length === 0 && parsed.name);
+  const [draftName, setDraftName] = useState("");
+  const [draftEmail, setDraftEmail] = useState("");
+  const [draftPhone, setDraftPhone] = useState("");
+
+  useEffect(() => {
+    if (!showAddForm) return;
+    setDraftName(parsed.name);
+    if (parsed.email) setDraftEmail(parsed.email);
+  }, [showAddForm, parsed.name, parsed.email, qRaw]);
+
+  return (
+    <div className="mt-2 rounded-xl border border-border bg-surface p-2 shadow-sm">
+      <p className="px-2 text-[10px] font-semibold uppercase tracking-wide text-faint">Person</p>
+      <input
+        ref={inputRef}
+        type="search"
+        value={query}
+        onChange={(e) => onQueryChange(e.target.value)}
+        placeholder="Search contacts…"
+        className="mt-1.5 w-full rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-ink outline-none placeholder:text-faint focus:border-accent"
+      />
+      <ul className="mt-2 max-h-56 space-y-1 overflow-y-auto">
+        <DropdownOption selected={!selectedId} title="None" onClick={() => onPick(null)} />
+        {!q && selected && (
+          <DropdownOption
+            selected
+            title={selected.name}
+            subtitle={contactSubtitle(selected)}
+            onClick={() => onPick(selected.id)}
+          />
+        )}
+        {!q && !selected && (
+          <li className="px-3 py-2 text-xs text-muted">Type a name or email to search.</li>
+        )}
+        {showAddForm && (
+          <li className="px-2 pt-1">
+            <div className="rounded-lg border border-dashed border-accent/40 bg-accent-soft/20 p-3">
+              <p className="text-xs font-semibold text-accent">Add to Google Contacts</p>
+              <label className="mt-2 block">
+                <span className="text-[10px] font-medium uppercase tracking-wide text-faint">Name</span>
+                <input
+                  type="text"
+                  value={draftName}
+                  onChange={(e) => setDraftName(e.target.value)}
+                  className="mt-1 w-full rounded-md border border-border bg-canvas px-2.5 py-1.5 text-sm text-ink outline-none focus:border-accent"
+                  autoComplete="name"
+                />
+              </label>
+              <label className="mt-2 block">
+                <span className="text-[10px] font-medium uppercase tracking-wide text-faint">Email</span>
+                <input
+                  type="email"
+                  value={draftEmail}
+                  onChange={(e) => setDraftEmail(e.target.value)}
+                  placeholder="optional"
+                  className="mt-1 w-full rounded-md border border-border bg-canvas px-2.5 py-1.5 text-sm text-ink outline-none placeholder:text-faint focus:border-accent"
+                  autoComplete="email"
+                />
+              </label>
+              <label className="mt-2 block">
+                <span className="text-[10px] font-medium uppercase tracking-wide text-faint">Phone</span>
+                <input
+                  type="tel"
+                  value={draftPhone}
+                  onChange={(e) => setDraftPhone(e.target.value)}
+                  placeholder="optional"
+                  className="mt-1 w-full rounded-md border border-border bg-canvas px-2.5 py-1.5 text-sm text-ink outline-none placeholder:text-faint focus:border-accent"
+                  autoComplete="tel"
+                />
+              </label>
+              <button
+                type="button"
+                disabled={creating || !draftName.trim()}
+                onClick={() =>
+                  onCreate({
+                    name: draftName.trim(),
+                    email: draftEmail.trim() || null,
+                    phone: draftPhone.trim() || null,
+                  })
+                }
+                className="mt-3 w-full rounded-lg border border-accent/50 bg-accent-soft/50 px-3 py-2 text-sm font-medium text-accent hover:border-accent disabled:opacity-60"
+              >
+                {creating ? "Saving to Google…" : "Save contact & assign"}
+              </button>
+            </div>
+            {createError && <p className="mt-1 px-1 text-xs text-danger">{createError}</p>}
+          </li>
+        )}
+        {q && filtered.length === 0 && !parsed.name && (
+          <li className="px-3 py-2 text-xs text-muted">Enter a name or email to search or add.</li>
+        )}
+        {filtered.slice(0, 20).map((c) => (
+          <DropdownOption
+            key={c.id}
+            selected={selectedId === c.id}
+            title={c.name}
+            subtitle={contactSubtitle(c)}
+            onClick={() => onPick(c.id)}
+          />
+        ))}
+      </ul>
     </div>
   );
 }

@@ -1,4 +1,5 @@
-import { PROJECTS, WORK_MODES } from "./sample-data";
+import { WORK_MODES } from "./sample-data";
+import { activeProjectById } from "./project-registry";
 import type { DoPlan } from "./types";
 import type { WeekStartDay } from "./week";
 import { dayPlan, parseWeekPhrase } from "./do-plan";
@@ -123,7 +124,7 @@ export function parseTaskTitle(raw: string, weekStartsOn: WeekStartDay = 0): Par
     }
   }
 
-  const project = projectId ? PROJECTS.find((p) => p.id === projectId) : null;
+  const project = projectId ? activeProjectById(projectId) : null;
   const lifeAreaId = project?.lifeAreaId ?? "";
 
   if (workModeId && !WORK_MODES.some((m) => m.id === workModeId)) {
@@ -152,7 +153,7 @@ export function classifyChipLabels(
 ): { project?: string; doing?: string; deadline?: string; mode?: string } {
   const chips: ReturnType<typeof classifyChipLabels> = {};
   if (task.projectId) {
-    const p = PROJECTS.find((x) => x.id === task.projectId);
+    const p = activeProjectById(task.projectId);
     if (p) chips.project = p.name;
   }
   if (task.doPlan !== null) {

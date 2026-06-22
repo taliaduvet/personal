@@ -1,34 +1,36 @@
-import { loadScript } from "./load-script";
-import { CALENDAR_READONLY_SCOPE } from "./calendar-client";
+import { CALENDAR_WRITE_SCOPE } from "@/lib/calendar/calendar-write";
+import {
+  createAuthBus,
+  createTokenStore,
+  requestGisToken,
+  type OAuthPending,
+} from "./gis-oauth";
+import { getUnifiedGoogleToken } from "./google-unified-auth";
 
 const STORAGE_TOKEN_KEY = "studio-os.gcal-token.v1";
 const STORAGE_CLIENT_KEY = "studio-os.gcal-client-id";
+const OPT_OUT_KEY = "studio-os.gcal-opt-out.v1";
 
-let cachedToken: string | null = null;
-let tokenExpiry = 0;
+const store = createTokenStore(STORAGE_TOKEN_KEY);
+const bus = createAuthBus();
 
 export const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? "";
 
-function readStoredToken(): string | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_TOKEN_KEY);
-    if (!raw) return null;
-    const { token, expiry } = JSON.parse(raw) as { token: string; expiry: number };
-    if (expiry > Date.now()) return token;
-    localStorage.removeItem(STORAGE_TOKEN_KEY);
-    return null;
-  } catch {
-    return null;
-  }
+function calendarPending(): OAuthPending {
+  const path =
+    typeof window !== "undefined"
+      ? window.location.pathname + window.location.search
+      : "/settings";
+  return {
+    storageKey: STORAGE_TOKEN_KEY,
+    optOutKey: OPT_OUT_KEY,
+    scope: CALENDAR_WRITE_SCOPE,
+    returnUrl: path,
+  };
 }
 
-function writeToken(token: string, expiresInSec: number) {
-  cachedToken = token;
-  tokenExpiry = Date.now() + (expiresInSec - 60) * 1000;
-  localStorage.setItem(
-    STORAGE_TOKEN_KEY,
-    JSON.stringify({ token, expiry: tokenExpiry })
-  );
+export function subscribeCalendarAuth(cb: () => void) {
+  return bus.subscribe(cb);
 }
 
 export function getStoredCalendarClientId(): string {
@@ -42,94 +44,56 @@ export function saveCalendarClientId(id: string) {
   else localStorage.removeItem(STORAGE_CLIENT_KEY);
 }
 
+export function isCalendarOptOut(): boolean {
+  if (getUnifiedGoogleToken()) return false;
+  if (typeof window === "undefined") return false;
+  return localStorage.getItem(OPT_OUT_KEY) === "1";
+}
+
 export function getCalendarAccessToken(): string | null {
-  if (cachedToken && tokenExpiry > Date.now()) return cachedToken;
-  if (typeof window === "undefined") return null;
-  const stored = readStoredToken();
-  if (stored) {
-    cachedToken = stored;
-    return stored;
-  }
-  return null;
+  const unified = getUnifiedGoogleToken();
+  if (unified) return unified;
+  return store.getCached();
 }
 
 export function isCalendarDirectConnected(): boolean {
-  return Boolean(getCalendarAccessToken());
+  return Boolean(getCalendarAccessToken()) && !isCalendarOptOut();
 }
 
 export function disconnectCalendarDirect() {
-  cachedToken = null;
-  tokenExpiry = 0;
-  localStorage.removeItem(STORAGE_TOKEN_KEY);
+  store.clear();
+  localStorage.setItem(OPT_OUT_KEY, "1");
+  bus.emit();
 }
 
-function ensureGsiLoaded(): Promise<void> {
-  if (typeof window === "undefined") return Promise.reject(new Error("Browser only"));
-  if (window.google?.accounts?.oauth2) return Promise.resolve();
-  return loadScript("https://accounts.google.com/gsi/client", "google-gsi-js").then(
-    () =>
-      new Promise((resolve, reject) => {
-        let tries = 0;
-        const poll = setInterval(() => {
-          if (window.google?.accounts?.oauth2) {
-            clearInterval(poll);
-            resolve();
-          }
-          if (++tries > 40) {
-            clearInterval(poll);
-            reject(new Error("Google sign-in failed to load"));
-          }
-        }, 250);
-      })
-  );
-}
-
-async function requestToken(clientId: string, prompt: "" | "consent"): Promise<string> {
-  await ensureGsiLoaded();
-  const oauth2 = window.google?.accounts?.oauth2;
-  if (!oauth2) throw new Error("Google sign-in not available");
-
-  return new Promise((resolve, reject) => {
-    const client = oauth2.initTokenClient({
-      client_id: clientId,
-      scope: CALENDAR_READONLY_SCOPE,
-      callback: (resp) => {
-        if (resp.error) {
-          reject(new Error(resp.error_description || resp.error));
-          return;
-        }
-        if (!resp.access_token || !resp.expires_in) {
-          reject(new Error("No access token returned"));
-          return;
-        }
-        writeToken(resp.access_token, resp.expires_in);
-        resolve(resp.access_token);
-      },
-    });
-    client.requestAccessToken({ prompt });
-  });
-}
-
-/** Connect Google Calendar via GIS (works without Supabase Google provider). */
 export async function connectCalendarDirect(clientId?: string): Promise<string> {
   const id = (clientId ?? getStoredCalendarClientId()).trim();
   if (!id) {
     throw new Error("Add a Google Client ID in Settings first.");
   }
   saveCalendarClientId(id);
-  return requestToken(id, "consent");
+  localStorage.removeItem(OPT_OUT_KEY);
+  const resp = await requestGisToken(
+    id,
+    CALENDAR_WRITE_SCOPE,
+    "consent",
+    calendarPending()
+  );
+  store.write(resp.access_token, resp.expires_in);
+  bus.emit();
+  return resp.access_token;
 }
 
 export async function refreshCalendarDirectSilent(): Promise<string | null> {
+  if (isCalendarOptOut()) return null;
   const id = getStoredCalendarClientId();
   if (!id) return null;
   try {
-    return await requestToken(id, "");
+    const resp = await requestGisToken(id, CALENDAR_WRITE_SCOPE, "");
+    store.write(resp.access_token, resp.expires_in);
+    bus.emit();
+    return resp.access_token;
   } catch {
     return null;
   }
-}
-
-if (typeof window !== "undefined") {
-  cachedToken = readStoredToken();
 }

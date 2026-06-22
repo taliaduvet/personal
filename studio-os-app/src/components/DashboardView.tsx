@@ -5,9 +5,10 @@ import Link from "next/link";
 import { useTasks } from "@/lib/store";
 import { useSettings } from "@/lib/settings-store";
 import { doPlanSortKey } from "@/lib/do-plan";
-import { LIFE_AREAS } from "@/lib/sample-data";
 import { deadlineLabel, deadlineTasks, isInboxTask, lifeAreaColor, planLabel, projectName } from "@/lib/lenses";
 import { WeekPlanningCard } from "@/components/WeekPlanningCard";
+import { SetupBanner } from "@/components/SetupBanner";
+import { OnboardingCard } from "@/components/OnboardingCard";
 
 function greetingFor(hour: number): string {
   if (hour < 12) return "Good morning";
@@ -17,7 +18,7 @@ function greetingFor(hour: number): string {
 
 export function DashboardView() {
   const { tasks, completeTask } = useTasks();
-  const { weekStartsOn } = useSettings();
+  const { weekStartsOn, lifeAreas } = useSettings();
 
   const sortWhen = (t: (typeof tasks)[number]) =>
     doPlanSortKey(t.doPlan, weekStartsOn) ?? t.deadlineInDays ?? 99;
@@ -41,7 +42,7 @@ export function DashboardView() {
   const inboxCount = useMemo(() => tasks.filter(isInboxTask).length, [tasks]);
 
   const balance = useMemo(() => {
-    const rows = LIFE_AREAS.map((a) => ({
+    const rows = lifeAreas.map((a) => ({
       id: a.id,
       name: a.name,
       color: a.color,
@@ -49,7 +50,7 @@ export function DashboardView() {
     })).filter((r) => r.count > 0);
     const max = rows.reduce((m, r) => Math.max(m, r.count), 0) || 1;
     return { rows, max };
-  }, [active]);
+  }, [active, lifeAreas]);
 
   return (
     <section className="space-y-5">
@@ -63,6 +64,9 @@ export function DashboardView() {
             : "Your calm overview"}
         </p>
       </header>
+
+      <SetupBanner />
+      <OnboardingCard />
 
       <WeekPlanningCard />
 

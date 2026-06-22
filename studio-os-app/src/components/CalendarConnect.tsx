@@ -6,15 +6,14 @@ import {
   GOOGLE_CLIENT_ID,
   saveCalendarClientId,
 } from "@/lib/google/calendar-auth";
-import { useCalendarAccessToken, useCalendarConnectActions } from "@/lib/calendar/use-calendar-access-token";
+import { useCalendarAccessToken } from "@/lib/calendar/use-calendar-access-token";
 
 type Props = {
   compact?: boolean;
 };
 
 export function CalendarConnect({ compact = false }: Props) {
-  const { token, directConnected } = useCalendarAccessToken();
-  const { connect, disconnect } = useCalendarConnectActions();
+  const { token, directConnected, optedOut, connect, disconnect } = useCalendarAccessToken();
   const [clientId, setClientId] = useState(() => getStoredCalendarClientId());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,18 +31,19 @@ export function CalendarConnect({ compact = false }: Props) {
       saveCalendarClientId(clientId);
       await connect(clientId);
     } catch (e) {
+      if (e instanceof Error && e.message === "REDIRECTING_TO_GOOGLE") return;
       setError(e instanceof Error ? e.message : "Could not connect calendar");
     } finally {
       setBusy(false);
     }
   }
 
-  if (token && directConnected) {
+  if (directConnected) {
     return (
       <div className={compact ? "text-xs" : "text-sm"}>
         <p className="text-muted">
           Google Calendar connected
-          {!compact && " — commitment hours will show when you plan your week."}
+          {!compact && " — deadlines and doing blocks sync to your Studio OS calendar."}
         </p>
         <button
           type="button"
@@ -56,16 +56,25 @@ export function CalendarConnect({ compact = false }: Props) {
     );
   }
 
-  if (token && !directConnected) {
+  if (token && !optedOut && !directConnected) {
     return (
-      <p className="text-xs text-muted">Calendar linked via Google sign-in.</p>
+      <div className={compact ? "text-xs" : "text-sm"}>
+        <p className="text-muted">Calendar linked via app sign-in (read-only).</p>
+        <button
+          type="button"
+          onClick={() => disconnect()}
+          className="mt-2 text-xs text-muted hover:text-ink"
+        >
+          Disconnect calendar
+        </button>
+      </div>
     );
   }
 
   return (
     <div className={compact ? "space-y-2" : "space-y-3"}>
       <p className={compact ? "text-xs text-muted" : "text-sm text-muted"}>
-        Connect Google Calendar to see how many hours are already booked each day.
+        Connect Google Calendar to sync deadlines and see commitment hours when planning your week.
       </p>
 
       {needsClientId && (

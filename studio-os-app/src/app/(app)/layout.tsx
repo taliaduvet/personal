@@ -2,15 +2,19 @@ import { Sidebar } from "@/components/Sidebar";
 import { BottomNav } from "@/components/BottomNav";
 import { TopBar } from "@/components/TopBar";
 import { TaskDetailSheet } from "@/components/TaskDetailSheet";
+import { GoogleGsiPreload } from "@/components/GoogleGsiPreload";
 import { TasksProvider } from "@/lib/store";
 import { SettingsProvider } from "@/lib/settings-store";
 import { ProjectsProvider } from "@/lib/projects-store";
+import { SheetProvider } from "@/lib/sheet-store";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <SettingsProvider>
       <ProjectsProvider>
       <TasksProvider>
+      <SheetProvider>
+      <GoogleGsiPreload />
       <div className="md:grid md:min-h-dvh md:grid-cols-[256px_1fr]">
         <Sidebar />
         <div className="flex min-h-dvh flex-col">
@@ -22,6 +26,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <BottomNav />
         <TaskDetailSheet />
       </div>
+      </SheetProvider>
       </TasksProvider>
       </ProjectsProvider>
     </SettingsProvider>
