@@ -16,6 +16,8 @@ export type Task = {
   deadlineInDays: number | null;
   status: TaskStatus;
   inToday: boolean;
+  /** Days from today when marked done. null = not completed. */
+  completedAtInDays: number | null;
   notes: string;
   subtasks: SubTask[];
 };

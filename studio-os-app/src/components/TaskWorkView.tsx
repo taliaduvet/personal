@@ -1,13 +1,16 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
+import { useCallback, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useTasks } from "@/lib/store";
 import { PROJECTS } from "@/lib/sample-data";
 import { projectWhy } from "@/lib/lenses";
+import { returnFromTaskWork } from "@/lib/navigation";
 import { TaskContextTags } from "@/components/TaskClassify";
 
 export function TaskWorkView({ taskId }: { taskId: string }) {
+  const router = useRouter();
+  const returnTo = useCallback(() => returnFromTaskWork(router), [router]);
   const { tasks, updateTask, deleteTask, completeTask, openQuickEdit, addSubtask, toggleSubtask } = useTasks();
   const [newSubtask, setNewSubtask] = useState("");
 
@@ -17,9 +20,13 @@ export function TaskWorkView({ taskId }: { taskId: string }) {
     return (
       <section className="mx-auto max-w-2xl px-4 py-12 text-center">
         <p className="font-display text-lg font-semibold text-ink">Task not found</p>
-        <Link href="/tasks" className="mt-2 inline-block text-sm text-accent hover:text-accent-ink">
-          ← Back to Tasks
-        </Link>
+        <button
+          type="button"
+          onClick={returnTo}
+          className="mt-2 text-sm text-accent hover:text-accent-ink"
+        >
+          ← Back
+        </button>
       </section>
     );
   }
@@ -33,9 +40,9 @@ export function TaskWorkView({ taskId }: { taskId: string }) {
   return (
     <div className="mx-auto min-h-[calc(100dvh-8rem)] max-w-2xl pb-24">
       <header className="flex items-center justify-between border-b border-line py-3">
-        <Link href="/tasks" className="text-sm font-medium text-muted hover:text-ink">
+        <button type="button" onClick={returnTo} className="text-sm font-medium text-muted hover:text-ink">
           ← Back
-        </Link>
+        </button>
         <span className="text-xs font-medium text-muted">
           {done ? "Completed" : task.status === "in_progress" ? "In progress" : "Task"}
         </span>
@@ -43,7 +50,7 @@ export function TaskWorkView({ taskId }: { taskId: string }) {
           type="button"
           onClick={() => {
             deleteTask(task.id);
-            window.history.back();
+            returnTo();
           }}
           className="text-sm font-medium text-danger hover:text-danger/80"
         >

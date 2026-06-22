@@ -5,7 +5,10 @@ import type { SubTask, Task } from "./types";
 import { TASKS, PROJECTS } from "./sample-data";
 import { parseTaskTitle } from "./parse";
 
-const STORAGE_KEY = "studio-os.tasks.v4";
+const STORAGE_KEY = "studio-os.tasks.v5";
+const REVIEW_KEY = "studio-os.reviews.v1";
+
+export type WeekReviewNotes = { reflection: string; intentions: string };
 
 function normalizeTask(t: Partial<Task> & Pick<Task, "id" | "title">): Task {
   return {
@@ -19,6 +22,7 @@ function normalizeTask(t: Partial<Task> & Pick<Task, "id" | "title">): Task {
     ...t,
     notes: t.notes ?? "",
     subtasks: t.subtasks ?? [],
+    completedAtInDays: t.completedAtInDays ?? (t.status === "done" ? 0 : null),
   };
 }
 
@@ -41,6 +45,9 @@ type TasksContextValue = {
   quickEditId: string | null;
   openQuickEdit: (id: string) => void;
   closeQuickEdit: () => void;
+  /** Weekly review notes keyed by week start date (YYYY-MM-DD). */
+  reviewNotes: Record<string, WeekReviewNotes>;
+  saveReviewNotes: (weekKey: string, patch: Partial<WeekReviewNotes>) => void;
 };
 
 const TasksContext = createContext<TasksContextValue | null>(null);
@@ -49,6 +56,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
   const [tasks, setTasks] = useState<Task[]>(() => TASKS.map(normalizeTask));
   const [hydrated, setHydrated] = useState(false);
   const [quickEditId, setQuickEditId] = useState<string | null>(null);
+  const [reviewNotes, setReviewNotes] = useState<Record<string, WeekReviewNotes>>({});
 
   useEffect(() => {
     try {
@@ -58,6 +66,10 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
         if (Array.isArray(parsed) && parsed.length > 0) {
           setTasks(parsed.map(normalizeTask));
         }
+      }
+      const reviews = localStorage.getItem(REVIEW_KEY);
+      if (reviews) {
+        setReviewNotes(JSON.parse(reviews) as Record<string, WeekReviewNotes>);
       }
     } catch {
       /* ignore */
@@ -69,10 +81,11 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     if (!hydrated) return;
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+      localStorage.setItem(REVIEW_KEY, JSON.stringify(reviewNotes));
     } catch {
       /* ignore */
     }
-  }, [tasks, hydrated]);
+  }, [tasks, reviewNotes, hydrated]);
 
   const addTask = useCallback((title: string) => {
     const parsed = parseTaskTitle(title);
@@ -100,6 +113,12 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       ts.map((t) => {
         if (t.id !== id) return t;
         const next = { ...t, ...patch };
+        if (patch.status === "done") {
+          next.completedAtInDays = next.completedAtInDays ?? 0;
+        }
+        if (patch.status === "todo" || patch.status === "in_progress") {
+          if (t.status === "done") next.completedAtInDays = null;
+        }
         // Project always sets life area
         if (patch.projectId !== undefined && patch.projectId !== null) {
           const p = PROJECTS.find((x) => x.id === patch.projectId);
@@ -116,7 +135,11 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const completeTask = useCallback((id: string) => {
-    setTasks((ts) => ts.map((t) => (t.id === id ? { ...t, status: "done" } : t)));
+    setTasks((ts) =>
+      ts.map((t) =>
+        t.id === id ? { ...t, status: "done", completedAtInDays: 0, inToday: false } : t
+      )
+    );
   }, []);
 
   const openQuickEdit = useCallback((id: string) => setQuickEditId(id), []);
@@ -154,6 +177,16 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     );
   }, []);
 
+  const saveReviewNotes = useCallback((key: string, patch: Partial<WeekReviewNotes>) => {
+    setReviewNotes((prev) => ({
+      ...prev,
+      [key]: {
+        ...(prev[key] ?? { reflection: "", intentions: "" }),
+        ...patch,
+      },
+    }));
+  }, []);
+
   return (
     <TasksContext.Provider
       value={{
@@ -169,6 +202,8 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
         quickEditId,
         openQuickEdit,
         closeQuickEdit,
+        reviewNotes,
+        saveReviewNotes,
       }}
     >
       {children}

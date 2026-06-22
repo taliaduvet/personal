@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTasks } from "@/lib/store";
+import { openTaskWork } from "@/lib/navigation";
 import { isInboxTask } from "@/lib/lenses";
 
 export function InboxView() {
@@ -88,7 +89,7 @@ export function InboxView() {
               <div className="min-w-0 flex-1">
                 <button
                   type="button"
-                  onClick={() => router.push(`/tasks/${it.id}`)}
+                  onClick={() => openTaskWork(router, it.id)}
                   className="block w-full truncate text-left text-sm text-ink"
                 >
                   {it.title}

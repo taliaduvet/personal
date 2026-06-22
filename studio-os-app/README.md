@@ -30,10 +30,11 @@ phone home screen, no app store required.
 - **Work View** — full page at `/tasks/[id]` (why, context, sub-tasks, notes)
 - **Projects** — by life area, project why, auto progress
 - **Horizon** — hard-deadline timeline at `/deadlines`
+- **Weekly Review** — week switcher, shipped / in-flight / carry-over boards, life balance, project progress, reflection + intentions (persisted)
 
-**Still stubs:** Weekly Review, Settings
+**Still stubs:** Settings
 
-**Next:** Weekly Review (needs completion timestamps) → Settings → Horizon calendar toggle → Supabase wiring
+**Next:** Settings → Horizon calendar toggle → Supabase wiring
 
 See the blueprint canvas **Overview** tab for the live screen map and locked decisions.
 

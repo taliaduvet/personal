@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import type { Task } from "@/lib/types";
 import { useTasks } from "@/lib/store";
+import { openTaskWork } from "@/lib/navigation";
 import {
   deadlineLabel,
   lifeAreaColor,
@@ -53,7 +54,7 @@ export function TaskCard({
       <div className="min-w-0 flex-1">
         <button
           type="button"
-          onClick={() => router.push(`/tasks/${task.id}`)}
+          onClick={() => openTaskWork(router, task.id)}
           className="w-full text-left"
           aria-label={`Work on ${task.title}`}
         >

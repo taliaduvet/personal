@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTasks } from "@/lib/store";
+import { openTaskWork } from "@/lib/navigation";
 import type { LensId, Task } from "@/lib/types";
 import {
   deadlineLabel,
@@ -50,7 +51,7 @@ export function TasksLot() {
       />
 
       {searching ? (
-        <SearchResults results={results} onComplete={complete} onOpenWork={(id) => router.push(`/tasks/${id}`)} onQuickEdit={openQuickEdit} />
+        <SearchResults results={results} onComplete={complete} onOpenWork={(id) => openTaskWork(router, id)} onQuickEdit={openQuickEdit} />
       ) : (
         <>
           <div className="mt-4 inline-flex rounded-lg border border-border bg-surface p-0.5">

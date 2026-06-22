@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useTasks } from "@/lib/store";
+import { openTaskWork } from "@/lib/navigation";
 import {
   deadlineLabel,
   groupDeadlines,
@@ -39,7 +40,7 @@ export function DeadlinesView() {
                     <li key={t.id}>
                       <button
                         type="button"
-                        onClick={() => router.push(`/tasks/${t.id}`)}
+                        onClick={() => openTaskWork(router, t.id)}
                         className="w-full rounded-xl border border-border bg-surface px-4 py-3 text-left transition-colors hover:border-accent"
                         style={{ borderLeft: `3px solid ${lifeAreaColor(t.lifeAreaId)}` }}
                       >

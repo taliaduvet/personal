@@ -70,8 +70,8 @@ const TASK_SEED = [
   { id: "t17", title: "Look into sync licensing", lifeAreaId: "", projectId: null, workModeId: null, doDateInDays: null, deadlineInDays: null, status: "todo", inToday: false },
 
   // Already done (excluded from the Lot, still findable in search)
-  { id: "t18", title: "Pay June rent", lifeAreaId: "home", projectId: null, workModeId: "admin", doDateInDays: null, deadlineInDays: -5, status: "done", inToday: false },
-  { id: "t19", title: "Post release announcement", lifeAreaId: "music", projectId: "spring-ep", workModeId: "outreach", doDateInDays: -3, deadlineInDays: null, status: "done", inToday: false },
+  { id: "t18", title: "Pay June rent", lifeAreaId: "home", projectId: null, workModeId: "admin", doDateInDays: null, deadlineInDays: -5, status: "done", inToday: false, completedAtInDays: -4 },
+  { id: "t19", title: "Post release announcement", lifeAreaId: "music", projectId: "spring-ep", workModeId: "outreach", doDateInDays: -3, deadlineInDays: null, status: "done", inToday: false, completedAtInDays: -2 },
 ];
 
 export const TASKS: Task[] = TASK_SEED.map(
