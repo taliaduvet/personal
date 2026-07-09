@@ -6,12 +6,19 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 # Studio OS — agent context
 
-Before starting feature work, read:
+**Start here:** [`docs/REVIEW_GUIDE.md`](docs/REVIEW_GUIDE.md) — local storage, architecture map, test commands.
 
-1. **`docs/BUILD_ROADMAP.md`** — dependency-ordered plan for the full app
-2. **`docs/SPRINT-A.md`** — shipped sprint (check status + UAT)
-3. **`docs/SPRINT-C.md`** — shipped sprint (check status + UAT)
-4. **`docs/SPRINT-D.md`** — shipped sprint (check status + UAT)
-5. **`docs/SPRINT-E.md`** — shipped sprint (check status + UAT)
+**Roadmap:** [`docs/BUILD_ROADMAP.md`](docs/BUILD_ROADMAP.md) — Layers 1–6 shipped; Layer 7 (Daylight) is next.
 
-Duration memory is built — Work View stats, project rollups, day-close retro, and Day Ledger on Today. Next up: Layer 7 (Daylight / visual polish) unless the user overrides.
+**Sprint specs (all DONE):** `docs/SPRINT-A.md` … `docs/SPRINT-E.md`
+
+## Conventions
+
+- **Local-first:** Tasks, reviews, activity log, settings persist in `localStorage` (see REVIEW_GUIDE for keys).
+- **Logic in `src/lib/`**, UI in `src/components/`, routes in `src/app/`.
+- **`*.design.tsx`** and `/design/*` routes are wireframes — not production behavior.
+- Run `npm test` and `npm run build` before declaring a sprint complete.
+
+## Current state
+
+Sprints A–E shipped: timestamps, sessions, waiting-on, archive wing, duration memory, Day Ledger, day-close with yesterday note. Weekly Review uses a wide collapsible 3-column board layout.
