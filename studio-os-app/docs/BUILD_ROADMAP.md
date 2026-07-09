@@ -13,12 +13,11 @@ This is the dependency-ordered plan for building the **entire** app. Each phase 
 |---------|--------|
 | Week planning wizard (4 steps) | Functional |
 | Today (mode bench, also-today, open day, capture, unplanned nudge) | Functional |
-| Tasks Lot (4 lenses + search) | Functional |
+| Tasks Lot (5 lenses + search, incl. Waiting) | Functional |
 | Inbox + smart capture parse | Functional |
 | Quick Edit + Work View | Functional |
 | Projects index + room | Partial (no sheet project write) |
 | Horizon (`/deadlines`) | Functional (M1 buckets) |
-| Tasks Lot (5 lenses + search, incl. Waiting) | Functional |
 | Weekly Review | Functional (studio time + make/manage bar) |
 | Waiting-on | **Shipped** (Sprint C) |
 | Settings + Sheet sync | Partial |
@@ -150,4 +149,4 @@ Daylight engine, token v2, lift glow, phone density, confidence UI. Does not blo
 
 ## Plain English
 
-The app’s **daily loop works**. Sprint A added **when** things happened and **shape today**. Sprint B adds **sessions and an Activity Log** so Review studio time and future Logbook have real evidence — still no background tracking.
+The app’s **daily loop works**. Sprint A added **when** things happened and **shape today**. Sprint B added **sessions and an Activity Log**. Sprint C added **waiting-on** and **Review make/manage depth**. Sprint D is the **archive wing** — Shelf, Logbook, Recipes.
