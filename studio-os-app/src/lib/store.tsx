@@ -14,10 +14,20 @@ import {
   patchTouchesSheet,
   patchTouchesAppData,
 } from "./sheet/push-registry";
-import { queueAppDataTaskUpsert, notifyAppDataReviews } from "./sheet/app-data-notify";
+import { queueAppDataTaskUpsert, notifyAppDataReviews, notifyAppDataActivityLog } from "./sheet/app-data-notify";
+import {
+  appendActivityLogEntry,
+  mergeActivityLogs,
+  newActivityLogId,
+  type ActivityLogEntry,
+} from "./activity-log";
+import { getCompletionContext } from "./completion-context";
+import { resolveCompletionAttribution } from "./completion-attribution";
+import { endSessionForTaskFromBridge } from "./session-bridge";
 
 const STORAGE_KEY = "studio-os.tasks.v7";
 const REVIEW_KEY = "studio-os.reviews.v1";
+const ACTIVITY_LOG_KEY = "studio-os.activityLog.v1";
 
 export type WeekReviewNotes = { reflection: string; intentions: string };
 
@@ -96,6 +106,10 @@ type TasksContextValue = {
   replaceTasksFromSheet: (incoming: Task[]) => void;
   /** Replace review notes from a Sheet pull. */
   applyReviewNotesFromSheet: (incoming: Record<string, WeekReviewNotes>) => void;
+  /** Append-only studio memory log. */
+  activityLog: ActivityLogEntry[];
+  appendActivityLog: (entry: ActivityLogEntry) => void;
+  applyActivityLogFromSheet: (incoming: ActivityLogEntry[]) => void;
   /** After a sheet append assigns a stable UUID to a new task. */
   replaceTaskId: (oldId: string, newId: string, task: Task) => void;
 };
@@ -114,6 +128,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
   const tasksRef = useRef(tasks);
   tasksRef.current = tasks;
   const [reviewNotes, setReviewNotes] = useState<Record<string, WeekReviewNotes>>({});
+  const [activityLog, setActivityLog] = useState<ActivityLogEntry[]>([]);
 
   useEffect(() => {
     try {
@@ -128,6 +143,10 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       if (reviews) {
         setReviewNotes(JSON.parse(reviews) as Record<string, WeekReviewNotes>);
       }
+      const logRaw = localStorage.getItem(ACTIVITY_LOG_KEY);
+      if (logRaw) {
+        setActivityLog(JSON.parse(logRaw) as ActivityLogEntry[]);
+      }
     } catch {
       /* ignore */
     }
@@ -139,10 +158,11 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
       localStorage.setItem(REVIEW_KEY, JSON.stringify(reviewNotes));
+      localStorage.setItem(ACTIVITY_LOG_KEY, JSON.stringify(activityLog));
     } catch {
       /* ignore */
     }
-  }, [tasks, reviewNotes, hydrated]);
+  }, [tasks, reviewNotes, activityLog, hydrated]);
 
   const addTask = useCallback((title: string) => {
     const raw = title.trim();
@@ -197,20 +217,52 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     setCaptureDraft(null);
   }, []);
 
+  const appendActivityLog = useCallback((entry: ActivityLogEntry) => {
+    setActivityLog((prev) => {
+      const next = appendActivityLogEntry(prev, entry);
+      queueMicrotask(() => notifyAppDataActivityLog(next));
+      return next;
+    });
+  }, []);
+
   const completeTask = useCallback((id: string) => {
     const current = tasksRef.current.find((t) => t.id === id);
     if (!current) return;
+
+    const ctx = getCompletionContext();
+    const shapeBlock = ctx.shapeBlockForTask(id);
+    const attribution = resolveCompletionAttribution(id, current, {
+      activeSessionTaskId: ctx.activeSession?.taskId ?? null,
+      activeSessionStartLogId: ctx.activeSession?.startLogId ?? null,
+      shapeBlock,
+    });
+
+    endSessionForTaskFromBridge(id, { forCompletion: true });
+
+    const completedAtIso = completionIsoNow();
+
     const next: Task = {
       ...current,
       status: "done",
       completedAtInDays: 0,
-      completedAtIso: completionIsoNow(),
+      completedAtIso,
       inToday: false,
     };
     setTasks((ts) => ts.map((t) => (t.id === id ? next : t)));
     queueSheetTaskUpsert(next);
     queueAppDataTaskUpsert(next);
-  }, []);
+
+    appendActivityLog({
+      id: newActivityLogId(),
+      atIso: completedAtIso,
+      kind: "task_complete",
+      taskId: id,
+      completedAtIso,
+      attribution: attribution.attribution,
+      sessionId: attribution.sessionId,
+      shapeBlock: attribution.shapeBlock,
+    });
+  }, [appendActivityLog]);
 
   const openQuickEdit = useCallback((id: string) => {
     setQuickEditCapture(false);
@@ -262,6 +314,8 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
   const toggleSubtask = useCallback((taskId: string, subtaskId: string) => {
     const current = tasksRef.current.find((t) => t.id === taskId);
     if (!current) return;
+    const sub = current.subtasks.find((s) => s.id === subtaskId);
+    const nextDone = sub ? !sub.done : false;
     const next = {
       ...current,
       subtasks: current.subtasks.map((s) =>
@@ -270,7 +324,15 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     };
     setTasks((ts) => ts.map((t) => (t.id === taskId ? next : t)));
     queueAppDataTaskUpsert(next);
-  }, []);
+    appendActivityLog({
+      id: newActivityLogId(),
+      atIso: new Date().toISOString(),
+      kind: "subtask_toggle",
+      taskId,
+      subtaskId,
+      done: nextDone,
+    });
+  }, [appendActivityLog]);
 
   const saveReviewNotes = useCallback((key: string, patch: Partial<WeekReviewNotes>) => {
     setReviewNotes((prev) => {
@@ -289,6 +351,11 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
   const applyReviewNotesFromSheet = useCallback((incoming: Record<string, WeekReviewNotes>) => {
     if (Object.keys(incoming).length === 0) return;
     setReviewNotes(incoming);
+  }, []);
+
+  const applyActivityLogFromSheet = useCallback((incoming: ActivityLogEntry[]) => {
+    if (incoming.length === 0) return;
+    setActivityLog((prev) => mergeActivityLogs(prev, incoming));
   }, []);
 
   const replaceTasksFromSheet = useCallback((incoming: Task[]) => {
@@ -323,6 +390,9 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
         reviewNotes,
         saveReviewNotes,
         applyReviewNotesFromSheet,
+        activityLog,
+        appendActivityLog,
+        applyActivityLogFromSheet,
         replaceTasksFromSheet,
         replaceTaskId,
       }}

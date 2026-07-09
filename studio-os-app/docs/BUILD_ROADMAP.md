@@ -38,7 +38,7 @@ Layer 1 — Data truth          ← SPRINT A ✓
     ↓
 Layer 2 — Today completeness  ← SPRINT A ✓
     ↓
-Layer 3 — Sessions + Activity Log  ← SPRINT B (next)
+Layer 3 — Sessions + Activity Log  ← SPRINT B ✓ (code)
     ↓
 Layer 4 — Review ritual + Waiting-on
     ↓
@@ -78,6 +78,8 @@ Layer 7 — Daylight / visual polish (parallel-safe once tokens defined)
 | Real **lifted** timestamps | Proof of shipping today |
 | `patchTodayDayEntry` (mid-week focus without full wizard) | Shape today without replanning whole week |
 | Dashboard mid-week nudge → planning step 2 | Honest plan mid-week |
+
+**Deferred (design mode):** Collapsed day-shape strip after shaping — shaped tasks and calendar events as **dots along a thin horizontal line** under the Today header (morning → evening), tap to reopen shape panel. Not the interim 3-column text summary. Wireframe: `src/components/design/DayShapeCollapsedStrip.design.tsx`. Relates to round-two brief day-arc language.
 
 **Defer:** Drag task from bench into shape block (needs DnD); day-close retro chips (needs Activity Log).
 
@@ -127,7 +129,7 @@ Daylight engine, token v2, lift glow, phone density, confidence UI. Does not blo
 | Sprint | Scope | Doc |
 |--------|-------|-----|
 | **A** | Phase 1 + Phase 2 | [`SPRINT-A.md`](./SPRINT-A.md) |
-| **B** | Sessions + Activity Log v1 | TBD after A ships |
+| **B** | Sessions + Activity Log v1 | [`SPRINT-B.md`](./SPRINT-B.md) |
 | **C** | Waiting-on + Review studio time | TBD |
 | **D** | Shelf → Logbook → Recipes | TBD |
 
@@ -138,10 +140,11 @@ Daylight engine, token v2, lift glow, phone density, confidence UI. Does not blo
 - Product: `Claude Designs/studio-os-round2-brief.md` (especially §3.5, §3.6, §4)
 - Layouts contract: `src/components/StudioLayouts.design.tsx`
 - Today contract: `src/components/TodayConcepts.design.tsx`
+- Collapsed day-shape target: `src/components/design/DayShapeCollapsedStrip.design.tsx`
 - Methodology / data layers: `src/components/Methodology.design.tsx`
 
 ---
 
 ## Plain English
 
-The app’s **daily loop works**. What’s missing is **memory** — the system doesn’t yet reliably know *when* you finished things or speak about time in a human way. Sprint A fixes that foundation and finishes Today’s “shape today” layer. Sessions comes next because Review and Logbook are empty without it.
+The app’s **daily loop works**. Sprint A added **when** things happened and **shape today**. Sprint B adds **sessions and an Activity Log** so Review studio time and future Logbook have real evidence — still no background tracking.

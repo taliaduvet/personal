@@ -286,8 +286,9 @@ flowchart TB
 | `WeekPlanningOverlay` step 3 vs Today shape both edit `days[dateKey]` | Same data model; last write wins; acceptable |
 | Hydration mismatch open day vs mode | Single source: `weekPlanning[weekKey].days[todayDateKey]` |
 
-**Deferred to Sprint B**
+**Deferred to design mode / Sprint B**
 
+- **Collapsed day-shape strip** — after shaping, show plan as dots on a thin horizontal line (not a text summary). Wireframe: `src/components/design/DayShapeCollapsedStrip.design.tsx`
 - Drag task from bench into morning/afternoon/evening block (assigns `doPlan` offset 0 + optional block tag in Activity Log later)
 - Day-close “anything else land today?” chips
 

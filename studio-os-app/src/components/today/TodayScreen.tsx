@@ -274,9 +274,10 @@ export function TodayScreen({
         </button>
       </header>
 
-      {shapeOpen && dayShape ? (
-        <DayShapePanel {...dayShape} />
-      ) : null}
+      {shapeOpen && dayShape ? <DayShapePanel {...dayShape} /> : null}
+
+      {/* Collapsed day-shape strip (dots on a thin line) — design target only.
+          See DayShapeCollapsedStrip.design.tsx + BUILD_ROADMAP Phase 2 deferrals. */}
 
       {/* Split desk — grid so rail runs full height beside the whole bench */}
       <div className="overflow-hidden rounded-xl border border-border shadow-sm min-[560px]:grid min-[560px]:grid-cols-[minmax(0,1fr)_minmax(248px,300px)]">

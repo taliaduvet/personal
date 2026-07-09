@@ -1,6 +1,7 @@
 import type { LifeArea, SubTask, Task } from "@/lib/types";
 import type { DriveDocLink, DriveFolderLink, Project } from "@/lib/types";
 import type { WeekPlanningRecord } from "@/lib/settings-store";
+import type { ActivityLogEntry } from "@/lib/activity-log";
 
 export const APP_DATA_TAB = "_AppData";
 
@@ -17,6 +18,7 @@ export type TaskAppOverlay = {
   personId?: string | null;
   personName?: string | null;
   completedAtIso?: string | null;
+  lastReentryNote?: string | null;
 };
 
 export type WeekReviewNotesBlob = { reflection: string; intentions: string };
@@ -34,6 +36,7 @@ export type AppDataStore = {
   contacts: Contact[];
   lifeAreas: LifeArea[];
   reviews: Record<string, WeekReviewNotesBlob>;
+  activityLog: ActivityLogEntry[];
 };
 
 export function emptyAppDataStore(): AppDataStore {
@@ -44,6 +47,7 @@ export function emptyAppDataStore(): AppDataStore {
     contacts: [],
     lifeAreas: [],
     reviews: {},
+    activityLog: [],
   };
 }
 
@@ -53,6 +57,7 @@ const WEEK_PREFIX = "week:";
 const CONTACTS_KEY = "contacts";
 const LIFE_AREAS_KEY = "lifeAreas";
 const REVIEWS_KEY = "reviews";
+const ACTIVITY_LOG_KEY = "activityLog";
 
 function cellStr(v: unknown): string {
   if (v == null) return "";
@@ -88,6 +93,15 @@ export function parseAppDataRows(rows: unknown[][]): AppDataStore {
     if (key === REVIEWS_KEY) {
       try {
         store.reviews = JSON.parse(String(val)) as Record<string, WeekReviewNotesBlob>;
+      } catch {
+        /* ignore */
+      }
+      continue;
+    }
+
+    if (key === ACTIVITY_LOG_KEY) {
+      try {
+        store.activityLog = JSON.parse(String(val)) as ActivityLogEntry[];
       } catch {
         /* ignore */
       }
@@ -139,6 +153,10 @@ export function appDataRowsFromStore(store: AppDataStore): (string | number)[][]
     rows.push([REVIEWS_KEY, JSON.stringify(store.reviews)]);
   }
 
+  if (store.activityLog.length > 0) {
+    rows.push([ACTIVITY_LOG_KEY, JSON.stringify(store.activityLog)]);
+  }
+
   for (const [id, overlay] of store.tasks) {
     rows.push([`${TASK_PREFIX}${id}`, JSON.stringify(overlay)]);
   }
@@ -161,6 +179,7 @@ export function mergeTaskOverlay(task: Task, overlay?: TaskAppOverlay): Task {
     personId: overlay.personId ?? task.personId ?? null,
     personName: overlay.personName ?? task.personName ?? null,
     completedAtIso: overlay.completedAtIso ?? task.completedAtIso ?? null,
+    lastReentryNote: overlay.lastReentryNote ?? task.lastReentryNote ?? null,
   };
 }
 
@@ -172,6 +191,7 @@ export function taskToOverlay(task: Task): TaskAppOverlay {
     personName: task.personName ?? null,
   };
   if (task.completedAtIso) overlay.completedAtIso = task.completedAtIso;
+  if (task.lastReentryNote) overlay.lastReentryNote = task.lastReentryNote;
   return overlay;
 }
 
@@ -201,6 +221,7 @@ export function overlayTouchesAppData(patch: Partial<Task>): boolean {
       k === "subtasks" ||
       k === "personId" ||
       k === "personName" ||
-      k === "completedAtIso"
+      k === "completedAtIso" ||
+      k === "lastReentryNote"
   );
 }

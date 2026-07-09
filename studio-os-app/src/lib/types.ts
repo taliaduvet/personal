@@ -42,6 +42,8 @@ export type Task = {
   personName?: string | null;
   /** Sheet-only columns preserved on read/write (priority, goal, calendar IDs). */
   sheetMeta?: TaskSheetMeta;
+  /** Last session reentry note (app overlay). */
+  lastReentryNote?: string | null;
 };
 
 export type LifeArea = { id: string; name: string; color: string };

@@ -9,6 +9,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 Before starting feature work, read:
 
 1. **`docs/BUILD_ROADMAP.md`** — dependency-ordered plan for the full app
-2. **`docs/SPRINT-A.md`** — current sprint scope, user stories, risks (check status line)
+2. **`docs/SPRINT-A.md`** — shipped sprint (check status + UAT)
+3. **`docs/SPRINT-B.md`** — current sprint scope (check status line)
 
-Do not build Sessions, Logbook, Shelf, or Recipes until roadmap layers 1–2 are done unless the user explicitly overrides.
+Do not build Logbook, Shelf, or Recipes until roadmap layers allow unless the user explicitly overrides.

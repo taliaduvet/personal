@@ -14,6 +14,7 @@ import {
   TaskRowWire,
   Zone,
 } from "@/components/design/wireframe-primitives";
+import { DayShapeCollapsedStripDesign } from "@/components/design/DayShapeCollapsedStrip.design";
 
 function ContractRow({ label, rule }: { label: string; rule: string }) {
   return (
@@ -419,6 +420,17 @@ export default function TodayConceptsDesign() {
             </div>
           </div>
           <p className="mt-3 text-center text-xs text-muted">Split desk scrolls below when shape is open</p>
+        </Frame>
+
+        <Frame
+          label="Today · shape collapsed · dot strip (design target)"
+          note="after shaping — non-invasive · tap reopens panel · NOT built in app yet"
+        >
+          <TodayHeader mode="admin" shaped />
+          <div className="mt-3">
+            <DayShapeCollapsedStripDesign note="calendar dots = muted · task dots = accent · sun = now" />
+          </div>
+          <p className="mt-3 text-center text-xs text-muted">Bench unchanged below — hero stays the task list</p>
         </Frame>
       </section>
 

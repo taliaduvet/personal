@@ -8,12 +8,19 @@ import { useTodayAssignment } from "@/lib/use-today-assignment";
 import { projectWhy } from "@/lib/lenses";
 import { getSavedReturnPath, isTodayPath, returnFromTaskWork, openProjectDetail } from "@/lib/navigation";
 import { TaskClassifyDropdowns } from "@/components/TaskClassify";
+import { useSessions } from "@/lib/sessions-store";
 
 export function TaskWorkView({ taskId }: { taskId: string }) {
   const router = useRouter();
   const returnTo = useCallback(() => returnFromTaskWork(router), [router]);
   const { tasks, updateTask, deleteTask, completeTask, addSubtask, toggleSubtask } = useTasks();
   const { toggleToday } = useTodayAssignment();
+  const {
+    isTaskInSession,
+    startSession,
+    requestEndSession,
+    elapsedLabel,
+  } = useSessions();
   const [newSubtask, setNewSubtask] = useState("");
   const [fromToday] = useState(() => {
     const saved = getSavedReturnPath();
@@ -43,6 +50,7 @@ export function TaskWorkView({ taskId }: { taskId: string }) {
   const done = task.status === "done";
   const doneSubs = task.subtasks.filter((s) => s.done).length;
   const pct = task.subtasks.length > 0 ? Math.round((doneSubs / task.subtasks.length) * 100) : 0;
+  const inSession = isTaskInSession(task.id);
 
   return (
     <div className="mx-auto min-h-[calc(100dvh-8rem)] max-w-2xl pb-24">
@@ -51,7 +59,7 @@ export function TaskWorkView({ taskId }: { taskId: string }) {
           ← Back
         </button>
         <span className="text-xs font-medium text-muted">
-          {done ? "Completed" : task.status === "in_progress" ? "In progress" : "Task"}
+          {done ? "Completed" : inSession ? `In session · ${elapsedLabel}` : task.status === "in_progress" ? "In progress" : "Task"}
         </span>
         <button
           type="button"
@@ -66,6 +74,35 @@ export function TaskWorkView({ taskId }: { taskId: string }) {
       </header>
 
       <div className="py-5">
+        {task.lastReentryNote?.trim() && !done ? (
+          <div className="mb-4 rounded-xl border border-accent/25 bg-accent-soft/30 px-4 py-3">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-faint">Where you left off</p>
+            <p className="mt-1 text-sm leading-relaxed text-ink">{task.lastReentryNote}</p>
+          </div>
+        ) : null}
+
+        {!done && (
+          <div className="mb-4">
+            {inSession ? (
+              <button
+                type="button"
+                onClick={requestEndSession}
+                className="rounded-lg border border-accent bg-accent-soft px-3 py-2 text-sm font-medium text-accent hover:bg-accent-soft/80"
+              >
+                End session
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => startSession(task.id, task.projectId)}
+                className="rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-muted hover:border-accent hover:text-accent"
+              >
+                Sit with this
+              </button>
+            )}
+          </div>
+        )}
+
         <textarea
           value={task.title}
           onChange={(e) => updateTask(task.id, { title: e.target.value })}

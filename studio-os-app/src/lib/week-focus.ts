@@ -21,7 +21,10 @@ export type DayShapeBlock = "morning" | "afternoon" | "evening";
 export type WeekDayFocusEntry = {
   focus: DayFocus | null;
   note: string;
+  /** @deprecated Intent chips per block — use shapeBlockTasks instead. */
   shapeBlocks?: Partial<Record<DayShapeBlock, DayShapeIntent | null>>;
+  /** Task ids scheduled into each portion of the day. */
+  shapeBlockTasks?: Partial<Record<DayShapeBlock, string[]>>;
 };
 
 export type WeekFocusDraft = {

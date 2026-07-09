@@ -3,9 +3,12 @@ import { BottomNav } from "@/components/BottomNav";
 import { TopBar } from "@/components/TopBar";
 import { TaskDetailSheet } from "@/components/TaskDetailSheet";
 import { GoogleGsiPreload } from "@/components/GoogleGsiPreload";
+import { SessionEndSheet } from "@/components/SessionEndSheet";
+import { SessionIndicator } from "@/components/SessionIndicator";
 import { TasksProvider } from "@/lib/store";
 import { SettingsProvider } from "@/lib/settings-store";
 import { ProjectsProvider } from "@/lib/projects-store";
+import { SessionsProvider } from "@/lib/sessions-store";
 import { SheetProvider } from "@/lib/sheet-store";
 import { WeekPlanningLauncherProvider } from "@/components/WeekPlanningLauncher";
 
@@ -14,6 +17,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     <SettingsProvider>
       <ProjectsProvider>
       <TasksProvider>
+      <SessionsProvider>
       <SheetProvider>
       <WeekPlanningLauncherProvider>
       <GoogleGsiPreload />
@@ -26,10 +30,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </main>
         </div>
         <BottomNav />
+        <div className="fixed inset-x-0 bottom-[4.25rem] z-20 flex justify-center px-4 md:hidden">
+          <SessionIndicator className="shadow-sm" />
+        </div>
         <TaskDetailSheet />
+        <SessionEndSheet />
       </div>
       </WeekPlanningLauncherProvider>
       </SheetProvider>
+      </SessionsProvider>
       </TasksProvider>
       </ProjectsProvider>
     </SettingsProvider>

@@ -6,6 +6,7 @@ import { useSettings } from "@/lib/settings-store";
 import { useTodayAssignment } from "@/lib/use-today-assignment";
 import { useTodayCaptures } from "@/lib/use-today-captures";
 import { weekKey } from "@/lib/week";
+import { moveTaskToShapeBlock } from "@/lib/day-shape";
 import {
   dateKeyFromOffset,
   focusLabel,
@@ -16,7 +17,6 @@ import {
   weekDaySlots,
   type DayFocus,
   type DayShapeBlock,
-  type DayShapeIntent,
 } from "@/lib/week-focus";
 import { getActiveLifeAreas } from "@/lib/life-area-registry";
 import { shouldShowUnplannedNudge, unplannedModeTasks } from "@/lib/unplanned-nudge";
@@ -161,6 +161,12 @@ export function TodayView() {
   );
 
   const benchCount = (hasModeDay ? modeBench.length : openDayTasks.length) + (hasModeDay ? alsoToday.length : 0);
+
+  const shapeBenchTasks = useMemo(() => {
+    if (hasModeDay) return [...modeBench, ...alsoToday];
+    return openDayTasks;
+  }, [hasModeDay, modeBench, alsoToday, openDayTasks]);
+
   const todaySlotLabel = slots.find((s) => s.isToday);
   const dateLabel = todaySlotLabel
     ? `${todaySlotLabel.weekday === "Today" ? "Today" : todaySlotLabel.weekday} · ${new Date().toLocaleDateString(undefined, { month: "short", day: "numeric" })}`
@@ -212,11 +218,12 @@ export function TodayView() {
     [patchWeekDayEntry, weekKeyNow]
   );
 
-  const handleShapeBlock = useCallback(
-    (block: DayShapeBlock, intent: DayShapeIntent | null) => {
-      patchWeekDayEntry(weekKeyNow, todayDateKey, { shapeBlocks: { [block]: intent } });
+  const handleAssignTaskToBlock = useCallback(
+    (taskId: string, block: DayShapeBlock | null) => {
+      const next = moveTaskToShapeBlock(todayEntry.shapeBlockTasks, taskId, block);
+      patchWeekDayEntry(weekKeyNow, todayDateKey, { shapeBlockTasks: next });
     },
-    [patchWeekDayEntry, weekKeyNow, todayDateKey]
+    [patchWeekDayEntry, weekKeyNow, todayDateKey, todayEntry.shapeBlockTasks]
   );
 
   const dayShape: DayShapePanelProps = {
@@ -227,12 +234,12 @@ export function TodayView() {
     calendarError: calendar.error,
     calendarConnected: calendar.connected,
     allDayDispositions,
-    tasks: all,
+    benchTasks: shapeBenchTasks,
     weekStartsOn,
     onFocus: handleDayFocus,
     onNote: handleDayNote,
     onAllDayDisposition: handleAllDayDisposition,
-    onShapeBlock: handleShapeBlock,
+    onAssignTaskToBlock: handleAssignTaskToBlock,
   };
 
   return (

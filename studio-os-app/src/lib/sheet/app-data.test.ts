@@ -48,6 +48,24 @@ describe("appDataRowsFromStore", () => {
     const back = parseAppDataRows(appDataRowsFromStore(store));
     expect(back.reviews["2026-07-07"]?.intentions).toBe("focus");
   });
+
+  it("round-trips activity log", () => {
+    const store = emptyAppDataStore();
+    store.activityLog = [
+      {
+        id: "al-1",
+        atIso: "2026-07-09T14:00:00.000Z",
+        kind: "session_end",
+        taskId: "t1",
+        projectId: null,
+        startedAtIso: "2026-07-09T13:00:00.000Z",
+        durationMs: 3_600_000,
+      },
+    ];
+    const back = parseAppDataRows(appDataRowsFromStore(store));
+    expect(back.activityLog).toHaveLength(1);
+    expect(back.activityLog[0]?.kind).toBe("session_end");
+  });
 });
 
 describe("mergeTaskOverlay", () => {

@@ -49,6 +49,12 @@ export function notifyAppDataReviews(reviews: Record<string, { reflection: strin
   });
 }
 
+export function notifyAppDataActivityLog(activityLog: import("@/lib/activity-log").ActivityLogEntry[]) {
+  handlers?.patch((store) => {
+    store.activityLog = activityLog;
+  });
+}
+
 export function queueAppDataTaskUpsert(task: Task) {
   if (!task.title.trim()) return;
   queueMicrotask(() => notifyAppDataTask(task));

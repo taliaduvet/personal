@@ -8,6 +8,7 @@ import { useWeekPlanningLauncher } from "@/components/WeekPlanningLauncher";
 import { openTaskWork } from "@/lib/navigation";
 import { weekKey, weekRange } from "@/lib/week";
 import { weekPlanningMode } from "@/lib/week-planning";
+import { formatStudioDuration, studioMsInWeek } from "@/lib/studio-time";
 import {
   carryOver,
   deadlinesHit,
@@ -19,7 +20,7 @@ import {
 } from "@/lib/weekly-review";
 
 export function WeeklyReviewView() {
-  const { tasks, reviewNotes, saveReviewNotes } = useTasks();
+  const { tasks, reviewNotes, saveReviewNotes, activityLog } = useTasks();
   const { weekStartsOn, weekPlanning, declineWeekPlanning } = useSettings();
   const { openPlanning } = useWeekPlanningLauncher();
   const [weekOffset, setWeekOffset] = useState(0);
@@ -42,6 +43,12 @@ export function WeeklyReviewView() {
     [tasks, weekStartsOn, weekPlanning]
   );
   const showPlanHandoff = weekOffset === 0 && !weekAlreadyPlanned;
+
+  const studioMs = useMemo(
+    () => studioMsInWeek(activityLog, range.start, range.end),
+    [activityLog, range.start, range.end]
+  );
+  const studioLabel = formatStudioDuration(studioMs);
 
   return (
     <section className="mx-auto max-w-2xl space-y-6">
@@ -77,7 +84,7 @@ export function WeeklyReviewView() {
         <Stat label="Shipped" value={shipped.length} accent />
         <Stat label="Carried over" value={carried.length} />
         <Stat label="Deadlines hit" value={deadlines.length} />
-        <Stat label="Studio time" value="—" hint="Coming in app" />
+        <Stat label="Studio time" value={studioLabel} hint={studioMs > 0 ? undefined : "From Work View sessions"} />
       </div>
 
       {/* Board: Shipped · In flight · Carry over */}

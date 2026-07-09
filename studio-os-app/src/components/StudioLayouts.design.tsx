@@ -8,7 +8,8 @@
  * - Dashboard: greeting = header not a card · one dominant hero · radar
  *   dedupes against the hero · whispers collapse into one status strip ·
  *   balance is a slim rail, not a full-width row.
- * - Today: no redundant collapsed day-shape bar — just the header button.
+ * - Today: collapsed day-shape = dots on a thin line under header (design target;
+ *   see DayShapeCollapsedStrip.design.tsx). Expanded shape panel is functional v1.
  *   Desk margins around the bench are deliberate and annotated.
  * - Lot proves 6 user-defined areas, not a fixed 3.
  * - Quick Edit gets a real desktop frame.

@@ -287,6 +287,9 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
           shapeBlocks: patch.shapeBlocks
             ? { ...prevDay.shapeBlocks, ...patch.shapeBlocks }
             : prevDay.shapeBlocks,
+          shapeBlockTasks: patch.shapeBlockTasks
+            ? { ...prevDay.shapeBlockTasks, ...patch.shapeBlockTasks }
+            : prevDay.shapeBlockTasks,
         };
         const weekPlanning = {
           ...s.weekPlanning,
