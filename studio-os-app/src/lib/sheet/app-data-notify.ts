@@ -43,6 +43,12 @@ export function notifyAppDataWeekPlanning(weekPlanning: Record<string, WeekPlann
   });
 }
 
+export function notifyAppDataReviews(reviews: Record<string, { reflection: string; intentions: string }>) {
+  handlers?.patch((store) => {
+    store.reviews = reviews;
+  });
+}
+
 export function queueAppDataTaskUpsert(task: Task) {
   if (!task.title.trim()) return;
   queueMicrotask(() => notifyAppDataTask(task));

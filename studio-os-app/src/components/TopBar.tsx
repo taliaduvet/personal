@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { BrandMark } from "./icons";
 import { NewTaskButton } from "./NewTaskButton";
+import { SheetSyncIndicator } from "./SheetSyncIndicator";
 
 export function TopBar() {
   return (
@@ -12,7 +13,9 @@ export function TopBar() {
         <span className="font-display font-semibold tracking-tight text-ink">Studio OS</span>
       </Link>
 
-      <div className="hidden md:block" />
+      <div className="hidden md:flex md:flex-1 md:items-center md:justify-end md:gap-4">
+        <SheetSyncIndicator />
+      </div>
 
       <NewTaskButton
         className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-accent-ink"

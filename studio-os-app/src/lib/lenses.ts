@@ -1,5 +1,6 @@
 import type { Task, LensId, TaskGroup, DoPlan } from "./types";
 import type { WeekStartDay } from "./week";
+import { formatDeadlineDisplay } from "./time-display";
 import { WORK_MODES } from "./sample-data";
 import { activeLifeAreaById, getActiveLifeAreas } from "./life-area-registry";
 import { activeProjectName, activeProjectWhy, getActiveProjects } from "./project-registry";
@@ -199,7 +200,8 @@ export function deadlineTasks(tasks: Task[]): Task[] {
 export function groupDeadlines(tasks: Task[]): TaskGroup[] {
   const items = deadlineTasks(tasks);
   const buckets: { key: string; label: string; test: (d: number) => boolean }[] = [
-    { key: "today", label: "Today", test: (d) => d <= 0 },
+    { key: "overdue", label: "Overdue", test: (d) => d < 0 },
+    { key: "today", label: "Today", test: (d) => d === 0 },
     { key: "week", label: "This week", test: (d) => d >= 1 && d <= 7 },
     { key: "month", label: "This month", test: (d) => d >= 8 && d <= 30 },
     { key: "later", label: "Later", test: (d) => d > 30 },
@@ -245,8 +247,11 @@ export function deadlineLabel(
   deadlineInDays: number | null
 ): { text: string; tone: DeadlineTone } | null {
   if (deadlineInDays === null) return null;
-  if (deadlineInDays < 0) return { text: "overdue", tone: "danger" };
-  if (deadlineInDays === 0) return { text: "due today", tone: "danger" };
-  if (deadlineInDays <= 3) return { text: `due in ${deadlineInDays}d`, tone: "danger" };
-  return { text: `due in ${deadlineInDays}d`, tone: "muted" };
+  const text = formatDeadlineDisplay(deadlineInDays);
+  if (deadlineInDays < 0) return { text, tone: "danger" };
+  if (deadlineInDays === 0) return { text, tone: "danger" };
+  if (deadlineInDays <= 3) return { text, tone: "danger" };
+  return { text, tone: "muted" };
 }
+
+export { formatDeadlineDisplay };

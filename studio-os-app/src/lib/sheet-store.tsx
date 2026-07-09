@@ -84,7 +84,7 @@ function loadConnection(): SheetConnection | null {
 
 export function SheetProvider({ children }: { children: ReactNode }) {
   const { weekStartsOn, applyFromSheetAppData } = useSettings();
-  const { replaceTasksFromSheet, replaceTaskId } = useTasks();
+  const { replaceTasksFromSheet, replaceTaskId, applyReviewNotesFromSheet } = useTasks();
   const { projects, replaceProjectsFromSheet, clearSheetProjects } = useProjects();
 
   const [connection, setConnection] = useState<SheetConnection | null>(null);
@@ -230,6 +230,7 @@ export function SheetProvider({ children }: { children: ReactNode }) {
         weekPlanning[key] = rec;
       }
       applyFromSheetAppData({ contacts: appData.contacts, weekPlanning, lifeAreas: appData.lifeAreas });
+      applyReviewNotesFromSheet(appData.reviews);
 
       rowIndexRef.current = rowIndex;
       tasksRowsRef.current = tasksRows;
@@ -243,7 +244,7 @@ export function SheetProvider({ children }: { children: ReactNode }) {
 
       void maybeSyncWeeklyReview(settings);
     },
-    [applyFromSheetAppData, maybeSyncWeeklyReview, replaceProjectsFromSheet, replaceTasksFromSheet]
+    [applyFromSheetAppData, applyReviewNotesFromSheet, maybeSyncWeeklyReview, replaceProjectsFromSheet, replaceTasksFromSheet]
   );
 
   const runPull = useCallback(

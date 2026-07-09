@@ -4,8 +4,10 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTasks } from "@/lib/store";
 import { useSettings } from "@/lib/settings-store";
+import { useWeekPlanningLauncher } from "@/components/WeekPlanningLauncher";
 import { openTaskWork } from "@/lib/navigation";
 import { weekKey, weekRange } from "@/lib/week";
+import { weekPlanningMode } from "@/lib/week-planning";
 import {
   carryOver,
   deadlinesHit,
@@ -18,7 +20,8 @@ import {
 
 export function WeeklyReviewView() {
   const { tasks, reviewNotes, saveReviewNotes } = useTasks();
-  const { weekStartsOn } = useSettings();
+  const { weekStartsOn, weekPlanning, declineWeekPlanning } = useSettings();
+  const { openPlanning } = useWeekPlanningLauncher();
   const [weekOffset, setWeekOffset] = useState(0);
 
   const range = useMemo(() => weekRange(weekStartsOn, weekOffset), [weekStartsOn, weekOffset]);
@@ -32,6 +35,13 @@ export function WeeklyReviewView() {
 
   const notes = reviewNotes[key] ?? { reflection: "", intentions: "" };
   const maxBalance = balance.reduce((m, r) => Math.max(m, r.shipped + r.active), 0) || 1;
+
+  const currentWeekKey = useMemo(() => weekKey(weekStartsOn, 0), [weekStartsOn]);
+  const weekAlreadyPlanned = useMemo(
+    () => weekPlanningMode(tasks, weekStartsOn, weekPlanning) === "shaped",
+    [tasks, weekStartsOn, weekPlanning]
+  );
+  const showPlanHandoff = weekOffset === 0 && !weekAlreadyPlanned;
 
   return (
     <section className="mx-auto max-w-2xl space-y-6">
@@ -160,6 +170,36 @@ export function WeeklyReviewView() {
           className="w-full resize-y rounded-xl border border-border bg-surface px-4 py-3 text-sm leading-relaxed text-ink outline-none placeholder:text-faint focus:border-accent"
         />
       </Card>
+
+      {showPlanHandoff && (
+        <div className="rounded-xl border-2 border-accent bg-accent-soft/20 p-4">
+          <p className="font-medium text-ink">Ready to shape this week?</p>
+          <p className="mt-1 text-sm text-muted">
+            Opens planning. Your intentions above will show as a reminder — not auto-filled.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() =>
+                openPlanning({
+                  intentionReminder: notes.intentions.trim() || undefined,
+                  initialStep: 1,
+                })
+              }
+              className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+            >
+              Shape this week →
+            </button>
+            <button
+              type="button"
+              onClick={() => declineWeekPlanning(currentWeekKey)}
+              className="rounded-lg border border-border px-4 py-2 text-sm text-muted hover:text-ink"
+            >
+              Not now
+            </button>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

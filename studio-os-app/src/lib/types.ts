@@ -31,6 +31,8 @@ export type Task = {
   inToday: boolean;
   /** Days from today when marked done. null = not completed. */
   completedAtInDays: number | null;
+  /** Precise completion time (app overlay / local). Sheet keeps date-only. */
+  completedAtIso?: string | null;
   /** Unix ms when the task was captured. */
   parkedAt: number;
   notes: string;

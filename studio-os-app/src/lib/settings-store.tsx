@@ -32,6 +32,8 @@ export type WeekPlanningRecord = {
   completedAt: string;
   summary: WeekPlanningSummary;
   theme: string | null;
+  intention: string | null;
+  approvedTaskIds: string[];
   days: Record<string, WeekDayFocusEntry>;
   allDayDispositions?: Record<string, AllDayDisposition>;
 };
@@ -40,6 +42,10 @@ export type AppSettings = {
   weekStartsOn: WeekStartDay;
   /** Per week-start key — set when user taps Done planning. */
   weekPlanning: Record<string, WeekPlanningRecord>;
+  /** Week-start key → ISO date when user declined planning from Review. */
+  planningDeclinedAt: Record<string, string>;
+  /** Week-start key → unplanned task IDs snapshotted when user dismissed the Today rail nudge. */
+  unplannedNudgeDismissedIds: Record<string, string[]>;
   contacts: Contact[];
   lifeAreas: LifeArea[];
 };
@@ -47,6 +53,8 @@ export type AppSettings = {
 const DEFAULT_SETTINGS: AppSettings = {
   weekStartsOn: 0,
   weekPlanning: {},
+  planningDeclinedAt: {},
+  unplannedNudgeDismissedIds: {},
   contacts: [],
   lifeAreas: SEED_LIFE_AREAS,
 };
@@ -60,6 +68,22 @@ type SettingsContextValue = AppSettings & {
   ) => void;
   /** Re-open planning mid-week — clears the done state for that week. */
   reopenWeekPlanning: (weekStartKey: string) => void;
+  /** User tapped "not now" on Review handoff — gentle deferral for this week. */
+  declineWeekPlanning: (weekStartKey: string) => void;
+  clearPlanningDeclined: (weekStartKey: string) => void;
+  /** Add tasks to this week's approved list (mid-week approve from Today). */
+  addApprovedTasksForWeek: (weekStartKey: string, taskIds: string[]) => void;
+  /** Toggle one task on/off this week's approved list. */
+  setTaskApprovedForWeek: (weekStartKey: string, taskId: string, approved: boolean) => void;
+  /** Dismiss Today unplanned nudge — snapshot current unplanned task IDs for this week. */
+  dismissUnplannedNudge: (weekStartKey: string, unplannedTaskIds: string[]) => void;
+  /** Patch a single day in the week plan (shape today) without reopening the wizard. */
+  patchWeekDayEntry: (
+    weekStartKey: string,
+    dateKey: string,
+    patch: Partial<import("./week-focus").WeekDayFocusEntry>,
+    dispositionPatch?: Record<string, AllDayDisposition>
+  ) => void;
   /** Replace contacts from a Google Contacts sync. */
   setGoogleContacts: (contacts: Contact[]) => void;
   clearGoogleContacts: () => void;
@@ -87,6 +111,15 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         setSettings({
           weekStartsOn: parsed.weekStartsOn ?? DEFAULT_SETTINGS.weekStartsOn,
           weekPlanning: normalizeWeekPlanningMap(parsed.weekPlanning ?? {}),
+          planningDeclinedAt:
+            parsed.planningDeclinedAt && typeof parsed.planningDeclinedAt === "object"
+              ? (parsed.planningDeclinedAt as Record<string, string>)
+              : {},
+          unplannedNudgeDismissedIds:
+            parsed.unplannedNudgeDismissedIds &&
+            typeof parsed.unplannedNudgeDismissedIds === "object"
+              ? (parsed.unplannedNudgeDismissedIds as Record<string, string[]>)
+              : {},
           contacts: Array.isArray(parsed.contacts) ? parsed.contacts : [],
           lifeAreas: Array.isArray(parsed.lifeAreas) && parsed.lifeAreas.length > 0
             ? parsed.lifeAreas
@@ -128,10 +161,17 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
               completedAt: new Date().toISOString(),
               summary,
               theme: draft.theme,
+              intention: draft.intention,
+              approvedTaskIds: draft.approvedTaskIds,
               days: draft.days,
               allDayDispositions: draft.allDayDispositions,
             },
           },
+          planningDeclinedAt: (() => {
+            const next = { ...s.planningDeclinedAt };
+            delete next[weekStartKey];
+            return next;
+          })(),
         };
         queueMicrotask(() => notifyAppDataWeekPlanning(next.weekPlanning));
         return next;
@@ -149,6 +189,121 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       return updated;
     });
   }, []);
+
+  const declineWeekPlanning = useCallback((weekStartKey: string) => {
+    setSettings((s) => ({
+      ...s,
+      planningDeclinedAt: {
+        ...s.planningDeclinedAt,
+        [weekStartKey]: new Date().toISOString().slice(0, 10),
+      },
+    }));
+  }, []);
+
+  const clearPlanningDeclined = useCallback((weekStartKey: string) => {
+    setSettings((s) => {
+      const next = { ...s.planningDeclinedAt };
+      delete next[weekStartKey];
+      return { ...s, planningDeclinedAt: next };
+    });
+  }, []);
+
+  const addApprovedTasksForWeek = useCallback((weekStartKey: string, taskIds: string[]) => {
+    if (taskIds.length === 0) return;
+    setSettings((s) => {
+      const rec = s.weekPlanning[weekStartKey];
+      if (!rec) return s;
+      const merged = new Set(rec.approvedTaskIds);
+      for (const id of taskIds) merged.add(id);
+      const weekPlanning = {
+        ...s.weekPlanning,
+        [weekStartKey]: {
+          ...rec,
+          approvedTaskIds: [...merged],
+        },
+      };
+      queueMicrotask(() => notifyAppDataWeekPlanning(weekPlanning));
+      return { ...s, weekPlanning };
+    });
+  }, []);
+
+  const setTaskApprovedForWeek = useCallback(
+    (weekStartKey: string, taskId: string, approved: boolean) => {
+      setSettings((s) => {
+        const rec = s.weekPlanning[weekStartKey];
+        if (!rec) return s;
+        const ids = new Set(rec.approvedTaskIds);
+        if (approved) ids.add(taskId);
+        else ids.delete(taskId);
+        const weekPlanning = {
+          ...s.weekPlanning,
+          [weekStartKey]: {
+            ...rec,
+            approvedTaskIds: [...ids],
+          },
+        };
+        queueMicrotask(() => notifyAppDataWeekPlanning(weekPlanning));
+        return { ...s, weekPlanning };
+      });
+    },
+    []
+  );
+
+  const dismissUnplannedNudge = useCallback(
+    (weekStartKey: string, unplannedTaskIds: string[]) => {
+      setSettings((s) => ({
+        ...s,
+        unplannedNudgeDismissedIds: {
+          ...s.unplannedNudgeDismissedIds,
+          [weekStartKey]: [...unplannedTaskIds],
+        },
+      }));
+    },
+    []
+  );
+
+  const patchWeekDayEntry = useCallback(
+    (
+      weekStartKey: string,
+      dateKey: string,
+      patch: Partial<import("./week-focus").WeekDayFocusEntry>,
+      dispositionPatch?: Record<string, AllDayDisposition>
+    ) => {
+      setSettings((s) => {
+        const existing = s.weekPlanning[weekStartKey];
+        const base: WeekPlanningRecord = existing ?? {
+          completedAt: new Date().toISOString(),
+          summary: { focusDays: 0, placed: 0, stillOpen: 0, pulledToToday: 0 },
+          theme: null,
+          intention: null,
+          approvedTaskIds: [],
+          days: {},
+          allDayDispositions: {},
+        };
+        const prevDay = base.days[dateKey] ?? { focus: null, note: "" };
+        const nextDay: import("./week-focus").WeekDayFocusEntry = {
+          ...prevDay,
+          ...patch,
+          shapeBlocks: patch.shapeBlocks
+            ? { ...prevDay.shapeBlocks, ...patch.shapeBlocks }
+            : prevDay.shapeBlocks,
+        };
+        const weekPlanning = {
+          ...s.weekPlanning,
+          [weekStartKey]: {
+            ...base,
+            days: { ...base.days, [dateKey]: nextDay },
+            allDayDispositions: dispositionPatch
+              ? { ...(base.allDayDispositions ?? {}), ...dispositionPatch }
+              : base.allDayDispositions,
+          },
+        };
+        queueMicrotask(() => notifyAppDataWeekPlanning(weekPlanning));
+        return { ...s, weekPlanning };
+      });
+    },
+    []
+  );
 
   const setGoogleContacts = useCallback((contacts: Contact[]) => {
     setSettings((s) => {
@@ -216,6 +371,12 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         setWeekStartsOn,
         completeWeekPlanning,
         reopenWeekPlanning,
+        declineWeekPlanning,
+        clearPlanningDeclined,
+        addApprovedTasksForWeek,
+        setTaskApprovedForWeek,
+        dismissUnplannedNudge,
+        patchWeekDayEntry,
         setGoogleContacts,
         clearGoogleContacts,
         applyFromSheetAppData,
@@ -249,6 +410,8 @@ function normalizeWeekPlanningMap(
         pulledToToday: rec.summary.pulledToToday ?? 0,
       },
       theme: rec.theme ?? null,
+      intention: rec.intention ?? null,
+      approvedTaskIds: Array.isArray(rec.approvedTaskIds) ? rec.approvedTaskIds : [],
       days: rec.days ?? {},
       allDayDispositions: rec.allDayDispositions ?? {},
     };

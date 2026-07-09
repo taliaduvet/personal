@@ -251,6 +251,9 @@ export async function ensureWeeklyReviewEvent(
   };
   const byday = weekdayMap[dayName] ?? "MO";
 
+  // Google requires an explicit timeZone on recurring events.
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
   const created = await calFetch<GEvent>(
     `${CAL_API}/calendars/${encodeURIComponent(calendarId)}/events`,
     token,
@@ -258,8 +261,11 @@ export async function ensureWeeklyReviewEvent(
       method: "POST",
       body: JSON.stringify({
         summary: "Weekly Review — Studio OS",
-        start: { dateTime: block.start.toISOString() },
-        end: { dateTime: new Date(block.start.getTime() + 30 * 60 * 1000).toISOString() },
+        start: { dateTime: block.start.toISOString(), timeZone },
+        end: {
+          dateTime: new Date(block.start.getTime() + 30 * 60 * 1000).toISOString(),
+          timeZone,
+        },
         recurrence: [`RRULE:FREQ=WEEKLY;BYDAY=${byday}`],
       }),
     }

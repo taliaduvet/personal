@@ -4,15 +4,21 @@ import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTasks } from "@/lib/store";
 import { useProjects } from "@/lib/projects-store";
+import { useTodayAssignment } from "@/lib/use-today-assignment";
 import { projectWhy } from "@/lib/lenses";
-import { returnFromTaskWork, openProjectDetail } from "@/lib/navigation";
+import { getSavedReturnPath, isTodayPath, returnFromTaskWork, openProjectDetail } from "@/lib/navigation";
 import { TaskClassifyDropdowns } from "@/components/TaskClassify";
 
 export function TaskWorkView({ taskId }: { taskId: string }) {
   const router = useRouter();
   const returnTo = useCallback(() => returnFromTaskWork(router), [router]);
   const { tasks, updateTask, deleteTask, completeTask, addSubtask, toggleSubtask } = useTasks();
+  const { toggleToday } = useTodayAssignment();
   const [newSubtask, setNewSubtask] = useState("");
+  const [fromToday] = useState(() => {
+    const saved = getSavedReturnPath();
+    return saved ? isTodayPath(saved) : false;
+  });
 
   const task = tasks.find((t) => t.id === taskId);
 
@@ -97,16 +103,18 @@ export function TaskWorkView({ taskId }: { taskId: string }) {
         <section className="mt-6 space-y-5">
           <TaskClassifyDropdowns task={task} onChange={(patch) => updateTask(task.id, patch)} />
 
-          <button
-            type="button"
-            onClick={() => updateTask(task.id, { inToday: !task.inToday })}
-            className={[
-              "rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-              task.inToday ? "bg-accent text-white" : "border border-border text-muted hover:border-accent hover:text-accent",
-            ].join(" ")}
-          >
-            {task.inToday ? "In Today" : "Add to Today"}
-          </button>
+          {!fromToday && (
+            <button
+              type="button"
+              onClick={() => toggleToday(task.id, task.inToday)}
+              className={[
+                "rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                task.inToday ? "bg-accent text-white" : "border border-border text-muted hover:border-accent hover:text-accent",
+              ].join(" ")}
+            >
+              {task.inToday ? "In Today" : "Add to Today"}
+            </button>
+          )}
         </section>
 
         <section className="mt-8">

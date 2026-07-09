@@ -5,6 +5,7 @@ import type { SubTask, Task } from "./types";
 import { TASKS } from "./sample-data";
 import { isInboxTask } from "./lenses";
 import { normalizeDoPlan } from "./do-plan";
+import { completionIsoNow } from "./completed-at";
 import { useProjects } from "./projects-store";
 import {
   createTaskId,
@@ -13,7 +14,7 @@ import {
   patchTouchesSheet,
   patchTouchesAppData,
 } from "./sheet/push-registry";
-import { queueAppDataTaskUpsert } from "./sheet/app-data-notify";
+import { queueAppDataTaskUpsert, notifyAppDataReviews } from "./sheet/app-data-notify";
 
 const STORAGE_KEY = "studio-os.tasks.v7";
 const REVIEW_KEY = "studio-os.reviews.v1";
@@ -55,7 +56,10 @@ function applyTaskPatch(
     next.completedAtInDays = next.completedAtInDays ?? 0;
   }
   if (patch.status === "todo" || patch.status === "in_progress") {
-    if (t.status === "done") next.completedAtInDays = null;
+    if (t.status === "done") {
+      next.completedAtInDays = null;
+      next.completedAtIso = null;
+    }
   }
   if (patch.projectId !== undefined && patch.projectId !== null) {
     const p = projects.find((x) => x.id === patch.projectId);
@@ -90,6 +94,8 @@ type TasksContextValue = {
   saveReviewNotes: (weekKey: string, patch: Partial<WeekReviewNotes>) => void;
   /** Replace tasks from a Sheet pull — preserves app-local inToday + subtasks. */
   replaceTasksFromSheet: (incoming: Task[]) => void;
+  /** Replace review notes from a Sheet pull. */
+  applyReviewNotesFromSheet: (incoming: Record<string, WeekReviewNotes>) => void;
   /** After a sheet append assigns a stable UUID to a new task. */
   replaceTaskId: (oldId: string, newId: string, task: Task) => void;
 };
@@ -194,7 +200,13 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
   const completeTask = useCallback((id: string) => {
     const current = tasksRef.current.find((t) => t.id === id);
     if (!current) return;
-    const next: Task = { ...current, status: "done", completedAtInDays: 0, inToday: false };
+    const next: Task = {
+      ...current,
+      status: "done",
+      completedAtInDays: 0,
+      completedAtIso: completionIsoNow(),
+      inToday: false,
+    };
     setTasks((ts) => ts.map((t) => (t.id === id ? next : t)));
     queueSheetTaskUpsert(next);
     queueAppDataTaskUpsert(next);
@@ -261,13 +273,22 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const saveReviewNotes = useCallback((key: string, patch: Partial<WeekReviewNotes>) => {
-    setReviewNotes((prev) => ({
-      ...prev,
-      [key]: {
-        ...(prev[key] ?? { reflection: "", intentions: "" }),
-        ...patch,
-      },
-    }));
+    setReviewNotes((prev) => {
+      const next = {
+        ...prev,
+        [key]: {
+          ...(prev[key] ?? { reflection: "", intentions: "" }),
+          ...patch,
+        },
+      };
+      queueMicrotask(() => notifyAppDataReviews(next));
+      return next;
+    });
+  }, []);
+
+  const applyReviewNotesFromSheet = useCallback((incoming: Record<string, WeekReviewNotes>) => {
+    if (Object.keys(incoming).length === 0) return;
+    setReviewNotes(incoming);
   }, []);
 
   const replaceTasksFromSheet = useCallback((incoming: Task[]) => {
@@ -301,6 +322,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
         closeQuickEdit,
         reviewNotes,
         saveReviewNotes,
+        applyReviewNotesFromSheet,
         replaceTasksFromSheet,
         replaceTaskId,
       }}

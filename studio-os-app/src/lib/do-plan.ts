@@ -98,6 +98,18 @@ export function isCurrentWeekPlan(plan: DoPlan, weekStartsOn: WeekStartDay): boo
   return planStart !== null && planStart >= start && planStart <= end;
 }
 
+/** Soft doing plan lands within the current calendar week. */
+export function hasDoPlanWithinWeek(
+  plan: DoPlan | undefined,
+  weekStartsOn: WeekStartDay
+): boolean {
+  if (plan == null) return false;
+  const { start, end } = weekRange(weekStartsOn, 0);
+  if (plan.kind === "day") return plan.offset >= start && plan.offset <= end;
+  const planStart = doPlanSortKey(plan, weekStartsOn);
+  return planStart !== null && planStart >= start && planStart <= end;
+}
+
 export function isPastWeekPlan(plan: DoPlan, weekStartsOn: WeekStartDay): boolean {
   if (plan?.kind !== "week") return false;
   const { start } = weekRange(weekStartsOn, 0);

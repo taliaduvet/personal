@@ -59,5 +59,12 @@ export function patchTouchesSheet(patch: Partial<Task>): boolean {
 
 export function patchTouchesAppData(patch: Partial<Task>): boolean {
   const keys = Object.keys(patch);
-  return keys.some((k) => k === "inToday" || k === "subtasks" || k === "personId" || k === "personName");
+  return keys.some(
+    (k) =>
+      k === "inToday" ||
+      k === "subtasks" ||
+      k === "personId" ||
+      k === "personName" ||
+      k === "completedAtIso"
+  );
 }

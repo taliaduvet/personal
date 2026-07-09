@@ -2,7 +2,7 @@ import type { Task } from "./types";
 import type { WeekStartDay } from "./week";
 import { isDayInWeek, weekRange } from "./week";
 import { localDateKey } from "./local-date";
-import { dateWithOffset, doPlanSortKey, isCurrentWeekPlan } from "./do-plan";
+import { dateWithOffset, doPlanSortKey, hasDoPlanWithinWeek, isCarriedDoPlan, isCurrentWeekPlan } from "./do-plan";
 import { deadlineLabel, projectName, workModeName } from "./lenses";
 import type { AllDayDisposition } from "./calendar/types";
 
@@ -11,13 +11,23 @@ export type DayFocus =
   | { kind: "mode"; id: string }
   | { kind: "project"; id: string };
 
+export type DayShapeIntent =
+  | { kind: "mode"; id: string }
+  | { kind: "project"; id: string }
+  | { kind: "area"; id: string };
+
+export type DayShapeBlock = "morning" | "afternoon" | "evening";
+
 export type WeekDayFocusEntry = {
   focus: DayFocus | null;
   note: string;
+  shapeBlocks?: Partial<Record<DayShapeBlock, DayShapeIntent | null>>;
 };
 
 export type WeekFocusDraft = {
   theme: string | null;
+  intention: string | null;
+  approvedTaskIds: string[];
   days: Record<string, WeekDayFocusEntry>;
   /** `${dateKey}:${eventId}` → how all-day items affect planning. */
   allDayDispositions?: Record<string, AllDayDisposition>;
@@ -61,7 +71,7 @@ export function emptyWeekFocusDraft(slots: WeekDaySlot[]): WeekFocusDraft {
   for (const s of slots) {
     days[s.dateKey] = days[s.dateKey] ?? { focus: null, note: "" };
   }
-  return { theme: null, days };
+  return { theme: null, intention: null, approvedTaskIds: [], days };
 }
 
 export function mergeWeekFocusDraft(
@@ -72,6 +82,8 @@ export function mergeWeekFocusDraft(
   if (!existing) return base;
   return {
     theme: existing.theme ?? null,
+    intention: existing.intention ?? null,
+    approvedTaskIds: existing.approvedTaskIds ?? [],
     days: {
       ...base.days,
       ...existing.days,
@@ -187,4 +199,42 @@ export function partitionInTodayByFocus(
     else outsideFocus.push(t);
   }
   return { inFocus, outsideFocus };
+}
+
+/** On a mode day bench: approved this week, or do-plan within this week. */
+export function taskOnTodayModeBench(
+  task: Task,
+  focus: DayFocus,
+  weekStartsOn: WeekStartDay,
+  approvedIds: Set<string>
+): boolean {
+  if (task.status === "done") return false;
+  if (!taskMatchesFocus(task, focus)) return false;
+  if (approvedIds.has(task.id)) return true;
+  return hasDoPlanWithinWeek(task.doPlan, weekStartsOn);
+}
+
+/** Mode day bench — approved or do-plan this week, matching today's mode. */
+export function tasksForTodayModeBench(
+  tasks: Task[],
+  focus: DayFocus,
+  weekStartsOn: WeekStartDay,
+  approvedIds: Set<string> = new Set()
+): Task[] {
+  return tasks
+    .filter((t) => taskOnTodayModeBench(t, focus, weekStartsOn, approvedIds))
+    .sort((a, b) => {
+    const rank = (t: Task) => {
+      if (t.deadlineInDays !== null && t.deadlineInDays <= 3) return 0;
+      if (t.status === "in_progress") return 1;
+      if (isCarriedDoPlan(t.doPlan, weekStartsOn)) return 2;
+      return 3;
+    };
+    const ra = rank(a);
+    const rb = rank(b);
+    if (ra !== rb) return ra - rb;
+    const da = a.deadlineInDays ?? 9999;
+    const db = b.deadlineInDays ?? 9999;
+    return da - db;
+  });
 }

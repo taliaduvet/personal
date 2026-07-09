@@ -1,11 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { useTasks } from "@/lib/store";
 import { useSettings } from "@/lib/settings-store";
-import { parseTaskTitle } from "@/lib/parse";
+import { useTodayAssignment } from "@/lib/use-today-assignment";
+import { parseTaskTitle, taskWithCaptureParse } from "@/lib/parse";
 import { doPlanEquals } from "@/lib/do-plan";
 import { lifeAreaColor } from "@/lib/lenses";
+import { weekKey } from "@/lib/week";
+import { isTodayPath, openTaskWork } from "@/lib/navigation";
 import { TaskClassifyDropdowns } from "@/components/TaskClassify";
 import type { Task } from "@/lib/types";
 
@@ -27,25 +31,43 @@ export function TaskDetailSheet() {
     deleteTask,
     completeTask,
   } = useTasks();
-  const { weekStartsOn } = useSettings();
+  const router = useRouter();
+  const { weekStartsOn, weekPlanning, setTaskApprovedForWeek } = useSettings();
+  const { toggleToday } = useTodayAssignment();
+  const pathname = usePathname();
+  const onTodayPage = isTodayPath(pathname);
+  const weekKeyNow = weekKey(weekStartsOn, 0);
+  const weekPlan = weekPlanning[weekKeyNow];
   const [draftTitle, setDraftTitle] = useState("");
   const titleRef = useRef<HTMLInputElement>(null);
   const manualClassify = useRef(new Set<ClassifyField>());
   const task = quickEditId ? tasks.find((t) => t.id === quickEditId) ?? null : null;
+  const isApprovedForWeek = Boolean(task && weekPlan?.approvedTaskIds.includes(task.id));
   const taskRef = useRef(task);
   taskRef.current = task;
   const isCapture = quickEditCapture && task !== null;
+  const captureText = isCapture ? (draftTitle || captureDraft || "") : task?.title ?? "";
+  /** On Today, bench tasks are already approved or assigned — only capture needs today actions. */
+  const showTodayActions = !onTodayPage || isCapture;
 
   const confirmCapture = useCallback(() => {
     if (!task) return;
-    const parsed = parseTaskTitle(draftTitle.trim(), weekStartsOn);
+    const raw = (draftTitle || captureDraft || "").trim();
+    const parsed = parseTaskTitle(raw, weekStartsOn);
     if (!parsed.title.trim()) {
       deleteTask(task.id);
       return;
     }
-    updateTask(task.id, { title: parsed.title });
+    updateTask(task.id, {
+      title: parsed.title,
+      projectId: parsed.projectId,
+      lifeAreaId: parsed.lifeAreaId,
+      workModeId: parsed.workModeId,
+      doPlan: parsed.doPlan,
+      deadlineInDays: parsed.deadlineInDays,
+    });
     closeQuickEdit();
-  }, [task, draftTitle, weekStartsOn, updateTask, deleteTask, closeQuickEdit]);
+  }, [task, draftTitle, captureDraft, weekStartsOn, updateTask, deleteTask, closeQuickEdit]);
 
   const abandonCapture = useCallback(() => {
     if (!task) return;
@@ -54,7 +76,8 @@ export function TaskDetailSheet() {
 
   const handleClose = useCallback(() => {
     if (isCapture) {
-      if (!draftTitle.trim()) {
+      const raw = (draftTitle || captureDraft || "").trim();
+      if (!raw) {
         abandonCapture();
       } else {
         confirmCapture();
@@ -62,17 +85,22 @@ export function TaskDetailSheet() {
       return;
     }
     closeQuickEdit();
-  }, [isCapture, draftTitle, abandonCapture, confirmCapture, closeQuickEdit]);
+  }, [isCapture, draftTitle, captureDraft, abandonCapture, confirmCapture, closeQuickEdit]);
+
+  const handleCloseRef = useRef(handleClose);
+  handleCloseRef.current = handleClose;
 
   useEffect(() => {
     if (!task) return;
     manualClassify.current = new Set();
-    if (quickEditCapture) {
-      setDraftTitle(captureDraft ?? task.title);
+    if (quickEditCapture && captureDraft != null) {
+      setDraftTitle(captureDraft);
+    } else if (!quickEditCapture) {
+      setDraftTitle(task.title);
     }
     titleRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") handleClose();
+      if (e.key === "Escape") handleCloseRef.current();
     };
     document.addEventListener("keydown", onKey);
     const prev = document.body.style.overflow;
@@ -81,33 +109,43 @@ export function TaskDetailSheet() {
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = prev;
     };
-  }, [task?.id, quickEditCapture, captureDraft, handleClose]);
+  }, [task?.id, quickEditCapture, captureDraft, task?.title]);
+
+  const classifyTask = useMemo(() => {
+    if (!task) return null;
+    if (!isCapture) return task;
+    const text = captureText.trim();
+    if (!text) return task;
+    return taskWithCaptureParse(task, text, weekStartsOn, manualClassify.current);
+  }, [task, isCapture, captureText, weekStartsOn]);
 
   useEffect(() => {
-    if (!isCapture || !quickEditId) return;
+    if (!isCapture || !quickEditId || !classifyTask) return;
     const current = taskRef.current;
     if (!current) return;
-    const parsed = parseTaskTitle(draftTitle, weekStartsOn);
     const patch: Partial<Task> = {};
     if (!manualClassify.current.has("projectId")) {
-      if (current.projectId !== parsed.projectId || current.lifeAreaId !== parsed.lifeAreaId) {
-        patch.projectId = parsed.projectId;
-        patch.lifeAreaId = parsed.lifeAreaId;
+      if (current.projectId !== classifyTask.projectId || current.lifeAreaId !== classifyTask.lifeAreaId) {
+        patch.projectId = classifyTask.projectId;
+        patch.lifeAreaId = classifyTask.lifeAreaId;
       }
     }
-    if (!manualClassify.current.has("workModeId") && current.workModeId !== parsed.workModeId) {
-      patch.workModeId = parsed.workModeId;
+    if (!manualClassify.current.has("workModeId") && current.workModeId !== classifyTask.workModeId) {
+      patch.workModeId = classifyTask.workModeId;
     }
-    if (!manualClassify.current.has("doPlan") && !doPlanEquals(current.doPlan, parsed.doPlan)) {
-      patch.doPlan = parsed.doPlan;
+    if (!manualClassify.current.has("doPlan") && !doPlanEquals(current.doPlan, classifyTask.doPlan)) {
+      patch.doPlan = classifyTask.doPlan;
     }
-    if (!manualClassify.current.has("deadlineInDays") && current.deadlineInDays !== parsed.deadlineInDays) {
-      patch.deadlineInDays = parsed.deadlineInDays;
+    if (
+      !manualClassify.current.has("deadlineInDays") &&
+      current.deadlineInDays !== classifyTask.deadlineInDays
+    ) {
+      patch.deadlineInDays = classifyTask.deadlineInDays;
     }
     if (Object.keys(patch).length > 0) updateTask(quickEditId, patch);
-  }, [draftTitle, isCapture, quickEditId, weekStartsOn, updateTask]);
+  }, [classifyTask, isCapture, quickEditId, updateTask]);
 
-  if (!task) return null;
+  if (!task || !classifyTask) return null;
 
   const set = (patch: Partial<Task>) => updateTask(task.id, patch);
 
@@ -151,7 +189,7 @@ export function TaskDetailSheet() {
           <div>
             <input
               ref={titleRef}
-              value={isCapture ? draftTitle : task.title}
+              value={isCapture ? captureText : task.title}
               onChange={(e) => {
                 if (isCapture) setDraftTitle(e.target.value);
                 else set({ title: e.target.value });
@@ -175,20 +213,51 @@ export function TaskDetailSheet() {
             )}
           </div>
 
-          <TaskClassifyDropdowns task={task} onChange={isCapture ? setClassify : set} />
+          <TaskClassifyDropdowns task={classifyTask} onChange={isCapture ? setClassify : set} />
 
-          <button
-            type="button"
-            onClick={() => set({ inToday: !task.inToday })}
-            className={[
-              "w-full rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors",
-              task.inToday
-                ? "border-accent bg-accent-soft text-accent"
-                : "border-border text-muted hover:border-accent hover:text-accent",
-            ].join(" ")}
-          >
-            {task.inToday ? "In Today — tap to remove" : "Add to Today"}
-          </button>
+          {showTodayActions && (
+            <button
+              type="button"
+              onClick={() => toggleToday(task.id, task.inToday)}
+              className={[
+                "w-full rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors",
+                task.inToday
+                  ? "border-accent bg-accent-soft text-accent"
+                  : "border-border text-muted hover:border-accent hover:text-accent",
+              ].join(" ")}
+            >
+              {task.inToday ? "In Today — tap to remove" : "Add to Today"}
+            </button>
+          )}
+
+          {weekPlan && !isCapture && showTodayActions && (
+            <button
+              type="button"
+              onClick={() => setTaskApprovedForWeek(weekKeyNow, task.id, !isApprovedForWeek)}
+              className={[
+                "w-full rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors",
+                isApprovedForWeek
+                  ? "border-accent/50 bg-accent-soft/50 text-accent"
+                  : "border-border text-muted hover:border-accent hover:text-accent",
+              ].join(" ")}
+            >
+              {isApprovedForWeek ? "Approved for this week ✓" : "Approve for this week"}
+            </button>
+          )}
+
+          {!isCapture && (
+            <button
+              type="button"
+              onClick={() => {
+                const id = task.id;
+                closeQuickEdit();
+                openTaskWork(router, id);
+              }}
+              className="w-full rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-accent transition-colors hover:border-accent hover:bg-accent-soft/30"
+            >
+              Open Work View →
+            </button>
+          )}
         </div>
 
         <div className="flex items-center justify-between gap-2 border-t border-line px-4 py-3">
@@ -200,7 +269,7 @@ export function TaskDetailSheet() {
               <button
                 type="button"
                 onClick={confirmCapture}
-                disabled={!draftTitle.trim()}
+                disabled={!captureText.trim()}
                 className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-ink disabled:opacity-50"
               >
                 Capture

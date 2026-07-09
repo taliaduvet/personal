@@ -124,8 +124,8 @@ export function SheetConnect() {
         </div>
 
         <p className="text-[11px] text-faint">
-          Edits in the app save back to your sheet automatically. Today flags, subtasks, and week
-          planning stay on this device for now.
+          Edits in the app save back to your sheet automatically — including Today flags, subtasks,
+          week planning, and weekly reflections (via the hidden _AppData tab).
         </p>
       </div>
     );

@@ -77,13 +77,14 @@ describe("mapTaskRow", () => {
   });
 
   it("maps Done status with completed date", () => {
-    const mon = mondayOfWeekContaining(new Date());
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
     const row = new Array(15).fill("");
     row[0] = "Shipped cover";
     row[1] = "Release";
     row[7] = "Done";
     row[12] = "done-task";
-    row[14] = mon.getTime() / 86_400_000 + 25569;
+    row[14] = today.getTime() / 86_400_000 + 25569;
 
     const task = mapTaskRow(row, byName, byId, WEEK_START);
     expect(task?.status).toBe("done");

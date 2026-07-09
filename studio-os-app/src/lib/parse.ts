@@ -1,6 +1,6 @@
 import { WORK_MODES } from "./sample-data";
-import { activeProjectById } from "./project-registry";
-import type { DoPlan } from "./types";
+import { activeProjectById, getActiveProjects } from "./project-registry";
+import type { DoPlan, Task } from "./types";
 import type { WeekStartDay } from "./week";
 import { dayPlan, parseWeekPhrase } from "./do-plan";
 import { doPlanLabel } from "./do-plan";
@@ -14,7 +14,7 @@ export type ParseResult = {
   deadlineInDays: number | null;
 };
 
-/** Project aliases longest-first so "factor grant" beats "factor". */
+/** Static aliases longest-first so "factor grant" beats "factor". */
 const PROJECT_ALIASES: [string, string][] = [
   ["factor grant", "factor-grant"],
   ["spring ep", "spring-ep"],
@@ -24,6 +24,24 @@ const PROJECT_ALIASES: [string, string][] = [
   ["factor", "factor-grant"],
   ["apartment", "apartment"],
 ];
+
+function projectMatchers(): [string, string][] {
+  const seen = new Set<string>();
+  const matchers: [string, string][] = [];
+  const add = (phrase: string, id: string) => {
+    const key = phrase.trim().toLowerCase();
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    matchers.push([key, id]);
+  };
+  for (const [alias, id] of PROJECT_ALIASES) add(alias, id);
+  for (const p of getActiveProjects()) {
+    add(p.name, p.id);
+    add(p.id.replace(/-/g, " "), p.id);
+  }
+  matchers.sort((a, b) => b[0].length - a[0].length);
+  return matchers;
+}
 
 const MODE_PREFIX = /^(admin|creative|outreach|errands)\s*:\s*/i;
 
@@ -107,11 +125,22 @@ export function parseTaskTitle(raw: string, weekStartsOn: WeekStartDay = 0): Par
   }
 
   const lower = title.toLowerCase();
-  for (const [alias, id] of PROJECT_ALIASES) {
+  for (const [alias, id] of projectMatchers()) {
     if (lower.includes(alias)) {
       projectId = id;
-      title = stripPattern(title, new RegExp(alias, "i"));
+      title = stripPattern(title, new RegExp(escapeRegExp(alias), "i"));
       break;
+    }
+  }
+
+  if (!workModeId) {
+    for (const m of WORK_MODES) {
+      const re = new RegExp(`\\b${escapeRegExp(m.name)}\\b`, "i");
+      if (re.test(title)) {
+        workModeId = m.id;
+        title = stripPattern(title, re);
+        break;
+      }
     }
   }
 
@@ -138,6 +167,30 @@ export function parseTaskTitle(raw: string, weekStartsOn: WeekStartDay = 0): Par
     workModeId,
     doPlan,
     deadlineInDays,
+  };
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+type ClassifyField = "projectId" | "workModeId" | "doPlan" | "deadlineInDays";
+
+/** Merge live parse into a task for capture preview chips (respects manual overrides). */
+export function taskWithCaptureParse(
+  task: Task,
+  raw: string,
+  weekStartsOn: WeekStartDay,
+  manualFields: ReadonlySet<ClassifyField>
+): Task {
+  const parsed = parseTaskTitle(raw, weekStartsOn);
+  return {
+    ...task,
+    projectId: manualFields.has("projectId") ? task.projectId : parsed.projectId,
+    lifeAreaId: manualFields.has("projectId") ? task.lifeAreaId : parsed.lifeAreaId,
+    workModeId: manualFields.has("workModeId") ? task.workModeId : parsed.workModeId,
+    doPlan: manualFields.has("doPlan") ? task.doPlan : parsed.doPlan,
+    deadlineInDays: manualFields.has("deadlineInDays") ? task.deadlineInDays : parsed.deadlineInDays,
   };
 }
 

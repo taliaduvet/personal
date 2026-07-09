@@ -20,11 +20,17 @@ export function TaskCard({
   onComplete,
   hideArea = false,
   hideProject = false,
+  hideMode = false,
+  todayTiming = false,
 }: {
   task: Task;
   onComplete?: (id: string) => void;
   hideArea?: boolean;
   hideProject?: boolean;
+  /** Hide mode pill — used on Today mode-day bench. */
+  hideMode?: boolean;
+  /** Today bench: show deadline or doing-by only (no parked/stale clutter). */
+  todayTiming?: boolean;
 }) {
   const router = useRouter();
   const { openQuickEdit } = useTasks();
@@ -47,6 +53,16 @@ export function TaskCard({
             <path d="m5 13 4 4L19 7" />
           </svg>
         </span>
+      ) : task.status === "in_progress" ? (
+        <button
+          type="button"
+          onClick={() => onComplete?.(task.id)}
+          aria-label="Mark complete"
+          title="In progress"
+          className="mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full border-2 border-accent bg-accent/15 transition-colors hover:bg-accent/25"
+        >
+          <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+        </button>
       ) : (
         <button
           type="button"
@@ -82,8 +98,10 @@ export function TaskCard({
               {lifeAreaName(task.lifeAreaId)}
             </span>
           )}
-          {!hideProject && !task.projectId && <span className="text-faint">No project</span>}
-          {deadline && (
+          {!hideProject && !task.projectId && !todayTiming && (
+            <span className="text-faint">No project</span>
+          )}
+          {deadline ? (
             <span
               className={[
                 "rounded px-1.5 py-0.5 font-medium",
@@ -94,18 +112,23 @@ export function TaskCard({
             >
               {deadline.text}
             </span>
+          ) : todayTiming && plan ? (
+            <span className="rounded bg-canvas px-1.5 py-0.5 text-muted">{plan}</span>
+          ) : null}
+          {!todayTiming && (
+            <span className={stale ? "text-faint" : "text-muted"}>{parked}</span>
           )}
-          <span className={stale ? "text-faint" : "text-muted"}>{parked}</span>
-          {task.workModeId && (
+          {!hideMode && task.workModeId && (
             <span className="rounded bg-canvas px-1.5 py-0.5">{workModeName(task.workModeId)}</span>
           )}
-          {plan && <span className="text-faint">{plan}</span>}
-          {stale && (
+          {!todayTiming && plan && !deadline && (
+            <span className="text-faint">{plan}</span>
+          )}
+          {!todayTiming && stale && (
             <span className="rounded bg-canvas px-1.5 py-0.5 text-faint" title="Consider doing or dropping">
               stale
             </span>
           )}
-          {task.status === "in_progress" && <span className="text-accent">In progress</span>}
         </button>
       </div>
     </div>

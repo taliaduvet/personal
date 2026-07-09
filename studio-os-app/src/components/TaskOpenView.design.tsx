@@ -92,9 +92,9 @@ export default function TaskOpenViewDesign() {
       {/* ── Top bar ── */}
       <header className="sticky top-0 z-10 border-b border-line bg-surface/95 px-4 py-3 backdrop-blur-sm md:px-8">
         <div className="mx-auto flex max-w-2xl items-center justify-between">
-          <button type="button" className="text-sm font-medium text-muted hover:text-ink">
-            ← Back
-          </button>
+          <a href="/design/layouts" className="text-sm font-medium text-muted hover:text-accent">
+            ← Layouts
+          </a>
           <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted">
             {area && <span className="h-2 w-2 rounded-full" style={{ background: area.color }} />}
             {task.status === "in_progress" ? "In progress" : "Task"}

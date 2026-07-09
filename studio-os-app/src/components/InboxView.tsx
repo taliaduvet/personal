@@ -3,12 +3,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTasks } from "@/lib/store";
+import { useTodayAssignment } from "@/lib/use-today-assignment";
 import { openTaskWork } from "@/lib/navigation";
 import { isInboxTask } from "@/lib/lenses";
 
 export function InboxView() {
   const router = useRouter();
-  const { tasks, addTask, completeTask, sendToToday, openQuickEdit, quickEditId, quickEditCapture } = useTasks();
+  const { tasks, addTask, completeTask, openQuickEdit, quickEditId, quickEditCapture } = useTasks();
+  const { addToToday } = useTodayAssignment();
   const [text, setText] = useState("");
   const [flash, setFlash] = useState(false);
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -110,7 +112,7 @@ export function InboxView() {
               </div>
               <button
                 type="button"
-                onClick={() => sendToToday(it.id)}
+                onClick={() => addToToday(it.id)}
                 className="shrink-0 rounded-md border border-border px-2 py-1 text-xs font-medium text-muted transition-colors hover:border-accent hover:text-accent"
                 title="Pull into Today"
               >

@@ -16,7 +16,10 @@ export type TaskAppOverlay = {
   subtasks?: SubTask[];
   personId?: string | null;
   personName?: string | null;
+  completedAtIso?: string | null;
 };
+
+export type WeekReviewNotesBlob = { reflection: string; intentions: string };
 
 export type ProjectLinksOverlay = {
   folder?: DriveFolderLink | null;
@@ -30,6 +33,7 @@ export type AppDataStore = {
   weekPlanning: Map<string, WeekPlanningRecord>;
   contacts: Contact[];
   lifeAreas: LifeArea[];
+  reviews: Record<string, WeekReviewNotesBlob>;
 };
 
 export function emptyAppDataStore(): AppDataStore {
@@ -39,6 +43,7 @@ export function emptyAppDataStore(): AppDataStore {
     weekPlanning: new Map(),
     contacts: [],
     lifeAreas: [],
+    reviews: {},
   };
 }
 
@@ -47,6 +52,7 @@ const PROJECT_PREFIX = "project:";
 const WEEK_PREFIX = "week:";
 const CONTACTS_KEY = "contacts";
 const LIFE_AREAS_KEY = "lifeAreas";
+const REVIEWS_KEY = "reviews";
 
 function cellStr(v: unknown): string {
   if (v == null) return "";
@@ -73,6 +79,15 @@ export function parseAppDataRows(rows: unknown[][]): AppDataStore {
     if (key === LIFE_AREAS_KEY) {
       try {
         store.lifeAreas = JSON.parse(String(val)) as LifeArea[];
+      } catch {
+        /* ignore */
+      }
+      continue;
+    }
+
+    if (key === REVIEWS_KEY) {
+      try {
+        store.reviews = JSON.parse(String(val)) as Record<string, WeekReviewNotesBlob>;
       } catch {
         /* ignore */
       }
@@ -120,6 +135,10 @@ export function appDataRowsFromStore(store: AppDataStore): (string | number)[][]
     rows.push([LIFE_AREAS_KEY, JSON.stringify(store.lifeAreas)]);
   }
 
+  if (Object.keys(store.reviews).length > 0) {
+    rows.push([REVIEWS_KEY, JSON.stringify(store.reviews)]);
+  }
+
   for (const [id, overlay] of store.tasks) {
     rows.push([`${TASK_PREFIX}${id}`, JSON.stringify(overlay)]);
   }
@@ -141,16 +160,19 @@ export function mergeTaskOverlay(task: Task, overlay?: TaskAppOverlay): Task {
     subtasks: overlay.subtasks ?? task.subtasks,
     personId: overlay.personId ?? task.personId ?? null,
     personName: overlay.personName ?? task.personName ?? null,
+    completedAtIso: overlay.completedAtIso ?? task.completedAtIso ?? null,
   };
 }
 
 export function taskToOverlay(task: Task): TaskAppOverlay {
-  return {
+  const overlay: TaskAppOverlay = {
     inToday: task.inToday,
     subtasks: task.subtasks,
     personId: task.personId ?? null,
     personName: task.personName ?? null,
   };
+  if (task.completedAtIso) overlay.completedAtIso = task.completedAtIso;
+  return overlay;
 }
 
 export function mergeProjectLinks(project: Project, overlay?: ProjectLinksOverlay): Project {
@@ -173,5 +195,12 @@ export function projectToLinksOverlay(project: Project): ProjectLinksOverlay {
 
 export function overlayTouchesAppData(patch: Partial<Task>): boolean {
   const keys = Object.keys(patch);
-  return keys.some((k) => k === "inToday" || k === "subtasks" || k === "personId" || k === "personName");
+  return keys.some(
+    (k) =>
+      k === "inToday" ||
+      k === "subtasks" ||
+      k === "personId" ||
+      k === "personName" ||
+      k === "completedAtIso"
+  );
 }

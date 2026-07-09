@@ -16,6 +16,14 @@ describe("parseAppDataRows", () => {
     expect(store.tasks.get("abc")?.inToday).toBe(true);
   });
 
+  it("reads reviews blob", () => {
+    const store = parseAppDataRows([
+      ["Key", "Value"],
+      ["reviews", '{"2026-07-07":{"reflection":"good week","intentions":"ship"}}'],
+    ]);
+    expect(store.reviews["2026-07-07"]?.reflection).toBe("good week");
+  });
+
   it("reads contacts", () => {
     const store = parseAppDataRows([
       ["Key", "Value"],
@@ -32,6 +40,13 @@ describe("appDataRowsFromStore", () => {
     const rows = appDataRowsFromStore(store);
     const back = parseAppDataRows(rows);
     expect(back.tasks.get("t1")?.inToday).toBe(true);
+  });
+
+  it("round-trips reviews", () => {
+    const store = emptyAppDataStore();
+    store.reviews = { "2026-07-07": { reflection: "steady", intentions: "focus" } };
+    const back = parseAppDataRows(appDataRowsFromStore(store));
+    expect(back.reviews["2026-07-07"]?.intentions).toBe("focus");
   });
 });
 
@@ -60,6 +75,27 @@ describe("mergeTaskOverlay", () => {
     expect(merged.personName).toBe("Sam");
     expect(merged.inToday).toBe(true);
   });
+
+  it("applies completedAtIso", () => {
+    const task = {
+      id: "t1",
+      title: "Done thing",
+      lifeAreaId: "music",
+      projectId: null,
+      workModeId: null,
+      doPlan: null,
+      deadlineInDays: null,
+      status: "done" as const,
+      inToday: false,
+      completedAtInDays: 0,
+      completedAtIso: null,
+      parkedAt: Date.now(),
+      notes: "",
+      subtasks: [],
+    };
+    const merged = mergeTaskOverlay(task, { completedAtIso: "2026-07-09T14:34:00.000Z" });
+    expect(merged.completedAtIso).toBe("2026-07-09T14:34:00.000Z");
+  });
 });
 
 describe("taskToOverlay", () => {
@@ -82,5 +118,25 @@ describe("taskToOverlay", () => {
     });
     expect(overlay.inToday).toBe(true);
     expect(overlay.subtasks?.length).toBe(1);
+  });
+
+  it("includes completedAtIso when set", () => {
+    const overlay = taskToOverlay({
+      id: "t1",
+      title: "x",
+      lifeAreaId: "",
+      projectId: null,
+      workModeId: null,
+      doPlan: null,
+      deadlineInDays: null,
+      status: "done",
+      inToday: false,
+      completedAtInDays: 0,
+      completedAtIso: "2026-07-09T14:34:00.000Z",
+      parkedAt: 1,
+      notes: "",
+      subtasks: [],
+    });
+    expect(overlay.completedAtIso).toBe("2026-07-09T14:34:00.000Z");
   });
 });

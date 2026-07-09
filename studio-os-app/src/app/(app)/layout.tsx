@@ -7,6 +7,7 @@ import { TasksProvider } from "@/lib/store";
 import { SettingsProvider } from "@/lib/settings-store";
 import { ProjectsProvider } from "@/lib/projects-store";
 import { SheetProvider } from "@/lib/sheet-store";
+import { WeekPlanningLauncherProvider } from "@/components/WeekPlanningLauncher";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -14,6 +15,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <ProjectsProvider>
       <TasksProvider>
       <SheetProvider>
+      <WeekPlanningLauncherProvider>
       <GoogleGsiPreload />
       <div className="md:grid md:min-h-dvh md:grid-cols-[256px_1fr]">
         <Sidebar />
@@ -26,6 +28,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <BottomNav />
         <TaskDetailSheet />
       </div>
+      </WeekPlanningLauncherProvider>
       </SheetProvider>
       </TasksProvider>
       </ProjectsProvider>

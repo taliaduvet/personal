@@ -2,6 +2,16 @@ import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.
 
 const RETURN_KEY = "studio-os.returnTo";
 
+export function isTodayPath(path: string): boolean {
+  return path === "/today" || path === "/design/today" || path.startsWith("/design/today/");
+}
+
+/** Return path saved when opening Work View — still set until back navigation clears it. */
+export function getSavedReturnPath(): string | null {
+  if (typeof window === "undefined") return null;
+  return sessionStorage.getItem(RETURN_KEY);
+}
+
 /** Remember where the user was before opening a task — survives refresh. */
 export function rememberReturnPath() {
   if (typeof window === "undefined") return;
