@@ -10,6 +10,7 @@ Before starting feature work, read:
 
 1. **`docs/BUILD_ROADMAP.md`** — dependency-ordered plan for the full app
 2. **`docs/SPRINT-A.md`** — shipped sprint (check status + UAT)
-3. **`docs/SPRINT-C.md`** — next sprint scope (check status line)
+3. **`docs/SPRINT-C.md`** — shipped sprint (check status + UAT)
+4. **`docs/SPRINT-D.md`** — next sprint scope (check status line)
 
-Do not build Shelf, Logbook, or Recipes until Sprint C is approved and complete unless the user explicitly overrides.
+Do not build Shelf, Logbook, or Recipes until Sprint D is approved unless the user explicitly overrides.

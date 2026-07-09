@@ -18,10 +18,12 @@ This is the dependency-ordered plan for building the **entire** app. Each phase 
 | Quick Edit + Work View | Functional |
 | Projects index + room | Partial (no sheet project write) |
 | Horizon (`/deadlines`) | Functional (M1 buckets) |
-| Weekly Review | Partial (studio time ✓; make/manage bar pending) |
+| Tasks Lot (5 lenses + search, incl. Waiting) | Functional |
+| Weekly Review | Functional (studio time + make/manage bar) |
+| Waiting-on | **Shipped** (Sprint C) |
 | Settings + Sheet sync | Partial |
 | Sessions + Activity Log | **Shipped** (Sprint B) |
-| Waiting-on, Shelf, Logbook, Recipes | **Not built** |
+| Shelf, Logbook, Recipes | **Not built** (Sprint D) |
 | Daylight visual system | **Not built** |
 
 **Interaction contract (locked):** tap task **title** → Work View · tap **meta row** → Quick Edit.
@@ -41,9 +43,9 @@ Layer 2 — Today completeness  ← SPRINT A ✓
     ↓
 Layer 3 — Sessions + Activity Log  ← SPRINT B ✓ (code)
     ↓
-Layer 4 — Review ritual + Waiting-on  ← SPRINT C (next)
+Layer 4 — Review ritual + Waiting-on  ← SPRINT C ✓
     ↓
-Layer 5 — Archive (Shelf → Logbook)
+Layer 5 — Archive (Shelf → Logbook)  ← SPRINT D (next)
     ↓
 Layer 6 — Recipes + duration memory
     ↓
@@ -131,8 +133,8 @@ Daylight engine, token v2, lift glow, phone density, confidence UI. Does not blo
 |--------|-------|-----|
 | **A** | Phase 1 + Phase 2 | [`SPRINT-A.md`](./SPRINT-A.md) |
 | **B** | Sessions + Activity Log v1 | [`SPRINT-B.md`](./SPRINT-B.md) |
-| **C** | Waiting-on + Review depth | [`SPRINT-C.md`](./SPRINT-C.md) |
-| **D** | Shelf → Logbook → Recipes | TBD |
+| **C** | Waiting-on + Review depth | [`SPRINT-C.md`](./SPRINT-C.md) ✓ |
+| **D** | Shelf → Logbook → Recipes | [`SPRINT-D.md`](./SPRINT-D.md) |
 
 ---
 
