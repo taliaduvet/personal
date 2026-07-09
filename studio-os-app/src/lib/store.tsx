@@ -22,6 +22,7 @@ import {
   newActivityLogId,
   type ActivityLogEntry,
 } from "./activity-log";
+import type { DayCloseRetroInput } from "./day-close";
 import { getCompletionContext } from "./completion-context";
 import { resolveCompletionAttribution } from "./completion-attribution";
 import { endSessionForTaskFromBridge } from "./session-bridge";
@@ -112,6 +113,7 @@ type TasksContextValue = {
   /** Append-only studio memory log. */
   activityLog: ActivityLogEntry[];
   appendActivityLog: (entry: ActivityLogEntry) => void;
+  appendDayCloseRetro: (dateKey: string, input: DayCloseRetroInput) => void;
   applyActivityLogFromSheet: (incoming: ActivityLogEntry[]) => void;
   /** After a sheet append assigns a stable UUID to a new task. */
   replaceTaskId: (oldId: string, newId: string, task: Task) => void;
@@ -246,6 +248,28 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
   const appendActivityLog = useCallback((entry: ActivityLogEntry) => {
     setActivityLog((prev) => {
       const next = appendActivityLogEntry(prev, entry);
+      queueMicrotask(() => notifyAppDataActivityLog(next));
+      return next;
+    });
+  }, []);
+
+  const appendDayCloseRetro = useCallback((dateKey: string, input: DayCloseRetroInput) => {
+    setActivityLog((prev) => {
+      const without = prev.filter(
+        (e) => !(e.kind === "day_close_retro" && e.dateKey === dateKey)
+      );
+      const reviewNote = input.reviewNote?.trim();
+      const entry: ActivityLogEntry = {
+        id: newActivityLogId(),
+        atIso: new Date().toISOString(),
+        kind: "day_close_retro",
+        dateKey,
+        durationMs: input.durationMs,
+        taskId: input.taskId ?? null,
+        projectId: input.projectId ?? null,
+        reviewNote: reviewNote || undefined,
+      };
+      const next = appendActivityLogEntry(without, entry);
       queueMicrotask(() => notifyAppDataActivityLog(next));
       return next;
     });
@@ -552,6 +576,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
         applyReviewNotesFromSheet,
         activityLog,
         appendActivityLog,
+        appendDayCloseRetro,
         applyActivityLogFromSheet,
         replaceTasksFromSheet,
         replaceTaskId,

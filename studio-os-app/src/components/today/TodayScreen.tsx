@@ -7,6 +7,10 @@ import { TaskCard } from "@/components/TaskCard";
 import { RailUnplannedNudge } from "@/components/today/RailUnplannedNudge";
 import { OpenDayAreaPicker } from "@/components/today/OpenDayAreaPicker";
 import { DayShapePanel, type DayShapePanelProps } from "@/components/today/DayShapePanel";
+import { DayLedgerPanel, type DayLedgerPanelProps } from "@/components/DayLedgerPanel";
+import { DayCloseSheet } from "@/components/DayCloseSheet";
+import { YesterdayNoteCard } from "@/components/today/YesterdayNoteCard";
+import type { DayCloseRetroInput, YesterdayNote } from "@/lib/day-close";
 
 export type LiftedItem = { id: string; title: string; timeLabel: string };
 
@@ -43,6 +47,14 @@ export type TodayScreenProps = {
   shapeOpen?: boolean;
   onShapeOpenChange?: (open: boolean) => void;
   dayShape?: DayShapePanelProps | null;
+  ledgerOpen?: boolean;
+  onLedgerOpenChange?: (open: boolean) => void;
+  dayLedger?: DayLedgerPanelProps | null;
+  onDayCloseRetro?: (input: DayCloseRetroInput) => void;
+  dayCloseAssignableTasks?: Task[];
+  dayCloseExisting?: DayCloseRetroInput | null;
+  yesterdayNote?: YesterdayNote | null;
+  yesterdayTaskTitle?: string | null;
 };
 
 function SectionHead({
@@ -227,10 +239,22 @@ export function TodayScreen({
   shapeOpen: shapeOpenProp,
   onShapeOpenChange,
   dayShape,
+  ledgerOpen: ledgerOpenProp,
+  onLedgerOpenChange,
+  dayLedger,
+  onDayCloseRetro,
+  dayCloseAssignableTasks = [],
+  dayCloseExisting,
+  yesterdayNote,
+  yesterdayTaskTitle,
 }: TodayScreenProps) {
   const [shapeOpenLocal, setShapeOpenLocal] = useState(false);
   const shapeOpen = shapeOpenProp ?? shapeOpenLocal;
   const setShapeOpen = onShapeOpenChange ?? setShapeOpenLocal;
+  const [ledgerOpenLocal, setLedgerOpenLocal] = useState(false);
+  const ledgerOpen = ledgerOpenProp ?? ledgerOpenLocal;
+  const setLedgerOpen = onLedgerOpenChange ?? setLedgerOpenLocal;
+  const [dayCloseOpen, setDayCloseOpen] = useState(false);
   const [pickerArea, setPickerArea] = useState<LifeAreaRailItem | null>(null);
   const mainTasks = isOpenDay ? openDayTasks : modeBench;
   const mainTitle = isOpenDay ? "Today" : modeDayLabel?.replace(" day", "") ?? "Today";
@@ -260,19 +284,39 @@ export function TodayScreen({
             <p className="mt-1 text-sm italic text-faint">open day — pick from your areas</p>
           ) : null}
         </div>
-        <button
-          type="button"
-          onClick={() => setShapeOpen(!shapeOpen)}
-          className={[
-            "rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors",
-            shapeOpen
-              ? "border-accent bg-accent-soft text-accent"
-              : "border-border bg-surface text-muted hover:text-ink",
-          ].join(" ")}
-        >
-          shape today {shapeOpen ? "▴" : "▾"}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setLedgerOpen(!ledgerOpen)}
+            className={[
+              "rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors",
+              ledgerOpen
+                ? "border-accent bg-accent-soft text-accent"
+                : "border-border bg-surface text-muted hover:text-ink",
+            ].join(" ")}
+          >
+            today&apos;s ledger {ledgerOpen ? "▴" : "▾"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setShapeOpen(!shapeOpen)}
+            className={[
+              "rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors",
+              shapeOpen
+                ? "border-accent bg-accent-soft text-accent"
+                : "border-border bg-surface text-muted hover:text-ink",
+            ].join(" ")}
+          >
+            shape today {shapeOpen ? "▴" : "▾"}
+          </button>
+        </div>
       </header>
+
+      {yesterdayNote ? (
+        <YesterdayNoteCard note={yesterdayNote} taskTitle={yesterdayTaskTitle} />
+      ) : null}
+
+      {ledgerOpen && dayLedger ? <DayLedgerPanel {...dayLedger} /> : null}
 
       {shapeOpen && dayShape ? <DayShapePanel {...dayShape} /> : null}
 
@@ -366,6 +410,28 @@ export function TodayScreen({
       </div>
 
       <CaptureFooter caughtToday={caughtToday} onCapture={onCapture} />
+
+      {onDayCloseRetro ? (
+        <div className="flex justify-center pt-2">
+          <button
+            type="button"
+            onClick={() => setDayCloseOpen(true)}
+            className="text-xs font-medium text-muted hover:text-accent"
+          >
+            Close the day
+          </button>
+        </div>
+      ) : null}
+
+      {onDayCloseRetro ? (
+        <DayCloseSheet
+          open={dayCloseOpen}
+          onClose={() => setDayCloseOpen(false)}
+          onSave={onDayCloseRetro}
+          assignableTasks={dayCloseAssignableTasks}
+          existing={dayCloseExisting}
+        />
+      ) : null}
 
       {pickerArea && openDayTasksByArea && approvedTaskIds && onAssignOpenDay ? (
         <OpenDayAreaPicker

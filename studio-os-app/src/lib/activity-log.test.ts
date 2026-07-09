@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   appendActivityLogEntry,
+  dayCloseRetroEntries,
+  dayCloseRetroForDate,
   entriesInWeek,
   mergeActivityLogs,
   newActivityLogId,
@@ -63,5 +65,28 @@ describe("sessionEndEntries", () => {
     ];
     expect(sessionEndEntries(log)).toHaveLength(1);
     expect(newActivityLogId()).toMatch(/^al-/);
+  });
+});
+
+describe("dayCloseRetroEntries", () => {
+  it("filters retro rows and picks latest for date", () => {
+    const log: ActivityLogEntry[] = [
+      {
+        id: "r1",
+        atIso: "2026-07-09T20:00:00.000Z",
+        kind: "day_close_retro",
+        dateKey: "2026-07-09",
+        durationMs: 3_600_000,
+      },
+      {
+        id: "r2",
+        atIso: "2026-07-09T22:00:00.000Z",
+        kind: "day_close_retro",
+        dateKey: "2026-07-09",
+        durationMs: 7_200_000,
+      },
+    ];
+    expect(dayCloseRetroEntries(log)).toHaveLength(2);
+    expect(dayCloseRetroForDate(log, "2026-07-09")?.durationMs).toBe(7_200_000);
   });
 });

@@ -29,9 +29,17 @@ import { useCalendarAccessToken } from "@/lib/calendar/use-calendar-access-token
 import { allDayDispositionKey, type AllDayDisposition } from "@/lib/calendar/types";
 import type { DayShapePanelProps } from "@/components/today/DayShapePanel";
 import type { Task } from "@/lib/types";
+import { composeDayLedger } from "@/lib/day-ledger";
+import {
+  dayCloseAssignableTasks,
+  dayCloseRetroInputFromEntry,
+  yesterdayNote,
+  type DayCloseRetroInput,
+} from "@/lib/day-close";
+import { dayCloseRetroForDate } from "@/lib/activity-log";
 
 export function TodayView() {
-  const { tasks: all, completeTask, addTask } = useTasks();
+  const { tasks: all, completeTask, addTask, activityLog, appendDayCloseRetro } = useTasks();
   const { addToToday } = useTodayAssignment();
   const { chips: caughtToday, capture: recordCapture } = useTodayCaptures();
   const {
@@ -43,6 +51,7 @@ export function TodayView() {
     patchWeekDayEntry,
   } = useSettings();
   const [shapeOpen, setShapeOpen] = useState(false);
+  const [ledgerOpen, setLedgerOpen] = useState(false);
   const { token: calendarToken } = useCalendarAccessToken();
 
   const weekKeyNow = useMemo(() => weekKey(weekStartsOn, 0), [weekStartsOn]);
@@ -186,7 +195,7 @@ export function TodayView() {
     calendarToken,
     todayDateKey,
     todayDateKey,
-    shapeOpen
+    shapeOpen || ledgerOpen
   );
   const dayCommitment = useMemo(
     () => computeDayCommitment(todayDateKey, calendar.events, allDayDispositions),
@@ -243,6 +252,43 @@ export function TodayView() {
     onAssignTaskToBlock: handleAssignTaskToBlock,
   };
 
+  const dayLedger = useMemo(
+    () => ({
+      ledger: composeDayLedger({
+        dateKey: todayDateKey,
+        log: activityLog,
+        tasks: all,
+        dayEntry: todayEntry,
+        commitment: dayCommitment,
+      }),
+    }),
+    [todayDateKey, activityLog, all, todayEntry, dayCommitment]
+  );
+
+  const handleDayCloseRetro = useCallback(
+    (input: DayCloseRetroInput) => {
+      appendDayCloseRetro(todayDateKey, input);
+    },
+    [appendDayCloseRetro, todayDateKey]
+  );
+
+  const dayCloseTasks = useMemo(
+    () => dayCloseAssignableTasks(all, activityLog, todayDateKey),
+    [all, activityLog, todayDateKey]
+  );
+
+  const dayCloseExisting = useMemo(() => {
+    const retro = dayCloseRetroForDate(activityLog, todayDateKey);
+    return retro ? dayCloseRetroInputFromEntry(retro) : null;
+  }, [activityLog, todayDateKey]);
+
+  const yesterday = useMemo(() => yesterdayNote(activityLog), [activityLog]);
+
+  const yesterdayTaskTitle = useMemo(() => {
+    if (!yesterday?.taskId) return null;
+    return all.find((t) => t.id === yesterday.taskId)?.title ?? null;
+  }, [yesterday, all]);
+
   return (
     <TodayScreen
       dateLabel={dateLabel}
@@ -272,6 +318,14 @@ export function TodayView() {
       shapeOpen={shapeOpen}
       onShapeOpenChange={setShapeOpen}
       dayShape={dayShape}
+      ledgerOpen={ledgerOpen}
+      onLedgerOpenChange={setLedgerOpen}
+      dayLedger={dayLedger}
+      onDayCloseRetro={handleDayCloseRetro}
+      dayCloseAssignableTasks={dayCloseTasks}
+      dayCloseExisting={dayCloseExisting}
+      yesterdayNote={yesterday}
+      yesterdayTaskTitle={yesterdayTaskTitle}
     />
   );
 }

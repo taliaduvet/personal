@@ -40,7 +40,19 @@ export type ActivityLogEntry =
       taskId: string;
       subtaskId: string;
       done: boolean;
+    }
+  | {
+      id: string;
+      atIso: string;
+      kind: "day_close_retro";
+      dateKey: string;
+      durationMs: number;
+      taskId?: string | null;
+      projectId?: string | null;
+      reviewNote?: string;
     };
+
+export type DayCloseRetroEntry = Extract<ActivityLogEntry, { kind: "day_close_retro" }>;
 
 export function newActivityLogId(): string {
   return `al-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -89,4 +101,18 @@ export function sessionEndEntries(log: ActivityLogEntry[]): Extract<
   { kind: "session_end" }
 >[] {
   return log.filter((e): e is Extract<ActivityLogEntry, { kind: "session_end" }> => e.kind === "session_end");
+}
+
+export function dayCloseRetroEntries(log: ActivityLogEntry[]): DayCloseRetroEntry[] {
+  return log.filter((e): e is DayCloseRetroEntry => e.kind === "day_close_retro");
+}
+
+/** Latest retro chip for a calendar day (replaces prior entries for same dateKey). */
+export function dayCloseRetroForDate(
+  log: ActivityLogEntry[],
+  dateKey: string
+): DayCloseRetroEntry | null {
+  const matches = dayCloseRetroEntries(log).filter((e) => e.dateKey === dateKey);
+  if (matches.length === 0) return null;
+  return matches.sort((a, b) => a.atIso.localeCompare(b.atIso)).at(-1) ?? null;
 }

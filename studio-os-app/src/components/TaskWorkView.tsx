@@ -10,11 +10,13 @@ import { getSavedReturnPath, isTodayPath, returnFromTaskWork, openProjectDetail 
 import { TaskClassifyDropdowns } from "@/components/TaskClassify";
 import { useSessions } from "@/lib/sessions-store";
 import { isWaitingTask } from "@/lib/waiting-on";
+import { taskSessionStats, similarWorkHint } from "@/lib/duration-memory";
+import { TaskSessionStats } from "@/components/TaskSessionStats";
 
 export function TaskWorkView({ taskId }: { taskId: string }) {
   const router = useRouter();
   const returnTo = useCallback(() => returnFromTaskWork(router), [router]);
-  const { tasks, updateTask, deleteTask, completeTask, addSubtask, toggleSubtask, clearTaskWaiting } = useTasks();
+  const { tasks, updateTask, deleteTask, completeTask, addSubtask, toggleSubtask, clearTaskWaiting, activityLog } = useTasks();
   const { toggleToday } = useTodayAssignment();
   const {
     isTaskInSession,
@@ -53,6 +55,8 @@ export function TaskWorkView({ taskId }: { taskId: string }) {
   const pct = task.subtasks.length > 0 ? Math.round((doneSubs / task.subtasks.length) * 100) : 0;
   const inSession = isTaskInSession(task.id);
   const waiting = isWaitingTask(task);
+  const sessionStats = taskSessionStats(task, activityLog);
+  const workHint = similarWorkHint(task, tasks, activityLog);
 
   return (
     <div className="mx-auto min-h-[calc(100dvh-8rem)] max-w-2xl pb-24">
@@ -126,6 +130,10 @@ export function TaskWorkView({ taskId }: { taskId: string }) {
           rows={2}
           className="w-full resize-none bg-transparent font-display text-2xl font-semibold tracking-tight text-ink outline-none"
         />
+
+        {sessionStats ? (
+          <TaskSessionStats stats={sessionStats} hint={workHint} workModeId={task.workModeId} />
+        ) : null}
 
         {project && (
           <section className="mt-5 rounded-xl border border-border bg-accent-soft/50 p-4">

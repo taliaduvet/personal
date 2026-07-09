@@ -12,5 +12,6 @@ Before starting feature work, read:
 2. **`docs/SPRINT-A.md`** — shipped sprint (check status + UAT)
 3. **`docs/SPRINT-C.md`** — shipped sprint (check status + UAT)
 4. **`docs/SPRINT-D.md`** — shipped sprint (check status + UAT)
+5. **`docs/SPRINT-E.md`** — shipped sprint (check status + UAT)
 
-Archive wing (Shelf, Logbook, Recipes) is built. Do not start duration-memory or daylight polish unless the user explicitly overrides.
+Duration memory is built — Work View stats, project rollups, day-close retro, and Day Ledger on Today. Next up: Layer 7 (Daylight / visual polish) unless the user overrides.

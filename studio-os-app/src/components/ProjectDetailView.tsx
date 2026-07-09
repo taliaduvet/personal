@@ -8,6 +8,7 @@ import { useProjects } from "@/lib/projects-store";
 import { useSettings } from "@/lib/settings-store";
 import { returnFromProjectDetail } from "@/lib/navigation";
 import { filterShipped } from "@/lib/shelf";
+import { projectSessionRollup } from "@/lib/duration-memory";
 import { TaskCard } from "@/components/TaskCard";
 import { ShelfRow } from "@/components/ShelfRow";
 import { ProjectLinksSidebar } from "@/components/ProjectLinksSidebar";
@@ -18,7 +19,7 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
   const returnTo = useCallback(() => returnFromProjectDetail(router), [router]);
   const { getProject, updateProject, deleteProject, isLocalProject } = useProjects();
   const { lifeAreas } = useSettings();
-  const { tasks, completeTask } = useTasks();
+  const { tasks, completeTask, activityLog } = useTasks();
   const [editing, setEditing] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
@@ -36,6 +37,11 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
   const shipped = useMemo(
     () => filterShipped(tasks, { projectId }).slice(0, 5),
     [tasks, projectId]
+  );
+
+  const sessionRollup = useMemo(
+    () => projectSessionRollup(projectId, tasks, activityLog),
+    [projectId, tasks, activityLog]
   );
 
   if (!project) {
@@ -117,6 +123,12 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
             ) : (
               <p className="mt-3 text-sm text-muted">What is this initiative for? Tap Edit to add a why.</p>
             )}
+            {sessionRollup ? (
+              <p className="mt-3 text-sm text-muted">
+                {sessionRollup.totalLabel} logged across {sessionRollup.taskCount}{" "}
+                {sessionRollup.taskCount === 1 ? "task" : "tasks"}
+              </p>
+            ) : null}
             <div className="mt-4 flex flex-wrap gap-3">
               {isLocalProject(projectId) && (
                 <button

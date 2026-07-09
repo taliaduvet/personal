@@ -46,7 +46,7 @@ Layer 4 — Review ritual + Waiting-on  ← SPRINT C ✓
     ↓
 Layer 5 — Archive (Shelf → Logbook)  ← SPRINT D ✓
     ↓
-Layer 6 — Recipes + duration memory
+Layer 6 — Duration memory + Day Ledger  ← SPRINT E ✓
     ↓
 Layer 7 — Daylight / visual polish (parallel-safe once tokens defined)
 ```
@@ -133,7 +133,8 @@ Daylight engine, token v2, lift glow, phone density, confidence UI. Does not blo
 | **A** | Phase 1 + Phase 2 | [`SPRINT-A.md`](./SPRINT-A.md) |
 | **B** | Sessions + Activity Log v1 | [`SPRINT-B.md`](./SPRINT-B.md) |
 | **C** | Waiting-on + Review depth | [`SPRINT-C.md`](./SPRINT-C.md) ✓ |
-| **D** | Shelf → Logbook → Recipes | [`SPRINT-D.md`](./SPRINT-D.md) |
+| **D** | Shelf → Logbook → Recipes | [`SPRINT-D.md`](./SPRINT-D.md) ✓ |
+| **E** | Duration memory + Day Ledger | [`SPRINT-E.md`](./SPRINT-E.md) |
 
 ---
 
@@ -149,4 +150,4 @@ Daylight engine, token v2, lift glow, phone density, confidence UI. Does not blo
 
 ## Plain English
 
-The app’s **daily loop works**. Sprint A added **when** things happened and **shape today**. Sprint B added **sessions and an Activity Log**. Sprint C added **waiting-on** and **Review make/manage depth**. Sprint D is the **archive wing** — Shelf, Logbook, Recipes.
+The app’s **daily loop works**. Sprint A added **when** things happened and **shape today**. Sprint B added **sessions and an Activity Log**. Sprint C added **waiting-on** and **Review make/manage depth**. Sprint D added the **archive wing**. Sprint E added **time memory** — honest durations on tasks, project rollups, day-close retro, and a read-only Day Ledger.
