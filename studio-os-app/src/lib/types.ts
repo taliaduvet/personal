@@ -19,6 +19,12 @@ export type TaskSheetMeta = {
   eventId?: string;
 };
 
+export type WaitingOn = {
+  personId: string | null;
+  personName: string;
+  sinceIso: string;
+};
+
 export type Task = {
   id: string;
   title: string;
@@ -44,6 +50,8 @@ export type Task = {
   sheetMeta?: TaskSheetMeta;
   /** Last session reentry note (app overlay). */
   lastReentryNote?: string | null;
+  /** Parked on someone else — leaves Today prominence. */
+  waitingOn?: WaitingOn | null;
 };
 
 export type LifeArea = { id: string; name: string; color: string };
@@ -81,7 +89,7 @@ export type Project = {
 
 export type WorkMode = { id: string; name: string };
 
-export type LensId = "area" | "project" | "when" | "mode";
+export type LensId = "area" | "project" | "when" | "mode" | "waiting";
 
 export type TaskGroup = {
   key: string;

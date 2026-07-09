@@ -6,6 +6,9 @@ import { activeLifeAreaById, getActiveLifeAreas } from "./life-area-registry";
 import { activeProjectName, activeProjectWhy, getActiveProjects } from "./project-registry";
 import { doPlanLabel, doPlanSortKey, isCarriedDoPlan } from "./do-plan";
 import { weekRange } from "./week";
+import { isWaitingTask, waitingTasks } from "./waiting-on";
+
+export { isWaitingTask } from "./waiting-on";
 
 const NEUTRAL = "#8b95a1";
 const modeById = Object.fromEntries(WORK_MODES.map((m) => [m.id, m]));
@@ -57,7 +60,13 @@ function buildGroup(
 }
 
 function activeLot(tasks: Task[]): Task[] {
-  return tasks.filter((t) => t.status !== "done" && !t.inToday);
+  return tasks.filter((t) => t.status !== "done" && !t.inToday && !isWaitingTask(t));
+}
+
+function groupByWaiting(lot: Task[], weekStartsOn: WeekStartDay): TaskGroup[] {
+  const items = waitingTasks(lot);
+  if (items.length === 0) return [];
+  return [buildGroup("waiting", "Waiting on others", items, weekStartsOn)];
 }
 
 function groupByWhen(lot: Task[], weekStartsOn: WeekStartDay): TaskGroup[] {
@@ -117,6 +126,8 @@ function groupByWhen(lot: Task[], weekStartsOn: WeekStartDay): TaskGroup[] {
 }
 
 export function groupTasks(tasks: Task[], lens: LensId, weekStartsOn: WeekStartDay = 0): TaskGroup[] {
+  if (lens === "waiting") return groupByWaiting(tasks, weekStartsOn);
+
   const lot = activeLot(tasks);
 
   if (lens === "when") return groupByWhen(lot, weekStartsOn);
@@ -184,6 +195,7 @@ export function isInboxTask(task: Task): boolean {
   return (
     task.status !== "done" &&
     !task.inToday &&
+    !isWaitingTask(task) &&
     isUnsorted(task) &&
     task.projectId === null &&
     task.doPlan === null &&

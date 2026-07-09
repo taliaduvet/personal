@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTasks } from "@/lib/store";
 import { useSettings } from "@/lib/settings-store";
@@ -14,6 +14,7 @@ import {
   projectName,
   searchTasks,
 } from "@/lib/lenses";
+import { needsNudge, nudgeCopyText, quietDaysSince, quietLabel } from "@/lib/waiting-on";
 import { TaskCard } from "@/components/TaskCard";
 
 const LENSES: { id: LensId; label: string }[] = [
@@ -21,6 +22,7 @@ const LENSES: { id: LensId; label: string }[] = [
   { id: "project", label: "Project" },
   { id: "when", label: "When" },
   { id: "mode", label: "Mode · optional" },
+  { id: "waiting", label: "Waiting" },
 ];
 
 export function TasksLot() {
@@ -30,12 +32,26 @@ export function TasksLot() {
   const [lens, setLens] = useState<LensId>("area");
   const [query, setQuery] = useState("");
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("lens") === "waiting") setLens("waiting");
+  }, []);
+
   const groups = useMemo(() => groupTasks(tasks, lens, weekStartsOn), [tasks, lens, weekStartsOn]);
   const results = useMemo(() => searchTasks(tasks, query, weekStartsOn), [tasks, query, weekStartsOn]);
   const searching = query.trim().length > 0;
   const lotCount = groups.reduce((n, g) => n + g.tasks.length, 0);
 
   const complete = completeTask;
+
+  const copyNudge = async (task: Task) => {
+    try {
+      await navigator.clipboard.writeText(nudgeCopyText(task));
+    } catch {
+      /* ignore */
+    }
+  };
 
   return (
     <section>
@@ -56,7 +72,7 @@ export function TasksLot() {
         <SearchResults results={results} onComplete={complete} onOpenWork={(id) => openTaskWork(router, id)} onQuickEdit={openQuickEdit} />
       ) : (
         <>
-          <div className="mt-4 inline-flex rounded-lg border border-border bg-surface p-0.5">
+          <div className="mt-4 inline-flex max-w-full flex-wrap rounded-lg border border-border bg-surface p-0.5">
             {LENSES.map((l) => (
               <button
                 key={l.id}
@@ -72,37 +88,45 @@ export function TasksLot() {
             ))}
           </div>
 
-          {/* The board: every group is a column, all tasks visible at once. */}
-          <div
-            className="mt-4"
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(232px, 1fr))",
-              gap: 12,
-              alignItems: "start",
-            }}
-          >
-            {groups.map((g) => (
-              <div key={g.key} className="rounded-xl border border-border bg-surface">
-                <div className="flex items-center gap-2 border-b border-line px-3 py-2">
-                  {g.color && <span className="h-2 w-2 rounded-full" style={{ background: g.color }} />}
-                  <span className="text-sm font-medium text-ink">{g.label}</span>
-                  <span className="ml-auto text-xs text-faint">{g.tasks.length}</span>
+          {lens === "waiting" && lotCount === 0 ? (
+            <p className="mt-6 text-sm text-muted">Nothing parked on others right now. Mark waiting in Quick Edit when you need a reply.</p>
+          ) : (
+            <div
+              className="mt-4"
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(232px, 1fr))",
+                gap: 12,
+                alignItems: "start",
+              }}
+            >
+              {groups.map((g) => (
+                <div key={g.key} className="rounded-xl border border-border bg-surface">
+                  <div className="flex items-center gap-2 border-b border-line px-3 py-2">
+                    {g.color && <span className="h-2 w-2 rounded-full" style={{ background: g.color }} />}
+                    <span className="text-sm font-medium text-ink">{g.label}</span>
+                    <span className="ml-auto text-xs text-faint">{g.tasks.length}</span>
+                  </div>
+                  <div className="space-y-2 p-2">
+                    {g.tasks.map((t) => (
+                      <TaskCard
+                        key={t.id}
+                        task={t}
+                        onComplete={complete}
+                        hideArea={lens === "area"}
+                        hideProject={lens === "project"}
+                        waitingQuietLabel={
+                          lens === "waiting" ? quietLabel(quietDaysSince(t)) : undefined
+                        }
+                        showNudge={lens === "waiting" && needsNudge(t)}
+                        onCopyNudge={lens === "waiting" && needsNudge(t) ? () => copyNudge(t) : undefined}
+                      />
+                    ))}
+                  </div>
                 </div>
-                <div className="space-y-2 p-2">
-                  {g.tasks.map((t) => (
-                    <TaskCard
-                      key={t.id}
-                      task={t}
-                      onComplete={complete}
-                      hideArea={lens === "area"}
-                      hideProject={lens === "project"}
-                    />
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </>
       )}
     </section>

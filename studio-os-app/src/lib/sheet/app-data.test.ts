@@ -114,6 +114,30 @@ describe("mergeTaskOverlay", () => {
     const merged = mergeTaskOverlay(task, { completedAtIso: "2026-07-09T14:34:00.000Z" });
     expect(merged.completedAtIso).toBe("2026-07-09T14:34:00.000Z");
   });
+
+  it("applies waitingOn", () => {
+    const task = {
+      id: "t1",
+      title: "Venue reply",
+      lifeAreaId: "music",
+      projectId: null,
+      workModeId: null,
+      doPlan: null,
+      deadlineInDays: null,
+      status: "todo" as const,
+      inToday: true,
+      completedAtInDays: null,
+      parkedAt: Date.now(),
+      notes: "",
+      subtasks: [],
+    };
+    const merged = mergeTaskOverlay(task, {
+      inToday: false,
+      waitingOn: { personId: "c1", personName: "Sam", sinceIso: "2026-07-09T10:00:00.000Z" },
+    });
+    expect(merged.inToday).toBe(false);
+    expect(merged.waitingOn?.personName).toBe("Sam");
+  });
 });
 
 describe("taskToOverlay", () => {
@@ -156,5 +180,25 @@ describe("taskToOverlay", () => {
       subtasks: [],
     });
     expect(overlay.completedAtIso).toBe("2026-07-09T14:34:00.000Z");
+  });
+
+  it("includes waitingOn when set", () => {
+    const overlay = taskToOverlay({
+      id: "t1",
+      title: "x",
+      lifeAreaId: "",
+      projectId: null,
+      workModeId: null,
+      doPlan: null,
+      deadlineInDays: null,
+      status: "todo",
+      inToday: false,
+      completedAtInDays: null,
+      parkedAt: 1,
+      notes: "",
+      subtasks: [],
+      waitingOn: { personId: null, personName: "Sam", sinceIso: "2026-07-09T10:00:00.000Z" },
+    });
+    expect(overlay.waitingOn?.personName).toBe("Sam");
   });
 });

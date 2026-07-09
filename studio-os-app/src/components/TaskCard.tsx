@@ -14,6 +14,7 @@ import {
   workModeName,
 } from "@/lib/lenses";
 import { isStaleParked, parkedLabel } from "@/lib/parked";
+import { isWaitingTask } from "@/lib/waiting-on";
 
 export function TaskCard({
   task,
@@ -22,6 +23,9 @@ export function TaskCard({
   hideProject = false,
   hideMode = false,
   todayTiming = false,
+  waitingQuietLabel,
+  showNudge = false,
+  onCopyNudge,
 }: {
   task: Task;
   onComplete?: (id: string) => void;
@@ -31,6 +35,10 @@ export function TaskCard({
   hideMode?: boolean;
   /** Today bench: show deadline or doing-by only (no parked/stale clutter). */
   todayTiming?: boolean;
+  /** Waiting lens: e.g. "quiet 8 days". */
+  waitingQuietLabel?: string;
+  showNudge?: boolean;
+  onCopyNudge?: () => void;
 }) {
   const router = useRouter();
   const { openQuickEdit } = useTasks();
@@ -41,6 +49,7 @@ export function TaskCard({
   const deadline = deadlineLabel(task.deadlineInDays);
   const parked = parkedLabel(task.parkedAt);
   const stale = !done && isStaleParked(task.parkedAt);
+  const waiting = isWaitingTask(task);
 
   return (
     <div
@@ -121,6 +130,14 @@ export function TaskCard({
           {!hideMode && task.workModeId && (
             <span className="rounded bg-canvas px-1.5 py-0.5">{workModeName(task.workModeId)}</span>
           )}
+          {waiting && (
+            <span className="rounded bg-canvas px-1.5 py-0.5 text-muted">
+              waiting · {task.waitingOn?.personName}
+            </span>
+          )}
+          {waitingQuietLabel && (
+            <span className="text-faint">{waitingQuietLabel}</span>
+          )}
           {!todayTiming && plan && !deadline && (
             <span className="text-faint">{plan}</span>
           )}
@@ -130,6 +147,15 @@ export function TaskCard({
             </span>
           )}
         </button>
+        {showNudge && onCopyNudge && (
+          <button
+            type="button"
+            onClick={onCopyNudge}
+            className="mt-2 text-xs font-medium text-accent hover:text-accent-ink"
+          >
+            Copy check-in
+          </button>
+        )}
       </div>
     </div>
   );

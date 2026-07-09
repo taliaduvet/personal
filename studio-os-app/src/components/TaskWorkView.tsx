@@ -9,11 +9,12 @@ import { projectWhy } from "@/lib/lenses";
 import { getSavedReturnPath, isTodayPath, returnFromTaskWork, openProjectDetail } from "@/lib/navigation";
 import { TaskClassifyDropdowns } from "@/components/TaskClassify";
 import { useSessions } from "@/lib/sessions-store";
+import { isWaitingTask } from "@/lib/waiting-on";
 
 export function TaskWorkView({ taskId }: { taskId: string }) {
   const router = useRouter();
   const returnTo = useCallback(() => returnFromTaskWork(router), [router]);
-  const { tasks, updateTask, deleteTask, completeTask, addSubtask, toggleSubtask } = useTasks();
+  const { tasks, updateTask, deleteTask, completeTask, addSubtask, toggleSubtask, clearTaskWaiting } = useTasks();
   const { toggleToday } = useTodayAssignment();
   const {
     isTaskInSession,
@@ -51,6 +52,7 @@ export function TaskWorkView({ taskId }: { taskId: string }) {
   const doneSubs = task.subtasks.filter((s) => s.done).length;
   const pct = task.subtasks.length > 0 ? Math.round((doneSubs / task.subtasks.length) * 100) : 0;
   const inSession = isTaskInSession(task.id);
+  const waiting = isWaitingTask(task);
 
   return (
     <div className="mx-auto min-h-[calc(100dvh-8rem)] max-w-2xl pb-24">
@@ -78,6 +80,21 @@ export function TaskWorkView({ taskId }: { taskId: string }) {
           <div className="mb-4 rounded-xl border border-accent/25 bg-accent-soft/30 px-4 py-3">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-faint">Where you left off</p>
             <p className="mt-1 text-sm leading-relaxed text-ink">{task.lastReentryNote}</p>
+          </div>
+        ) : null}
+
+        {waiting && !done ? (
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-canvas px-4 py-3">
+            <p className="text-sm text-muted">
+              Waiting on <span className="font-medium text-ink">{task.waitingOn?.personName}</span>
+            </p>
+            <button
+              type="button"
+              onClick={() => clearTaskWaiting(task.id)}
+              className="text-sm font-medium text-accent hover:text-accent-ink"
+            >
+              Clear waiting
+            </button>
           </div>
         ) : null}
 

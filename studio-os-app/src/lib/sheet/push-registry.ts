@@ -54,7 +54,16 @@ export function createTaskId(): string {
 export function patchTouchesSheet(patch: Partial<Task>): boolean {
   const keys = Object.keys(patch);
   if (keys.length === 0) return false;
-  return !keys.every((k) => k === "subtasks" || k === "inToday" || k === "personId" || k === "personName");
+  return !keys.every(
+    (k) =>
+      k === "subtasks" ||
+      k === "inToday" ||
+      k === "personId" ||
+      k === "personName" ||
+      k === "waitingOn" ||
+      k === "lastReentryNote" ||
+      k === "completedAtIso"
+  );
 }
 
 export function patchTouchesAppData(patch: Partial<Task>): boolean {
@@ -65,6 +74,8 @@ export function patchTouchesAppData(patch: Partial<Task>): boolean {
       k === "subtasks" ||
       k === "personId" ||
       k === "personName" ||
-      k === "completedAtIso"
+      k === "completedAtIso" ||
+      k === "lastReentryNote" ||
+      k === "waitingOn"
   );
 }

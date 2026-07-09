@@ -1,4 +1,4 @@
-import type { LifeArea, SubTask, Task } from "@/lib/types";
+import type { LifeArea, SubTask, Task, WaitingOn } from "@/lib/types";
 import type { DriveDocLink, DriveFolderLink, Project } from "@/lib/types";
 import type { WeekPlanningRecord } from "@/lib/settings-store";
 import type { ActivityLogEntry } from "@/lib/activity-log";
@@ -19,6 +19,7 @@ export type TaskAppOverlay = {
   personName?: string | null;
   completedAtIso?: string | null;
   lastReentryNote?: string | null;
+  waitingOn?: WaitingOn | null;
 };
 
 export type WeekReviewNotesBlob = { reflection: string; intentions: string };
@@ -180,6 +181,7 @@ export function mergeTaskOverlay(task: Task, overlay?: TaskAppOverlay): Task {
     personName: overlay.personName ?? task.personName ?? null,
     completedAtIso: overlay.completedAtIso ?? task.completedAtIso ?? null,
     lastReentryNote: overlay.lastReentryNote ?? task.lastReentryNote ?? null,
+    waitingOn: overlay.waitingOn !== undefined ? overlay.waitingOn : task.waitingOn ?? null,
   };
 }
 
@@ -192,6 +194,7 @@ export function taskToOverlay(task: Task): TaskAppOverlay {
   };
   if (task.completedAtIso) overlay.completedAtIso = task.completedAtIso;
   if (task.lastReentryNote) overlay.lastReentryNote = task.lastReentryNote;
+  if (task.waitingOn !== undefined) overlay.waitingOn = task.waitingOn;
   return overlay;
 }
 
@@ -222,6 +225,7 @@ export function overlayTouchesAppData(patch: Partial<Task>): boolean {
       k === "personId" ||
       k === "personName" ||
       k === "completedAtIso" ||
-      k === "lastReentryNote"
+      k === "lastReentryNote" ||
+      k === "waitingOn"
   );
 }

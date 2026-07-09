@@ -1,6 +1,6 @@
 # Sprint C — Waiting-on + Review Depth
 
-*Status: **PLANNED** — reviewed, not started*  
+*Status: **DONE***  
 *Parent: [`BUILD_ROADMAP.md`](./BUILD_ROADMAP.md)*  
 *Prerequisite: Sprint B code complete (Sessions + Activity Log)*  
 *Estimated build order within sprint: C1 → C2 → C3 → C4 → C5*

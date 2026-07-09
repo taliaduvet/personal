@@ -6,6 +6,7 @@ import { useTasks } from "@/lib/store";
 import { useSettings } from "@/lib/settings-store";
 import { doPlanSortKey } from "@/lib/do-plan";
 import { deadlineLabel, deadlineTasks, isInboxTask, lifeAreaColor, planLabel, projectName } from "@/lib/lenses";
+import { waitingCount } from "@/lib/waiting-on";
 import { WeekPlanningCard } from "@/components/WeekPlanningCard";
 import { SetupBanner } from "@/components/SetupBanner";
 import { OnboardingCard } from "@/components/OnboardingCard";
@@ -41,6 +42,8 @@ export function DashboardView() {
 
   const inboxCount = useMemo(() => tasks.filter(isInboxTask).length, [tasks]);
 
+  const waitingOnCount = useMemo(() => waitingCount(active), [active]);
+
   const balance = useMemo(() => {
     const rows = lifeAreas.map((a) => ({
       id: a.id,
@@ -69,6 +72,15 @@ export function DashboardView() {
       <OnboardingCard />
 
       <WeekPlanningCard />
+
+      {waitingOnCount > 0 && (
+        <Link
+          href="/tasks?lens=waiting"
+          className="block rounded-xl border border-border bg-surface px-4 py-3 text-sm text-muted transition-colors hover:border-accent hover:text-ink"
+        >
+          {waitingOnCount} waiting on others
+        </Link>
+      )}
 
       {/* At-a-glance counters */}
       <div className="grid grid-cols-3 gap-3">

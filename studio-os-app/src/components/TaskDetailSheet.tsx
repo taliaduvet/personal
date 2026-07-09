@@ -8,6 +8,7 @@ import { useTodayAssignment } from "@/lib/use-today-assignment";
 import { parseTaskTitle, taskWithCaptureParse } from "@/lib/parse";
 import { doPlanEquals } from "@/lib/do-plan";
 import { lifeAreaColor } from "@/lib/lenses";
+import { isWaitingTask } from "@/lib/waiting-on";
 import { weekKey } from "@/lib/week";
 import { isTodayPath, openTaskWork } from "@/lib/navigation";
 import { TaskClassifyDropdowns } from "@/components/TaskClassify";
@@ -30,6 +31,8 @@ export function TaskDetailSheet() {
     updateTask,
     deleteTask,
     completeTask,
+    setTaskWaiting,
+    clearTaskWaiting,
   } = useTasks();
   const router = useRouter();
   const { weekStartsOn, weekPlanning, setTaskApprovedForWeek } = useSettings();
@@ -158,6 +161,8 @@ export function TaskDetailSheet() {
   };
 
   const done = task.status === "done";
+  const waiting = isWaitingTask(task);
+  const personName = (classifyTask.personName ?? task.personName)?.trim();
   const chipAreaColor = lifeAreaColor(task.lifeAreaId);
 
   return (
@@ -214,6 +219,41 @@ export function TaskDetailSheet() {
           </div>
 
           <TaskClassifyDropdowns task={classifyTask} onChange={isCapture ? setClassify : set} />
+
+          {!isCapture && !done && (
+            <div className="rounded-xl border border-border px-4 py-3">
+              {waiting ? (
+                <div className="space-y-2">
+                  <p className="text-sm text-ink">
+                    Waiting on <span className="font-medium">{task.waitingOn?.personName}</span>
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => clearTaskWaiting(task.id)}
+                    className="text-sm font-medium text-muted hover:text-accent"
+                  >
+                    Clear waiting
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  disabled={!personName}
+                  onClick={() => {
+                    setTaskWaiting(task.id, {
+                      personId: classifyTask.personId ?? task.personId ?? null,
+                      personName: personName!,
+                    });
+                    closeQuickEdit();
+                    router.push("/tasks?lens=waiting");
+                  }}
+                  className="w-full text-left text-sm font-medium text-muted transition-colors hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {personName ? `Mark waiting on ${personName}` : "Mark waiting — set a person first"}
+                </button>
+              )}
+            </div>
+          )}
 
           {showTodayActions && (
             <button

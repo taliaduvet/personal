@@ -4,6 +4,7 @@ import { isDayInWeek, weekRange } from "./week";
 import { localDateKey } from "./local-date";
 import { dateWithOffset, doPlanSortKey, hasDoPlanWithinWeek, isCarriedDoPlan, isCurrentWeekPlan } from "./do-plan";
 import { deadlineLabel, projectName, workModeName } from "./lenses";
+import { isWaitingTask } from "./waiting-on";
 import type { AllDayDisposition } from "./calendar/types";
 
 /** Mode-first day focus, with optional project override. */
@@ -193,7 +194,7 @@ export function partitionInTodayByFocus(
   tasks: Task[],
   focus: DayFocus | null
 ): { inFocus: Task[]; outsideFocus: Task[] } {
-  const inToday = tasks.filter((t) => t.inToday && t.status !== "done");
+  const inToday = tasks.filter((t) => t.inToday && t.status !== "done" && !isWaitingTask(t));
   if (!focus) return { inFocus: inToday, outsideFocus: [] };
   const inFocus: Task[] = [];
   const outsideFocus: Task[] = [];
@@ -212,6 +213,7 @@ export function taskOnTodayModeBench(
   approvedIds: Set<string>
 ): boolean {
   if (task.status === "done") return false;
+  if (isWaitingTask(task)) return false;
   if (!taskMatchesFocus(task, focus)) return false;
   if (approvedIds.has(task.id)) return true;
   return hasDoPlanWithinWeek(task.doPlan, weekStartsOn);

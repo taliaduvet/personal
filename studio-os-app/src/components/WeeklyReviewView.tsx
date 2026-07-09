@@ -8,7 +8,7 @@ import { useWeekPlanningLauncher } from "@/components/WeekPlanningLauncher";
 import { openTaskWork } from "@/lib/navigation";
 import { weekKey, weekRange } from "@/lib/week";
 import { weekPlanningMode } from "@/lib/week-planning";
-import { formatStudioDuration, studioMsInWeek } from "@/lib/studio-time";
+import { formatStudioDuration, studioMsByBucket, studioMsInWeek } from "@/lib/studio-time";
 import {
   carryOver,
   deadlinesHit,
@@ -49,6 +49,10 @@ export function WeeklyReviewView() {
     [activityLog, range.start, range.end]
   );
   const studioLabel = formatStudioDuration(studioMs);
+  const studioBuckets = useMemo(() => {
+    const tasksById = new Map(tasks.map((t) => [t.id, t]));
+    return studioMsByBucket(activityLog, tasksById, range.start, range.end);
+  }, [activityLog, tasks, range.start, range.end]);
 
   return (
     <section className="mx-auto max-w-2xl space-y-6">
@@ -86,6 +90,10 @@ export function WeeklyReviewView() {
         <Stat label="Deadlines hit" value={deadlines.length} />
         <Stat label="Studio time" value={studioLabel} hint={studioMs > 0 ? undefined : "From Work View sessions"} />
       </div>
+
+      {studioMs > 0 && (
+        <MakeManageBar makeMs={studioBuckets.make} manageMs={studioBuckets.manage} />
+      )}
 
       {/* Board: Shipped · In flight · Carry over */}
       <Board title="Shipped this week" count={shipped.length} empty="Nothing marked done this week yet.">
@@ -208,6 +216,40 @@ export function WeeklyReviewView() {
         </div>
       )}
     </section>
+  );
+}
+
+function MakeManageBar({ makeMs, manageMs }: { makeMs: number; manageMs: number }) {
+  const makeLabel = formatStudioDuration(makeMs);
+  const manageLabel = formatStudioDuration(manageMs);
+  const total = makeMs + manageMs;
+  const makePct = total > 0 ? (makeMs / total) * 100 : 0;
+  const managePct = total > 0 ? (manageMs / total) * 100 : 0;
+
+  return (
+    <div className="rounded-xl border border-border bg-surface px-4 py-3">
+      <p className="text-xs font-medium uppercase tracking-wide text-faint">Make vs manage</p>
+      <div className="mt-2 flex h-2 overflow-hidden rounded-full bg-canvas">
+        {makeMs > 0 && (
+          <div
+            className="h-full bg-accent"
+            style={{ width: `${makePct}%` }}
+            title={`Make: ${makeLabel}`}
+          />
+        )}
+        {manageMs > 0 && (
+          <div
+            className="h-full bg-faint"
+            style={{ width: `${managePct}%` }}
+            title={`Manage: ${manageLabel}`}
+          />
+        )}
+      </div>
+      <div className="mt-2 flex justify-between text-xs text-muted">
+        <span>Make · {makeLabel}</span>
+        <span>Manage · {manageLabel}</span>
+      </div>
+    </div>
   );
 }
 

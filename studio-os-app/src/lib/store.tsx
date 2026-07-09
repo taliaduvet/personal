@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
-import type { SubTask, Task } from "./types";
+import type { SubTask, Task, WaitingOn } from "./types";
 import { TASKS } from "./sample-data";
 import { isInboxTask } from "./lenses";
 import { normalizeDoPlan } from "./do-plan";
@@ -14,7 +14,7 @@ import {
   patchTouchesSheet,
   patchTouchesAppData,
 } from "./sheet/push-registry";
-import { queueAppDataTaskUpsert, notifyAppDataReviews, notifyAppDataActivityLog } from "./sheet/app-data-notify";
+import { queueAppDataTaskUpsert, notifyAppDataReviews, notifyAppDataActivityLog, notifyAppDataTask } from "./sheet/app-data-notify";
 import {
   appendActivityLogEntry,
   mergeActivityLogs,
@@ -112,6 +112,8 @@ type TasksContextValue = {
   applyActivityLogFromSheet: (incoming: ActivityLogEntry[]) => void;
   /** After a sheet append assigns a stable UUID to a new task. */
   replaceTaskId: (oldId: string, newId: string, task: Task) => void;
+  setTaskWaiting: (id: string, person: { personId: string | null; personName: string }) => void;
+  clearTaskWaiting: (id: string) => void;
 };
 
 const TasksContext = createContext<TasksContextValue | null>(null);
@@ -287,8 +289,40 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
   const sendToToday = useCallback((id: string) => {
     const current = tasksRef.current.find((t) => t.id === id);
     if (!current) return;
-    const next = { ...current, inToday: true };
+    const next: Task = { ...current, inToday: true };
+    if (current.waitingOn) next.waitingOn = null;
     setTasks((ts) => ts.map((t) => (t.id === id ? next : t)));
+    queueAppDataTaskUpsert(next);
+  }, []);
+
+  const setTaskWaiting = useCallback((id: string, person: { personId: string | null; personName: string }) => {
+    const name = person.personName.trim();
+    if (!name) return;
+    const current = tasksRef.current.find((t) => t.id === id);
+    if (!current) return;
+    const waitingOn: WaitingOn = {
+      personId: person.personId,
+      personName: name,
+      sinceIso: new Date().toISOString(),
+    };
+    const next: Task = {
+      ...current,
+      inToday: false,
+      personId: person.personId ?? current.personId ?? null,
+      personName: name,
+      waitingOn,
+    };
+    setTasks((ts) => ts.map((t) => (t.id === id ? next : t)));
+    notifyAppDataTask(next);
+    queueAppDataTaskUpsert(next);
+  }, []);
+
+  const clearTaskWaiting = useCallback((id: string) => {
+    const current = tasksRef.current.find((t) => t.id === id);
+    if (!current) return;
+    const next: Task = { ...current, waitingOn: null };
+    setTasks((ts) => ts.map((t) => (t.id === id ? next : t)));
+    notifyAppDataTask(next);
     queueAppDataTaskUpsert(next);
   }, []);
 
@@ -359,7 +393,18 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const replaceTasksFromSheet = useCallback((incoming: Task[]) => {
-    setTasks(incoming.map(normalizeTask));
+    setTasks((current) => {
+      const localById = new Map(current.map((t) => [t.id, t]));
+      return incoming.map((row) => {
+        const next = normalizeTask(row);
+        const local = localById.get(row.id);
+        if (local?.waitingOn && !next.waitingOn) {
+          next.waitingOn = local.waitingOn;
+          next.inToday = false;
+        }
+        return next;
+      });
+    });
   }, []);
 
   const replaceTaskId = useCallback((oldId: string, newId: string, task: Task) => {
@@ -395,6 +440,8 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
         applyActivityLogFromSheet,
         replaceTasksFromSheet,
         replaceTaskId,
+        setTaskWaiting,
+        clearTaskWaiting,
       }}
     >
       {children}

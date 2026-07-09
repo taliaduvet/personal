@@ -18,6 +18,7 @@ import {
   type DayFocus,
   type DayShapeBlock,
 } from "@/lib/week-focus";
+import { isWaitingTask } from "@/lib/waiting-on";
 import { getActiveLifeAreas } from "@/lib/life-area-registry";
 import { shouldShowUnplannedNudge, unplannedModeTasks } from "@/lib/unplanned-nudge";
 import { TodayScreen, type LiftedItem, type LifeAreaRailItem } from "@/components/today/TodayScreen";
@@ -84,7 +85,7 @@ export function TodayView() {
   );
 
   const openDayTasks = useMemo(
-    () => all.filter((t) => t.inToday && t.status !== "done"),
+    () => all.filter((t) => t.inToday && t.status !== "done" && !isWaitingTask(t)),
     [all]
   );
 

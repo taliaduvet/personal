@@ -92,6 +92,13 @@ export function TaskClassifyDropdowns({
     setOpen(null);
   };
 
+  const assignPersonName = (name: string) => {
+    const clean = name.trim();
+    if (!clean) return;
+    onChange({ personId: null, personName: clean });
+    setOpen(null);
+  };
+
   const createPersonFromDraft = async (draft: CreateContactInput) => {
     if (!draft.name.trim()) return;
 
@@ -116,7 +123,7 @@ export function TaskClassifyDropdowns({
     }
   };
 
-  const showPerson = contacts.length > 0 || Boolean(getDriveAccessToken());
+  const showPerson = true;
 
   return (
     <div ref={rootRef}>
@@ -153,7 +160,7 @@ export function TaskClassifyDropdowns({
         </ContextPill>
 
         {showPerson && (
-          <ContextPill active={open === "person"} onClick={() => toggle("person")} filled={!!task.personId}>
+          <ContextPill active={open === "person"} onClick={() => toggle("person")} filled={!!task.personName}>
             {task.personName ?? "Person"}
           </ContextPill>
         )}
@@ -217,6 +224,7 @@ export function TaskClassifyDropdowns({
           contacts={contacts}
           selectedId={task.personId}
           onPick={pickPerson}
+          onAssignName={assignPersonName}
           onCreate={createPersonFromDraft}
           creating={creatingContact}
           createError={contactCreateError}
@@ -242,6 +250,7 @@ function PersonSearchPanel({
   contacts,
   selectedId,
   onPick,
+  onAssignName,
   onCreate,
   creating = false,
   createError = null,
@@ -252,6 +261,7 @@ function PersonSearchPanel({
   contacts: { id: string; name: string; email?: string | null; phone?: string | null }[];
   selectedId?: string | null;
   onPick: (id: string | null) => void;
+  onAssignName: (name: string) => void;
   onCreate: (draft: CreateContactInput) => void;
   creating?: boolean;
   createError?: string | null;
@@ -287,7 +297,7 @@ function PersonSearchPanel({
         type="search"
         value={query}
         onChange={(e) => onQueryChange(e.target.value)}
-        placeholder="Search contacts…"
+        placeholder="Name or search contacts…"
         className="mt-1.5 w-full rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-ink outline-none placeholder:text-faint focus:border-accent"
       />
       <ul className="mt-2 max-h-56 space-y-1 overflow-y-auto">
@@ -301,7 +311,15 @@ function PersonSearchPanel({
           />
         )}
         {!q && !selected && (
-          <li className="px-3 py-2 text-xs text-muted">Type a name or email to search.</li>
+          <li className="px-3 py-2 text-xs text-muted">Type a name — use it on this task or search contacts.</li>
+        )}
+        {qRaw.length > 0 && (
+          <DropdownOption
+            selected={!selectedId && selected?.name?.toLowerCase() === qRaw.toLowerCase()}
+            title={`Use "${qRaw}" on this task`}
+            subtitle="No contact needed"
+            onClick={() => onAssignName(qRaw)}
+          />
         )}
         {showAddForm && (
           <li className="px-2 pt-1">
