@@ -1,4 +1,4 @@
-import type { LifeArea, SubTask, Task, WaitingOn } from "@/lib/types";
+import type { LifeArea, SubTask, Task, WaitingOn, Recipe } from "@/lib/types";
 import type { DriveDocLink, DriveFolderLink, Project } from "@/lib/types";
 import type { WeekPlanningRecord } from "@/lib/settings-store";
 import type { ActivityLogEntry } from "@/lib/activity-log";
@@ -20,6 +20,8 @@ export type TaskAppOverlay = {
   completedAtIso?: string | null;
   lastReentryNote?: string | null;
   waitingOn?: WaitingOn | null;
+  recipeId?: string | null;
+  milestoneId?: string | null;
 };
 
 export type WeekReviewNotesBlob = { reflection: string; intentions: string };
@@ -38,6 +40,8 @@ export type AppDataStore = {
   lifeAreas: LifeArea[];
   reviews: Record<string, WeekReviewNotesBlob>;
   activityLog: ActivityLogEntry[];
+  logbookLines: Record<string, string>;
+  recipes: Recipe[];
 };
 
 export function emptyAppDataStore(): AppDataStore {
@@ -49,6 +53,8 @@ export function emptyAppDataStore(): AppDataStore {
     lifeAreas: [],
     reviews: {},
     activityLog: [],
+    logbookLines: {},
+    recipes: [],
   };
 }
 
@@ -59,6 +65,8 @@ const CONTACTS_KEY = "contacts";
 const LIFE_AREAS_KEY = "lifeAreas";
 const REVIEWS_KEY = "reviews";
 const ACTIVITY_LOG_KEY = "activityLog";
+const LOGBOOK_LINES_KEY = "logbookLines";
+const RECIPES_KEY = "recipes";
 
 function cellStr(v: unknown): string {
   if (v == null) return "";
@@ -103,6 +111,24 @@ export function parseAppDataRows(rows: unknown[][]): AppDataStore {
     if (key === ACTIVITY_LOG_KEY) {
       try {
         store.activityLog = JSON.parse(String(val)) as ActivityLogEntry[];
+      } catch {
+        /* ignore */
+      }
+      continue;
+    }
+
+    if (key === LOGBOOK_LINES_KEY) {
+      try {
+        store.logbookLines = JSON.parse(String(val)) as Record<string, string>;
+      } catch {
+        /* ignore */
+      }
+      continue;
+    }
+
+    if (key === RECIPES_KEY) {
+      try {
+        store.recipes = JSON.parse(String(val)) as Recipe[];
       } catch {
         /* ignore */
       }
@@ -158,6 +184,14 @@ export function appDataRowsFromStore(store: AppDataStore): (string | number)[][]
     rows.push([ACTIVITY_LOG_KEY, JSON.stringify(store.activityLog)]);
   }
 
+  if (Object.keys(store.logbookLines).length > 0) {
+    rows.push([LOGBOOK_LINES_KEY, JSON.stringify(store.logbookLines)]);
+  }
+
+  if (store.recipes.length > 0) {
+    rows.push([RECIPES_KEY, JSON.stringify(store.recipes)]);
+  }
+
   for (const [id, overlay] of store.tasks) {
     rows.push([`${TASK_PREFIX}${id}`, JSON.stringify(overlay)]);
   }
@@ -182,6 +216,8 @@ export function mergeTaskOverlay(task: Task, overlay?: TaskAppOverlay): Task {
     completedAtIso: overlay.completedAtIso ?? task.completedAtIso ?? null,
     lastReentryNote: overlay.lastReentryNote ?? task.lastReentryNote ?? null,
     waitingOn: overlay.waitingOn !== undefined ? overlay.waitingOn : task.waitingOn ?? null,
+    recipeId: overlay.recipeId !== undefined ? overlay.recipeId : task.recipeId ?? null,
+    milestoneId: overlay.milestoneId !== undefined ? overlay.milestoneId : task.milestoneId ?? null,
   };
 }
 
@@ -195,6 +231,8 @@ export function taskToOverlay(task: Task): TaskAppOverlay {
   if (task.completedAtIso) overlay.completedAtIso = task.completedAtIso;
   if (task.lastReentryNote) overlay.lastReentryNote = task.lastReentryNote;
   if (task.waitingOn !== undefined) overlay.waitingOn = task.waitingOn;
+  if (task.recipeId) overlay.recipeId = task.recipeId;
+  if (task.milestoneId) overlay.milestoneId = task.milestoneId;
   return overlay;
 }
 
@@ -226,6 +264,8 @@ export function overlayTouchesAppData(patch: Partial<Task>): boolean {
       k === "personName" ||
       k === "completedAtIso" ||
       k === "lastReentryNote" ||
-      k === "waitingOn"
+      k === "waitingOn" ||
+      k === "recipeId" ||
+      k === "milestoneId"
   );
 }

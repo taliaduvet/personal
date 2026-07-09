@@ -62,7 +62,9 @@ export function patchTouchesSheet(patch: Partial<Task>): boolean {
       k === "personName" ||
       k === "waitingOn" ||
       k === "lastReentryNote" ||
-      k === "completedAtIso"
+      k === "completedAtIso" ||
+      k === "recipeId" ||
+      k === "milestoneId"
   );
 }
 
@@ -76,6 +78,8 @@ export function patchTouchesAppData(patch: Partial<Task>): boolean {
       k === "personName" ||
       k === "completedAtIso" ||
       k === "lastReentryNote" ||
-      k === "waitingOn"
+      k === "waitingOn" ||
+      k === "recipeId" ||
+      k === "milestoneId"
   );
 }

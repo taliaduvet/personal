@@ -25,6 +25,25 @@ export type WaitingOn = {
   sinceIso: string;
 };
 
+export type RecipeMilestone = {
+  id: string;
+  title: string;
+  /** Days relative to anchor (negative = before release). */
+  offsetDays: number;
+  workModeId?: string | null;
+};
+
+export type Recipe = {
+  id: string;
+  name: string;
+  projectId: string | null;
+  lifeAreaId: string;
+  /** YYYY-MM-DD */
+  anchorDate: string;
+  milestones: RecipeMilestone[];
+  createdAt: number;
+};
+
 export type Task = {
   id: string;
   title: string;
@@ -52,6 +71,9 @@ export type Task = {
   lastReentryNote?: string | null;
   /** Parked on someone else — leaves Today prominence. */
   waitingOn?: WaitingOn | null;
+  /** Generated from a recipe milestone. */
+  recipeId?: string | null;
+  milestoneId?: string | null;
 };
 
 export type LifeArea = { id: string; name: string; color: string };

@@ -55,6 +55,18 @@ export function notifyAppDataActivityLog(activityLog: import("@/lib/activity-log
   });
 }
 
+export function notifyAppDataLogbookLines(logbookLines: Record<string, string>) {
+  handlers?.patch((store) => {
+    store.logbookLines = logbookLines;
+  });
+}
+
+export function notifyAppDataRecipes(recipes: import("@/lib/types").Recipe[]) {
+  handlers?.patch((store) => {
+    store.recipes = recipes;
+  });
+}
+
 export function queueAppDataTaskUpsert(task: Task) {
   if (!task.title.trim()) return;
   queueMicrotask(() => notifyAppDataTask(task));

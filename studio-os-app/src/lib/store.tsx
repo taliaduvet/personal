@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
-import type { SubTask, Task, WaitingOn } from "./types";
+import type { SubTask, Task, WaitingOn, Recipe, RecipeMilestone } from "./types";
 import { TASKS } from "./sample-data";
 import { isInboxTask } from "./lenses";
 import { normalizeDoPlan } from "./do-plan";
@@ -14,7 +14,8 @@ import {
   patchTouchesSheet,
   patchTouchesAppData,
 } from "./sheet/push-registry";
-import { queueAppDataTaskUpsert, notifyAppDataReviews, notifyAppDataActivityLog, notifyAppDataTask } from "./sheet/app-data-notify";
+import { queueAppDataTaskUpsert, notifyAppDataReviews, notifyAppDataActivityLog, notifyAppDataTask, notifyAppDataLogbookLines, notifyAppDataRecipes } from "./sheet/app-data-notify";
+import { applyRecipeMilestones, shiftRecipeTasks } from "./recipes";
 import {
   appendActivityLogEntry,
   mergeActivityLogs,
@@ -28,6 +29,8 @@ import { endSessionForTaskFromBridge } from "./session-bridge";
 const STORAGE_KEY = "studio-os.tasks.v7";
 const REVIEW_KEY = "studio-os.reviews.v1";
 const ACTIVITY_LOG_KEY = "studio-os.activityLog.v1";
+const LOGBOOK_KEY = "studio-os.logbook.v1";
+const RECIPES_KEY = "studio-os.recipes.v1";
 
 export type WeekReviewNotes = { reflection: string; intentions: string };
 
@@ -114,6 +117,15 @@ type TasksContextValue = {
   replaceTaskId: (oldId: string, newId: string, task: Task) => void;
   setTaskWaiting: (id: string, person: { personId: string | null; personName: string }) => void;
   clearTaskWaiting: (id: string) => void;
+  logbookLines: Record<string, string>;
+  saveLogbookLine: (dateKey: string, line: string) => void;
+  applyLogbookLinesFromSheet: (incoming: Record<string, string>) => void;
+  applyRecipesFromSheet: (incoming: Recipe[]) => void;
+  recipes: Recipe[];
+  saveRecipe: (recipe: Recipe) => void;
+  deleteRecipe: (id: string) => void;
+  applyRecipe: (recipeId: string) => void;
+  updateRecipeAnchor: (recipeId: string, anchorDate: string) => void;
 };
 
 const TasksContext = createContext<TasksContextValue | null>(null);
@@ -131,6 +143,8 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
   tasksRef.current = tasks;
   const [reviewNotes, setReviewNotes] = useState<Record<string, WeekReviewNotes>>({});
   const [activityLog, setActivityLog] = useState<ActivityLogEntry[]>([]);
+  const [logbookLines, setLogbookLines] = useState<Record<string, string>>({});
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
 
   useEffect(() => {
     try {
@@ -149,6 +163,14 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       if (logRaw) {
         setActivityLog(JSON.parse(logRaw) as ActivityLogEntry[]);
       }
+      const logbookRaw = localStorage.getItem(LOGBOOK_KEY);
+      if (logbookRaw) {
+        setLogbookLines(JSON.parse(logbookRaw) as Record<string, string>);
+      }
+      const recipesRaw = localStorage.getItem(RECIPES_KEY);
+      if (recipesRaw) {
+        setRecipes(JSON.parse(recipesRaw) as Recipe[]);
+      }
     } catch {
       /* ignore */
     }
@@ -161,10 +183,12 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
       localStorage.setItem(REVIEW_KEY, JSON.stringify(reviewNotes));
       localStorage.setItem(ACTIVITY_LOG_KEY, JSON.stringify(activityLog));
+      localStorage.setItem(LOGBOOK_KEY, JSON.stringify(logbookLines));
+      localStorage.setItem(RECIPES_KEY, JSON.stringify(recipes));
     } catch {
       /* ignore */
     }
-  }, [tasks, reviewNotes, activityLog, hydrated]);
+  }, [tasks, reviewNotes, activityLog, logbookLines, recipes, hydrated]);
 
   const addTask = useCallback((title: string) => {
     const raw = title.trim();
@@ -392,6 +416,95 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     setActivityLog((prev) => mergeActivityLogs(prev, incoming));
   }, []);
 
+  const saveLogbookLine = useCallback((dateKey: string, line: string) => {
+    setLogbookLines((prev) => {
+      const clean = line.trim();
+      const next = { ...prev };
+      if (!clean) delete next[dateKey];
+      else next[dateKey] = clean;
+      queueMicrotask(() => notifyAppDataLogbookLines(next));
+      return next;
+    });
+  }, []);
+
+  const applyLogbookLinesFromSheet = useCallback((incoming: Record<string, string>) => {
+    if (Object.keys(incoming).length === 0) return;
+    setLogbookLines(incoming);
+  }, []);
+
+  const applyRecipesFromSheet = useCallback((incoming: Recipe[]) => {
+    if (incoming.length === 0) return;
+    setRecipes(incoming);
+  }, []);
+
+  const saveRecipe = useCallback((recipe: Recipe) => {
+    setRecipes((prev) => {
+      const idx = prev.findIndex((r) => r.id === recipe.id);
+      const next = idx >= 0 ? prev.map((r) => (r.id === recipe.id ? recipe : r)) : [recipe, ...prev];
+      queueMicrotask(() => notifyAppDataRecipes(next));
+      return next;
+    });
+  }, []);
+
+  const deleteRecipe = useCallback((id: string) => {
+    setRecipes((prev) => {
+      const next = prev.filter((r) => r.id !== id);
+      queueMicrotask(() => notifyAppDataRecipes(next));
+      return next;
+    });
+  }, []);
+
+  const applyRecipe = useCallback(
+    (recipeId: string) => {
+      const recipe = recipes.find((r) => r.id === recipeId);
+      if (!recipe) return;
+      setTasks((ts) => {
+        const { nextTasks, created } = applyRecipeMilestones(recipe, ts, (milestone: RecipeMilestone) =>
+          normalizeTask({
+            id: newId("t"),
+            title: milestone.title,
+            lifeAreaId: recipe.lifeAreaId,
+            projectId: recipe.projectId,
+            workModeId: milestone.workModeId ?? null,
+            status: "todo",
+            recipeId: recipe.id,
+            milestoneId: milestone.id,
+          })
+        );
+        for (const t of created) {
+          queueAppDataTaskUpsert(t);
+          queueSheetTaskUpsert(t);
+        }
+        for (const t of nextTasks) {
+          if (t.recipeId === recipe.id) queueAppDataTaskUpsert(t);
+        }
+        return nextTasks;
+      });
+    },
+    [recipes]
+  );
+
+  const updateRecipeAnchor = useCallback(
+    (recipeId: string, anchorDate: string) => {
+      const recipe = recipes.find((r) => r.id === recipeId);
+      if (!recipe) return;
+      const updated = { ...recipe, anchorDate };
+      setRecipes((prev) => {
+        const next = prev.map((r) => (r.id === recipeId ? updated : r));
+        queueMicrotask(() => notifyAppDataRecipes(next));
+        return next;
+      });
+      setTasks((ts) => {
+        const next = shiftRecipeTasks(updated, ts);
+        for (const t of next) {
+          if (t.recipeId === recipeId) queueAppDataTaskUpsert(t);
+        }
+        return next;
+      });
+    },
+    [recipes]
+  );
+
   const replaceTasksFromSheet = useCallback((incoming: Task[]) => {
     setTasks((current) => {
       const localById = new Map(current.map((t) => [t.id, t]));
@@ -402,6 +515,8 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
           next.waitingOn = local.waitingOn;
           next.inToday = false;
         }
+        if (local?.recipeId && !next.recipeId) next.recipeId = local.recipeId;
+        if (local?.milestoneId && !next.milestoneId) next.milestoneId = local.milestoneId;
         return next;
       });
     });
@@ -442,6 +557,15 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
         replaceTaskId,
         setTaskWaiting,
         clearTaskWaiting,
+        logbookLines,
+        saveLogbookLine,
+        applyLogbookLinesFromSheet,
+        recipes,
+        saveRecipe,
+        deleteRecipe,
+        applyRecipe,
+        updateRecipeAnchor,
+        applyRecipesFromSheet,
       }}
     >
       {children}

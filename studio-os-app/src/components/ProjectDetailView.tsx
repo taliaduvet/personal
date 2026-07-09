@@ -1,12 +1,15 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTasks } from "@/lib/store";
 import { useProjects } from "@/lib/projects-store";
 import { useSettings } from "@/lib/settings-store";
 import { returnFromProjectDetail } from "@/lib/navigation";
+import { filterShipped } from "@/lib/shelf";
 import { TaskCard } from "@/components/TaskCard";
+import { ShelfRow } from "@/components/ShelfRow";
 import { ProjectLinksSidebar } from "@/components/ProjectLinksSidebar";
 import { ProjectForm } from "@/components/ProjectForm";
 
@@ -29,6 +32,11 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
       done: mine.filter((t) => t.status === "done"),
     };
   }, [tasks, projectId]);
+
+  const shipped = useMemo(
+    () => filterShipped(tasks, { projectId }).slice(0, 5),
+    [tasks, projectId]
+  );
 
   if (!project) {
     return (
@@ -163,6 +171,25 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
                 ))}
               </div>
             </details>
+          )}
+
+          {shipped.length > 0 && (
+            <section className="mt-8">
+              <div className="flex items-baseline justify-between">
+                <h2 className="font-display text-lg font-semibold text-ink">Shipped</h2>
+                <Link
+                  href={`/archive?tab=shelf&project=${projectId}`}
+                  className="text-xs font-medium text-accent hover:text-accent-ink"
+                >
+                  See all on Shelf →
+                </Link>
+              </div>
+              <div className="mt-3 space-y-2">
+                {shipped.map((t) => (
+                  <ShelfRow key={t.id} task={t} />
+                ))}
+              </div>
+            </section>
           )}
         </section>
 

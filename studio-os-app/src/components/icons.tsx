@@ -66,6 +66,15 @@ export function ReviewIcon(p: IconProps) {
   );
 }
 
+export function ArchiveIcon(p: IconProps) {
+  return (
+    <svg {...S} {...p}>
+      <path d="M4 7h16v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7Z" />
+      <path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M9 12h6M9 16h4" />
+    </svg>
+  );
+}
+
 export function SettingsIcon(p: IconProps) {
   return (
     <svg {...S} {...p}>

@@ -22,7 +22,7 @@ This is the dependency-ordered plan for building the **entire** app. Each phase 
 | Waiting-on | **Shipped** (Sprint C) |
 | Settings + Sheet sync | Partial |
 | Sessions + Activity Log | **Shipped** (Sprint B) |
-| Shelf, Logbook, Recipes | **Not built** (Sprint D) |
+| Shelf, Logbook, Recipes | **Shipped** (Sprint D) |
 | Daylight visual system | **Not built** |
 
 **Interaction contract (locked):** tap task **title** → Work View · tap **meta row** → Quick Edit.
@@ -44,7 +44,7 @@ Layer 3 — Sessions + Activity Log  ← SPRINT B ✓ (code)
     ↓
 Layer 4 — Review ritual + Waiting-on  ← SPRINT C ✓
     ↓
-Layer 5 — Archive (Shelf → Logbook)  ← SPRINT D (next)
+Layer 5 — Archive (Shelf → Logbook)  ← SPRINT D ✓
     ↓
 Layer 6 — Recipes + duration memory
     ↓

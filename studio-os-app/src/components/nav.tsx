@@ -6,6 +6,7 @@ import {
   InboxIcon,
   ProjectsIcon,
   ReviewIcon,
+  ArchiveIcon,
   SettingsIcon,
 } from "./icons";
 
@@ -23,6 +24,7 @@ export const SIDEBAR_NAV: NavItem[] = [
   { href: "/inbox", label: "Inbox", icon: InboxIcon },
   { href: "/projects", label: "Projects", icon: ProjectsIcon },
   { href: "/weekly-review", label: "Weekly Review", icon: ReviewIcon },
+  { href: "/archive", label: "Archive", icon: ArchiveIcon },
   { href: "/settings", label: "Settings", icon: SettingsIcon },
 ];
 

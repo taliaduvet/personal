@@ -84,7 +84,7 @@ function loadConnection(): SheetConnection | null {
 
 export function SheetProvider({ children }: { children: ReactNode }) {
   const { weekStartsOn, applyFromSheetAppData } = useSettings();
-  const { replaceTasksFromSheet, replaceTaskId, applyReviewNotesFromSheet, applyActivityLogFromSheet } = useTasks();
+  const { replaceTasksFromSheet, replaceTaskId, applyReviewNotesFromSheet, applyActivityLogFromSheet, applyLogbookLinesFromSheet, applyRecipesFromSheet } = useTasks();
   const { projects, replaceProjectsFromSheet, clearSheetProjects } = useProjects();
 
   const [connection, setConnection] = useState<SheetConnection | null>(null);
@@ -232,6 +232,8 @@ export function SheetProvider({ children }: { children: ReactNode }) {
       applyFromSheetAppData({ contacts: appData.contacts, weekPlanning, lifeAreas: appData.lifeAreas });
       applyReviewNotesFromSheet(appData.reviews);
       applyActivityLogFromSheet(appData.activityLog);
+      applyLogbookLinesFromSheet(appData.logbookLines);
+      applyRecipesFromSheet(appData.recipes);
 
       rowIndexRef.current = rowIndex;
       tasksRowsRef.current = tasksRows;
@@ -245,7 +247,7 @@ export function SheetProvider({ children }: { children: ReactNode }) {
 
       void maybeSyncWeeklyReview(settings);
     },
-    [applyFromSheetAppData, applyReviewNotesFromSheet, applyActivityLogFromSheet, maybeSyncWeeklyReview, replaceProjectsFromSheet, replaceTasksFromSheet]
+    [applyFromSheetAppData, applyReviewNotesFromSheet, applyActivityLogFromSheet, applyLogbookLinesFromSheet, applyRecipesFromSheet, maybeSyncWeeklyReview, replaceProjectsFromSheet, replaceTasksFromSheet]
   );
 
   const runPull = useCallback(

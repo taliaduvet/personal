@@ -1,6 +1,6 @@
 # Sprint D — Archive Wing (Shelf → Logbook → Recipes)
 
-*Status: **PLANNED** — reviewed, not started*  
+*Status: **DONE***  
 *Parent: [`BUILD_ROADMAP.md`](./BUILD_ROADMAP.md)*  
 *Prerequisite: Sprint C code complete (Waiting-on + Review depth)*  
 *Estimated build order within sprint: D1 → D2 → D3 (D3 may split to Sprint E if scope swells)*
