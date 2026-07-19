@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { subscribeToPush } from '../lib/push';
 
@@ -32,10 +31,8 @@ export function PushProvider({
       return;
     }
 
-    // Register service worker
     navigator.serviceWorker.register('/sw.js').catch(console.error);
 
-    // Check existing permission and subscription
     setPermissionState(Notification.permission);
     navigator.serviceWorker.ready.then((reg) =>
       reg.pushManager.getSubscription().then((sub) => setIsSubscribed(!!sub))
