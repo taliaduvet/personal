@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/useAuth'
+import { usePush } from '../contexts/PushContext'
 import { supabase } from '../lib/supabase'
 import './Home.css'
 
@@ -9,6 +10,7 @@ const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL as string
 export default function Home() {
   const { session } = useAuth()
   const navigate = useNavigate()
+  const { isSubscribed, permissionState, subscribe } = usePush()
 
   useEffect(() => {
     if (session?.user.email === ADMIN_EMAIL) {
@@ -35,6 +37,27 @@ export default function Home() {
         <p style={{ color: 'var(--ink-muted)', fontSize: 'var(--text-sm)' }}>
           your tools, downloads, and billing will all live here. this page is coming in the next build.
         </p>
+
+        {permissionState === 'default' && !isSubscribed && (
+          <button
+            onClick={subscribe}
+            style={{
+              marginTop: 'var(--space-6)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 'var(--space-2)',
+              fontSize: 'var(--text-sm)',
+              color: 'var(--ink-muted)',
+              background: 'none',
+              border: '1px solid var(--bg-paper-3)',
+              borderRadius: 'var(--radius-sm)',
+              padding: '8px 14px',
+              cursor: 'pointer',
+            }}
+          >
+            🔔 turn on notifications
+          </button>
+        )}
       </main>
     </div>
   )
