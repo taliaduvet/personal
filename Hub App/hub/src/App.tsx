@@ -7,6 +7,7 @@ import SignIn from './routes/SignIn'
 import AuthCallback from './routes/AuthCallback'
 import Home from './routes/Home'
 import Workspace from './routes/Workspace'
+import { PushProvider } from './contexts/PushContext'
 
 export default function App() {
   return (
