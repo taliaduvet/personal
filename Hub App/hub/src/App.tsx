@@ -7,8 +7,6 @@ import SignIn from './routes/SignIn'
 import AuthCallback from './routes/AuthCallback'
 import Home from './routes/Home'
 import Workspace from './routes/Workspace'
-import CrochetTool from './routes/crochet/CrochetTool'
-
 export default function App() {
   return (
     <PushProvider deviceSyncId="9b37a3e7-9b71-4882-a87f-5689913550f7">
@@ -34,14 +32,6 @@ export default function App() {
               element={
                 <AdminRoute>
                   <Workspace />
-                </AdminRoute>
-              }
-            />
-            <Route
-              path="/crochet"
-              element={
-                <AdminRoute>
-                  <CrochetTool />
                 </AdminRoute>
               }
             />
