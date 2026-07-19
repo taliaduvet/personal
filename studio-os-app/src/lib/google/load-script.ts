@@ -105,7 +105,15 @@ type GooglePickerResponse = {
 };
 
 export const GOOGLE_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_API_KEY ?? "";
+export const GOOGLE_APP_ID = process.env.NEXT_PUBLIC_GOOGLE_APP_ID ?? "";
 
 export function hasGooglePickerEnv(): boolean {
   return Boolean(GOOGLE_API_KEY);
+}
+
+/** Returns a human-readable setup hint if picker env vars are missing; null if all good. */
+export function googlePickerSetupHint(): string | null {
+  if (!GOOGLE_API_KEY) return "NEXT_PUBLIC_GOOGLE_API_KEY is not set.";
+  if (!GOOGLE_APP_ID) return "NEXT_PUBLIC_GOOGLE_APP_ID is not set.";
+  return null;
 }

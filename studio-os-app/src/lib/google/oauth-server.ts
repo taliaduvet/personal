@@ -46,3 +46,33 @@ export async function exchangeGoogleAuthCode(
   }
   return json;
 }
+
+export async function refreshGoogleAccessToken(refreshToken: string): Promise<GoogleTokenResponse> {
+  const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
+  if (!clientId) {
+    throw new Error("Missing NEXT_PUBLIC_GOOGLE_CLIENT_ID");
+  }
+
+  const body = new URLSearchParams({
+    refresh_token: refreshToken,
+    client_id: clientId,
+    grant_type: "refresh_token",
+  });
+
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  if (clientSecret) {
+    body.set("client_secret", clientSecret);
+  }
+
+  const res = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body,
+  });
+
+  const json = (await res.json()) as GoogleTokenResponse & { error?: string; error_description?: string };
+  if (!res.ok || json.error) {
+    throw new Error(json.error_description || json.error || `Token refresh failed (${res.status})`);
+  }
+  return json;
+}

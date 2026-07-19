@@ -3,6 +3,11 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import type { SubTask, Task, WaitingOn, Recipe, RecipeMilestone } from "./types";
 import { TASKS } from "./sample-data";
+
+/** Sample/demo task IDs follow the pattern t1, t2, … t23 — never sync these. */
+export function isSampleTaskId(id: string): boolean {
+  return /^t\d+$/.test(id);
+}
 import { isInboxTask } from "./lenses";
 import { normalizeDoPlan } from "./do-plan";
 import { completionIsoNow } from "./completed-at";
@@ -84,6 +89,8 @@ function applyTaskPatch(
 
 type TasksContextValue = {
   tasks: Task[];
+  /** True once localStorage has been read — guards first cloud sync. */
+  tasksHydrated: boolean;
   /** Capture with smart parse; opens Quick Edit for chip confirmation. Returns new id. */
   addTask: (title: string) => string;
   /** Blank task — opens Quick Edit in place; lands in Inbox until classified. */
@@ -557,6 +564,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     <TasksContext.Provider
       value={{
         tasks,
+        tasksHydrated: hydrated,
         addTask,
         createBlankTask,
         updateTask,

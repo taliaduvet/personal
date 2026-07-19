@@ -24,3 +24,15 @@ export function formatLocalTime(ms: number): string {
 export function formatLocalTimeRange(startMs: number, endMs: number): string {
   return `${formatLocalTime(startMs)}–${formatLocalTime(endMs)}`;
 }
+
+/** Parse a YYYY-MM-DD key to a local midnight Date. */
+export function parseLocalDateKey(dateKey: string): Date {
+  return new Date(dateKeyStartMs(dateKey));
+}
+
+/** Advance (or rewind) a YYYY-MM-DD key by N calendar days. */
+export function addDaysToDateKey(dateKey: string, days: number): string {
+  const d = new Date(dateKeyStartMs(dateKey));
+  d.setDate(d.getDate() + days);
+  return localDateKey(d);
+}

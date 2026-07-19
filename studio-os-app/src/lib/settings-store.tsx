@@ -93,6 +93,8 @@ type SettingsContextValue = AppSettings & {
     weekPlanning: Record<string, WeekPlanningRecord>;
     lifeAreas?: LifeArea[];
   }) => void;
+  /** Merge a partial settings snapshot pulled from Supabase cloud. */
+  applySettingsFromCloud: (data: Partial<AppSettings>) => void;
   upsertLifeArea: (area: LifeArea) => void;
   removeLifeArea: (id: string) => string | null;
 };
@@ -341,6 +343,10 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
+  const applySettingsFromCloud = useCallback((data: Partial<AppSettings>) => {
+    setSettings((s) => ({ ...s, ...data }));
+  }, []);
+
   const upsertLifeArea = useCallback((area: LifeArea) => {
     setSettings((s) => {
       const idx = s.lifeAreas.findIndex((a) => a.id === area.id);
@@ -383,6 +389,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         setGoogleContacts,
         clearGoogleContacts,
         applyFromSheetAppData,
+        applySettingsFromCloud,
         upsertLifeArea,
         removeLifeArea,
       }}

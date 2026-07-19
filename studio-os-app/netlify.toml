@@ -1,0 +1,10 @@
+# Studio OS — Netlify (Next.js via OpenNext adapter; auto-detected)
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+# Next.js runtime plugin is applied automatically by Netlify for Next 13.5+.
+# Do not pin @netlify/plugin-nextjs unless you need a specific adapter version.

@@ -74,7 +74,22 @@ export type Task = {
   /** Generated from a recipe milestone. */
   recipeId?: string | null;
   milestoneId?: string | null;
+  /** Needs-respond capture fields (iphone_share / capture flow). */
+  needsRespond?: boolean | null;
+  respondByDateKey?: string | null;
+  urgencyReason?: string | null;
+  deadlineDateKey?: string | null;
+  source?: string | null;
+  /** Recurring task schedule. Completing spawns the next occurrence. */
+  recurrence?: Recurrence | null;
 };
+
+export type Recurrence =
+  | { kind: "daily" }
+  | { kind: "weekdays" }
+  | { kind: "weekly" }
+  | { kind: "everyNDays"; n: number }
+  | { kind: "monthly" };
 
 export type LifeArea = { id: string; name: string; color: string };
 

@@ -17,6 +17,9 @@ export async function createPkcePair(): Promise<{ verifier: string; challenge: s
 
 export const OAUTH_VERIFIER_COOKIE = "studio-os.oauth-verifier";
 export const OAUTH_STATE_COOKIE = "studio-os.oauth-state";
+export const OAUTH_ACCESS_HANDOFF_COOKIE = "studio-os.oauth-access-handoff";
+export const OAUTH_EXPIRES_HANDOFF_COOKIE = "studio-os.oauth-expires-handoff";
+export const OAUTH_REFRESH_COOKIE = "studio-os.oauth-refresh";
 
 export function setOAuthCookies(verifier: string, state: string) {
   const maxAge = "max-age=600";

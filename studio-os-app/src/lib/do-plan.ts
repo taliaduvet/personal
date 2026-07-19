@@ -25,6 +25,15 @@ export function dateWithOffset(offset: number): Date {
   return d;
 }
 
+/** Days from `from` until a YYYY-MM-DD deadline (negative = overdue). */
+export function deadlineOffsetFromDateKey(dateKey: string, from = new Date()): number {
+  const [y, m, d] = dateKey.split("-").map(Number);
+  const deadline = new Date(y, m - 1, d, 0, 0, 0, 0);
+  const base = new Date(from);
+  base.setHours(0, 0, 0, 0);
+  return Math.round((deadline.getTime() - base.getTime()) / 86_400_000);
+}
+
 /** Migrate legacy day-offset field or normalize partial values. */
 export function normalizeDoPlan(
   plan: DoPlan | undefined | null,

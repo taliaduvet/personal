@@ -1,6 +1,4 @@
-/* Studio OS — minimal service worker.
- * M0: just enough for installability ("Add to Home Screen") and an offline
- * fallback to the app shell. Real offline data caching arrives in v1.5. */
+/* Studio OS — service worker: offline shell + push notifications */
 const CACHE = "studio-os-shell-v1";
 const SHELL = ["/"];
 
@@ -32,4 +30,23 @@ self.addEventListener("fetch", (event) => {
       }
     })()
   );
+});
+
+self.addEventListener("push", (event) => {
+  const data = event.data?.json() ?? {};
+  const title = data.title ?? "Studio OS";
+  const options = {
+    body: data.body ?? "",
+    icon: data.icon ?? "/icon-192.png",
+    badge: data.badge ?? "/icon-192.png",
+    data: data.url ? { url: data.url } : {},
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  if (event.notification.data?.url) {
+    event.waitUntil(clients.openWindow(event.notification.data.url));
+  }
 });

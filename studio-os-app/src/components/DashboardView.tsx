@@ -11,6 +11,8 @@ import { waitingCount } from "@/lib/waiting-on";
 import { WeekPlanningCard } from "@/components/WeekPlanningCard";
 import { SetupBanner } from "@/components/SetupBanner";
 import { OnboardingCard } from "@/components/OnboardingCard";
+import { subscribeToPush } from "@/lib/push";
+import { getCloudUserId } from "@/lib/supabase/session";
 
 function greetingFor(hour: number): string {
   if (hour < 12) return "Good morning";
@@ -28,6 +30,11 @@ export function DashboardView() {
   // Time-of-day greeting is client-only to avoid SSR/client hydration drift.
   const [now, setNow] = useState<Date | null>(null);
   useEffect(() => setNow(new Date()), []);
+
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission | null>(null);
+  useEffect(() => {
+    if (typeof Notification !== "undefined") setNotifPermission(Notification.permission);
+  }, []);
 
   const active = useMemo(() => tasks.filter((t) => t.status !== "done"), [tasks]);
 
@@ -73,6 +80,22 @@ export function DashboardView() {
 
       <SetupBanner />
       <OnboardingCard />
+
+      {notifPermission === "default" && (
+        <button
+          type="button"
+          onClick={async () => {
+            const userId = await getCloudUserId();
+            if (!userId) return;
+            await subscribeToPush(userId);
+            if (typeof Notification !== "undefined") setNotifPermission(Notification.permission);
+          }}
+          className="flex w-full items-center justify-between rounded-xl border border-border bg-surface px-4 py-3 text-left text-sm text-muted transition-colors hover:border-accent hover:text-ink"
+        >
+          <span>Turn on notifications</span>
+          <span className="text-xs text-faint">get briefing reminders →</span>
+        </button>
+      )}
 
       <WeekPlanningCard />
 
