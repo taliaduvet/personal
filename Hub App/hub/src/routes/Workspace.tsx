@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { usePush } from '../contexts/PushContext'
 import { PRODUCT_MAP } from './workspace/products'
 import { WorkspaceTopbar } from './workspace/WorkspaceTopbar'
 import { WorkspaceTOC } from './workspace/WorkspaceTOC'
@@ -18,6 +19,7 @@ export default function Workspace() {
   const { productId = 'vein' } = useParams()
   const navigate = useNavigate()
   const product = PRODUCT_MAP[productId] ?? PRODUCT_MAP['vein']
+  const { isSubscribed, permissionState, subscribe } = usePush()
 
   const [activeSection, setActiveSection] = useState<Section>('spec')
   const [drawerTab, setDrawerTab] = useState<'design' | 'live' | null>(null)
@@ -143,6 +145,26 @@ export default function Workspace() {
         />
 
         <main className="ws-doc">
+          {permissionState === 'default' && !isSubscribed && (
+            <button
+              onClick={subscribe}
+              style={{
+                marginBottom: 'var(--space-4)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 'var(--space-2)',
+                fontSize: 'var(--text-sm)',
+                color: 'var(--ink-muted)',
+                background: 'none',
+                border: '1px solid var(--bg-paper-3)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '8px 14px',
+                cursor: 'pointer',
+              }}
+            >
+              🔔 turn on notifications
+            </button>
+          )}
           <HowItWorksCallout />
 
           <SpecSection
