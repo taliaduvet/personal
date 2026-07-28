@@ -31,6 +31,14 @@ parking-lot-app/config.js
 # Accounting app – local Supabase keys (use config.js.example)
 accounting-app/config.js
 
+# Business vault lives beside Personal, not inside it
+# (see ../Talia Duvet/)
+taliaduvet-website/
+
 # clasp: user-specific Apps Script project id
 accounting-app/gmail-receipts-clasp/.clasp.json
 .vercel
+
+# Stripe→Wave local secrets
+stripe-wave/.env.wave.local
+stripe-wave/.env.stripe.local

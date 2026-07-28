@@ -1,0 +1,10 @@
+{
+  "name": "talia-duvet-stripe-wave",
+  "private": true,
+  "type": "module",
+  "description": "Stripe → Wave books sync for Talia Duvet / Talia Udsen",
+  "scripts": {
+    "sync": "node wave/stripe-sync.js",
+    "sync:dry": "node wave/stripe-sync.js --dry-run"
+  }
+}

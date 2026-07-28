@@ -1,0 +1,64 @@
+name: Stripe → Wave sync
+
+# Stripe payouts land Mondays (Dashboard schedule).
+# Sync runs Tuesdays so Wealthsimple deposits exist before books catch up.
+on:
+  schedule:
+    - cron: "0 14 * * 2" # Tuesday 14:00 UTC ≈ 7am PT
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stripe-wave-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Sync Stripe balance transactions into Wave
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: stripe-wave
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Write Wave + Stripe env
+        env:
+          WAVE_FULL_ACCESS_TOKEN: ${{ secrets.WAVE_FULL_ACCESS_TOKEN }}
+          WAVE_BUSINESS_ID: ${{ secrets.WAVE_BUSINESS_ID }}
+          WAVE_GRAPHQL_URL: ${{ secrets.WAVE_GRAPHQL_URL }}
+          WAVE_ACCOUNT_WEALTHSIMPLE: ${{ secrets.WAVE_ACCOUNT_WEALTHSIMPLE }}
+          WAVE_ACCOUNT_PRODUCT_SALES: ${{ secrets.WAVE_ACCOUNT_PRODUCT_SALES }}
+          WAVE_ACCOUNT_STRIPE_CLEARING: ${{ secrets.WAVE_ACCOUNT_STRIPE_CLEARING }}
+          WAVE_ACCOUNT_STRIPE_FEES: ${{ secrets.WAVE_ACCOUNT_STRIPE_FEES }}
+          WAVE_ACCOUNT_GST: ${{ secrets.WAVE_ACCOUNT_GST }}
+          WAVE_ACCOUNT_INTERNAL_TRANSFERS: ${{ secrets.WAVE_ACCOUNT_INTERNAL_TRANSFERS }}
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_SYNC_SINCE: ${{ secrets.STRIPE_SYNC_SINCE }}
+        run: |
+          set -euo pipefail
+          test -n "${WAVE_FULL_ACCESS_TOKEN}"
+          test -n "${WAVE_BUSINESS_ID}"
+          test -n "${STRIPE_SECRET_KEY}"
+          {
+            echo "WAVE_FULL_ACCESS_TOKEN=${WAVE_FULL_ACCESS_TOKEN}"
+            echo "WAVE_BUSINESS_ID=${WAVE_BUSINESS_ID}"
+            echo "WAVE_GRAPHQL_URL=${WAVE_GRAPHQL_URL:-https://gql.waveapps.com/graphql/public}"
+            echo "WAVE_ACCOUNT_WEALTHSIMPLE=${WAVE_ACCOUNT_WEALTHSIMPLE}"
+            echo "WAVE_ACCOUNT_PRODUCT_SALES=${WAVE_ACCOUNT_PRODUCT_SALES}"
+            echo "WAVE_ACCOUNT_STRIPE_CLEARING=${WAVE_ACCOUNT_STRIPE_CLEARING}"
+            echo "WAVE_ACCOUNT_STRIPE_FEES=${WAVE_ACCOUNT_STRIPE_FEES}"
+            echo "WAVE_ACCOUNT_GST=${WAVE_ACCOUNT_GST}"
+            echo "WAVE_ACCOUNT_INTERNAL_TRANSFERS=${WAVE_ACCOUNT_INTERNAL_TRANSFERS}"
+            echo "STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}"
+            if [ -n "${STRIPE_SYNC_SINCE:-}" ]; then
+              echo "STRIPE_SYNC_SINCE=${STRIPE_SYNC_SINCE}"
+            fi
+          } > .env.wave.local
+          echo "STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}" > .env.stripe.local
+      - name: Run sync
+        run: node wave/stripe-sync.js
