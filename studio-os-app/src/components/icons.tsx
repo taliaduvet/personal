@@ -111,6 +111,15 @@ export function FolderIcon(p: IconProps) {
   );
 }
 
+export function JournalIcon(p: IconProps) {
+  return (
+    <svg {...S} {...p}>
+      <path d="M12 6c-1.5-1.2-3.5-1.8-6-1.8-.6 0-1 .4-1 1v13c0 .6.4 1 1 1 2.5 0 4.5.6 6 1.8 1.5-1.2 3.5-1.8 6-1.8.6 0 1-.4 1-1v-13c0-.6-.4-1-1-1-2.5 0-4.5.6-6 1.8Z" />
+      <path d="M12 6v14" />
+    </svg>
+  );
+}
+
 export function DocIcon(p: IconProps) {
   return (
     <svg {...S} {...p}>

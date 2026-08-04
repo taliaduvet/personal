@@ -4,9 +4,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SIDEBAR_NAV, isActive } from "./nav";
 import { BrandMark } from "./icons";
+import { useTheme } from "@/lib/use-theme";
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { theme, setTheme } = useTheme();
   return (
     <aside className="hidden border-r border-border bg-surface px-3 py-5 md:flex md:flex-col">
       <Link href="/" className="mb-5 flex items-center gap-2 px-2">
@@ -41,6 +43,22 @@ export function Sidebar() {
       </nav>
 
       <div className="mt-auto px-3 pt-6">
+        <div className="mb-3 flex items-center gap-1 rounded-xl border border-border bg-canvas p-1">
+          {(["light", "system", "dark"] as const).map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setTheme(t)}
+              title={t.charAt(0).toUpperCase() + t.slice(1)}
+              className={[
+                "flex-1 rounded-lg py-1.5 text-[11px] font-medium capitalize transition-colors",
+                theme === t ? "bg-surface text-ink shadow-sm" : "text-faint hover:text-muted",
+              ].join(" ")}
+            >
+              {t === "light" ? "☀︎" : t === "dark" ? "☽" : "Auto"}
+            </button>
+          ))}
+        </div>
         <p className="text-xs text-faint">Studio OS · v0 foundation</p>
       </div>
     </aside>

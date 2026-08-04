@@ -44,6 +44,36 @@
   color-scheme: light;
 }
 
+[data-theme="dark"] {
+  color-scheme: dark;
+  --color-canvas: #12151a;
+  --color-surface: #1c2028;
+  --color-surface-2: #20242d;
+  --color-ink: #e8ecf0;
+  --color-muted: #8b95a1;
+  --color-faint: #5a6370;
+  --color-border: #2c3240;
+  --color-line: #232830;
+  --color-accent-soft: #1e2245;
+  --color-accent-ink: #9ca3f8;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --color-canvas: #12151a;
+    --color-surface: #1c2028;
+    --color-surface-2: #20242d;
+    --color-ink: #e8ecf0;
+    --color-muted: #8b95a1;
+    --color-faint: #5a6370;
+    --color-border: #2c3240;
+    --color-line: #232830;
+    --color-accent-soft: #1e2245;
+    --color-accent-ink: #9ca3f8;
+  }
+}
+
 body {
   background: var(--color-canvas);
   color: var(--color-ink);
@@ -51,6 +81,29 @@ body {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-up {
+  animation: fadeUp 0.25s ease;
+}
+
+.journal-editor:empty::before {
+  content: attr(data-placeholder);
+  color: var(--color-faint);
+  pointer-events: none;
+}
+
+.journal-body b, .journal-body strong { font-weight: 700; }
+.journal-body i, .journal-body em { font-style: italic; }
 
 /* Respect iOS safe areas (bottom tab bar, notch) */
 .pb-safe {

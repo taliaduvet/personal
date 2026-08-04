@@ -2,6 +2,7 @@ import type { ComponentType, SVGProps } from "react";
 import {
   DashboardIcon,
   TodayIcon,
+  JournalIcon,
   TasksIcon,
   InboxIcon,
   ProjectsIcon,
@@ -20,6 +21,7 @@ export type NavItem = {
 export const SIDEBAR_NAV: NavItem[] = [
   { href: "/", label: "Dashboard", icon: DashboardIcon },
   { href: "/today", label: "Today", icon: TodayIcon },
+  { href: "/journal", label: "Journal", icon: JournalIcon },
   { href: "/tasks", label: "Tasks", icon: TasksIcon },
   { href: "/inbox", label: "Inbox", icon: InboxIcon },
   { href: "/projects", label: "Projects", icon: ProjectsIcon },
