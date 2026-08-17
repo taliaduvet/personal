@@ -17,7 +17,8 @@ Studio OS is an external brain for an autistic musician managing parallel commit
 
 ### App shell
 - Next.js 16, Tailwind v4, local-first (localStorage), optional Google Sheet sync, optional Supabase cloud sync
-- Deployed to **studio-os-246.netlify.app** (auto-deploys from `main`)
+- Deployed to **studio-os-246.netlify.app** — ⚠️ **manual deploy only**, not auto-deploy from `main`. Verified Aug 17, 2026: the Netlify site has no GitHub deploy hook or build_settings configured (`netlify api getSite` → `deploy_hook: null`, `build_settings: {}`). The documented "Deploy" command below (`netlify-cli deploy --prod`) is the only way changes go live — pushing to GitHub alone does nothing.
+- ⚠️ **Local working tree can drift far ahead of both git and the live site.** As of Aug 17, 2026 a large amount of work described as done elsewhere in this doc (Trust Core, nudges, delivery prompt, error boundaries, settings-merge, defer-today, etc. — `src/lib/trust/`, `src/lib/nudges.ts`, `src/components/TrustPanel.tsx`, `src/components/DeliveryPrompt.tsx`, and ~50 more files) was **never committed**, so it was never deployed either. Before trusting any "✅ Live" claim in this doc, check `git status` — if the file isn't committed, it isn't live.
 - **Dark mode** — system auto (time-based: light 7am–8pm, dark otherwise), manual ☀︎/Auto/☽ toggle in sidebar
 - **Source Serif 4** loaded via Next.js font pipeline (used in Journal compose)
 
@@ -27,7 +28,7 @@ Studio OS is an external brain for an autistic musician managing parallel commit
 | `/` | Dashboard + Trust Panel | ✅ Live |
 | `/today` | Today (mode bench, captures, day shape) | ✅ Live |
 | `/journal` | Journal (list, calendar, compose, detail) | ✅ Live |
-| `/practice` | Practice — personal hypermobility routine tracker (Daily/Stability/Mobility + Notes, per-item timers, weekly compliance grid, feel log) | ✅ Live |
+| `/practice` | Practice — personal hypermobility routine tracker (Daily/Stability/Mobility + Notes, per-item timers, weekly compliance grid, feel log) | ✅ Live — deployed to production Aug 17, 2026 |
 | `/tasks` | Tasks Lot (5 lenses + search) | ✅ Live |
 | `/inbox` | Inbox + smart capture parse | ✅ Live |
 | `/projects` | Projects index + room | ✅ Partial (no sheet project write) |
