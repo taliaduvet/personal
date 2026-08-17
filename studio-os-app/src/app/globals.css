@@ -7,6 +7,7 @@
 @theme {
   --font-display: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Menlo", "Space Mono", monospace;
 
   /* Surfaces & text */
   --color-canvas: #f6f8fa;
@@ -35,6 +36,14 @@
   --color-promo-soft: #fbeadf;
   --color-admin: #69737e;
   --color-admin-soft: #eceff2;
+
+  /* Practice tracker tracks */
+  --color-track-daily: #2f9d6f;
+  --color-track-daily-soft: #e3f5ec;
+  --color-track-stability: #d1503a;
+  --color-track-stability-soft: #fbe7e2;
+  --color-track-mobility: #7c6bd1;
+  --color-track-mobility-soft: #ece8fb;
 
   --radius-lg: 14px;
   --radius-xl: 18px;
@@ -104,6 +113,38 @@ body {
 
 .journal-body b, .journal-body strong { font-weight: 700; }
 .journal-body i, .journal-body em { font-style: italic; }
+
+/* Practice tracker — ported static HTML content (dangerouslySetInnerHTML) */
+.body-principle strong { color: var(--color-ink); font-weight: 500; }
+
+.body-detail p { margin: 0 0 9px; }
+.body-detail p:last-child { margin-bottom: 0; }
+.body-detail ul, .body-detail ol { margin: 0 0 9px; padding-left: 17px; }
+.body-detail li { margin-bottom: 7px; }
+.body-detail li::marker { color: var(--color-faint); font-family: var(--font-mono); font-size: 12px; }
+.body-detail b, .body-detail strong { font-weight: 700; color: var(--color-ink); }
+.body-detail i, .body-detail em { font-style: italic; }
+
+.body-flag {
+  display: block;
+  margin-top: 11px;
+  padding: 9px 11px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+  border-left: 2px solid var(--color-danger);
+  font-size: 13.5px;
+  color: var(--color-ink);
+}
+.body-flag b { font-weight: 600; }
+
+.body-note { margin-bottom: 9px; padding: 15px; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 8px; }
+.body-note h3 { font-family: var(--font-display); font-weight: 700; font-size: 16.5px; margin: 0 0 8px; color: var(--color-ink); }
+.body-note p { margin: 0 0 8px; color: var(--color-muted); }
+.body-note p:last-child { margin-bottom: 0; }
+.body-note ul { margin: 0; padding-left: 17px; color: var(--color-muted); }
+.body-note li { margin-bottom: 6px; }
+.body-note-warn { border-color: color-mix(in srgb, var(--color-danger) 30%, var(--color-border)); }
+.body-note-warn h3 { color: var(--color-danger); }
 
 /* Respect iOS safe areas (bottom tab bar, notch) */
 .pb-safe {

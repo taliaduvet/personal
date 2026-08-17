@@ -120,6 +120,15 @@ export function JournalIcon(p: IconProps) {
   );
 }
 
+export function PracticeIcon(p: IconProps) {
+  return (
+    <svg {...S} {...p}>
+      <circle cx="12" cy="4.5" r="2" />
+      <path d="M12 8v6M12 8 6 11M12 8l6 3M12 14l-4 7M12 14l4 7" />
+    </svg>
+  );
+}
+
 export function DocIcon(p: IconProps) {
   return (
     <svg {...S} {...p}>
