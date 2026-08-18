@@ -50,6 +50,15 @@ export type ActivityLogEntry =
       taskId?: string | null;
       projectId?: string | null;
       reviewNote?: string;
+    }
+  | {
+      id: string;
+      atIso: string;
+      kind: "session_break_taken";
+      taskId: string;
+      projectId: string | null;
+      habitId: string;
+      trigger: "warning" | "times-up" | "ambient-checkin";
     };
 
 export type DayCloseRetroEntry = Extract<ActivityLogEntry, { kind: "day_close_retro" }>;

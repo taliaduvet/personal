@@ -37,7 +37,7 @@ export function RespondContextRail({
     <div className="space-y-2">
       <div className="flex items-baseline justify-between gap-2">
         <p className="text-[10px] font-bold uppercase tracking-wider text-faint">Needs reply</p>
-        <Link href="/tasks?lens=respond" className="text-[10px] text-accent hover:underline">
+        <Link href="/tasks" className="text-[10px] text-accent hover:underline">
           {moreCount > 0 ? `+${moreCount} more` : "All"}
         </Link>
       </div>

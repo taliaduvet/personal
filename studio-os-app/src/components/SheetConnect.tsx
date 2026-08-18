@@ -22,6 +22,7 @@ function formatSyncTime(iso: string | null): string {
 export function SheetConnect() {
   const {
     connection,
+    cloudPrimary,
     syncing,
     syncError,
     writeStatus,
@@ -81,6 +82,19 @@ export function SheetConnect() {
             ? "Sheet is up to date"
             : null;
 
+  if (cloudPrimary) {
+    return (
+      <div className="rounded-lg border border-accent/20 bg-accent-soft/40 px-3 py-2.5">
+        <p className="text-sm font-medium text-ink">App vault active</p>
+        <p className="mt-0.5 text-xs text-muted">
+          Your tasks and settings live in Studio OS (cloud). Sheet sync is frozen so the sheet
+          can&apos;t overwrite what you&apos;ve moved into the app. The sheet copy is a snapshot —
+          not a live vault anymore.
+        </p>
+      </div>
+    );
+  }
+
   if (connection) {
     return (
       <div className="space-y-3">
@@ -125,7 +139,8 @@ export function SheetConnect() {
 
         <p className="text-[11px] text-faint">
           Edits in the app save back to your sheet automatically — including Today flags, subtasks,
-          week planning, and weekly reflections (via the hidden _AppData tab).
+          week planning, and weekly reflections (via the hidden _AppData tab). After you sign in,
+          the app vault takes over and sheet writeback turns off.
         </p>
       </div>
     );
@@ -136,8 +151,8 @@ export function SheetConnect() {
       <div className="rounded-lg border border-border bg-canvas/60 px-3 py-2.5">
         <p className="text-sm font-medium text-ink">Step 1 — Copy the template</p>
         <p className="mt-1 text-xs text-muted">
-          Make your own copy of the Studio OS sheet. All your tasks live there — the app reads
-          from it.
+          Optional one-time import from Google Sheets. Once you&apos;re signed into Studio OS,
+          the app vault becomes home and sheet sync freezes.
         </p>
         <a
           href={templateCopyUrl}

@@ -21,26 +21,41 @@ export type WeekRange = {
   weekStartKey: string;
 };
 
-function dateWithOffset(offset: number): Date {
-  const d = new Date();
+function dateWithOffset(offset: number, now: Date = new Date()): Date {
+  const d = new Date(now);
   d.setDate(d.getDate() + offset);
   d.setHours(0, 0, 0, 0);
   return d;
 }
 
+/**
+ * Local calendar date — deliberately not `toISOString()`, which converts to UTC
+ * and would report the previous day for any timezone east of Greenwich.
+ */
 function isoDate(d: Date): string {
-  return d.toISOString().slice(0, 10);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-/** Configurable week window. weekOffset 0 = this week, -1 = last week, 1 = next week. */
-export function weekRange(weekStartsOn: WeekStartDay, weekOffset = 0): WeekRange {
-  const today = new Date().getDay() as WeekStartDay;
+/**
+ * Configurable week window. weekOffset 0 = this week, -1 = last week, 1 = next week.
+ *
+ * `now` is injectable so callers that already reason about a fixed instant
+ * (the trust core, tests) get a week boundary that agrees with it. Defaulting
+ * to the real clock keeps every existing caller unchanged.
+ */
+export function weekRange(
+  weekStartsOn: WeekStartDay,
+  weekOffset = 0,
+  now: Date = new Date()
+): WeekRange {
+  const today = now.getDay() as WeekStartDay;
   const daysSinceStart = (today - weekStartsOn + 7) % 7;
   const start = -daysSinceStart + weekOffset * 7;
   const end = start + 6;
 
-  const startDate = dateWithOffset(start);
-  const endDate = dateWithOffset(end);
+  const startDate = dateWithOffset(start, now);
+  const endDate = dateWithOffset(end, now);
   const fmt = (d: Date) => d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
   const label =
     weekOffset === 0
@@ -50,8 +65,12 @@ export function weekRange(weekStartsOn: WeekStartDay, weekOffset = 0): WeekRange
   return { start, end, label, weekStartKey: isoDate(startDate) };
 }
 
-export function weekKey(weekStartsOn: WeekStartDay, weekOffset = 0): string {
-  return weekRange(weekStartsOn, weekOffset).weekStartKey;
+export function weekKey(
+  weekStartsOn: WeekStartDay,
+  weekOffset = 0,
+  now: Date = new Date()
+): string {
+  return weekRange(weekStartsOn, weekOffset, now).weekStartKey;
 }
 
 export function isDayInWeek(dayOffset: number | null, start: number, end: number): boolean {

@@ -5,7 +5,7 @@ import { useTasks } from "@/lib/store";
 import { useSettings } from "@/lib/settings-store";
 import { weekKey, weekRange } from "@/lib/week";
 import { computeWeekPlanningSummary } from "@/lib/week-planning";
-import { countFocusDays, mergeWeekFocusDraft, weekDaySlots } from "@/lib/week-focus";
+import { countFocusDays, mergeWeekFocusDraft, normalizeDayFocus, weekDaySlots } from "@/lib/week-focus";
 import { defaultApprovedTaskIds } from "@/lib/week-planning-approve";
 import { WeekPlanningOverlay } from "@/components/WeekPlanningOverlay";
 
@@ -56,10 +56,16 @@ export function WeekPlanningLauncherProvider({ children }: { children: React.Rea
 
   const handleDone = useCallback(
     (draft: typeof initialDraft) => {
+      const normalizedDays = Object.fromEntries(
+        Object.entries(draft.days).map(([key, entry]) => [
+          key,
+          { ...entry, focus: normalizeDayFocus(entry.focus) },
+        ])
+      );
       completeWeekPlanning(
         weekKeyNow,
         computeWeekPlanningSummary(tasks, weekStartsOn, countFocusDays(draft)),
-        draft
+        { ...draft, days: normalizedDays }
       );
       setOpen(false);
       setOptions({});

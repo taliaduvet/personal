@@ -47,7 +47,7 @@ export default function RootLayout({
       <body className="min-h-full">
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){var t=localStorage.getItem('studio-os:theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');else if(t==='light')document.documentElement.setAttribute('data-theme','light');})();`,
+            __html: `(function(){var t=localStorage.getItem('studio-os:theme');var h=new Date().getHours();var day=h>=7&&h<20;if(t==='dark')document.documentElement.setAttribute('data-theme','dark');else if(t==='light')document.documentElement.setAttribute('data-theme','light');else document.documentElement.setAttribute('data-theme',day?'light':'dark');})();`,
           }}
         />
         <GoogleGsiPreload />

@@ -11,8 +11,8 @@ import { waitingCount } from "@/lib/waiting-on";
 import { WeekPlanningCard } from "@/components/WeekPlanningCard";
 import { SetupBanner } from "@/components/SetupBanner";
 import { OnboardingCard } from "@/components/OnboardingCard";
+import { TrustPanel } from "@/components/TrustPanel";
 import { subscribeToPush } from "@/lib/push";
-import { getCloudUserId } from "@/lib/supabase/session";
 
 function greetingFor(hour: number): string {
   if (hour < 12) return "Good morning";
@@ -48,7 +48,10 @@ export function DashboardView() {
 
   const deadlines = useMemo(() => deadlineTasks(active), [active]);
 
-  const inboxCount = useMemo(() => tasks.filter(isInboxTask).length, [tasks]);
+  const inboxCount = useMemo(
+    () => tasks.filter((t) => isInboxTask(t, lifeAreas)).length,
+    [tasks, lifeAreas]
+  );
 
   const waitingOnCount = useMemo(() => waitingCount(active), [active]);
 
@@ -78,6 +81,10 @@ export function DashboardView() {
         </p>
       </header>
 
+      {/* The answer to "is everything held?" comes first — it is the reason
+          the app exists, and burying it under setup cards defeats it. */}
+      <TrustPanel />
+
       <SetupBanner />
       <OnboardingCard />
 
@@ -85,9 +92,7 @@ export function DashboardView() {
         <button
           type="button"
           onClick={async () => {
-            const userId = await getCloudUserId();
-            if (!userId) return;
-            await subscribeToPush(userId);
+            await subscribeToPush();
             if (typeof Notification !== "undefined") setNotifPermission(Notification.permission);
           }}
           className="flex w-full items-center justify-between rounded-xl border border-border bg-surface px-4 py-3 text-left text-sm text-muted transition-colors hover:border-accent hover:text-ink"

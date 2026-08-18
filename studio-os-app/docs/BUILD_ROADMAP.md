@@ -1,6 +1,6 @@
 # Studio OS — Build Roadmap
 
-*Last updated: August 17, 2026 (Practice tracker added)*  
+*Last updated: August 17, 2026 (Habits system + session timer/transition-warning added)*  
 *Single source of truth — what's live, what's next, and why it's ordered the way it is.*
 
 ---
@@ -29,6 +29,7 @@ Studio OS is an external brain for an autistic musician managing parallel commit
 | `/today` | Today (mode bench, captures, day shape) | ✅ Live |
 | `/journal` | Journal (list, calendar, compose, detail) | ✅ Live |
 | `/practice` | Practice — personal hypermobility routine tracker (Daily/Stability/Mobility + Notes, per-item timers, weekly compliance grid, feel log) | ✅ Live — deployed to production Aug 17, 2026 |
+| `/habits` | Habits — general, user-editable habit tracker (Break resets / Routines, weekly target, 7-day history, archive/restore) | ⚠️ Built + verified locally, **not committed, not deployed** |
 | `/tasks` | Tasks Lot (5 lenses + search) | ✅ Live |
 | `/inbox` | Inbox + smart capture parse | ✅ Live |
 | `/projects` | Projects index + room | ✅ Partial (no sheet project write) |
@@ -74,6 +75,21 @@ Studio OS is an external brain for an autistic musician managing parallel commit
   - Daily / Stability / Mobility tabs, each with items, per-item multi-phase countdown timers (Web Audio beep, screen wake lock while running), weekly compliance grid (per-track target vs. actual, capped at "this week"), and a Notes/reference tab with a JSON export button
   - Fully self-contained and device-only (own localStorage key, not synced to Sheet/Supabase/global export), same posture as Journal
   - Participates in the app's existing light/dark theme system via new `--color-track-*` tokens in `globals.css`, rather than the original's hardcoded dark theme
+- **Habits system** — ⚠️ **built + locally verified, uncommitted, not deployed.** `/habits` route, `src/lib/habits.ts` + `src/components/HabitsView.tsx`:
+  - A real, general, user-editable habit tracker — deliberately separate from Practice (no shared data model, Practice stays hardcoded/personal)
+  - Habits have a `type: "break" | "routine"`; break-type habits are what the session nudge banner (below) suggests mid-session
+  - Add/edit/archive/restore, check off today, optional weekly target, 7-day history dot strip, empty-state suggestion chips for common break activities
+  - Own localStorage key, device-only, same posture as Journal/Practice
+- **Session timer + transition warning + break-habit loop** — ⚠️ **core built + locally verified, uncommitted, not deployed. Push/Supabase portion not yet started.**
+  - `src/lib/sessions.ts` — `ActiveSession` gained optional timed fields (`targetDurationMs`, `warnBeforeMs`, one-shot `warningFiredAtIso`/`timesUpFiredAtIso`) and ambient fields (`ambientThresholdMs`, `ambientRepeatMs`, `ambientLastFiredAtIso`, `ambientAcknowledgedAtIso`) — kept separate because timed nudges fire once, ambient ones repeat until acknowledged
+  - `src/lib/session-nudge.ts` — pure timing logic (`timedNudgeDue`, `ambientNudgeDue`, `msUntilNext*`), unit tested
+  - `src/components/SessionStartSheet.tsx` — "Sit with this" now always opens a duration picker (quick-pick chips seeded from `duration-memory.ts` history + generic 25/45/90m, warn-before selector, one-tap "No timer, just start")
+  - `src/components/SessionIndicator.tsx` — shows a countdown + progress bar when a target is set; tints amber after the warning fires, red once over time
+  - `src/components/SessionNudgeBanner.tsx` — non-modal, globally mounted; warning / times-up / ambient-checkin states, each offering 1-2 break-habit suggestions pulled live from the Habits system (not Practice), "Log it" writes through to Habits + logs a new `session_break_taken` activity-log entry
+  - Ambient fallback: untimed sessions still get a soft "been at this a while?" nudge after a default 90 min, re-firing every 10 min until acknowledged or the session ends — catches hyperfocus that wasn't anticipated at session start
+  - New `AppSettings` fields: `defaultSessionWarnBeforeMs`, `ambientHyperfocusThresholdMs`, `ambientHyperfocusRepeatMs`
+  - Shared `src/lib/audio-cue.ts` beep helper, extracted out of Practice's timer so both use the identical cue
+  - **Not yet built**: real server-sent push for the warning/times-up/ambient moments (reaching the user with the browser fully closed). Research found no send-side push infrastructure exists anywhere in this repo despite being described as shipped elsewhere in this doc — see Known issues below. A `reminders` table already exists live in Supabase with almost the right shape for this, and `pg_cron`/`pg_net` are already-installed extensions, but the migration, Edge Function, cron wiring, and a new VAPID key pair (no private key exists anywhere) are all still pending.
 
 ---
 
@@ -87,13 +103,14 @@ Studio OS is an external brain for an autistic musician managing parallel commit
 | `studio-os.logbook.v1` | Logbook lines by date |
 | `studio-os.recipes.v1` | Release recipes |
 | `studio-os.settings.v2` | Week start, week planning, life areas, nudges |
-| `studio-os.activeSession.v1` | In-progress Work View session |
+| `studio-os.activeSession.v1` | In-progress Work View session — now also carries optional timer/warning fields and ambient-nudge state |
 | `studio-os.project-links.v2` | Project Drive links + local project meta |
 | `studio-os.today-captures` | Today capture chips |
 | `studio-os.sheet.v1` | Sheet connection metadata |
 | `studio-os.gcal-events.v1` | Cached calendar events (when connected) |
 | `studio-os:journal-entries` | Journal entries (text, html, mood, source, date) — ⚠️ **device-only, never synced or exported** |
 | `studio-os.bodyprogram.v1` | Practice tracker — daily checks + feel log, keyed by date, trimmed to last 90 days — ⚠️ **device-only, never synced or exported** |
+| `studio-os.habits.v1` | Habits — habit list + daily checks, keyed by date — ⚠️ **device-only, never synced or exported** |
 | `studio-os:theme` | Theme preference (light / dark / system) |
 | `studio-os.data-source.v1` | Vault ownership — `local` / `sheet` / `cloud` |
 | `studio-os.google-*` | Google OAuth tokens + opt-outs |

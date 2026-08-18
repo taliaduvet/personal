@@ -3,6 +3,7 @@
 import type { CSSProperties } from "react";
 import { useEffect, useRef, useState } from "react";
 import { localDateKey, parseLocalDateKey } from "@/lib/local-date";
+import { playBeep as playAudioCue } from "@/lib/audio-cue";
 import {
   DATA,
   EMPTY_STATE,
@@ -156,27 +157,7 @@ export function BodyProgramView() {
   }, []);
 
   function playBeep(kind: "phase" | "end") {
-    try {
-      const ctx = audioCtxRef.current ?? new AudioContext();
-      audioCtxRef.current = ctx;
-      const now = ctx.currentTime;
-      const tones: [number, number][] = kind === "end" ? [[660, 0], [880, 0.16], [1100, 0.32]] : [[820, 0]];
-      tones.forEach(([freq, t]) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.frequency.value = freq;
-        osc.type = "sine";
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        gain.gain.setValueAtTime(0, now + t);
-        gain.gain.linearRampToValueAtTime(0.22, now + t + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + t + 0.3);
-        osc.start(now + t);
-        osc.stop(now + t + 0.32);
-      });
-    } catch {
-      /* ignore */
-    }
+    playAudioCue(() => (audioCtxRef.current ??= new AudioContext()), kind);
   }
 
   function vibrate(pattern: number | number[]) {

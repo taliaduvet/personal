@@ -15,6 +15,7 @@ import {
 } from "@/lib/lenses";
 import { isStaleParked, parkedLabel } from "@/lib/parked";
 import { isWaitingTask } from "@/lib/waiting-on";
+import { NUDGE_TYPE_META, isAcknowledged } from "@/lib/nudges";
 
 export function TaskCard({
   task,
@@ -26,6 +27,7 @@ export function TaskCard({
   waitingQuietLabel,
   showNudge = false,
   onCopyNudge,
+  onDefer,
 }: {
   task: Task;
   onComplete?: (id: string) => void;
@@ -39,6 +41,8 @@ export function TaskCard({
   waitingQuietLabel?: string;
   showNudge?: boolean;
   onCopyNudge?: () => void;
+  /** Today bench: park off Today until the next matching mode day. */
+  onDefer?: (id: string) => void;
 }) {
   const router = useRouter();
   const { openQuickEdit } = useTasks();
@@ -90,6 +94,11 @@ export function TaskCard({
         >
           <p className={["text-sm", done ? "text-faint line-through" : "text-ink"].join(" ")}>
             {task.title}
+            {task.inToday && !done && !todayTiming ? (
+              <span className="ml-1.5 align-middle text-[10px] font-medium uppercase tracking-wide text-accent">
+                Today
+              </span>
+            ) : null}
           </p>
         </button>
         <button
@@ -130,6 +139,34 @@ export function TaskCard({
           {!hideMode && task.workModeId && (
             <span className="rounded bg-canvas px-1.5 py-0.5">{workModeName(task.workModeId)}</span>
           )}
+          {!done && task.nudgeType && (
+            <span
+              title={NUDGE_TYPE_META[task.nudgeType].hint}
+              className={[
+                "inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-medium",
+                isAcknowledged(task)
+                  ? "bg-canvas text-faint line-through"
+                  : task.nudgeType === "timed"
+                    ? "bg-accent-soft text-accent"
+                    : "bg-canvas text-muted ring-1 ring-inset ring-border",
+              ].join(" ")}
+            >
+              {task.nudgeType === "timed" ? (
+                <svg viewBox="0 0 24 24" className="h-2.5 w-2.5" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 7v5l3 2" />
+                </svg>
+              ) : (
+                <svg viewBox="0 0 24 24" className="h-2.5 w-2.5" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17 2l4 4-4 4" />
+                  <path d="M3 11v-1a4 4 0 0 1 4-4h14" />
+                  <path d="M7 22l-4-4 4-4" />
+                  <path d="M21 13v1a4 4 0 0 1-4 4H3" />
+                </svg>
+              )}
+              {NUDGE_TYPE_META[task.nudgeType].short}
+            </span>
+          )}
           {waiting && (
             <span className="rounded bg-canvas px-1.5 py-0.5 text-muted">
               waiting · {task.waitingOn?.personName}
@@ -157,6 +194,17 @@ export function TaskCard({
           </button>
         )}
       </div>
+      {onDefer && !done ? (
+        <button
+          type="button"
+          onClick={() => onDefer(task.id)}
+          className="mt-0.5 shrink-0 self-start text-[11px] font-medium text-faint hover:text-muted"
+          aria-label={`Defer ${task.title}`}
+          title="Park off Today — comes back on the next matching mode day"
+        >
+          Defer
+        </button>
+      ) : null}
     </div>
   );
 }

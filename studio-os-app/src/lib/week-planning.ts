@@ -13,7 +13,7 @@ export function isTaskInCurrentWeek(t: Task, weekStartsOn: WeekStartDay): boolea
     const planStart = doPlanSortKey(t.doPlan, weekStartsOn);
     return planStart !== null && planStart >= start && planStart <= end;
   }
-  return isDayInWeek(doPlanDayOffset(t.doPlan), start, end);
+  return isDayInWeek(doPlanDayOffset(t.doPlan) ?? NaN, start, end);
 }
 
 export function tasksInCurrentWeek(tasks: Task[], weekStartsOn: WeekStartDay): Task[] {
@@ -30,7 +30,7 @@ export function currentWeekDayTasks(tasks: Task[], weekStartsOn: WeekStartDay): 
     (t) =>
       t.status !== "done" &&
       t.doPlan?.kind === "day" &&
-      isDayInWeek(doPlanDayOffset(t.doPlan), start, end)
+      isDayInWeek(doPlanDayOffset(t.doPlan) ?? NaN, start, end)
   );
 }
 
@@ -43,7 +43,7 @@ export function computeWeekPlanningSummary(
   const active = tasks.filter((t) => t.status !== "done");
 
   const placed = active.filter(
-    (t) => t.doPlan?.kind === "day" && isDayInWeek(doPlanDayOffset(t.doPlan), start, end)
+    (t) => t.doPlan?.kind === "day" && isDayInWeek(doPlanDayOffset(t.doPlan) ?? NaN, start, end)
   ).length;
 
   const stillOpen = currentWeekBucketTasks(tasks, weekStartsOn).length;
@@ -51,7 +51,7 @@ export function computeWeekPlanningSummary(
   const pulledToToday = active.filter(
     (t) =>
       t.inToday &&
-      ((t.doPlan?.kind === "day" && isDayInWeek(doPlanDayOffset(t.doPlan), start, end)) ||
+      ((t.doPlan?.kind === "day" && isDayInWeek(doPlanDayOffset(t.doPlan) ?? NaN, start, end)) ||
         isCurrentWeekPlan(t.doPlan, weekStartsOn))
   ).length;
 

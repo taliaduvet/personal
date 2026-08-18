@@ -4,7 +4,10 @@ import { TopBar } from "@/components/TopBar";
 import { TaskDetailSheet } from "@/components/TaskDetailSheet";
 import { GoogleGsiPreload } from "@/components/GoogleGsiPreload";
 import { SessionEndSheet } from "@/components/SessionEndSheet";
+import { SessionNudgeBanner } from "@/components/SessionNudgeBanner";
+import { DeliveryPrompt } from "@/components/DeliveryPrompt";
 import { SessionIndicator } from "@/components/SessionIndicator";
+import { CloudSyncBridge } from "@/components/CloudSyncBridge";
 import { TasksProvider } from "@/lib/store";
 import { SettingsProvider } from "@/lib/settings-store";
 import { ProjectsProvider } from "@/lib/projects-store";
@@ -19,6 +22,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <TasksProvider>
       <SessionsProvider>
       <SheetProvider>
+      <CloudSyncBridge />
       <WeekPlanningLauncherProvider>
       <GoogleGsiPreload />
       <div className="md:grid md:min-h-dvh md:grid-cols-[256px_1fr]">
@@ -35,6 +39,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
         <TaskDetailSheet />
         <SessionEndSheet />
+        <SessionNudgeBanner />
+        <DeliveryPrompt />
       </div>
       </WeekPlanningLauncherProvider>
       </SheetProvider>

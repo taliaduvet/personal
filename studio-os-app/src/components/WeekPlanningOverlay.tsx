@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTasks } from "@/lib/store";
+import { weekTrustCheck } from "@/lib/trust/week-check";
 import { useSettings } from "@/lib/settings-store";
 import { weekRange } from "@/lib/week";
 import { carriedForPlanning } from "@/lib/week-planning";
@@ -17,11 +18,15 @@ import {
   workModeName,
 } from "@/lib/lenses";
 import type { Task } from "@/lib/types";
+import { WORK_MODES } from "@/lib/sample-data";
 import {
   countFocusDays,
+  dayModeIds,
   focusLabel,
   mergeWeekFocusDraft,
-  type DayFocus,
+  modeSelectedOnFocus,
+  normalizeDayFocus,
+  toggleModeFocus,
   type WeekDaySlot,
   type WeekFocusDraft,
   weekDaySlots,
@@ -61,21 +66,29 @@ export function WeekPlanningOverlay({
   intentionReminder,
   onDone,
 }: Props) {
-  const { tasks } = useTasks();
+  const { tasks, openQuickEdit, quickEditId } = useTasks();
   const { weekStartsOn, lifeAreas } = useSettings();
   const [step, setStep] = useState<WizardStep>(initialStep);
   const [draft, setDraft] = useState(initialDraft);
-  const [stampingModeId, setStampingModeId] = useState<string | null>(null);
+  /** Multi-select stamp brushes — paint several modes onto selected days. */
+  const [stampingModeIds, setStampingModeIds] = useState<string[]>([]);
+  /** Multi-select week days to receive the stamp in one apply. */
+  const [selectedDateKeys, setSelectedDateKeys] = useState<string[]>([]);
+  const wasOpenRef = useRef(false);
 
   const slots = useMemo(() => weekDaySlots(weekStartsOn), [weekStartsOn]);
   const range = useMemo(() => weekRange(weekStartsOn, 0), [weekStartsOn]);
 
+  // Only re-hydrate when the overlay opens — not when tasks refresh mid-plan
+  // (that was wiping stacked modes before Lock).
   useEffect(() => {
-    if (open) {
+    if (open && !wasOpenRef.current) {
       setDraft(mergeWeekFocusDraft(initialDraft, slots));
       setStep(initialStep);
-      setStampingModeId(null);
+      setStampingModeIds([]);
+      setSelectedDateKeys([]);
     }
+    wasOpenRef.current = open;
   }, [open, initialDraft, slots, initialStep]);
 
   useEffect(() => {
@@ -83,14 +96,17 @@ export function WeekPlanningOverlay({
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key !== "Escape") return;
+      // Let TaskDetailSheet own Escape while quick edit is open above this overlay.
+      if (quickEditId) return;
+      onClose();
     };
     document.addEventListener("keydown", onKey);
     return () => {
       document.body.style.overflow = prev;
       document.removeEventListener("keydown", onKey);
     };
-  }, [open, onClose]);
+  }, [open, onClose, quickEditId]);
 
   const modeLoads = useMemo(
     () => modeLoadFromApproved(tasks, draft.approvedTaskIds),
@@ -103,6 +119,12 @@ export function WeekPlanningOverlay({
   const trustLines = useMemo(
     () => trustCheckLines(tasks, draft.approvedTaskIds, draft, slots, weekStartsOn),
     [tasks, draft.approvedTaskIds, draft, slots, weekStartsOn]
+  );
+  // Runs over ALL tasks, not just approved ones — the point is to catch the
+  // commitment you forgot to tick (docs/TRUST-CORE.md §6).
+  const weekCheck = useMemo(
+    () => weekTrustCheck(tasks, draft.approvedTaskIds, weekStartsOn),
+    [tasks, draft.approvedTaskIds, weekStartsOn]
   );
   const deadlineDots = useMemo(
     () => deadlineDotsByDay(tasks, draft.approvedTaskIds, slots),
@@ -123,17 +145,49 @@ export function WeekPlanningOverlay({
     });
   };
 
-  const stampModeOnDay = (dateKey: string, modeId: string) => {
-    setDraft((d) => ({
-      ...d,
-      days: {
-        ...d.days,
-        [dateKey]: {
-          focus: { kind: "mode", id: modeId },
-          note: d.days[dateKey]?.note ?? "",
-        },
-      },
-    }));
+  const toggleStampingMode = (modeId: string) => {
+    setStampingModeIds((ids) =>
+      ids.includes(modeId) ? ids.filter((id) => id !== modeId) : [...ids, modeId]
+    );
+  };
+
+  const toggleDaySelected = (dateKey: string) => {
+    setSelectedDateKeys((keys) =>
+      keys.includes(dateKey) ? keys.filter((k) => k !== dateKey) : [...keys, dateKey]
+    );
+  };
+
+  /** Union the given modes onto every selected day (or a single dateKey). */
+  const stampModesOntoDays = (dateKeys: string[], modeIds: string[]) => {
+    if (dateKeys.length === 0 || modeIds.length === 0) return;
+    setDraft((d) => {
+      const days = { ...d.days };
+      for (const dateKey of dateKeys) {
+        const prev = days[dateKey];
+        let focus = prev?.focus ?? null;
+        if (modeIds.length === 1) {
+          focus = toggleModeFocus(focus, modeIds[0]!);
+        } else {
+          for (const modeId of modeIds) {
+            if (!modeSelectedOnFocus(focus, modeId)) {
+              focus = toggleModeFocus(focus, modeId);
+            }
+          }
+          focus = normalizeDayFocus(focus);
+        }
+        days[dateKey] = {
+          focus,
+          note: prev?.note ?? "",
+          shapeBlockTasks: prev?.shapeBlockTasks,
+          deferredTaskIds: prev?.deferredTaskIds,
+        };
+      }
+      return { ...d, days };
+    });
+  };
+
+  const applyStampToSelectedDays = () => {
+    stampModesOntoDays(selectedDateKeys, stampingModeIds);
   };
 
   const clearDayMode = (dateKey: string) => {
@@ -141,19 +195,19 @@ export function WeekPlanningOverlay({
       ...d,
       days: {
         ...d.days,
-        [dateKey]: { focus: null, note: d.days[dateKey]?.note ?? "" },
+        [dateKey]: {
+          focus: null,
+          note: d.days[dateKey]?.note ?? "",
+          shapeBlockTasks: d.days[dateKey]?.shapeBlockTasks,
+          deferredTaskIds: d.days[dateKey]?.deferredTaskIds,
+        },
       },
     }));
   };
 
   const handleDayClick = (slot: WeekDaySlot) => {
     if (slot.offset < 0) return;
-    if (stampingModeId) {
-      stampModeOnDay(slot.dateKey, stampingModeId);
-      return;
-    }
-    const entry = draft.days[slot.dateKey];
-    if (entry?.focus) clearDayMode(slot.dateKey);
+    toggleDaySelected(slot.dateKey);
   };
 
   const focusDayCount = countFocusDays(draft);
@@ -179,7 +233,12 @@ export function WeekPlanningOverlay({
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto max-w-3xl space-y-5 px-4 py-5 pb-28">
           {step === 1 && (
-            <ReceiptStep tasks={tasks} weekStartsOn={weekStartsOn} lifeAreas={lifeAreas} />
+            <ReceiptStep
+              tasks={tasks}
+              weekStartsOn={weekStartsOn}
+              lifeAreas={lifeAreas}
+              onOpenTask={openQuickEdit}
+            />
           )}
           {step === 2 && (
             <ApproveStep
@@ -187,7 +246,9 @@ export function WeekPlanningOverlay({
               lifeAreas={lifeAreas}
               weekStartsOn={weekStartsOn}
               approvedIds={draft.approvedTaskIds}
+              missing={weekCheck.missing}
               onToggle={toggleApproved}
+              onOpenTask={openQuickEdit}
             />
           )}
           {step === 3 && (
@@ -197,13 +258,17 @@ export function WeekPlanningOverlay({
               groupedApproved={groupedApproved}
               modeLoads={modeLoads}
               slots={slots}
-              stampingModeId={stampingModeId}
-              onStampingModeChange={setStampingModeId}
+              stampingModeIds={stampingModeIds}
+              onToggleStampingMode={toggleStampingMode}
+              selectedDateKeys={selectedDateKeys}
               onDayClick={handleDayClick}
               onClearDay={clearDayMode}
+              onApplyStamp={applyStampToSelectedDays}
+              onClearDaySelection={() => setSelectedDateKeys([])}
               deadlineDots={deadlineDots}
               trustLines={trustLines}
               intentionReminder={intentionReminder}
+              onOpenTask={openQuickEdit}
             />
           )}
           {step === 4 && (
@@ -283,10 +348,12 @@ function ReceiptStep({
   tasks,
   weekStartsOn,
   lifeAreas,
+  onOpenTask,
 }: {
   tasks: Task[];
   weekStartsOn: import("@/lib/week").WeekStartDay;
   lifeAreas: { id: string; name: string; color: string }[];
+  onOpenTask: (id: string) => void;
 }) {
   const shipped = useMemo(() => shippedThisWeek(tasks, weekStartsOn, -1), [tasks, weekStartsOn]);
   const carried = useMemo(() => carryOver(tasks, weekStartsOn, 0), [tasks, weekStartsOn]);
@@ -306,9 +373,18 @@ function ReceiptStep({
         {carried.length > 0 ? (
           <ul className="mt-3 space-y-1.5">
             {carried.slice(0, 6).map((t) => (
-              <li key={t.id} className="flex items-center gap-2 text-sm text-ink">
-                <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: lifeAreaColor(t.lifeAreaId) }} />
-                <span className="truncate">{t.title}</span>
+              <li key={t.id}>
+                <button
+                  type="button"
+                  onClick={() => onOpenTask(t.id)}
+                  className="flex w-full items-center gap-2 text-left text-sm text-ink hover:text-accent"
+                >
+                  <span
+                    className="h-1.5 w-1.5 shrink-0 rounded-full"
+                    style={{ background: lifeAreaColor(t.lifeAreaId) }}
+                  />
+                  <span className="truncate">{t.title}</span>
+                </button>
               </li>
             ))}
             {carried.length > 6 && <li className="text-xs text-faint">+{carried.length - 6} more</li>}
@@ -363,21 +439,55 @@ function ApproveStep({
   lifeAreas,
   weekStartsOn,
   approvedIds,
+  missing,
   onToggle,
+  onOpenTask,
 }: {
   tasks: Task[];
   lifeAreas: { id: string; name: string; color: string }[];
   weekStartsOn: import("@/lib/week").WeekStartDay;
   approvedIds: string[];
+  missing: import("@/lib/trust/week-check").WeekRisk[];
   onToggle: (id: string) => void;
+  onOpenTask: (id: string) => void;
 }) {
   const approved = new Set(approvedIds);
 
   return (
     <>
+      {missing.length > 0 && (
+        <div className="rounded-xl border border-danger/40 bg-danger/5 px-4 py-3">
+          <p className="text-sm font-medium text-ink">
+            {missing.length === 1
+              ? "1 commitment lands this week and isn't in the plan"
+              : `${missing.length} commitments land this week and aren't in the plan`}
+          </p>
+          <ul className="mt-2 space-y-1.5">
+            {missing.map((risk) => (
+              <li key={risk.task.id} className="flex items-center gap-2 text-sm">
+                <button
+                  type="button"
+                  onClick={() => onToggle(risk.task.id)}
+                  className="shrink-0 rounded-md border border-border px-2 py-0.5 text-xs font-medium text-muted transition-colors hover:border-accent hover:text-accent"
+                >
+                  Add
+                </button>
+                <span className="min-w-0 flex-1 truncate text-ink">{risk.task.title}</span>
+                <span className="shrink-0 text-xs text-muted">
+                  {risk.person ? `${risk.person} · ` : ""}
+                  {risk.alreadyLate ? "already past" : risk.dateKey.slice(5)}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-xs text-faint">
+            Leaving them out is fine — they just won&apos;t shape your week.
+          </p>
+        </div>
+      )}
       <p className="text-sm text-muted">
         What needs to happen this week? Check tasks you&apos;re committing to — unchecked tasks stay visible but
-        won&apos;t drive mode load.
+        won&apos;t drive mode load. Tap a title to quick-edit.
       </p>
       <div className="grid gap-3 sm:grid-cols-2">
         {lifeAreas.map((area) => {
@@ -395,14 +505,26 @@ function ApproveStep({
               {inProgress.length > 0 && (
                 <TaskSection label="In progress">
                   {inProgress.map((t) => (
-                    <ApproveRow key={t.id} task={t} approved={approved.has(t.id)} onToggle={onToggle} />
+                    <ApproveRow
+                      key={t.id}
+                      task={t}
+                      approved={approved.has(t.id)}
+                      onToggle={onToggle}
+                      onOpen={onOpenTask}
+                    />
                   ))}
                 </TaskSection>
               )}
               {open.length > 0 && (
                 <TaskSection label="Open · nearest due first">
                   {open.map((t) => (
-                    <ApproveRow key={t.id} task={t} approved={approved.has(t.id)} onToggle={onToggle} />
+                    <ApproveRow
+                      key={t.id}
+                      task={t}
+                      approved={approved.has(t.id)}
+                      onToggle={onToggle}
+                      onOpen={onOpenTask}
+                    />
                   ))}
                 </TaskSection>
               )}
@@ -450,10 +572,12 @@ function ApproveRow({
   task,
   approved,
   onToggle,
+  onOpen,
 }: {
   task: Task;
   approved: boolean;
   onToggle: (id: string) => void;
+  onOpen: (id: string) => void;
 }) {
   const dl = deadlineLabel(task.deadlineInDays);
   return (
@@ -463,9 +587,16 @@ function ApproveRow({
         checked={approved}
         onChange={() => onToggle(task.id)}
         className="mt-0.5 accent-accent"
+        aria-label={`Approve ${task.title}`}
       />
       <div className="min-w-0 flex-1">
-        <span className="text-ink">{task.title}</span>
+        <button
+          type="button"
+          onClick={() => onOpen(task.id)}
+          className="w-full text-left text-ink hover:text-accent"
+        >
+          {task.title}
+        </button>
         <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted">
           {task.workModeId && (
             <span className="rounded-full border border-border px-1.5 py-0.5">{workModeName(task.workModeId)}</span>
@@ -486,27 +617,38 @@ function PlaceStep({
   groupedApproved,
   modeLoads,
   slots,
-  stampingModeId,
-  onStampingModeChange,
+  stampingModeIds,
+  onToggleStampingMode,
+  selectedDateKeys,
   onDayClick,
   onClearDay,
+  onApplyStamp,
+  onClearDaySelection,
   deadlineDots,
   trustLines,
   intentionReminder,
+  onOpenTask,
 }: {
   draft: WeekFocusDraft;
   setDraft: React.Dispatch<React.SetStateAction<WeekFocusDraft>>;
   groupedApproved: ReturnType<typeof tasksGroupedByMode>;
   modeLoads: ReturnType<typeof modeLoadFromApproved>;
   slots: WeekDaySlot[];
-  stampingModeId: string | null;
-  onStampingModeChange: (id: string | null) => void;
+  stampingModeIds: string[];
+  onToggleStampingMode: (modeId: string) => void;
+  selectedDateKeys: string[];
   onDayClick: (slot: WeekDaySlot) => void;
   onClearDay: (dateKey: string) => void;
+  onApplyStamp: () => void;
+  onClearDaySelection: () => void;
   deadlineDots: Record<string, number>;
   trustLines: ReturnType<typeof trustCheckLines>;
   intentionReminder?: string;
+  onOpenTask: (id: string) => void;
 }) {
+  const loadCount = (modeId: string) => modeLoads.find((m) => m.modeId === modeId)?.count ?? 0;
+  const canApply = selectedDateKeys.length > 0 && stampingModeIds.length > 0;
+  const selectedSet = new Set(selectedDateKeys);
   return (
     <>
       {groupedApproved.length > 0 && (
@@ -524,9 +666,15 @@ function PlaceStep({
                   {g.tasks.slice(0, 4).map((t) => {
                     const dl = deadlineLabel(t.deadlineInDays);
                     return (
-                      <li key={t.id} className="truncate">
-                        {t.title}
-                        {dl ? ` · ${dl.text}` : ""}
+                      <li key={t.id}>
+                        <button
+                          type="button"
+                          onClick={() => onOpenTask(t.id)}
+                          className="w-full truncate text-left hover:text-accent"
+                        >
+                          {t.title}
+                          {dl ? ` · ${dl.text}` : ""}
+                        </button>
                       </li>
                     );
                   })}
@@ -555,42 +703,47 @@ function PlaceStep({
         />
       </section>
 
-      {modeLoads.length > 0 ? (
-        <section className="rounded-xl border-2 border-dashed border-accent/40 bg-accent-soft/10 p-3">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-faint">Mode load · tap then tap a day</h3>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {modeLoads.map((m) => (
+      <section className="rounded-xl border-2 border-dashed border-accent/40 bg-accent-soft/10 p-3">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-faint">
+          1 · Pick modes (multi-select)
+        </h3>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {WORK_MODES.map((m) => {
+            const count = loadCount(m.id);
+            return (
               <button
-                key={m.modeId}
+                key={m.id}
                 type="button"
-                onClick={() => onStampingModeChange(stampingModeId === m.modeId ? null : m.modeId)}
+                onClick={() => onToggleStampingMode(m.id)}
                 className={[
                   "rounded-full border-2 px-4 py-2 text-sm font-medium transition-colors",
-                  stampingModeId === m.modeId
+                  stampingModeIds.includes(m.id)
                     ? "border-accent bg-accent text-white shadow-md"
                     : "border-border bg-surface text-ink hover:border-accent/60",
                 ].join(" ")}
               >
-                {m.name} · {m.count}
+                {m.name}
+                {count > 0 ? ` · ${count}` : ""}
               </button>
-            ))}
-          </div>
-          <p className="mt-2 text-[11px] text-muted">
-            Days start open · tap a mode pill, then tap days on the strip · tap × on a day to clear
-          </p>
-        </section>
-      ) : (
-        <p className="text-sm text-muted">No approved tasks with modes — you can still set an all-open week.</p>
-      )}
+            );
+          })}
+        </div>
 
-      <section>
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-faint">Week strip</h3>
+        <h3 className="mt-4 text-xs font-semibold uppercase tracking-wide text-faint">
+          2 · Pick days (multi-select)
+        </h3>
+        <p className="mt-1 text-[11px] text-muted">
+          Tap Mon and Wed (or as many as you want), then apply. × clears a day&apos;s modes.
+        </p>
+
         <div className="mt-2 grid grid-cols-7 gap-1.5">
           {slots.map((slot) => {
             const entry = draft.days[slot.dateKey];
             const focus = entry?.focus ?? null;
+            const modeIds = dayModeIds(focus);
             const isPast = slot.offset < 0;
             const dots = deadlineDots[slot.dateKey] ?? 0;
+            const isSelected = selectedSet.has(slot.dateKey);
             return (
               <div key={slot.dateKey} className="relative flex flex-col">
                 <button
@@ -601,28 +754,61 @@ function PlaceStep({
                     "flex flex-col items-center rounded-lg border px-1 py-2 text-center transition-colors",
                     isPast
                       ? "cursor-default border-border/60 bg-canvas/50 opacity-70"
-                      : stampingModeId
-                        ? "border-accent/50 bg-surface hover:border-accent"
+                      : isSelected
+                        ? "border-accent bg-accent text-white shadow-md"
                         : slot.isToday
                           ? "border-accent/40 bg-surface hover:border-accent"
                           : "border-border bg-surface hover:border-accent/50",
-                    focus ? "ring-1 ring-accent/30" : "",
+                    focus && !isSelected ? "ring-1 ring-accent/30" : "",
                   ].join(" ")}
                 >
-                  <span className="text-[10px] font-medium uppercase text-faint">{slot.weekday}</span>
-                  <span className="font-display text-sm font-semibold text-ink">{slot.dayNum}</span>
+                  <span
+                    className={[
+                      "text-[10px] font-medium uppercase",
+                      isSelected ? "text-white/80" : "text-faint",
+                    ].join(" ")}
+                  >
+                    {slot.weekday}
+                  </span>
+                  <span
+                    className={[
+                      "font-display text-sm font-semibold",
+                      isSelected ? "text-white" : "text-ink",
+                    ].join(" ")}
+                  >
+                    {slot.dayNum}
+                  </span>
                   {dots > 0 && (
-                    <span className="mt-0.5 text-[9px] font-medium text-danger">
+                    <span
+                      className={[
+                        "mt-0.5 text-[9px] font-medium",
+                        isSelected ? "text-white" : "text-danger",
+                      ].join(" ")}
+                    >
                       {"●".repeat(Math.min(dots, 3))}
                     </span>
                   )}
                   <span
                     className={[
-                      "mt-0.5 line-clamp-2 w-full text-[10px] leading-tight",
-                      focus ? "font-medium text-accent" : "text-faint",
+                      "mt-0.5 w-full text-[9px] leading-tight",
+                      isSelected
+                        ? "font-medium text-white"
+                        : focus
+                          ? "font-medium text-accent"
+                          : "text-faint",
                     ].join(" ")}
                   >
-                    {focusLabel(focus)}
+                    {modeIds.length > 1 ? (
+                      <span className="flex flex-col gap-0.5">
+                        {modeIds.map((id) => (
+                          <span key={id} className="truncate">
+                            {workModeName(id)}
+                          </span>
+                        ))}
+                      </span>
+                    ) : (
+                      <span className="line-clamp-2">{focusLabel(focus)}</span>
+                    )}
                   </span>
                 </button>
                 {!isPast && focus && (
@@ -642,7 +828,38 @@ function PlaceStep({
         {slots.some((s) => s.offset < 0) && (
           <p className="mt-2 text-xs text-faint">Past days are read-only from your log.</p>
         )}
+
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            disabled={!canApply}
+            onClick={onApplyStamp}
+            className={[
+              "rounded-lg px-4 py-2 text-sm font-semibold transition-colors",
+              canApply
+                ? "bg-accent text-white hover:bg-accent-ink"
+                : "cursor-not-allowed bg-line text-faint",
+            ].join(" ")}
+          >
+            Apply {stampingModeIds.length || "…"} mode
+            {stampingModeIds.length === 1 ? "" : "s"} → {selectedDateKeys.length || "…"} day
+            {selectedDateKeys.length === 1 ? "" : "s"}
+          </button>
+          {selectedDateKeys.length > 0 && (
+            <button
+              type="button"
+              onClick={onClearDaySelection}
+              className="text-xs font-medium text-muted hover:text-ink"
+            >
+              Clear day selection
+            </button>
+          )}
+        </div>
       </section>
+
+      {groupedApproved.length === 0 && (
+        <p className="text-sm text-muted">No approved tasks with modes — you can still stamp an open week.</p>
+      )}
 
       {trustLines.length > 0 && (
         <section className="rounded-lg border border-border bg-canvas/40 px-4 py-3 text-xs">

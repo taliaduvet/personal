@@ -6,6 +6,11 @@ type Theme = "light" | "dark" | "system";
 
 const STORAGE_KEY = "studio-os:theme";
 
+function isDaytime() {
+  const h = new Date().getHours();
+  return h >= 7 && h < 20; // 7am–8pm = light
+}
+
 function applyTheme(theme: Theme) {
   const root = document.documentElement;
   if (theme === "dark") {
@@ -13,7 +18,8 @@ function applyTheme(theme: Theme) {
   } else if (theme === "light") {
     root.setAttribute("data-theme", "light");
   } else {
-    root.removeAttribute("data-theme");
+    // Auto: time-based
+    root.setAttribute("data-theme", isDaytime() ? "light" : "dark");
   }
 }
 

@@ -6,11 +6,13 @@ import { useTasks } from "@/lib/store";
 import { useTodayAssignment } from "@/lib/use-today-assignment";
 import { openTaskWork } from "@/lib/navigation";
 import { isInboxTask } from "@/lib/lenses";
+import { useSettings } from "@/lib/settings-store";
 
 export function InboxView() {
   const router = useRouter();
   const { tasks, addTask, completeTask, openQuickEdit, quickEditId, quickEditCapture } = useTasks();
   const { addToToday } = useTodayAssignment();
+  const { lifeAreas } = useSettings();
   const [text, setText] = useState("");
   const [flash, setFlash] = useState(false);
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -18,9 +20,9 @@ export function InboxView() {
   const items = useMemo(
     () =>
       tasks
-        .filter(isInboxTask)
+        .filter((t) => isInboxTask(t, lifeAreas))
         .filter((t) => !(quickEditCapture && t.id === quickEditId)),
-    [tasks, quickEditCapture, quickEditId]
+    [tasks, lifeAreas, quickEditCapture, quickEditId]
   );
 
   useEffect(

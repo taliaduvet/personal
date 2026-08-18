@@ -6,6 +6,7 @@ import { carryOver } from "./weekly-review";
 import { deadlineLabel, workModeName } from "./lenses";
 import type { ModeWorkload } from "./week-focus";
 import type { WeekDaySlot, WeekFocusDraft } from "./week-focus";
+import { dayModeIds } from "./week-focus";
 
 export type AreaApproveSection = {
   inProgress: Task[];
@@ -114,7 +115,7 @@ export function trustCheckLines(
     const hasModeBefore = slots.some((slot) => {
       if (slot.offset > deadline) return false;
       const focus = draft.days[slot.dateKey]?.focus;
-      return focus?.kind === "mode" && focus.id === modeId;
+      return dayModeIds(focus).includes(modeId);
     });
     const dl = deadlineLabel(task.deadlineInDays);
     const short =

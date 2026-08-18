@@ -25,7 +25,10 @@ export function carryOver(tasks: Task[], weekStartsOn: WeekStartDay, weekOffset 
   const { start } = weekRange(weekStartsOn, weekOffset);
   return tasks.filter((t) => {
     if (t.status === "done" || t.doPlan === null) return false;
-    if (t.doPlan.kind === "day") return doPlanDayOffset(t.doPlan) < start;
+    if (t.doPlan.kind === "day") {
+      const off = doPlanDayOffset(t.doPlan);
+      return off !== null && off < start;
+    }
     const planStart = doPlanSortKey(t.doPlan, weekStartsOn);
     return planStart !== null && planStart < start;
   });

@@ -1,8 +1,8 @@
-import type { Task, LensId, TaskGroup, DoPlan } from "./types";
+import type { Task, LensId, LifeArea, TaskGroup, DoPlan } from "./types";
 import type { WeekStartDay } from "./week";
 import { formatDeadlineDisplay } from "./time-display";
 import { WORK_MODES } from "./sample-data";
-import { activeLifeAreaById } from "./life-area-registry";
+import { getActiveLifeAreas } from "./life-area-registry";
 import { activeProjectName, activeProjectWhy, getActiveProjects } from "./project-registry";
 import { doPlanLabel, doPlanSortKey, isCarriedDoPlan } from "./do-plan";
 import { weekRange } from "./week";
@@ -13,11 +13,32 @@ export { isWaitingTask } from "./waiting-on";
 const NEUTRAL = "#8b95a1";
 const modeById = Object.fromEntries(WORK_MODES.map((m) => [m.id, m]));
 
-export function lifeAreaName(id: string): string {
-  return activeLifeAreaById()[id]?.name ?? "Unsorted";
+/**
+ * Life areas are user-defined, so they must be passed in wherever the caller
+ * can reach settings. The global registry is only a fallback for call sites
+ * that can't — relying on it implicitly is what made the area lens ignore
+ * custom areas entirely.
+ *
+ * Ids are deduped **last-wins**: renaming an area can leave two entries sharing
+ * one id, and tasks must still land in exactly one column. Insertion order is
+ * kept from first sighting, so a rename doesn't reshuffle the board.
+ */
+export function resolveLifeAreas(lifeAreas?: LifeArea[]): LifeArea[] {
+  const source = lifeAreas && lifeAreas.length > 0 ? lifeAreas : getActiveLifeAreas();
+  const byId = new Map<string, LifeArea>();
+  for (const area of source) byId.set(area.id, area);
+  return [...byId.values()];
 }
-export function lifeAreaColor(id: string): string {
-  return activeLifeAreaById()[id]?.color ?? NEUTRAL;
+
+function lifeAreaMap(lifeAreas?: LifeArea[]): Record<string, LifeArea> {
+  return Object.fromEntries(resolveLifeAreas(lifeAreas).map((a) => [a.id, a]));
+}
+
+export function lifeAreaName(id: string, lifeAreas?: LifeArea[]): string {
+  return lifeAreaMap(lifeAreas)[id]?.name ?? "Unsorted";
+}
+export function lifeAreaColor(id: string, lifeAreas?: LifeArea[]): string {
+  return lifeAreaMap(lifeAreas)[id]?.color ?? NEUTRAL;
 }
 export function projectName(id: string | null): string {
   return activeProjectName(id);
@@ -59,10 +80,9 @@ function buildGroup(
   };
 }
 
-function activeLot(tasks: Task[], opts: { includeToday?: boolean } = {}): Task[] {
-  return tasks.filter(
-    (t) => t.status !== "done" && (opts.includeToday || !t.inToday) && !isWaitingTask(t)
-  );
+function activeLot(tasks: Task[]): Task[] {
+  // Include Today-bench tasks so the Lot is a full active map (Today is a focus, not a hide).
+  return tasks.filter((t) => t.status !== "done" && !isWaitingTask(t));
 }
 
 function groupByWaiting(lot: Task[], weekStartsOn: WeekStartDay): TaskGroup[] {
@@ -127,7 +147,12 @@ function groupByWhen(lot: Task[], weekStartsOn: WeekStartDay): TaskGroup[] {
     .filter((g) => g.tasks.length > 0);
 }
 
-export function groupTasks(tasks: Task[], lens: LensId, weekStartsOn: WeekStartDay = 0): TaskGroup[] {
+export function groupTasks(
+  tasks: Task[],
+  lens: LensId,
+  weekStartsOn: WeekStartDay = 0,
+  lifeAreas?: LifeArea[]
+): TaskGroup[] {
   if (lens === "waiting") return groupByWaiting(tasks, weekStartsOn);
 
   if (lens === "when") return groupByWhen(activeLot(tasks), weekStartsOn);
@@ -135,9 +160,10 @@ export function groupTasks(tasks: Task[], lens: LensId, weekStartsOn: WeekStartD
   // Area/project are organizational reference views — Today-bench tasks
   // still belong in their column, unlike the "when"/"mode" work-bench lenses.
   if (lens === "area") {
-    const lot = activeLot(tasks, { includeToday: true });
-    const areaMap = activeLifeAreaById();
-    const known = Object.values(areaMap).map((a) =>
+    const lot = activeLot(tasks);
+    const areas = resolveLifeAreas(lifeAreas);
+    const areaMap = lifeAreaMap(lifeAreas);
+    const known = areas.map((a) =>
       buildGroup(
         a.id,
         a.name,
@@ -153,18 +179,21 @@ export function groupTasks(tasks: Task[], lens: LensId, weekStartsOn: WeekStartD
       weekStartsOn,
       NEUTRAL
     );
-    return [...known, unsorted].filter((g) => g.key === "unsorted" ? g.tasks.length > 0 : true);
+    // Areas the user defined stay visible even when empty — a column vanishing
+    // because you cleared it reads as the app losing your structure. "Unsorted"
+    // is derived rather than declared, so it only appears when it has contents.
+    return unsorted.tasks.length > 0 ? [...known, unsorted] : known;
   }
 
   if (lens === "project") {
-    const lot = activeLot(tasks, { includeToday: true });
+    const lot = activeLot(tasks);
     const projects = getActiveProjects().map((p) =>
       buildGroup(
         p.id,
         p.name,
         lot.filter((t) => t.projectId === p.id),
         weekStartsOn,
-        lifeAreaColor(p.lifeAreaId)
+        lifeAreaColor(p.lifeAreaId, lifeAreas)
       )
     );
     const loose = buildGroup(
@@ -191,16 +220,16 @@ export function groupTasks(tasks: Task[], lens: LensId, weekStartsOn: WeekStartD
   return [...modes, none].filter((g) => g.tasks.length > 0);
 }
 
-export function isUnsorted(task: Task): boolean {
-  return !activeLifeAreaById()[task.lifeAreaId];
+export function isUnsorted(task: Task, lifeAreas?: LifeArea[]): boolean {
+  return !lifeAreaMap(lifeAreas)[task.lifeAreaId];
 }
 
-export function isInboxTask(task: Task): boolean {
+export function isInboxTask(task: Task, lifeAreas?: LifeArea[]): boolean {
   return (
     task.status !== "done" &&
     !task.inToday &&
     !isWaitingTask(task) &&
-    isUnsorted(task) &&
+    isUnsorted(task, lifeAreas) &&
     task.projectId === null &&
     task.doPlan === null &&
     task.deadlineInDays === null

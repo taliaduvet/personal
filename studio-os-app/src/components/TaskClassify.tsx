@@ -11,7 +11,7 @@ import { getDriveAccessToken } from "@/lib/google/drive-auth";
 import { DoPlanCalendar, DeadlineCalendar } from "@/components/DoPlanCalendar";
 import type { DoPlan, Task } from "@/lib/types";
 
-type FieldKey = "project" | "doing" | "deadline" | "mode" | "person";
+type FieldKey = "area" | "project" | "doing" | "deadline" | "mode" | "person";
 
 type ClassifyTask = Pick<
   Task,
@@ -30,7 +30,7 @@ export function TaskClassifyDropdowns({
   onChange: (patch: Partial<Task>) => void;
   label?: string;
 }) {
-  const { weekStartsOn, contacts, setGoogleContacts } = useSettings();
+  const { weekStartsOn, contacts, setGoogleContacts, lifeAreas } = useSettings();
   const { projects } = useProjects();
   const [open, setOpen] = useState<FieldKey | null>(null);
   const [personQuery, setPersonQuery] = useState("");
@@ -39,6 +39,8 @@ export function TaskClassifyDropdowns({
   const personSearchRef = useRef<HTMLInputElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const chips = classifyChipLabels(task, weekStartsOn);
+  const areaLabel = task.lifeAreaId ? lifeAreaName(task.lifeAreaId) : null;
+  const hasArea = Boolean(task.lifeAreaId && lifeAreas.some((a) => a.id === task.lifeAreaId));
 
   useEffect(() => {
     if (open !== "person") {
@@ -61,6 +63,17 @@ export function TaskClassifyDropdowns({
   }, [open]);
 
   const toggle = (field: FieldKey) => setOpen((cur) => (cur === field ? null : field));
+
+  const pickArea = (lifeAreaId: string) => {
+    const project = task.projectId ? projects.find((p) => p.id === task.projectId) : null;
+    // Changing area clears a mismatched project so the choice sticks.
+    if (project && project.lifeAreaId !== lifeAreaId) {
+      onChange({ lifeAreaId, projectId: null });
+    } else {
+      onChange({ lifeAreaId });
+    }
+    setOpen(null);
+  };
 
   const pickProject = (projectId: string | null) => {
     if (!projectId) onChange({ projectId: null });
@@ -131,6 +144,15 @@ export function TaskClassifyDropdowns({
 
       <div className="mt-2 flex flex-wrap gap-1.5">
         <ContextPill
+          active={open === "area"}
+          dot={hasArea ? lifeAreaColor(task.lifeAreaId) : undefined}
+          accent={hasArea}
+          onClick={() => toggle("area")}
+        >
+          {areaLabel ?? "Life area"}
+        </ContextPill>
+
+        <ContextPill
           active={open === "project"}
           dot={task.projectId ? lifeAreaColor(task.lifeAreaId) : undefined}
           accent={!!task.projectId}
@@ -165,6 +187,23 @@ export function TaskClassifyDropdowns({
           </ContextPill>
         )}
       </div>
+
+      {open === "area" && (
+        <DropdownPanel
+          title="Life area"
+          hint={task.projectId ? "Picking a different area clears the project" : undefined}
+        >
+          {lifeAreas.map((a) => (
+            <DropdownOption
+              key={a.id}
+              selected={task.lifeAreaId === a.id}
+              dot={a.color}
+              title={a.name}
+              onClick={() => pickArea(a.id)}
+            />
+          ))}
+        </DropdownPanel>
+      )}
 
       {open === "project" && (
         <DropdownPanel title="Project">
@@ -232,7 +271,9 @@ export function TaskClassifyDropdowns({
       )}
 
       {task.projectId && (
-        <p className="mt-1.5 text-xs text-faint">{lifeAreaName(task.lifeAreaId)} · inherited from project</p>
+        <p className="mt-1.5 text-xs text-faint">
+          {lifeAreaName(task.lifeAreaId)} · follows project (change Life area to clear project)
+        </p>
       )}
     </div>
   );

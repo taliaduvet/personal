@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTasks } from "@/lib/store";
 import { useSettings } from "@/lib/settings-store";
 import { useTodayAssignment } from "@/lib/use-today-assignment";
@@ -15,6 +15,7 @@ import {
   tasksForTodayModeBench,
   todayFocusEntry,
   weekDaySlots,
+  dayModeIds,
   type DayFocus,
   type DayShapeBlock,
 } from "@/lib/week-focus";
@@ -29,7 +30,6 @@ import { useCalendarAccessToken } from "@/lib/calendar/use-calendar-access-token
 import { allDayDispositionKey, type AllDayDisposition } from "@/lib/calendar/types";
 import type { DayShapePanelProps } from "@/components/today/DayShapePanel";
 import type { Task } from "@/lib/types";
-import { composeDayLedger } from "@/lib/day-ledger";
 import {
   dayCloseAssignableTasks,
   dayCloseRetroInputFromEntry,
@@ -37,9 +37,35 @@ import {
   type DayCloseRetroInput,
 } from "@/lib/day-close";
 import { dayCloseRetroForDate } from "@/lib/activity-log";
+import {
+  needsRespondCount,
+  RESPOND_RAIL_MAX,
+  topRespondForTodayRail,
+} from "@/lib/needs-respond";
+import { deferRespondOneDay } from "@/lib/capture-task";
+import { planDeferToday, withDeferredTaskId } from "@/lib/defer-today";
+
+const SHAPE_DAY_VIEW_KEY = "studio-os.today-shape-day.v1";
+
+function loadShapeDayView(): boolean {
+  try {
+    return localStorage.getItem(SHAPE_DAY_VIEW_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function saveShapeDayView(on: boolean) {
+  try {
+    if (on) localStorage.setItem(SHAPE_DAY_VIEW_KEY, "1");
+    else localStorage.removeItem(SHAPE_DAY_VIEW_KEY);
+  } catch {
+    /* ignore */
+  }
+}
 
 export function TodayView() {
-  const { tasks: all, completeTask, addTask, activityLog, appendDayCloseRetro } = useTasks();
+  const { tasks: all, completeTask, addTask, updateTask, activityLog, appendDayCloseRetro } = useTasks();
   const { addToToday } = useTodayAssignment();
   const { chips: caughtToday, capture: recordCapture } = useTodayCaptures();
   const {
@@ -49,10 +75,22 @@ export function TodayView() {
     addApprovedTasksForWeek,
     dismissUnplannedNudge,
     patchWeekDayEntry,
+    settingsHydrated,
   } = useSettings();
-  const [shapeOpen, setShapeOpen] = useState(false);
-  const [ledgerOpen, setLedgerOpen] = useState(false);
+  const [shapeDayView, setShapeDayView] = useState(false);
   const { token: calendarToken } = useCalendarAccessToken();
+  const [clientReady, setClientReady] = useState(false);
+  useEffect(() => {
+    if (!settingsHydrated) return;
+    setShapeDayView(loadShapeDayView());
+    setClientReady(true);
+  }, [settingsHydrated]);
+
+  const setShapeOpen = useCallback((open: boolean) => {
+    setShapeDayView(open);
+    saveShapeDayView(open);
+  }, []);
+  const shapeOpen = shapeDayView;
 
   const weekKeyNow = useMemo(() => weekKey(weekStartsOn, 0), [weekStartsOn]);
   const record = weekPlanning[weekKeyNow];
@@ -83,10 +121,16 @@ export function TodayView() {
   const hasModeDay = todayFocus.focus !== null;
   const isOpenDay = !hasModeDay;
 
+  const todayDateKey = dateKeyFromOffset(0);
+  const deferredToday = useMemo(
+    () => new Set(weekDraft.days[todayDateKey]?.deferredTaskIds ?? []),
+    [weekDraft.days, todayDateKey]
+  );
+
   const modeBench = useMemo(() => {
     if (!todayFocus.focus) return [];
-    return tasksForTodayModeBench(all, todayFocus.focus, weekStartsOn, approved);
-  }, [all, todayFocus.focus, weekStartsOn, approved]);
+    return tasksForTodayModeBench(all, todayFocus.focus, weekStartsOn, approved, deferredToday);
+  }, [all, todayFocus.focus, weekStartsOn, approved, deferredToday]);
 
   const { outsideFocus: alsoToday } = useMemo(
     () => partitionInTodayByFocus(all, todayFocus.focus),
@@ -130,8 +174,18 @@ export function TodayView() {
   }, [all]);
 
   const unplannedAll = useMemo(() => {
-    if (!todayFocus.focus || todayFocus.focus.kind !== "mode") return [];
-    return unplannedModeTasks(all, todayFocus.focus.id, approved, weekStartsOn);
+    const modeIds = dayModeIds(todayFocus.focus);
+    if (modeIds.length === 0) return [];
+    const seen = new Set<string>();
+    const out: Task[] = [];
+    for (const modeId of modeIds) {
+      for (const t of unplannedModeTasks(all, modeId, approved, weekStartsOn)) {
+        if (seen.has(t.id)) continue;
+        seen.add(t.id);
+        out.push(t);
+      }
+    }
+    return out;
   }, [all, todayFocus.focus, approved, weekStartsOn]);
 
   const unplannedVisible = useMemo(() => {
@@ -186,7 +240,6 @@ export function TodayView() {
     ? `you planned this ${new Date(record.completedAt).toLocaleDateString(undefined, { weekday: "long" })}`
     : "from your week plan";
 
-  const todayDateKey = dateKeyFromOffset(0);
   const todaySlot = slots.find((s) => s.isToday) ?? slots[0];
   const todayEntry = weekDraft.days[todayDateKey] ?? { focus: null, note: "" };
   const allDayDispositions = record?.allDayDispositions ?? {};
@@ -195,7 +248,7 @@ export function TodayView() {
     calendarToken,
     todayDateKey,
     todayDateKey,
-    shapeOpen || ledgerOpen
+    shapeOpen
   );
   const dayCommitment = useMemo(
     () => computeDayCommitment(todayDateKey, calendar.events, allDayDispositions),
@@ -252,19 +305,6 @@ export function TodayView() {
     onAssignTaskToBlock: handleAssignTaskToBlock,
   };
 
-  const dayLedger = useMemo(
-    () => ({
-      ledger: composeDayLedger({
-        dateKey: todayDateKey,
-        log: activityLog,
-        tasks: all,
-        dayEntry: todayEntry,
-        commitment: dayCommitment,
-      }),
-    }),
-    [todayDateKey, activityLog, all, todayEntry, dayCommitment]
-  );
-
   const handleDayCloseRetro = useCallback(
     (input: DayCloseRetroInput) => {
       appendDayCloseRetro(todayDateKey, input);
@@ -288,6 +328,74 @@ export function TodayView() {
     if (!yesterday?.taskId) return null;
     return all.find((t) => t.id === yesterday.taskId)?.title ?? null;
   }, [yesterday, all]);
+
+  const respondRailTasks = useMemo(
+    () =>
+      topRespondForTodayRail(all, RESPOND_RAIL_MAX, {
+        todayFocus: todayFocus.focus,
+      }),
+    [all, todayFocus.focus]
+  );
+  const respondMoreCount = Math.max(0, needsRespondCount(all) - respondRailTasks.length);
+
+  const handleDeferRespond = useCallback(
+    (id: string, dateKey?: string) => {
+      const task = all.find((t) => t.id === id);
+      if (!task) return;
+      const respondByDateKey = dateKey ?? deferRespondOneDay(task);
+      updateTask(id, {
+        inToday: false,
+        respondByDateKey,
+        urgencyReason: dateKey
+          ? `Deferred — come back ${dateKey}`
+          : "Deferred — come back tomorrow+",
+      });
+    },
+    [all, updateTask]
+  );
+
+  const handleDeferToday = useCallback(
+    (id: string) => {
+      const task = all.find((t) => t.id === id);
+      if (!task) return;
+      const { patch, shouldApprove } = planDeferToday(task, {
+        todayFocus: todayFocus.focus,
+        draft: weekDraft,
+        weekStartsOn,
+        approvedIds: approved,
+      });
+      updateTask(id, patch);
+      if (shouldApprove) addApprovedTasksForWeek(weekKeyNow, [id]);
+      const nextShape = moveTaskToShapeBlock(todayEntry.shapeBlockTasks, id, null);
+      patchWeekDayEntry(weekKeyNow, todayDateKey, {
+        deferredTaskIds: withDeferredTaskId(todayEntry.deferredTaskIds, id),
+        shapeBlockTasks: nextShape,
+      });
+    },
+    [
+      all,
+      todayFocus.focus,
+      weekDraft,
+      weekStartsOn,
+      approved,
+      updateTask,
+      addApprovedTasksForWeek,
+      weekKeyNow,
+      todayEntry.shapeBlockTasks,
+      todayEntry.deferredTaskIds,
+      patchWeekDayEntry,
+      todayDateKey,
+    ]
+  );
+
+  if (!clientReady) {
+    return (
+      <div className="mx-auto w-full max-w-6xl space-y-4 py-8">
+        <p className="font-display text-2xl font-semibold text-ink">Today</p>
+        <p className="text-sm text-muted">Loading your day…</p>
+      </div>
+    );
+  }
 
   return (
     <TodayScreen
@@ -315,12 +423,13 @@ export function TodayView() {
       approvedTaskIds={approved}
       onAssignOpenDay={handleAssignOpenDay}
       onComplete={completeTask}
+      onDeferToday={handleDeferToday}
+      respondTasks={respondRailTasks}
+      respondMoreCount={respondMoreCount}
+      onDeferRespond={handleDeferRespond}
       shapeOpen={shapeOpen}
       onShapeOpenChange={setShapeOpen}
       dayShape={dayShape}
-      ledgerOpen={ledgerOpen}
-      onLedgerOpenChange={setLedgerOpen}
-      dayLedger={dayLedger}
       onDayCloseRetro={handleDayCloseRetro}
       dayCloseAssignableTasks={dayCloseTasks}
       dayCloseExisting={dayCloseExisting}

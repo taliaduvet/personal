@@ -8,7 +8,17 @@ function formatSyncTime(iso: string | null): string {
 }
 
 export function SheetSyncIndicator() {
-  const { connection, writeStatus, writeError } = useSheet();
+  const { connection, cloudPrimary, writeStatus, writeError } = useSheet();
+
+  if (cloudPrimary) {
+    return (
+      <div className="hidden items-center gap-1.5 text-xs text-faint sm:flex" title="App vault">
+        <span className="h-1.5 w-1.5 rounded-full bg-[#3c8262]" />
+        <span>App vault</span>
+      </div>
+    );
+  }
+
   if (!connection) return null;
 
   const tone =

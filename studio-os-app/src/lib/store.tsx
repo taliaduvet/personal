@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
-import type { SubTask, Task, WaitingOn, Recipe, RecipeMilestone } from "./types";
+import type { SubTask, Task, WaitingOn, WaitingDirection, Recipe, RecipeMilestone } from "./types";
 import { TASKS } from "./sample-data";
 
 /** Sample/demo task IDs follow the pattern t1, t2, … t23 — never sync these. */
@@ -9,7 +9,8 @@ export function isSampleTaskId(id: string): boolean {
   return /^t\d+$/.test(id);
 }
 import { isInboxTask } from "./lenses";
-import { normalizeDoPlan } from "./do-plan";
+import { deadlineOffsetFromDateKey, normalizeDeadlineDateKey, normalizeDoPlan } from "./do-plan";
+import { addDaysToDateKey, localDateKey } from "./local-date";
 import { completionIsoNow } from "./completed-at";
 import { useProjects } from "./projects-store";
 import {
@@ -21,6 +22,7 @@ import {
 } from "./sheet/push-registry";
 import { queueAppDataTaskUpsert, notifyAppDataReviews, notifyAppDataActivityLog, notifyAppDataTask, notifyAppDataLogbookLines, notifyAppDataRecipes } from "./sheet/app-data-notify";
 import { applyRecipeMilestones, shiftRecipeTasks } from "./recipes";
+import { spawnNextRecurringTask } from "./recurrence";
 import {
   appendActivityLogEntry,
   mergeActivityLogs,
@@ -31,6 +33,8 @@ import type { DayCloseRetroInput } from "./day-close";
 import { getCompletionContext } from "./completion-context";
 import { resolveCompletionAttribution } from "./completion-attribution";
 import { endSessionForTaskFromBridge } from "./session-bridge";
+import { commitmentPerson, needsDelivery } from "./trust/commitments";
+import { dispatchDeliveryPrompt } from "./trust/delivery-prompt";
 
 const STORAGE_KEY = "studio-os.tasks.v7";
 const REVIEW_KEY = "studio-os.reviews.v1";
@@ -44,17 +48,30 @@ function normalizeTask(
   t: Partial<Task> & Pick<Task, "id" | "title"> & { doDateInDays?: number | null; parkedAt?: number }
 ): Task {
   const { doDateInDays, doPlan: rawPlan, parkedAt, ...rest } = t;
-  const resolvedParkedAt = parkedAt ?? Date.now();
+  const captured = parkedAt ?? Date.now();
+  // Deadlines: the date key is canonical. A legacy `deadlineInDays` offset is
+  // resolved against capture time (see doPlan note below), then the offset is
+  // recomputed from the key so it is a always-fresh derived mirror rather than
+  // stale storage — existing readers of `deadlineInDays` stay correct.
+  const deadlineDateKey = normalizeDeadlineDateKey(
+    rest.deadlineDateKey,
+    rest.deadlineInDays,
+    captured
+  );
   return {
     lifeAreaId: "",
     projectId: null,
     workModeId: null,
-    deadlineInDays: null,
     status: "todo",
     inToday: false,
     ...rest,
-    doPlan: normalizeDoPlan(rawPlan, doDateInDays, resolvedParkedAt),
-    parkedAt: resolvedParkedAt,
+    deadlineDateKey,
+    deadlineInDays: deadlineDateKey ? deadlineOffsetFromDateKey(deadlineDateKey) : null,
+    // Legacy sticky offsets resolve against capture time, not "now" — otherwise
+    // every stored offset silently re-points at a new day on each read.
+    // Values already in date-key form pass through untouched.
+    doPlan: normalizeDoPlan(rawPlan, doDateInDays, captured),
+    parkedAt: captured,
     notes: t.notes ?? "",
     subtasks: t.subtasks ?? [],
     completedAtInDays: t.completedAtInDays ?? (t.status === "done" ? 0 : null),
@@ -71,7 +88,20 @@ function applyTaskPatch(
   patch: Partial<Task>,
   projects: { id: string; lifeAreaId: string }[]
 ): Task {
-  const next = normalizeTask({ ...t, ...patch });
+  // A live deadline edit is relative to *now*, not to when the task was
+  // captured — resolve it here so normalizeTask's capture-time anchor (which is
+  // correct for legacy data) never rewrites a fresh edit to the wrong day.
+  const resolved: Partial<Task> =
+    patch.deadlineInDays !== undefined && patch.deadlineDateKey === undefined
+      ? {
+          ...patch,
+          deadlineDateKey:
+            patch.deadlineInDays === null
+              ? null
+              : addDaysToDateKey(localDateKey(new Date()), patch.deadlineInDays),
+        }
+      : patch;
+  const next = normalizeTask({ ...t, ...resolved });
   if (patch.status === "done") {
     next.completedAtInDays = next.completedAtInDays ?? 0;
   }
@@ -125,7 +155,12 @@ type TasksContextValue = {
   applyActivityLogFromSheet: (incoming: ActivityLogEntry[]) => void;
   /** After a sheet append assigns a stable UUID to a new task. */
   replaceTaskId: (oldId: string, newId: string, task: Task) => void;
-  setTaskWaiting: (id: string, person: { personId: string | null; personName: string }) => void;
+  /** `direction: "me"` means someone is waiting on YOU — a protected commitment. */
+  setTaskWaiting: (
+    id: string,
+    person: { personId: string | null; personName: string },
+    direction?: WaitingDirection
+  ) => void;
   clearTaskWaiting: (id: string) => void;
   logbookLines: Record<string, string>;
   saveLogbookLine: (dateKey: string, line: string) => void;
@@ -306,9 +341,22 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       completedAtIso,
       inToday: false,
     };
-    setTasks((ts) => ts.map((t) => (t.id === id ? next : t)));
+    // A recurring obligation must survive being done. Without this the whole
+    // recurrence model is decorative: completing "submit weekly timesheet" once
+    // would delete the weekly commitment entirely — the exact silent loss the
+    // trust core exists to prevent.
+    const spawned = current.recurrence ? spawnNextRecurringTask(next, newId("t")) : null;
+
+    setTasks((ts) => {
+      const mapped = ts.map((t) => (t.id === id ? next : t));
+      return spawned ? [...mapped, spawned] : mapped;
+    });
     queueSheetTaskUpsert(next);
     queueAppDataTaskUpsert(next);
+    if (spawned) {
+      queueSheetTaskUpsert(spawned);
+      queueAppDataTaskUpsert(spawned);
+    }
 
     appendActivityLog({
       id: newActivityLogId(),
@@ -320,6 +368,16 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       sessionId: attribution.sessionId,
       shapeBlock: attribution.shapeBlock,
     });
+
+    // LOOP CLOSING (TRUST-CORE §"Loop closing"). Finishing and delivering are
+    // different events, and the gap between them is where work silently dies.
+    // Asking here — at the one moment the user definitely knows the answer —
+    // is what makes `deliveredAt` trustworthy enough for the all-clear to
+    // depend on it. Announced as an event rather than handled inline because
+    // completion is triggered from eight different surfaces.
+    if (needsDelivery(next)) {
+      dispatchDeliveryPrompt({ taskId: next.id, person: commitmentPerson(next)! });
+    }
   }, [appendActivityLog]);
 
   const openQuickEdit = useCallback((id: string) => {
@@ -351,7 +409,11 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
     queueAppDataTaskUpsert(next);
   }, []);
 
-  const setTaskWaiting = useCallback((id: string, person: { personId: string | null; personName: string }) => {
+  const setTaskWaiting = useCallback((
+    id: string,
+    person: { personId: string | null; personName: string },
+    direction: WaitingDirection = "them"
+  ) => {
     const name = person.personName.trim();
     if (!name) return;
     const current = tasksRef.current.find((t) => t.id === id);
@@ -360,6 +422,7 @@ export function TasksProvider({ children }: { children: React.ReactNode }) {
       personId: person.personId,
       personName: name,
       sinceIso: new Date().toISOString(),
+      direction,
     };
     const next: Task = {
       ...current,

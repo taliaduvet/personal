@@ -17,6 +17,18 @@ import type { AllDayDisposition } from "./calendar/types";
 
 const STORAGE_KEY = "studio-os.settings.v2";
 
+/**
+ * One-shot marker for the July 2026 life-areas repair.
+ *
+ * Devices that ran the old sync are holding a life-area list that *looks*
+ * edited (seed defaults plus whatever survived) but isn't what the user
+ * chose, so the seed check in settings-merge can't spot it. Until this key
+ * exists, a device defers to the cloud copy of life areas exactly once. The
+ * bridge sets the key only after a cloud merge actually lands, so a device
+ * that starts up offline still gets its handoff later.
+ */
+const LIFE_AREAS_HANDOFF_KEY = "studio-os.life-areas-handoff.v1";
+
 export type WeekPlanningSummary = {
   /** Days with a mode or project focus set. */
   focusDays: number;
@@ -48,6 +60,12 @@ export type AppSettings = {
   unplannedNudgeDismissedIds: Record<string, string[]>;
   contacts: Contact[];
   lifeAreas: LifeArea[];
+  /** Default lead time before a session's target duration to fire the transition warning. */
+  defaultSessionWarnBeforeMs: number;
+  /** Elapsed time on an untimed session before the ambient hyperfocus nudge first fires. */
+  ambientHyperfocusThresholdMs: number;
+  /** How often the ambient nudge re-fires after the first time, until acknowledged. */
+  ambientHyperfocusRepeatMs: number;
 };
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -57,9 +75,24 @@ const DEFAULT_SETTINGS: AppSettings = {
   unplannedNudgeDismissedIds: {},
   contacts: [],
   lifeAreas: SEED_LIFE_AREAS,
+  defaultSessionWarnBeforeMs: 5 * 60_000,
+  ambientHyperfocusThresholdMs: 90 * 60_000,
+  ambientHyperfocusRepeatMs: 10 * 60_000,
 };
 
 type SettingsContextValue = AppSettings & {
+  /** True after localStorage settings have been read (avoids SSR/client week-strip mismatch). */
+  settingsHydrated: boolean;
+  /**
+   * True when hydration actually found a stored blob. False means everything
+   * here is still DEFAULT_SETTINGS — cloud sync must not treat that as the
+   * user's choices and push it up over real data.
+   */
+  settingsFromStorage: boolean;
+  /** True until this device has taken the cloud's life areas once (see LIFE_AREAS_HANDOFF_KEY). */
+  lifeAreasHandoffPending: boolean;
+  /** Called by the cloud bridge once a cloud settings merge has been applied. */
+  consumeLifeAreasHandoff: () => void;
   setWeekStartsOn: (day: WeekStartDay) => void;
   completeWeekPlanning: (
     weekStartKey: string,
@@ -104,12 +137,15 @@ const SettingsContext = createContext<SettingsContextValue | null>(null);
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [hydrated, setHydrated] = useState(false);
+  const [fromStorage, setFromStorage] = useState(false);
+  const [handoffPending, setHandoffPending] = useState(false);
 
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw) as Partial<AppSettings>;
+        setFromStorage(true);
         setSettings({
           weekStartsOn: parsed.weekStartsOn ?? DEFAULT_SETTINGS.weekStartsOn,
           weekPlanning: normalizeWeekPlanningMap(parsed.weekPlanning ?? {}),
@@ -126,12 +162,38 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
           lifeAreas: Array.isArray(parsed.lifeAreas) && parsed.lifeAreas.length > 0
             ? parsed.lifeAreas
             : DEFAULT_SETTINGS.lifeAreas,
+          defaultSessionWarnBeforeMs:
+            typeof parsed.defaultSessionWarnBeforeMs === "number"
+              ? parsed.defaultSessionWarnBeforeMs
+              : DEFAULT_SETTINGS.defaultSessionWarnBeforeMs,
+          ambientHyperfocusThresholdMs:
+            typeof parsed.ambientHyperfocusThresholdMs === "number"
+              ? parsed.ambientHyperfocusThresholdMs
+              : DEFAULT_SETTINGS.ambientHyperfocusThresholdMs,
+          ambientHyperfocusRepeatMs:
+            typeof parsed.ambientHyperfocusRepeatMs === "number"
+              ? parsed.ambientHyperfocusRepeatMs
+              : DEFAULT_SETTINGS.ambientHyperfocusRepeatMs,
         });
       }
     } catch {
       /* ignore */
     }
+    try {
+      setHandoffPending(!localStorage.getItem(LIFE_AREAS_HANDOFF_KEY));
+    } catch {
+      /* ignore */
+    }
     setHydrated(true);
+  }, []);
+
+  const consumeLifeAreasHandoff = useCallback(() => {
+    try {
+      localStorage.setItem(LIFE_AREAS_HANDOFF_KEY, new Date().toISOString());
+    } catch {
+      /* ignore */
+    }
+    setHandoffPending(false);
   }, []);
 
   useEffect(() => {
@@ -292,6 +354,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
           shapeBlockTasks: patch.shapeBlockTasks
             ? { ...prevDay.shapeBlockTasks, ...patch.shapeBlockTasks }
             : prevDay.shapeBlockTasks,
+          deferredTaskIds: patch.deferredTaskIds ?? prevDay.deferredTaskIds,
         };
         const weekPlanning = {
           ...s.weekPlanning,
@@ -344,7 +407,16 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   );
 
   const applySettingsFromCloud = useCallback((data: Partial<AppSettings>) => {
-    setSettings((s) => ({ ...s, ...data }));
+    setSettings((s) => {
+      // Only overwrite keys the cloud actually carries — a blob written by an
+      // older build is missing fields, and spreading those in as undefined
+      // would blank them on this device.
+      const next = { ...s };
+      for (const [k, v] of Object.entries(data)) {
+        if (v !== undefined) (next as Record<string, unknown>)[k] = v;
+      }
+      return next;
+    });
   }, []);
 
   const upsertLifeArea = useCallback((area: LifeArea) => {
@@ -377,6 +449,10 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     <SettingsContext.Provider
       value={{
         ...settings,
+        settingsHydrated: hydrated,
+        settingsFromStorage: fromStorage,
+        lifeAreasHandoffPending: handoffPending,
+        consumeLifeAreasHandoff,
         setWeekStartsOn,
         completeWeekPlanning,
         reopenWeekPlanning,
