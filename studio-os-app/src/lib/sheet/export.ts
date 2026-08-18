@@ -34,7 +34,7 @@ function offsetToDate(offset: number | null | undefined, now: Date): string {
 function doPlanLabel(task: Task, now: Date): string {
   const plan = task.doPlan;
   if (!plan) return "";
-  if (plan.kind === "day") return offsetToDate(plan.offset, now);
+  if (plan.kind === "day") return plan.dateKey;
   return `week of ${plan.weekStart}`;
 }
 

@@ -28,7 +28,7 @@ const LENSES: { id: LensId; label: string }[] = [
 export function TasksLot() {
   const router = useRouter();
   const { tasks, completeTask, openQuickEdit } = useTasks();
-  const { weekStartsOn } = useSettings();
+  const { weekStartsOn, lifeAreas } = useSettings();
   const [lens, setLens] = useState<LensId>("area");
   const [query, setQuery] = useState("");
 
@@ -38,7 +38,7 @@ export function TasksLot() {
     if (params.get("lens") === "waiting") setLens("waiting");
   }, []);
 
-  const groups = useMemo(() => groupTasks(tasks, lens, weekStartsOn), [tasks, lens, weekStartsOn]);
+  const groups = useMemo(() => groupTasks(tasks, lens, weekStartsOn, lifeAreas), [tasks, lens, weekStartsOn, lifeAreas]);
   const results = useMemo(() => searchTasks(tasks, query, weekStartsOn), [tasks, query, weekStartsOn]);
   const searching = query.trim().length > 0;
   const lotCount = groups.reduce((n, g) => n + g.tasks.length, 0);
@@ -59,7 +59,9 @@ export function TasksLot() {
         <h1 className="font-display text-2xl font-semibold tracking-tight text-ink">Tasks</h1>
         {!searching && <span className="text-sm text-muted">{lotCount} in the lot</span>}
       </div>
-      <p className="mt-1 text-muted">Everything that isn&apos;t in Today — one lens at a time.</p>
+      <p className="mt-1 text-muted">
+        Your full active map — including what&apos;s already on Today.
+      </p>
 
       <input
         value={query}

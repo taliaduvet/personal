@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTasks } from "@/lib/store";
 import { useSettings } from "@/lib/settings-store";
 import { weekKey, weekRange } from "@/lib/week";
@@ -15,7 +15,7 @@ import { deadlinesInWeek } from "@/lib/week-focus";
 
 export function WeekPlanningCard() {
   const { tasks } = useTasks();
-  const { weekStartsOn, weekPlanning, planningDeclinedAt } = useSettings();
+  const { weekStartsOn, weekPlanning, planningDeclinedAt, settingsHydrated } = useSettings();
   const { openPlanning } = useWeekPlanningLauncher();
 
   const weekKeyNow = useMemo(() => weekKey(weekStartsOn, 0), [weekStartsOn]);
@@ -28,6 +28,12 @@ export function WeekPlanningCard() {
     [tasks, weekStartsOn, weekPlanning]
   );
   const deadlines = useMemo(() => deadlinesInWeek(tasks, weekStartsOn), [tasks, weekStartsOn]);
+
+  // Wait for settings so SSR defaults don't flash a different week strip than localStorage.
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    if (settingsHydrated) setReady(true);
+  }, [settingsHydrated]);
 
   const draftFromRecord = useMemo(
     () =>
@@ -47,6 +53,14 @@ export function WeekPlanningCard() {
   );
 
   const shaped = mode === "shaped" && record;
+
+  if (!ready) {
+    return (
+      <div className="overflow-hidden rounded-xl border border-border bg-surface px-4 py-8">
+        <p className="text-sm text-muted">Loading your week…</p>
+      </div>
+    );
+  }
 
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-surface">

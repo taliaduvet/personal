@@ -60,6 +60,7 @@ Entry points for reading code:
 
 | Doc | Purpose |
 |-----|---------|
+| `TRUST-CORE.md` | **Design doc (draft)** — the follow-up/nudge system: promise, research basis, 3-layer architecture |
 | `BUILD_ROADMAP.md` | Layered plan — what’s done vs deferred |
 | `SPRINT-A.md` … `SPRINT-E.md` | Shipped sprint specs + UAT checklists |
 | `REVIEW_GUIDE.md` | This file |

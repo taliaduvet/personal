@@ -7,9 +7,9 @@ import { TaskCard } from "@/components/TaskCard";
 import { RailUnplannedNudge } from "@/components/today/RailUnplannedNudge";
 import { OpenDayAreaPicker } from "@/components/today/OpenDayAreaPicker";
 import { DayShapePanel, type DayShapePanelProps } from "@/components/today/DayShapePanel";
-import { DayLedgerPanel, type DayLedgerPanelProps } from "@/components/DayLedgerPanel";
 import { DayCloseSheet } from "@/components/DayCloseSheet";
 import { YesterdayNoteCard } from "@/components/today/YesterdayNoteCard";
+import { RespondContextRail } from "@/components/today/RespondContextRail";
 import type { DayCloseRetroInput, YesterdayNote } from "@/lib/day-close";
 
 export type LiftedItem = { id: string; title: string; timeLabel: string };
@@ -44,12 +44,14 @@ export type TodayScreenProps = {
   approvedTaskIds?: Set<string>;
   onAssignOpenDay?: (taskId: string) => void;
   onComplete?: (id: string) => void;
+  /** Today-bench Defer (not Needs-reply). */
+  onDeferToday?: (id: string) => void;
+  respondTasks?: Task[];
+  respondMoreCount?: number;
+  onDeferRespond?: (id: string, dateKey?: string) => void;
   shapeOpen?: boolean;
   onShapeOpenChange?: (open: boolean) => void;
   dayShape?: DayShapePanelProps | null;
-  ledgerOpen?: boolean;
-  onLedgerOpenChange?: (open: boolean) => void;
-  dayLedger?: DayLedgerPanelProps | null;
   onDayCloseRetro?: (input: DayCloseRetroInput) => void;
   dayCloseAssignableTasks?: Task[];
   dayCloseExisting?: DayCloseRetroInput | null;
@@ -236,12 +238,13 @@ export function TodayScreen({
   approvedTaskIds,
   onAssignOpenDay,
   onComplete,
+  onDeferToday,
+  respondTasks = [],
+  respondMoreCount = 0,
+  onDeferRespond,
   shapeOpen: shapeOpenProp,
   onShapeOpenChange,
   dayShape,
-  ledgerOpen: ledgerOpenProp,
-  onLedgerOpenChange,
-  dayLedger,
   onDayCloseRetro,
   dayCloseAssignableTasks = [],
   dayCloseExisting,
@@ -251,9 +254,6 @@ export function TodayScreen({
   const [shapeOpenLocal, setShapeOpenLocal] = useState(false);
   const shapeOpen = shapeOpenProp ?? shapeOpenLocal;
   const setShapeOpen = onShapeOpenChange ?? setShapeOpenLocal;
-  const [ledgerOpenLocal, setLedgerOpenLocal] = useState(false);
-  const ledgerOpen = ledgerOpenProp ?? ledgerOpenLocal;
-  const setLedgerOpen = onLedgerOpenChange ?? setLedgerOpenLocal;
   const [dayCloseOpen, setDayCloseOpen] = useState(false);
   const [pickerArea, setPickerArea] = useState<LifeAreaRailItem | null>(null);
   const mainTasks = isOpenDay ? openDayTasks : modeBench;
@@ -287,27 +287,15 @@ export function TodayScreen({
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={() => setLedgerOpen(!ledgerOpen)}
-            className={[
-              "rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors",
-              ledgerOpen
-                ? "border-accent bg-accent-soft text-accent"
-                : "border-border bg-surface text-muted hover:text-ink",
-            ].join(" ")}
-          >
-            today&apos;s ledger {ledgerOpen ? "▴" : "▾"}
-          </button>
-          <button
-            type="button"
             onClick={() => setShapeOpen(!shapeOpen)}
             className={[
               "rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors",
               shapeOpen
-                ? "border-accent bg-accent-soft text-accent"
-                : "border-border bg-surface text-muted hover:text-ink",
+                ? "border-border bg-surface text-muted hover:text-ink"
+                : "border-accent bg-accent-soft text-accent",
             ].join(" ")}
           >
-            shape today {shapeOpen ? "▴" : "▾"}
+            {shapeOpen ? "List view" : "Shape today"}
           </button>
         </div>
       </header>
@@ -316,17 +304,32 @@ export function TodayScreen({
         <YesterdayNoteCard note={yesterdayNote} taskTitle={yesterdayTaskTitle} />
       ) : null}
 
-      {ledgerOpen && dayLedger ? <DayLedgerPanel {...dayLedger} /> : null}
-
-      {shapeOpen && dayShape ? <DayShapePanel {...dayShape} /> : null}
-
-      {/* Collapsed day-shape strip (dots on a thin line) — design target only.
-          See DayShapeCollapsedStrip.design.tsx + BUILD_ROADMAP Phase 2 deferrals. */}
-
-      {/* Split desk — grid so rail runs full height beside the whole bench */}
-      <div className="overflow-hidden rounded-xl border border-border shadow-sm min-[560px]:grid min-[560px]:grid-cols-[minmax(0,1fr)_minmax(248px,300px)]">
-        <main className="min-w-0 space-y-4 bg-surface p-4 min-[560px]:border-r min-[560px]:border-border">
-          {mainTasks.length > 0 || (!isOpenDay && alsoToday.length > 0) ? (
+      {/* Split desk — shape mode transforms main only; context rail stays */}
+      <div
+        className={[
+          "overflow-x-clip rounded-xl border border-border shadow-sm",
+          "min-[560px]:grid min-[560px]:grid-cols-[minmax(0,1fr)_minmax(248px,300px)]",
+          shapeOpen ? "min-[560px]:items-start" : "",
+        ].join(" ")}
+      >
+        <main
+          className={[
+            "min-w-0 space-y-4 bg-surface p-4 min-[560px]:border-r min-[560px]:border-border",
+            // Shape packs morning/afternoon/evening — keep that column scrollable
+            // so tasks aren't clipped by the rounded desk frame.
+            shapeOpen
+              ? "max-h-[calc(100dvh-11rem)] overflow-y-auto overscroll-y-contain pb-6 md:max-h-[calc(100dvh-8rem)]"
+              : "",
+          ].join(" ")}
+        >
+          {shapeOpen && dayShape ? (
+            <DayShapePanel
+              {...dayShape}
+              onComplete={onComplete}
+              onDefer={onDeferToday}
+              isOpenDay={isOpenDay}
+            />
+          ) : mainTasks.length > 0 || (!isOpenDay && alsoToday.length > 0) ? (
             <>
               <SectionHead title={mainTitle} count={mainTasks.length} subtitle={mainSubtitle} />
               <div className="space-y-2">
@@ -335,6 +338,7 @@ export function TodayScreen({
                     key={t.id}
                     task={t}
                     onComplete={onComplete}
+                    onDefer={onDeferToday}
                     hideProject
                     hideMode={!isOpenDay}
                     hideArea={!isOpenDay}
@@ -357,6 +361,7 @@ export function TodayScreen({
                         key={t.id}
                         task={t}
                         onComplete={onComplete}
+                        onDefer={onDeferToday}
                         hideProject
                         hideArea
                         todayTiming
@@ -380,6 +385,13 @@ export function TodayScreen({
 
         <aside className="flex min-h-full flex-col gap-3 border-t border-border bg-[#e6eaee] p-4 min-[560px]:border-t-0">
           <p className="text-[10px] font-bold uppercase tracking-wider text-faint">Context</p>
+
+          <RespondContextRail
+            tasks={respondTasks}
+            moreCount={respondMoreCount}
+            onComplete={onComplete}
+            onDefer={onDeferRespond}
+          />
 
           {isOpenDay && lifeAreas.length > 0 ? (
             <RailLifeAreas areas={lifeAreas} onSelectArea={setPickerArea} />

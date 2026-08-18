@@ -44,6 +44,7 @@ import {
   syncTaskCalendarEvents,
 } from "@/lib/calendar/calendar-write";
 import type { Task } from "@/lib/types";
+import { DATA_SOURCE_EVENT, isCloudPrimary } from "@/lib/data-source";
 
 const STORAGE_KEY = "studio-os.sheet.v1";
 const APP_DATA_DEBOUNCE_MS = 900;
@@ -58,6 +59,8 @@ export type WriteStatus = "idle" | "pending" | "syncing" | "error";
 
 type SheetContextValue = {
   connection: SheetConnection | null;
+  /** True once the app vault (Supabase) owns data — sheet writeback is off. */
+  cloudPrimary: boolean;
   syncing: boolean;
   syncError: string | null;
   writeStatus: WriteStatus;
@@ -66,6 +69,11 @@ type SheetContextValue = {
   connectAndSync: (sheetUrlOrId: string) => Promise<void>;
   syncNow: () => Promise<void>;
   disconnect: () => void;
+  /**
+   * Stop sheet pull/push without wiping local task/project caches.
+   * Used when cutting over to the cloud vault.
+   */
+  freezeForCloudCutover: () => void;
 };
 
 const SheetContext = createContext<SheetContextValue | null>(null);
@@ -89,6 +97,7 @@ export function SheetProvider({ children }: { children: ReactNode }) {
 
   const [connection, setConnection] = useState<SheetConnection | null>(null);
   const [hydrated, setHydrated] = useState(false);
+  const [cloudPrimary, setCloudPrimary] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [writeStatus, setWriteStatus] = useState<WriteStatus>("idle");
@@ -113,12 +122,42 @@ export function SheetProvider({ children }: { children: ReactNode }) {
   connectionRef.current = connection;
 
   useEffect(() => {
-    setConnection(loadConnection());
+    const primary = isCloudPrimary();
+    setCloudPrimary(primary);
+    const stored = loadConnection();
+    // Cloud owns the vault — drop the sheet link metadata but keep local caches.
+    setConnection(primary ? null : stored);
+    if (primary) {
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+      } catch {
+        /* ignore */
+      }
+      disconnectSheetsDirect();
+    }
     setHydrated(true);
   }, []);
 
   useEffect(() => {
-    if (!hydrated) return;
+    const onSource = () => {
+      const primary = isCloudPrimary();
+      setCloudPrimary(primary);
+      if (primary) {
+        setConnection(null);
+        try {
+          localStorage.removeItem(STORAGE_KEY);
+        } catch {
+          /* ignore */
+        }
+        disconnectSheetsDirect();
+      }
+    };
+    window.addEventListener(DATA_SOURCE_EVENT, onSource);
+    return () => window.removeEventListener(DATA_SOURCE_EVENT, onSource);
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated || cloudPrimary) return;
     try {
       if (connection) {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(connection));
@@ -128,7 +167,7 @@ export function SheetProvider({ children }: { children: ReactNode }) {
     } catch {
       /* ignore */
     }
-  }, [connection, hydrated]);
+  }, [connection, hydrated, cloudPrimary]);
 
   const ensureToken = useCallback(async () => {
     let token = getSheetsAccessToken();
@@ -168,7 +207,7 @@ export function SheetProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!hydrated || !connection?.sheetId) return;
+    if (!hydrated || !connection?.sheetId || cloudPrimary) return;
     let cancelled = false;
     (async () => {
       try {
@@ -182,7 +221,7 @@ export function SheetProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [hydrated, connection?.sheetId, ensureToken, refreshRowIndex]);
+  }, [hydrated, connection?.sheetId, cloudPrimary, ensureToken, refreshRowIndex]);
 
   const maybeSyncWeeklyReview = useCallback(async (settings: Record<string, string>) => {
     const calToken = getCalendarAccessToken();
@@ -369,7 +408,7 @@ export function SheetProvider({ children }: { children: ReactNode }) {
   );
 
   useEffect(() => {
-    if (!connection?.sheetId) {
+    if (!connection?.sheetId || cloudPrimary) {
       queueRef.current?.dispose();
       queueRef.current = null;
       registerSheetPush(null);
@@ -419,10 +458,15 @@ export function SheetProvider({ children }: { children: ReactNode }) {
       registerAppDataPush(null);
       if (appDataTimerRef.current) clearTimeout(appDataTimerRef.current);
     };
-  }, [connection?.sheetId, flushTasks, flushDelete, scheduleAppDataFlush]);
+  }, [connection?.sheetId, cloudPrimary, flushTasks, flushDelete, scheduleAppDataFlush]);
 
   const connectAndSync = useCallback(
     async (sheetUrlOrId: string) => {
+      if (isCloudPrimary()) {
+        throw new Error(
+          "App vault is active — sheet sync is off so your cloud data stays the source of truth."
+        );
+      }
       const sheetId = parseSheetId(sheetUrlOrId);
       if (!sheetId) {
         throw new Error("Paste a valid Google Sheet URL or ID.");
@@ -446,6 +490,9 @@ export function SheetProvider({ children }: { children: ReactNode }) {
   );
 
   const syncNow = useCallback(async () => {
+    if (isCloudPrimary()) {
+      throw new Error("App vault is active — sheet sync is off.");
+    }
     if (!connection?.sheetId) {
       throw new Error("No sheet connected yet.");
     }
@@ -464,6 +511,30 @@ export function SheetProvider({ children }: { children: ReactNode }) {
       setSyncing(false);
     }
   }, [connection?.sheetId, ensureToken, flushAppData, runPull]);
+
+  const freezeForCloudCutover = useCallback(() => {
+    queueRef.current?.dispose();
+    queueRef.current = null;
+    registerSheetPush(null);
+    registerAppDataPush(null);
+    if (appDataTimerRef.current) clearTimeout(appDataTimerRef.current);
+    appDataDirtyRef.current = false;
+    calendarIdRef.current = null;
+    setConnection(null);
+    setSyncError(null);
+    setWriteStatus("idle");
+    setWriteError(null);
+    rowIndexRef.current = new Map();
+    tasksRowsRef.current = [];
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      /* ignore */
+    }
+    disconnectSheetsDirect();
+    setCloudPrimary(true);
+    // Intentionally does NOT clearSheetProjects — projects stay in the local vault cache.
+  }, []);
 
   const disconnect = useCallback(() => {
     queueRef.current?.dispose();
@@ -488,6 +559,7 @@ export function SheetProvider({ children }: { children: ReactNode }) {
     <SheetContext.Provider
       value={{
         connection,
+        cloudPrimary,
         syncing,
         syncError,
         writeStatus,
@@ -496,6 +568,7 @@ export function SheetProvider({ children }: { children: ReactNode }) {
         connectAndSync,
         syncNow,
         disconnect,
+        freezeForCloudCutover,
       }}
     >
       {children}

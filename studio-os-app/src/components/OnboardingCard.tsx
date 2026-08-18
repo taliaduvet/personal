@@ -13,7 +13,7 @@ import { GOOGLE_CLIENT_ID } from "@/lib/google/calendar-auth";
 const DISMISS_KEY = "studio-os.onboarding-card.v1";
 
 export function OnboardingCard() {
-  const { connection, connectAndSync, syncing } = useSheet();
+  const { connection, cloudPrimary, connectAndSync, syncing } = useSheet();
   const [dismissed, setDismissed] = useState(() => {
     try {
       return localStorage.getItem(DISMISS_KEY) === "1";
@@ -26,7 +26,7 @@ export function OnboardingCard() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  if (connection || dismissed) return null;
+  if (connection || cloudPrimary || dismissed) return null;
 
   const needsClientId = !GOOGLE_CLIENT_ID && !clientId.trim();
 

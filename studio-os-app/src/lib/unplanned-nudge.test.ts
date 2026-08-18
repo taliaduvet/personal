@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { shouldShowUnplannedNudge, unplannedModeTasks } from "./unplanned-nudge";
 import { taskOnTodayModeBench } from "./week-focus";
 import type { Task } from "./types";
+import { dayPlan } from "./do-plan";
 
 const task = (
   id: string,
@@ -31,7 +32,7 @@ describe("unplannedModeTasks", () => {
   });
 
   it("excludes tasks with do-plan this week", () => {
-    const tasks = [task("b", "admin", { kind: "day", offset: 2 })];
+    const tasks = [task("b", "admin", dayPlan(2))];
     expect(unplannedModeTasks(tasks, "admin", new Set(), 0)).toEqual([]);
   });
 
@@ -50,7 +51,7 @@ describe("taskOnTodayModeBench", () => {
   });
 
   it("includes do-plan this week without approval", () => {
-    const t = task("b", "admin", { kind: "day", offset: 1 });
+    const t = task("b", "admin", dayPlan(1));
     expect(taskOnTodayModeBench(t, focus, 0, new Set())).toBe(true);
   });
 

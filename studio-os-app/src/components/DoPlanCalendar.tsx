@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import type { DoPlan } from "@/lib/types";
 import type { WeekStartDay } from "@/lib/week";
-import { buildMonthWeeks, dayPlan, weekPlan } from "@/lib/do-plan";
+import { buildMonthWeeks, dayPlan, doPlanDayOffset, weekPlan } from "@/lib/do-plan";
 
 const WEEKDAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"];
 
@@ -101,7 +101,7 @@ export function DoPlanCalendar({
               )}
               {row.days.map((cell) => {
                 if (!cell) return null;
-                const selected = value?.kind === "day" && value.offset === cell.offset;
+                const selected = value?.kind === "day" && doPlanDayOffset(value) === cell.offset;
                 const isToday = cell.offset === 0;
                 return (
                   <button
@@ -177,7 +177,7 @@ export function DeadlineCalendar({
   weekStartsOn: WeekStartDay;
 }) {
   const plan: DoPlan =
-    deadlineInDays !== null ? { kind: "day", offset: deadlineInDays } : null;
+    deadlineInDays !== null ? dayPlan(deadlineInDays) : null;
 
   return (
     <DoPlanCalendar
@@ -187,7 +187,7 @@ export function DeadlineCalendar({
       showSomeday={false}
       onChange={(p) => {
         if (p === null) onChange(null);
-        else if (p.kind === "day") onChange(p.offset);
+        else if (p.kind === "day") onChange(doPlanDayOffset(p));
       }}
     />
   );

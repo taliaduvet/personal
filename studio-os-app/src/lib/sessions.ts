@@ -3,6 +3,18 @@ export type ActiveSession = {
   projectId: string | null;
   startedAtIso: string;
   startLogId: string;
+
+  // Timed path — set only if a target duration was chosen at session start.
+  targetDurationMs?: number | null;
+  warnBeforeMs?: number | null;
+  warningFiredAtIso?: string | null; // one-shot latch
+  timesUpFiredAtIso?: string | null; // one-shot latch
+
+  // Ambient/checkin path — only meaningful when targetDurationMs is null.
+  ambientThresholdMs?: number | null; // snapshot of settings default at session start
+  ambientRepeatMs?: number | null; // snapshot of settings default at session start
+  ambientLastFiredAtIso?: string | null;
+  ambientAcknowledgedAtIso?: string | null; // stops resurfacing for the rest of this session
 };
 
 export const ACTIVE_SESSION_KEY = "studio-os.activeSession.v1";

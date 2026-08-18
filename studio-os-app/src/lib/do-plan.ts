@@ -1,9 +1,30 @@
 import type { DoPlan } from "./types";
 import type { WeekStartDay } from "./week";
 import { weekKey, weekRange } from "./week";
+import { addDaysToDateKey, localDateKey, parseLocalDateKey } from "./local-date";
 
-export function dayPlan(offset: number): DoPlan {
-  return { kind: "day", offset };
+const DATE_KEY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+export function isDateKey(value: unknown): value is string {
+  return typeof value === "string" && DATE_KEY_RE.test(value);
+}
+
+/**
+ * Build a day plan `offset` days from `from` (default: now).
+ *
+ * Stores an absolute date key — see the `DoPlan` docs for why offsets are not
+ * persisted. Pass `from` explicitly in tests and when migrating legacy data so
+ * the anchor is deterministic.
+ */
+export function dayPlan(offset: number, from: Date = new Date()): DoPlan {
+  if (!Number.isFinite(offset)) return null;
+  return { kind: "day", dateKey: addDaysToDateKey(localDateKey(from), offset) };
+}
+
+/** Days from `now` until a day plan's date (negative = past). Null if not a day plan. */
+export function doPlanDayOffset(plan: DoPlan, now: Date = new Date()): number | null {
+  if (plan?.kind !== "day" || !isDateKey(plan.dateKey)) return null;
+  return deadlineOffsetFromDateKey(plan.dateKey, now);
 }
 
 export function weekPlan(weekStart: string): DoPlan {
@@ -18,8 +39,8 @@ export function offsetFromToday(date: Date): number {
   return Math.round((d.getTime() - today.getTime()) / 86_400_000);
 }
 
-export function dateWithOffset(offset: number): Date {
-  const d = new Date();
+export function dateWithOffset(offset: number, now: Date = new Date()): Date {
+  const d = new Date(now);
   d.setDate(d.getDate() + offset);
   d.setHours(0, 0, 0, 0);
   return d;
@@ -34,24 +55,53 @@ export function deadlineOffsetFromDateKey(dateKey: string, from = new Date()): n
   return Math.round((deadline.getTime() - base.getTime()) / 86_400_000);
 }
 
-/** Migrate legacy day-offset field or normalize partial values. */
+/**
+ * Normalize a stored plan to the absolute-date-key form.
+ *
+ * Legacy rows hold a sticky `offset`. Those are resolved against `parkedAt`
+ * (when the task was captured) rather than "now" — otherwise every stored
+ * offset would silently re-point at a new day on each read, which is the exact
+ * bug this migration removes.
+ */
 export function normalizeDoPlan(
   plan: DoPlan | undefined | null,
-  legacyDoDateInDays?: number | null
+  legacyDoDateInDays?: number | null,
+  parkedAt?: number | null
 ): DoPlan {
+  const anchor = parkedAt != null && Number.isFinite(parkedAt) ? new Date(parkedAt) : new Date();
   if (plan != null && typeof plan === "object" && "kind" in plan) {
-    if (plan.kind === "day") return { kind: "day", offset: plan.offset };
+    if (plan.kind === "day") {
+      const raw = plan as { kind: "day"; offset?: number; dateKey?: string };
+      if (isDateKey(raw.dateKey)) return { kind: "day", dateKey: raw.dateKey };
+      if (Number.isFinite(raw.offset)) return dayPlan(raw.offset as number, anchor);
+      return null;
+    }
     if (plan.kind === "week") return { kind: "week", weekStart: plan.weekStart };
   }
-  if (legacyDoDateInDays != null) return dayPlan(legacyDoDateInDays);
+  if (legacyDoDateInDays != null) return dayPlan(legacyDoDateInDays, anchor);
   return null;
+}
+
+/**
+ * Normalize a deadline to an absolute date key, migrating a legacy
+ * `deadlineInDays` offset against `parkedAt` for the same reason as above.
+ */
+export function normalizeDeadlineDateKey(
+  dateKey: string | null | undefined,
+  deadlineInDays?: number | null,
+  parkedAt?: number | null
+): string | null {
+  if (isDateKey(dateKey)) return dateKey;
+  if (deadlineInDays == null || !Number.isFinite(deadlineInDays)) return null;
+  const anchor = parkedAt != null && Number.isFinite(parkedAt) ? new Date(parkedAt) : new Date();
+  return addDaysToDateKey(localDateKey(anchor), deadlineInDays);
 }
 
 export function doPlanEquals(a: DoPlan, b: DoPlan): boolean {
   if (a === null && b === null) return true;
   if (a === null || b === null) return false;
   if (a.kind !== b.kind) return false;
-  if (a.kind === "day") return b.kind === "day" && a.offset === b.offset;
+  if (a.kind === "day") return b.kind === "day" && a.dateKey === b.dateKey;
   return b.kind === "week" && a.weekStart === b.weekStart;
 }
 
@@ -59,22 +109,27 @@ export function doPlanEquals(a: DoPlan, b: DoPlan): boolean {
 export function doPlanLabel(plan: DoPlan | undefined, weekStartsOn: WeekStartDay): string {
   if (plan == null) return "Doing";
   if (plan.kind === "day") {
-    if (plan.offset < 0) {
-      if (plan.offset === -1) return "Yesterday";
-      const d = dateWithOffset(plan.offset);
-      return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
-    }
-    if (plan.offset === 0) return "Today";
-    if (plan.offset === 1) return "Tomorrow";
-    const d = dateWithOffset(plan.offset);
-    return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+    const offset = doPlanDayOffset(plan);
+    if (offset == null) return "Doing";
+    if (offset === -1) return "Yesterday";
+    if (offset === 0) return "Today";
+    if (offset === 1) return "Tomorrow";
+    return parseLocalDateKey(plan.dateKey).toLocaleDateString(undefined, {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    });
   }
   const thisWeek = weekKey(weekStartsOn, 0);
   const nextWeek = weekKey(weekStartsOn, 1);
   if (plan.weekStart === thisWeek) return "This week";
   if (plan.weekStart === nextWeek) return "Next week";
+  if (!plan.weekStart || Number.isNaN(Date.parse(`${plan.weekStart}T12:00:00`))) {
+    return "This week";
+  }
   const start = new Date(`${plan.weekStart}T12:00:00`);
   const { start: ws } = weekRangeForKey(plan.weekStart, weekStartsOn);
+  if (!Number.isFinite(ws)) return "This week";
   const endDate = dateWithOffset(ws + 6);
   const fmt = (d: Date) => d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
   return `Week · ${fmt(start)} – ${fmt(endDate)}`;
@@ -83,7 +138,7 @@ export function doPlanLabel(plan: DoPlan | undefined, weekStartsOn: WeekStartDay
 /** Sort key for When lens — lower = sooner. null plan sorts last. */
 export function doPlanSortKey(plan: DoPlan | undefined, weekStartsOn: WeekStartDay): number | null {
   if (plan == null) return null;
-  if (plan.kind === "day") return plan.offset;
+  if (plan.kind === "day") return doPlanDayOffset(plan);
   const { start } = weekRangeForKey(plan.weekStart, weekStartsOn);
   return start;
 }
@@ -114,7 +169,6 @@ export function hasDoPlanWithinWeek(
 ): boolean {
   if (plan == null) return false;
   const { start, end } = weekRange(weekStartsOn, 0);
-  if (plan.kind === "day") return plan.offset >= start && plan.offset <= end;
   const planStart = doPlanSortKey(plan, weekStartsOn);
   return planStart !== null && planStart >= start && planStart <= end;
 }
@@ -128,7 +182,10 @@ export function isPastWeekPlan(plan: DoPlan, weekStartsOn: WeekStartDay): boolea
 
 export function isCarriedDoPlan(plan: DoPlan, weekStartsOn: WeekStartDay): boolean {
   if (plan === null) return false;
-  if (plan.kind === "day") return plan.offset < 0;
+  if (plan.kind === "day") {
+    const offset = doPlanDayOffset(plan);
+    return offset != null && offset < 0;
+  }
   return isPastWeekPlan(plan, weekStartsOn);
 }
 

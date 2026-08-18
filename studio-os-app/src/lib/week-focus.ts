@@ -2,14 +2,15 @@ import type { Task } from "./types";
 import type { WeekStartDay } from "./week";
 import { isDayInWeek, weekRange } from "./week";
 import { localDateKey } from "./local-date";
-import { dateWithOffset, doPlanSortKey, hasDoPlanWithinWeek, isCarriedDoPlan, isCurrentWeekPlan } from "./do-plan";
+import { dateWithOffset, doPlanDayOffset, doPlanSortKey, hasDoPlanWithinWeek, isCarriedDoPlan, isCurrentWeekPlan } from "./do-plan";
 import { deadlineLabel, projectName, workModeName } from "./lenses";
 import { isWaitingTask } from "./waiting-on";
 import type { AllDayDisposition } from "./calendar/types";
 
-/** Mode-first day focus, with optional project override. */
+/** Mode-first day focus — one or more modes, or a project override. */
 export type DayFocus =
   | { kind: "mode"; id: string }
+  | { kind: "modes"; ids: string[] }
   | { kind: "project"; id: string };
 
 export type DayShapeIntent =
@@ -26,6 +27,11 @@ export type WeekDayFocusEntry = {
   shapeBlocks?: Partial<Record<DayShapeBlock, DayShapeIntent | null>>;
   /** Task ids scheduled into each portion of the day. */
   shapeBlockTasks?: Partial<Record<DayShapeBlock, string[]>>;
+  /**
+   * Today-bench Defer: task ids parked off this calendar day only.
+   * Still approved / eligible — they resurface on a later matching mode day.
+   */
+  deferredTaskIds?: string[];
 };
 
 export type WeekFocusDraft = {
@@ -45,8 +51,8 @@ export type WeekDaySlot = {
   isToday: boolean;
 };
 
-export function dateKeyFromOffset(offset: number): string {
-  return localDateKey(dateWithOffset(offset));
+export function dateKeyFromOffset(offset: number, now: Date = new Date()): string {
+  return localDateKey(dateWithOffset(offset, now));
 }
 
 export function weekDaySlots(weekStartsOn: WeekStartDay): WeekDaySlot[] {
@@ -96,10 +102,44 @@ export function mergeWeekFocusDraft(
   };
 }
 
+export function normalizeDayFocus(focus: DayFocus | null | undefined): DayFocus | null {
+  if (!focus) return null;
+  if (focus.kind === "mode") return { kind: "modes", ids: [focus.id] };
+  if (focus.kind === "modes") {
+    const ids = [...new Set(focus.ids.filter(Boolean))];
+    return ids.length > 0 ? { kind: "modes", ids } : null;
+  }
+  return focus;
+}
+
+/** Work-mode ids on a day focus (empty for open / project days). */
+export function dayModeIds(focus: DayFocus | null | undefined): string[] {
+  const n = normalizeDayFocus(focus);
+  return n?.kind === "modes" ? n.ids : [];
+}
+
+export function modeSelectedOnFocus(focus: DayFocus | null | undefined, modeId: string): boolean {
+  return dayModeIds(focus).includes(modeId);
+}
+
+/** Toggle a work mode on/off for a day. Project override is cleared when adding modes. */
+export function toggleModeFocus(current: DayFocus | null | undefined, modeId: string): DayFocus | null {
+  const n = normalizeDayFocus(current ?? null);
+  if (!n || n.kind !== "modes") {
+    return { kind: "modes", ids: [modeId] };
+  }
+  const next = new Set<string>(n.ids);
+  if (next.has(modeId)) next.delete(modeId);
+  else next.add(modeId);
+  const ids = [...next];
+  return ids.length > 0 ? { kind: "modes", ids } : null;
+}
+
 export function focusLabel(focus: DayFocus | null): string {
-  if (!focus) return "Open";
-  if (focus.kind === "mode") return workModeName(focus.id);
-  return projectName(focus.id);
+  const n = normalizeDayFocus(focus);
+  if (!n) return "Open";
+  if (n.kind === "modes") return n.ids.map((id) => workModeName(id)).join(" · ");
+  return projectName(n.id);
 }
 
 export function focusShortLabel(focus: DayFocus | null): string {
@@ -109,14 +149,65 @@ export function focusShortLabel(focus: DayFocus | null): string {
 }
 
 export function taskMatchesFocus(task: Task, focus: DayFocus): boolean {
-  if (focus.kind === "mode") return task.workModeId === focus.id;
-  return task.projectId === focus.id;
+  const n = normalizeDayFocus(focus);
+  if (!n) return false;
+  if (n.kind === "modes") return Boolean(task.workModeId && n.ids.includes(task.workModeId));
+  return task.projectId === n.id;
+}
+
+export function focusEquals(a: DayFocus | null | undefined, b: DayFocus | null | undefined): boolean {
+  const na = normalizeDayFocus(a ?? null);
+  const nb = normalizeDayFocus(b ?? null);
+  if (!na || !nb) return false;
+  if (na.kind === "project" && nb.kind === "project") return na.id === nb.id;
+  if (na.kind === "modes" && nb.kind === "modes") {
+    if (na.ids.length !== nb.ids.length) return false;
+    const set = new Set(na.ids);
+    return nb.ids.every((id) => set.has(id));
+  }
+  return false;
+}
+
+/** True when the day's focus covers the target (e.g. resurface mode is one of the day's modes). */
+export function dayFocusIncludes(dayFocus: DayFocus | null | undefined, target: DayFocus): boolean {
+  const day = normalizeDayFocus(dayFocus ?? null);
+  const want = normalizeDayFocus(target);
+  if (!day || !want) return false;
+  if (want.kind === "project") return day.kind === "project" && day.id === want.id;
+  if (want.kind === "modes" && day.kind === "modes") {
+    return want.ids.some((id) => day.ids.includes(id));
+  }
+  return false;
+}
+
+/** Next planned day (after `afterOffset`) whose focus matches / includes the target. */
+export function nextMatchingFocusDayOffset(
+  draft: WeekFocusDraft,
+  focus: DayFocus,
+  weekStartsOn: WeekStartDay,
+  afterOffset = 0
+): number | null {
+  for (const slot of weekDaySlots(weekStartsOn)) {
+    if (slot.offset <= afterOffset) continue;
+    if (dayFocusIncludes(draft.days[slot.dateKey]?.focus ?? null, focus)) return slot.offset;
+  }
+  return null;
+}
+
+/** Focus used to find the next resurface day when deferring off Today. */
+export function resurfaceFocusForTask(task: Task, todayFocus: DayFocus | null): DayFocus | null {
+  const today = normalizeDayFocus(todayFocus);
+  if (today?.kind === "project" && task.projectId === today.id) return today;
+  if (task.workModeId) return { kind: "modes", ids: [task.workModeId] };
+  if (today) return today;
+  if (task.projectId) return { kind: "project", id: task.projectId };
+  return null;
 }
 
 /** Task is eligible for a focus day (respects explicit doPlan exceptions). */
 export function taskEligibleForFocusDay(task: Task, dayOffset: number, weekStartsOn: WeekStartDay): boolean {
   if (task.status === "done") return false;
-  if (task.doPlan?.kind === "day") return task.doPlan.offset === dayOffset;
+  if (task.doPlan?.kind === "day") return doPlanDayOffset(task.doPlan) === dayOffset;
   if (task.doPlan === null) return true;
   if (isCurrentWeekPlan(task.doPlan, weekStartsOn)) return true;
   const key = doPlanSortKey(task.doPlan, weekStartsOn);
@@ -172,7 +263,7 @@ export function modeWorkloads(tasks: Task[], weekStartsOn: WeekStartDay): ModeWo
   const { start, end } = weekRange(weekStartsOn, 0);
   const active = tasks.filter((t) => {
     if (t.status === "done" || !t.workModeId) return false;
-    if (t.doPlan?.kind === "day") return isDayInWeek(t.doPlan.offset, start, end);
+    if (t.doPlan?.kind === "day") return isDayInWeek(doPlanDayOffset(t.doPlan) ?? NaN, start, end);
     if (t.doPlan === null) return true;
     return isCurrentWeekPlan(t.doPlan, weekStartsOn) || doPlanSortKey(t.doPlan, weekStartsOn)! <= end;
   });
@@ -187,7 +278,7 @@ export function modeWorkloads(tasks: Task[], weekStartsOn: WeekStartDay): ModeWo
 }
 
 export function countFocusDays(draft: WeekFocusDraft): number {
-  return Object.values(draft.days).filter((d) => d.focus !== null).length;
+  return Object.values(draft.days).filter((d) => normalizeDayFocus(d.focus) !== null).length;
 }
 
 export function partitionInTodayByFocus(
@@ -210,10 +301,12 @@ export function taskOnTodayModeBench(
   task: Task,
   focus: DayFocus,
   weekStartsOn: WeekStartDay,
-  approvedIds: Set<string>
+  approvedIds: Set<string>,
+  deferredIds: Set<string> = new Set()
 ): boolean {
   if (task.status === "done") return false;
   if (isWaitingTask(task)) return false;
+  if (deferredIds.has(task.id)) return false;
   if (!taskMatchesFocus(task, focus)) return false;
   if (approvedIds.has(task.id)) return true;
   return hasDoPlanWithinWeek(task.doPlan, weekStartsOn);
@@ -224,10 +317,11 @@ export function tasksForTodayModeBench(
   tasks: Task[],
   focus: DayFocus,
   weekStartsOn: WeekStartDay,
-  approvedIds: Set<string> = new Set()
+  approvedIds: Set<string> = new Set(),
+  deferredIds: Set<string> = new Set()
 ): Task[] {
   return tasks
-    .filter((t) => taskOnTodayModeBench(t, focus, weekStartsOn, approvedIds))
+    .filter((t) => taskOnTodayModeBench(t, focus, weekStartsOn, approvedIds, deferredIds))
     .sort((a, b) => {
     const rank = (t: Task) => {
       if (t.deadlineInDays !== null && t.deadlineInDays <= 3) return 0;

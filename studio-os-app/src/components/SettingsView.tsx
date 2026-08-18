@@ -5,6 +5,7 @@ import { WEEK_START_OPTIONS } from "@/lib/week";
 import { GoogleConnect } from "@/components/GoogleConnect";
 import { LifeAreasSettings } from "@/components/LifeAreasSettings";
 import { SheetConnect } from "@/components/SheetConnect";
+import { AccountSection } from "@/components/AccountSection";
 
 export function SettingsView() {
   const { weekStartsOn, setWeekStartsOn, lifeAreas, upsertLifeArea, removeLifeArea } = useSettings();
@@ -15,6 +16,8 @@ export function SettingsView() {
         <h1 className="font-display text-2xl font-semibold tracking-tight text-ink">Settings</h1>
         <p className="mt-1 text-muted">How your week is shaped — planning, review, and calendars all follow this.</p>
       </header>
+
+      <AccountSection />
 
       <div className="rounded-xl border border-border bg-surface p-4">
         <h2 className="font-display text-base font-semibold text-ink">Week starts on</h2>
@@ -55,16 +58,13 @@ export function SettingsView() {
       <div className="rounded-xl border border-border bg-surface p-4">
         <h2 className="font-display text-base font-semibold text-ink">Studio OS Sheet</h2>
         <p className="mt-1 text-sm text-muted">
-          Your tasks and projects live in Google Sheets — connect your copy to load real data.
+          Optional import from Google Sheets. Once you&apos;re signed in, the app vault owns your
+          data and sheet writeback stays off.
         </p>
         <div className="mt-3">
           <SheetConnect />
         </div>
       </div>
-
-      <p className="text-xs text-faint">
-        Sheet settings (accent, review timing) sync from your _Settings tab on pull.
-      </p>
     </section>
   );
 }

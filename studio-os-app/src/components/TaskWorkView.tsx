@@ -9,9 +9,12 @@ import { projectWhy } from "@/lib/lenses";
 import { getSavedReturnPath, isTodayPath, returnFromTaskWork, openProjectDetail } from "@/lib/navigation";
 import { TaskClassifyDropdowns } from "@/components/TaskClassify";
 import { useSessions } from "@/lib/sessions-store";
+import { useSettings } from "@/lib/settings-store";
 import { isWaitingTask } from "@/lib/waiting-on";
 import { taskSessionStats, similarWorkHint } from "@/lib/duration-memory";
+import { formatSessionElapsed } from "@/lib/sessions";
 import { TaskSessionStats } from "@/components/TaskSessionStats";
+import { SessionStartSheet } from "@/components/SessionStartSheet";
 
 export function TaskWorkView({ taskId }: { taskId: string }) {
   const router = useRouter();
@@ -24,7 +27,9 @@ export function TaskWorkView({ taskId }: { taskId: string }) {
     requestEndSession,
     elapsedLabel,
   } = useSessions();
+  const { defaultSessionWarnBeforeMs } = useSettings();
   const [newSubtask, setNewSubtask] = useState("");
+  const [startSheetOpen, setStartSheetOpen] = useState(false);
   const [fromToday] = useState(() => {
     const saved = getSavedReturnPath();
     return saved ? isTodayPath(saved) : false;
@@ -57,6 +62,16 @@ export function TaskWorkView({ taskId }: { taskId: string }) {
   const waiting = isWaitingTask(task);
   const sessionStats = taskSessionStats(task, activityLog);
   const workHint = similarWorkHint(task, tasks, activityLog);
+
+  const smartDefaultMs =
+    sessionStats && sessionStats.sessionCount > 0
+      ? Math.round(sessionStats.totalMs / sessionStats.sessionCount)
+      : workHint
+        ? Math.round(((workHint.hourRange[0] + workHint.hourRange[1]) / 2) * 3_600_000)
+        : null;
+  const smartDefaultLabel = smartDefaultMs
+    ? `~${formatSessionElapsed(smartDefaultMs)} · typical for ${sessionStats ? "this" : "similar work"}`
+    : null;
 
   return (
     <div className="mx-auto min-h-[calc(100dvh-8rem)] max-w-2xl pb-24">
@@ -115,7 +130,7 @@ export function TaskWorkView({ taskId }: { taskId: string }) {
             ) : (
               <button
                 type="button"
-                onClick={() => startSession(task.id, task.projectId)}
+                onClick={() => setStartSheetOpen(true)}
                 className="rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-muted hover:border-accent hover:text-accent"
               >
                 Sit with this
@@ -123,6 +138,18 @@ export function TaskWorkView({ taskId }: { taskId: string }) {
             )}
           </div>
         )}
+
+        <SessionStartSheet
+          open={startSheetOpen}
+          smartDefaultMs={smartDefaultMs}
+          smartDefaultLabel={smartDefaultLabel}
+          defaultWarnBeforeMs={defaultSessionWarnBeforeMs}
+          onCancel={() => setStartSheetOpen(false)}
+          onConfirm={(options) => {
+            startSession(task.id, task.projectId, options);
+            setStartSheetOpen(false);
+          }}
+        />
 
         <textarea
           value={task.title}

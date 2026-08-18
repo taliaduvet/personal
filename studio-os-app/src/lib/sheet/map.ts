@@ -1,4 +1,4 @@
-import { offsetFromToday, weekPlan } from "@/lib/do-plan";
+import { dayPlan, offsetFromToday, weekPlan } from "@/lib/do-plan";
 import type { WeekStartDay } from "@/lib/week";
 import { weekKey } from "@/lib/week";
 import type { DoPlan, Project, Task, TaskStatus, TaskSheetMeta } from "@/lib/types";
@@ -111,7 +111,7 @@ export function mapSheetDoPlan(
 
   if (targetWeek) {
     if (doing) {
-      return { kind: "day", offset: doingDayInTargetWeekOffset(doing, targetWeek) };
+      return dayPlan(doingDayInTargetWeekOffset(doing, targetWeek));
     }
     const key = weekKey(weekStartsOn, 0);
     const targetKey = targetWeek.toISOString().slice(0, 10);
@@ -119,7 +119,7 @@ export function mapSheetDoPlan(
   }
 
   if (doing) {
-    return { kind: "day", offset: nextWeekdayOffset(doing) };
+    return dayPlan(nextWeekdayOffset(doing));
   }
 
   return null;

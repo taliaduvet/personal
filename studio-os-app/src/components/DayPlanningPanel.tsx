@@ -9,7 +9,9 @@ import { allDayDispositionKey } from "@/lib/calendar/types";
 import { formatLocalTimeRange } from "@/lib/local-date";
 import {
   focusLabel,
+  modeSelectedOnFocus,
   tasksForDayFocus,
+  toggleModeFocus,
   type DayFocus,
   type WeekDayFocusEntry,
   type WeekDaySlot,
@@ -168,10 +170,10 @@ export function DayPlanningPanel({
               <button
                 key={m.id}
                 type="button"
-                onClick={() => onFocus({ kind: "mode", id: m.id })}
+                onClick={() => onFocus(toggleModeFocus(entry.focus, m.id))}
                 className={[
                   "rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors",
-                  entry.focus?.kind === "mode" && entry.focus.id === m.id
+                  modeSelectedOnFocus(entry.focus, m.id)
                     ? "border-accent bg-accent-soft text-accent"
                     : "border-border text-muted hover:border-accent hover:text-ink",
                 ].join(" ")}

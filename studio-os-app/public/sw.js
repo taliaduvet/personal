@@ -1,5 +1,5 @@
 /* Studio OS — service worker: offline shell + push notifications */
-const CACHE = "studio-os-shell-v1";
+const CACHE = "studio-os-shell-v2";
 const SHELL = ["/"];
 
 self.addEventListener("install", (event) => {
@@ -20,13 +20,30 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   if (request.method !== "GET") return;
+
+  const url = new URL(request.url);
+  // Let Next.js data / API / assets fail loudly — never substitute the Dashboard shell.
+  if (
+    url.pathname.startsWith("/_next") ||
+    url.pathname.startsWith("/api") ||
+    url.pathname === "/sw.js"
+  ) {
+    return;
+  }
+
   event.respondWith(
     (async () => {
       try {
         return await fetch(request);
       } catch {
         const cached = await caches.match(request);
-        return cached || (await caches.match("/")) || Response.error();
+        if (cached) return cached;
+        // Only the home shell is cached — never serve it for /today, /tasks, etc.
+        if (request.mode === "navigate" && url.pathname === "/") {
+          const shell = await caches.match("/");
+          if (shell) return shell;
+        }
+        return Response.error();
       }
     })()
   );

@@ -129,6 +129,18 @@ export function PracticeIcon(p: IconProps) {
   );
 }
 
+export function HabitsIcon(p: IconProps) {
+  return (
+    <svg {...S} {...p}>
+      <circle cx="6" cy="6" r="2.4" />
+      <circle cx="14" cy="6" r="2.4" fill="currentColor" />
+      <circle cx="6" cy="14" r="2.4" fill="currentColor" />
+      <circle cx="18" cy="14" r="2.4" />
+      <circle cx="12" cy="19" r="2.4" fill="currentColor" />
+    </svg>
+  );
+}
+
 export function DocIcon(p: IconProps) {
   return (
     <svg {...S} {...p}>

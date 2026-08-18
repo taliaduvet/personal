@@ -12,6 +12,7 @@ import { isWaitingTask } from "@/lib/waiting-on";
 import { weekKey } from "@/lib/week";
 import { isTodayPath, openTaskWork } from "@/lib/navigation";
 import { TaskClassifyDropdowns } from "@/components/TaskClassify";
+import { NUDGE_TYPE_META, manualStartThinkingPatch, type NudgeType } from "@/lib/nudges";
 import type { Task } from "@/lib/types";
 
 type ClassifyField = "projectId" | "workModeId" | "doPlan" | "deadlineInDays";
@@ -167,7 +168,7 @@ export function TaskDetailSheet() {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-ink/30 p-0 sm:items-center sm:p-4"
+      className="fixed inset-0 z-[60] flex items-end justify-center bg-ink/30 p-0 sm:items-center sm:p-4"
       onClick={handleClose}
       role="presentation"
     >
@@ -225,7 +226,17 @@ export function TaskDetailSheet() {
               {waiting ? (
                 <div className="space-y-2">
                   <p className="text-sm text-ink">
-                    Waiting on <span className="font-medium">{task.waitingOn?.personName}</span>
+                    {task.waitingOn?.direction === "me" ? (
+                      <>
+                        <span className="font-medium">{task.waitingOn?.personName}</span> is waiting
+                        on you
+                      </>
+                    ) : (
+                      <>
+                        Waiting on{" "}
+                        <span className="font-medium">{task.waitingOn?.personName}</span>
+                      </>
+                    )}
                   </p>
                   <button
                     type="button"
@@ -236,22 +247,116 @@ export function TaskDetailSheet() {
                   </button>
                 </div>
               ) : (
-                <button
-                  type="button"
-                  disabled={!personName}
-                  onClick={() => {
-                    setTaskWaiting(task.id, {
-                      personId: classifyTask.personId ?? task.personId ?? null,
-                      personName: personName!,
-                    });
-                    closeQuickEdit();
-                    router.push("/tasks?lens=waiting");
-                  }}
-                  className="w-full text-left text-sm font-medium text-muted transition-colors hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {personName ? `Mark waiting on ${personName}` : "Mark waiting — set a person first"}
-                </button>
+                <div className="space-y-2">
+                  <span className="block text-xs font-medium text-muted">
+                    {personName ? `Involving ${personName}` : "Involves someone — set a person first"}
+                  </span>
+                  <div className="flex gap-2">
+                    {(
+                      [
+                        { dir: "them", label: "I'm waiting on them" },
+                        { dir: "me", label: "They're waiting on me" },
+                      ] as const
+                    ).map(({ dir, label }) => (
+                      <button
+                        key={dir}
+                        type="button"
+                        disabled={!personName}
+                        onClick={() => {
+                          setTaskWaiting(
+                            task.id,
+                            {
+                              personId: classifyTask.personId ?? task.personId ?? null,
+                              personName: personName!,
+                            },
+                            dir
+                          );
+                          closeQuickEdit();
+                          router.push("/tasks?lens=waiting");
+                        }}
+                        className="flex-1 rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted transition-colors hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               )}
+            </div>
+          )}
+
+          {!isCapture && !done && (
+            <div className="space-y-3 rounded-xl border border-border px-4 py-3">
+              <div>
+                <label
+                  htmlFor="start-thinking"
+                  className="block text-sm font-medium text-ink"
+                >
+                  Start thinking about
+                </label>
+                <p className="mt-0.5 text-xs text-faint">
+                  When this should start coming back to you.
+                </p>
+                <input
+                  id="start-thinking"
+                  type="date"
+                  value={task.startThinkingAtDateKey ?? ""}
+                  onChange={(e) =>
+                    set(
+                      manualStartThinkingPatch(task, e.target.value || null),
+                    )
+                  }
+                  className="mt-2 w-full rounded-lg border border-border bg-canvas px-3 py-2 text-sm text-ink outline-none focus:border-accent"
+                />
+              </div>
+              <div>
+                <span className="block text-xs font-medium text-muted">Nudge style</span>
+                <div className="mt-1.5 flex gap-2">
+                  {(Object.keys(NUDGE_TYPE_META) as NudgeType[]).map((type) => {
+                    const active = task.nudgeType === type;
+                    return (
+                      <button
+                        key={type}
+                        type="button"
+                        title={NUDGE_TYPE_META[type].hint}
+                        onClick={() => set({ nudgeType: active ? null : type })}
+                        className={[
+                          "flex-1 rounded-lg border px-3 py-2 text-xs font-medium transition-colors",
+                          active
+                            ? "border-accent bg-accent-soft text-accent"
+                            : "border-border text-muted hover:border-accent hover:text-accent",
+                        ].join(" ")}
+                      >
+                        {NUDGE_TYPE_META[type].label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              {task.nudgeType === "checkin" &&
+                (task.acknowledgedAt ? (
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-faint">
+                      Acknowledged — not resurfacing. Still not done.
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => set({ acknowledgedAt: null })}
+                      className="font-medium text-muted hover:text-accent"
+                    >
+                      Undo
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => set({ acknowledgedAt: new Date().toISOString() })}
+                    title="Stops the check-in nudge without marking the task done."
+                    className="w-full rounded-lg border border-border px-3 py-2 text-xs font-medium text-muted transition-colors hover:border-accent hover:text-accent"
+                  >
+                    Acknowledge — stop nudging (not done)
+                  </button>
+                ))}
             </div>
           )}
 

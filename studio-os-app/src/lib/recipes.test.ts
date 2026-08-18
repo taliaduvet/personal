@@ -44,7 +44,8 @@ describe("shiftRecipeTasks", () => {
     ];
     const shifted = shiftRecipeTasks(
       { ...recipe, anchorDate: "2026-07-27" },
-      tasks
+      tasks,
+      now
     );
     const after = deadlineInDaysForMilestone("2026-07-27", 0, now);
     expect(shifted[0]?.deadlineInDays).toBe(after);

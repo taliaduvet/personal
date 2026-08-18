@@ -22,3 +22,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 ## Current state
 
 Sprints A–E shipped: timestamps, sessions, waiting-on, archive wing, duration memory, Day Ledger, day-close with yesterday note. Weekly Review uses a wide collapsible 3-column board layout.
+
+## End-of-session rule
+
+**At the end of every Studio OS session, update `docs/BUILD_ROADMAP.md`** to reflect any new features, fixes, or architectural changes made during the session. Do this before your final response. Keep the "Last updated" date current.

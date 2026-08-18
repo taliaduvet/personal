@@ -1,6 +1,6 @@
 import type { DoPlan, Recurrence, Task } from "./types";
-import { dayPlan, dateWithOffset } from "./do-plan";
-import { dateKeyStartMs, localDateKey } from "./local-date";
+import { dayPlan } from "./do-plan";
+import { dateKeyStartMs, localDateKey, parseLocalDateKey } from "./local-date";
 
 /**
  * Recurring tasks — roll-forward on complete.
@@ -26,7 +26,7 @@ function diffInDays(target: Date, now: Date): number {
 
 /** The task's current anchor day: its do-date if set, else today. */
 function anchorDate(doPlan: DoPlan, now: Date): Date {
-  if (doPlan?.kind === "day") return dateWithOffset(doPlan.offset);
+  if (doPlan?.kind === "day") return parseLocalDateKey(doPlan.dateKey);
   return new Date(now);
 }
 
@@ -123,7 +123,7 @@ export function spawnNextRecurringTask(
     id: newId,
     status: "todo",
     inToday: false,
-    doPlan: dayPlan(offset),
+    doPlan: dayPlan(offset, now),
     deadlineDateKey: null,
     deadlineInDays: null,
     completedAtInDays: null,

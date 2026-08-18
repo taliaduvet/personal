@@ -25,7 +25,7 @@ export function RespondStrip({
           Needs a reply
           <span className="ml-1.5 font-normal tabular-nums text-faint">{tasks.length}</span>
         </h2>
-        <Link href="/tasks?lens=respond" className="text-xs text-accent hover:underline">
+        <Link href="/tasks" className="text-xs text-accent hover:underline">
           {moreCount > 0 ? `+${moreCount} more` : "All"}
         </Link>
       </div>
