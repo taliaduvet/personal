@@ -1,7 +1,8 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { groupTasks, isInboxTask } from "./lenses";
 import { setActiveProjects } from "./project-registry";
-import { PROJECTS } from "./sample-data";
+import { setActiveLifeAreas } from "./life-area-registry";
+import { LIFE_AREAS, PROJECTS } from "./sample-data";
 import type { LifeArea, Task } from "./types";
 
 const customAreas: LifeArea[] = [
@@ -10,8 +11,13 @@ const customAreas: LifeArea[] = [
   { id: "health", name: "Cycles", color: "#a17bdb" },
 ];
 
+beforeEach(() => {
+  setActiveLifeAreas(customAreas);
+});
+
 afterEach(() => {
   setActiveProjects(PROJECTS);
+  setActiveLifeAreas(LIFE_AREAS);
 });
 
 function task(partial: Partial<Task> & Pick<Task, "id" | "title">): Task {
@@ -38,7 +44,7 @@ describe("groupTasks area lens", () => {
       task({ id: "b", title: "Email venues", lifeAreaId: "music" }),
     ];
 
-    const groups = groupTasks(tasks, "area", 0, customAreas);
+    const groups = groupTasks(tasks, "area", 0);
     const studio = groups.find((g) => g.key === "area-studio");
     const music = groups.find((g) => g.key === "music");
 
@@ -47,7 +53,7 @@ describe("groupTasks area lens", () => {
   });
 
   it("keeps empty custom life area columns visible", () => {
-    const groups = groupTasks([], "area", 0, customAreas);
+    const groups = groupTasks([], "area", 0);
     expect(groups.some((g) => g.key === "area-studio")).toBe(true);
   });
 
@@ -62,7 +68,8 @@ describe("groupTasks area lens", () => {
       task({ id: "a", title: "First Mix", lifeAreaId: "health", inToday: true }),
     ];
 
-    const groups = groupTasks(tasks, "area", 0, duplicateAreas);
+    setActiveLifeAreas(duplicateAreas);
+    const groups = groupTasks(tasks, "area", 0);
     const cycles = groups.filter((g) => g.key === "health");
 
     expect(cycles).toHaveLength(1);
@@ -86,7 +93,7 @@ describe("groupTasks project lens", () => {
       }),
     ];
 
-    const groups = groupTasks(tasks, "project", 0, customAreas);
+    const groups = groupTasks(tasks, "project", 0);
     const foolMe = groups.find((g) => g.key === "proj-fool-me");
 
     expect(foolMe?.tasks.map((t) => t.id)).toEqual(["a"]);
@@ -96,6 +103,6 @@ describe("groupTasks project lens", () => {
 describe("isInboxTask", () => {
   it("treats tasks with a known life area as filed", () => {
     const filed = task({ id: "x", title: "Book studio time", lifeAreaId: "area-studio" });
-    expect(isInboxTask(filed, customAreas)).toBe(false);
+    expect(isInboxTask(filed)).toBe(false);
   });
 });

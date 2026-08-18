@@ -67,7 +67,7 @@ export function applyRecipeMilestones(
   return { nextTasks, created };
 }
 
-export function shiftRecipeTasks(recipe: Recipe, tasks: Task[]): Task[] {
+export function shiftRecipeTasks(recipe: Recipe, tasks: Task[], now = new Date()): Task[] {
   const linked = tasksForRecipe(tasks, recipe.id);
   if (linked.length === 0) return tasks;
   const milestoneById = new Map(recipe.milestones.map((m) => [m.id, m]));
@@ -79,7 +79,7 @@ export function shiftRecipeTasks(recipe: Recipe, tasks: Task[]): Task[] {
     if (!milestone) return t;
     return {
       ...t,
-      deadlineInDays: deadlineInDaysForMilestone(recipe.anchorDate, milestone.offsetDays),
+      deadlineInDays: deadlineInDaysForMilestone(recipe.anchorDate, milestone.offsetDays, now),
     };
   });
 }

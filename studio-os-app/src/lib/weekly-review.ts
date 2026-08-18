@@ -1,7 +1,7 @@
 import type { Task } from "./types";
 import type { WeekStartDay } from "./week";
 import { isDayInWeek, weekRange } from "./week";
-import { doPlanSortKey } from "./do-plan";
+import { doPlanDayOffset, doPlanSortKey } from "./do-plan";
 import { getActiveLifeAreas } from "./life-area-registry";
 import { getActiveProjects } from "./project-registry";
 import { lifeAreaName, projectName } from "./lenses";
@@ -25,7 +25,7 @@ export function carryOver(tasks: Task[], weekStartsOn: WeekStartDay, weekOffset 
   const { start } = weekRange(weekStartsOn, weekOffset);
   return tasks.filter((t) => {
     if (t.status === "done" || t.doPlan === null) return false;
-    if (t.doPlan.kind === "day") return t.doPlan.offset < start;
+    if (t.doPlan.kind === "day") return doPlanDayOffset(t.doPlan) < start;
     const planStart = doPlanSortKey(t.doPlan, weekStartsOn);
     return planStart !== null && planStart < start;
   });

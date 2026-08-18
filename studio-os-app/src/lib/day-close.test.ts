@@ -4,6 +4,7 @@ import {
   hasDayCloseContent,
   yesterdayNote,
 } from "./day-close";
+import { dateKeyFromOffset } from "./week-focus";
 import type { ActivityLogEntry } from "./activity-log";
 import type { Task } from "./types";
 
@@ -38,7 +39,7 @@ describe("yesterdayNote", () => {
         id: "r1",
         atIso: new Date().toISOString(),
         kind: "day_close_retro",
-        dateKey: new Date(Date.now() - 86_400_000).toISOString().slice(0, 10),
+        dateKey: dateKeyFromOffset(-1),
         durationMs: 0,
         reviewNote: "vocals almost done",
       },

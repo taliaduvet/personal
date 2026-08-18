@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { parseTaskTitle } from "./parse";
+import { dayPlan } from "./do-plan";
 
 describe("parseTaskTitle", () => {
   it("detects mode, doing date, and strips hints from title", () => {
     const result = parseTaskTitle("email venues tomorrow creative");
     expect(result.title).toBe("email venues");
     expect(result.workModeId).toBe("creative");
-    expect(result.doPlan).toEqual({ kind: "day", offset: 1 });
+    expect(result.doPlan).toEqual(dayPlan(1));
   });
 
   it("detects project names from the live registry", () => {

@@ -2,7 +2,7 @@ import type { Task, LensId, TaskGroup, DoPlan } from "./types";
 import type { WeekStartDay } from "./week";
 import { formatDeadlineDisplay } from "./time-display";
 import { WORK_MODES } from "./sample-data";
-import { activeLifeAreaById, getActiveLifeAreas } from "./life-area-registry";
+import { activeLifeAreaById } from "./life-area-registry";
 import { activeProjectName, activeProjectWhy, getActiveProjects } from "./project-registry";
 import { doPlanLabel, doPlanSortKey, isCarriedDoPlan } from "./do-plan";
 import { weekRange } from "./week";
@@ -59,8 +59,10 @@ function buildGroup(
   };
 }
 
-function activeLot(tasks: Task[]): Task[] {
-  return tasks.filter((t) => t.status !== "done" && !t.inToday && !isWaitingTask(t));
+function activeLot(tasks: Task[], opts: { includeToday?: boolean } = {}): Task[] {
+  return tasks.filter(
+    (t) => t.status !== "done" && (opts.includeToday || !t.inToday) && !isWaitingTask(t)
+  );
 }
 
 function groupByWaiting(lot: Task[], weekStartsOn: WeekStartDay): TaskGroup[] {
@@ -128,14 +130,14 @@ function groupByWhen(lot: Task[], weekStartsOn: WeekStartDay): TaskGroup[] {
 export function groupTasks(tasks: Task[], lens: LensId, weekStartsOn: WeekStartDay = 0): TaskGroup[] {
   if (lens === "waiting") return groupByWaiting(tasks, weekStartsOn);
 
-  const lot = activeLot(tasks);
+  if (lens === "when") return groupByWhen(activeLot(tasks), weekStartsOn);
 
-  if (lens === "when") return groupByWhen(lot, weekStartsOn);
-
+  // Area/project are organizational reference views — Today-bench tasks
+  // still belong in their column, unlike the "when"/"mode" work-bench lenses.
   if (lens === "area") {
-    const areas = getActiveLifeAreas();
+    const lot = activeLot(tasks, { includeToday: true });
     const areaMap = activeLifeAreaById();
-    const known = areas.map((a) =>
+    const known = Object.values(areaMap).map((a) =>
       buildGroup(
         a.id,
         a.name,
@@ -151,10 +153,11 @@ export function groupTasks(tasks: Task[], lens: LensId, weekStartsOn: WeekStartD
       weekStartsOn,
       NEUTRAL
     );
-    return [...known, unsorted].filter((g) => g.tasks.length > 0);
+    return [...known, unsorted].filter((g) => g.key === "unsorted" ? g.tasks.length > 0 : true);
   }
 
   if (lens === "project") {
+    const lot = activeLot(tasks, { includeToday: true });
     const projects = getActiveProjects().map((p) =>
       buildGroup(
         p.id,
@@ -171,9 +174,10 @@ export function groupTasks(tasks: Task[], lens: LensId, weekStartsOn: WeekStartD
       weekStartsOn,
       NEUTRAL
     );
-    return [...projects, loose].filter((g) => g.tasks.length > 0);
+    return [...projects, loose].filter((g) => g.key === "no-project" ? g.tasks.length > 0 : true);
   }
 
+  const lot = activeLot(tasks);
   const modes = WORK_MODES.map((m) =>
     buildGroup(m.id, m.name, lot.filter((t) => t.workModeId === m.id), weekStartsOn)
   );

@@ -34,6 +34,7 @@ describe("absolute day plans", () => {
   it("keeps absolute deadline keys rolling with the day", () => {
     const key = normalizeDeadlineDateKey(undefined, 1, new Date("2026-07-13T12:00:00").getTime());
     expect(key).toBe("2026-07-14");
+    if (!key) throw new Error("expected a deadline date key");
     expect(deadlineOffsetFromDateKey(key, new Date("2026-07-14T08:00:00"))).toBe(0);
     expect(deadlineOffsetFromDateKey(key, new Date("2026-07-13T08:00:00"))).toBe(1);
   });

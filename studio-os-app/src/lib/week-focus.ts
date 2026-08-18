@@ -2,7 +2,7 @@ import type { Task } from "./types";
 import type { WeekStartDay } from "./week";
 import { isDayInWeek, weekRange } from "./week";
 import { localDateKey } from "./local-date";
-import { dateWithOffset, doPlanSortKey, hasDoPlanWithinWeek, isCarriedDoPlan, isCurrentWeekPlan } from "./do-plan";
+import { dateWithOffset, doPlanDayOffset, doPlanSortKey, hasDoPlanWithinWeek, isCarriedDoPlan, isCurrentWeekPlan } from "./do-plan";
 import { deadlineLabel, projectName, workModeName } from "./lenses";
 import { isWaitingTask } from "./waiting-on";
 import type { AllDayDisposition } from "./calendar/types";
@@ -116,7 +116,7 @@ export function taskMatchesFocus(task: Task, focus: DayFocus): boolean {
 /** Task is eligible for a focus day (respects explicit doPlan exceptions). */
 export function taskEligibleForFocusDay(task: Task, dayOffset: number, weekStartsOn: WeekStartDay): boolean {
   if (task.status === "done") return false;
-  if (task.doPlan?.kind === "day") return task.doPlan.offset === dayOffset;
+  if (task.doPlan?.kind === "day") return doPlanDayOffset(task.doPlan) === dayOffset;
   if (task.doPlan === null) return true;
   if (isCurrentWeekPlan(task.doPlan, weekStartsOn)) return true;
   const key = doPlanSortKey(task.doPlan, weekStartsOn);
@@ -172,7 +172,7 @@ export function modeWorkloads(tasks: Task[], weekStartsOn: WeekStartDay): ModeWo
   const { start, end } = weekRange(weekStartsOn, 0);
   const active = tasks.filter((t) => {
     if (t.status === "done" || !t.workModeId) return false;
-    if (t.doPlan?.kind === "day") return isDayInWeek(t.doPlan.offset, start, end);
+    if (t.doPlan?.kind === "day") return isDayInWeek(doPlanDayOffset(t.doPlan), start, end);
     if (t.doPlan === null) return true;
     return isCurrentWeekPlan(t.doPlan, weekStartsOn) || doPlanSortKey(t.doPlan, weekStartsOn)! <= end;
   });

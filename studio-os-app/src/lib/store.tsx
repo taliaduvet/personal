@@ -44,6 +44,7 @@ function normalizeTask(
   t: Partial<Task> & Pick<Task, "id" | "title"> & { doDateInDays?: number | null; parkedAt?: number }
 ): Task {
   const { doDateInDays, doPlan: rawPlan, parkedAt, ...rest } = t;
+  const resolvedParkedAt = parkedAt ?? Date.now();
   return {
     lifeAreaId: "",
     projectId: null,
@@ -52,8 +53,8 @@ function normalizeTask(
     status: "todo",
     inToday: false,
     ...rest,
-    doPlan: normalizeDoPlan(rawPlan, doDateInDays),
-    parkedAt: parkedAt ?? Date.now(),
+    doPlan: normalizeDoPlan(rawPlan, doDateInDays, resolvedParkedAt),
+    parkedAt: resolvedParkedAt,
     notes: t.notes ?? "",
     subtasks: t.subtasks ?? [],
     completedAtInDays: t.completedAtInDays ?? (t.status === "done" ? 0 : null),

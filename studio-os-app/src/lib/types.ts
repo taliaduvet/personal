@@ -2,7 +2,7 @@ export type TaskStatus = "todo" | "in_progress" | "done";
 
 /** Soft doing plan — day-specific, whole-week bucket, or null (someday). */
 export type DoPlan =
-  | { kind: "day"; offset: number }
+  | { kind: "day"; dateKey: string }
   | { kind: "week"; weekStart: string }
   | null;
 

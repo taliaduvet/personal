@@ -1,4 +1,4 @@
-import { dateWithOffset } from "@/lib/do-plan";
+import { parseLocalDateKey } from "@/lib/local-date";
 import type { WeekStartDay } from "@/lib/week";
 import type { DoPlan, Project, Task, TaskStatus } from "@/lib/types";
 import { dayOffsetToSheetSerial, unixMsToSheetSerial } from "./dates";
@@ -39,7 +39,7 @@ function doPlanToTargetWeekAndDay(
     return { targetWeek: dateToSerial(anchor), doingDay: "" };
   }
 
-  const day = dateWithOffset(plan.offset);
+  const day = parseLocalDateKey(plan.dateKey);
   const weekStart = mondayOfWeekContaining(day, weekStartsOn);
   return {
     targetWeek: dateToSerial(weekStart),

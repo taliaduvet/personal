@@ -7,6 +7,7 @@ import {
   type ParsedEventIds,
 } from "./event-ids";
 import { mapSheetDoPlan } from "@/lib/sheet/map";
+import { parseLocalDateKey } from "@/lib/local-date";
 import type { WeekStartDay } from "@/lib/week";
 
 const CAL_API = "https://www.googleapis.com/calendar/v3";
@@ -164,15 +165,13 @@ async function upsertTimed(
 function doingDayShortFromTask(task: Task, weekStartsOn: WeekStartDay): string {
   const plan = task.doPlan;
   if (plan?.kind === "day") {
-    const d = new Date();
-    d.setDate(d.getDate() + plan.offset);
+    const d = parseLocalDateKey(plan.dateKey);
     return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d.getDay()];
   }
   if (plan?.kind === "week") {
     const mapped = mapSheetDoPlan("", `${plan.weekStart}T12:00:00`, weekStartsOn);
     if (mapped?.kind === "day") {
-      const d = new Date();
-      d.setDate(d.getDate() + mapped.offset);
+      const d = parseLocalDateKey(mapped.dateKey);
       return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d.getDay()];
     }
   }

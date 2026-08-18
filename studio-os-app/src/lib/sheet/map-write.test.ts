@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { taskToSheetRow, isSheetTaskId } from "./map-write";
+import { dayPlan } from "@/lib/do-plan";
 import type { Task } from "@/lib/types";
 
 const PROJECTS = [
@@ -12,7 +13,7 @@ const BASE: Task = {
   lifeAreaId: "music",
   projectId: "proj-1",
   workModeId: "creative",
-  doPlan: { kind: "day", offset: 2 },
+  doPlan: dayPlan(2),
   deadlineInDays: 5,
   status: "in_progress",
   inToday: false,
