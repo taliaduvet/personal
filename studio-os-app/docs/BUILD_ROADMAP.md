@@ -1,6 +1,6 @@
 # Studio OS — Build Roadmap
 
-*Last updated: August 17, 2026 (Habits system + session timer/transition-warning added)*  
+*Last updated: August 18, 2026 (DoPlan/deadline absolute-dateKey refactor committed; trust-core, multi-mode day focus, Habits, session nudges, delivery prompts now committed after being at risk of loss — see below)*  
 *Single source of truth — what's live, what's next, and why it's ordered the way it is.*
 
 ---
@@ -410,12 +410,22 @@ Deferred behind the market-readiness phases above. Can be built in parallel once
 
 ---
 
-## Verified state (audit — August 10, 2026)
+## Verified state (audit — August 10, 2026; refreshed August 18, 2026)
 
 Roadmap claims checked against the codebase rather than against memory.
 
+**August 18 update:** `DoPlan`'s day variant and `deadlineInDays` were refactored from a
+relative offset (which silently drifted forward if a task wasn't re-normalized on the
+exact day it was set) to an absolute `dateKey`, with a `parkedAt`-anchored migration for
+existing localStorage data. Separately, ~2 weeks of uncommitted local work — the trust
+core (`src/lib/trust/`), multi-mode day focus, Habits, session nudges, delivery prompts,
+error boundaries — came within one `git stash drop` of being lost entirely; it's now
+recovered and merged. Both efforts had independently built the same dateKey design; the
+more defensive version (validates malformed data instead of propagating `NaN`) was kept.
+`303/303` tests pass, `tsc --noEmit` is clean, production build succeeds.
+
 **Green:**
-- `npm run build` passes clean; 31 routes generate.
+- `npm run build` passes clean; 33 routes generate (added `/habits`).
 - Supabase RLS is enabled **and correctly user-scoped** on every `sos_*` table
   (`user_id = auth.uid()` for both `USING` and `WITH CHECK`, `authenticated` role only).
   Server-side tenant isolation is sound.
@@ -428,7 +438,7 @@ Roadmap claims checked against the codebase rather than against memory.
 | 1 | **Journal is not durable** | 🔴 High | `studio-os:journal-entries` is localStorage-only. No cloud table, no sheet sync, not in export. Clearing browser data destroys every entry irrecoverably. Directly contradicts the promise at the top of this file. |
 | 2 | ~~**`allClear` ignores undelivered work**~~ | ✅ **Fixed** | `allClear` now includes `awaitingDelivery`. The enabling piece is `DeliveryPrompt` — completion announces `studio-os:delivery-prompt` from the single `completeTask` choke point in `store.tsx` (completion fires from 8 surfaces, so a per-call-site prompt would have been 8 chances to forget), and one listener in the app layout renders it. "Not yet" is a legitimate answer, not a failure state. |
 | 3 | ~~**`weekRange()` ignores injected `now`**~~ | ✅ **Fixed** | `weekRange`, `weekKey`, and both duplicate `dateWithOffset` implementations (`week.ts`, `do-plan.ts`) plus `dateKeyFromOffset` now take an optional `now`, threaded through `weekTrustCheck`. Backward-compatible across all 22 call sites. Also fixed `isoDate()` using `toISOString()`, which reported the previous day for any timezone east of Greenwich — latent until the first non-Americas user. |
-| 4 | ~~**Failing tests**~~ | ✅ **Fixed** | `274/274` pass. |
+| 4 | ~~**Failing tests**~~ | ✅ **Fixed** | `303/303` pass. |
 | 8 | **Hydration mismatch on every page** | 🟡 Low | The inline theme script in `app/layout.tsx` sets `data-theme` before React hydrates, so server and client HTML disagree and React logs a hydration error on every load. Cosmetic today, but it means the console is never clean — which makes a *real* error easy to miss. |
 | 5 | ~~**No error boundaries**~~ | ✅ **Fixed** | Added `(app)/error.tsx`, `global-error.tsx`, `not-found.tsx`. `global-error` uses inline styles deliberately — if the stylesheet is what broke, token-based markup would render invisible. All three state plainly that a render failure is not a data failure. |
 | 6 | **localStorage survives sign-out** | 🟠 Medium | `AccountSection.signOut()` calls `supabase.auth.signOut()` only. Combined with `CloudSyncBridge`'s `seedLocalOnlyUp` on first pull, a second account signing in on the same browser inherits the previous user's local rows *and uploads them into their own cloud vault*. Single-user today; a hard blocker for any second user. |
