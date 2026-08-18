@@ -1,6 +1,6 @@
 # Studio OS — Build Roadmap
 
-*Last updated: August 18, 2026 (DoPlan/deadline absolute-dateKey refactor committed; trust-core, multi-mode day focus, Habits, session nudges, delivery prompts now committed after being at risk of loss — see below)*  
+*Last updated: August 18, 2026 (full app-wide audit — every route, feature claim, and localStorage key checked against the actual code, not memory)*  
 *Single source of truth — what's live, what's next, and why it's ordered the way it is.*
 
 ---
@@ -18,7 +18,7 @@ Studio OS is an external brain for an autistic musician managing parallel commit
 ### App shell
 - Next.js 16, Tailwind v4, local-first (localStorage), optional Google Sheet sync, optional Supabase cloud sync
 - Deployed to **studio-os-246.netlify.app** — ⚠️ **manual deploy only**, not auto-deploy from `main`. Verified Aug 17, 2026: the Netlify site has no GitHub deploy hook or build_settings configured (`netlify api getSite` → `deploy_hook: null`, `build_settings: {}`). The documented "Deploy" command below (`netlify-cli deploy --prod`) is the only way changes go live — pushing to GitHub alone does nothing.
-- ⚠️ **Local working tree can drift far ahead of both git and the live site.** As of Aug 17, 2026 a large amount of work described as done elsewhere in this doc (Trust Core, nudges, delivery prompt, error boundaries, settings-merge, defer-today, etc. — `src/lib/trust/`, `src/lib/nudges.ts`, `src/components/TrustPanel.tsx`, `src/components/DeliveryPrompt.tsx`, and ~50 more files) was **never committed**, so it was never deployed either. Before trusting any "✅ Live" claim in this doc, check `git status` — if the file isn't committed, it isn't live.
+- ⚠️ **Git status as of Aug 18, 2026: everything below is committed to branch `claude/vigilant-yonath-e0d8d2`, but `main` has not been fast-forwarded to it yet, and neither has been deployed.** The Aug 17 incident (a large amount of work — Trust Core, nudges, delivery prompt, error boundaries, settings-merge, defer-today, Habits, multi-mode day focus, session nudges — sitting uncommitted, one `git stash drop` away from total loss) is resolved: everything was recovered and merged. Before trusting any "✅ Live" claim in this doc, confirm which branch you're actually running — `git log -1` — since "committed" and "on `main`" and "deployed" are three different, currently-different things.
 - **Dark mode** — system auto (time-based: light 7am–8pm, dark otherwise), manual ☀︎/Auto/☽ toggle in sidebar
 - **Source Serif 4** loaded via Next.js font pipeline (used in Journal compose)
 
@@ -29,7 +29,7 @@ Studio OS is an external brain for an autistic musician managing parallel commit
 | `/today` | Today (mode bench, captures, day shape) | ✅ Live |
 | `/journal` | Journal (list, calendar, compose, detail) | ✅ Live |
 | `/practice` | Practice — personal hypermobility routine tracker (Daily/Stability/Mobility + Notes, per-item timers, weekly compliance grid, feel log) | ✅ Live — deployed to production Aug 17, 2026 |
-| `/habits` | Habits — general, user-editable habit tracker (Break resets / Routines, weekly target, 7-day history, archive/restore) | ⚠️ Built + verified locally, **not committed, not deployed** |
+| `/habits` | Habits — general, user-editable habit tracker (Break resets / Routines, weekly target, 7-day history, archive/restore) | ✅ Live (committed Aug 18, 2026) |
 | `/tasks` | Tasks Lot (5 lenses + search) | ✅ Live |
 | `/inbox` | Inbox + smart capture parse | ✅ Live |
 | `/projects` | Projects index + room | ✅ Partial (no sheet project write) |
@@ -38,6 +38,8 @@ Studio OS is an external brain for an autistic musician managing parallel commit
 | `/archive` | Archive wing (Shelf → Logbook → Recipes) | ✅ Live |
 | `/settings` | Settings (week start, life areas, sheet/calendar connect) | ✅ Partial |
 | `/logbook` | Logbook diary | ✅ Live |
+
+Not in the table above (deliberately — pre-auth infrastructure, not app screens): `/login`, `/auth/google-start`, `/auth/google-token`, `/auth/callback`. Also not in the table: `/design/*` (7 wireframe routes — see Source layout below, ignore for functional review). `/goals` does **not** exist as a route at all (the directory was fully removed at some point — see "Missing / partial features").
 
 ### Features by sprint
 
@@ -57,12 +59,15 @@ Studio OS is an external brain for an autistic musician managing parallel commit
 - **AI morning briefing** — `/api/briefing` endpoint (Gemini-powered), daily summary
 - **Quick capture** — `/api/capture` endpoint + share-sheet integration
 - **Export** — data export from Settings
-- **Trust Core (Layer 7A)** — `src/lib/trust/` — completeness invariant, commitment tracking, handoff risk, delivery loop:
+- **Trust Core (Layer 7A)** — `src/lib/trust/` (`completeness.ts`, `commitments.ts`, `summary.ts`, `week-check.ts`, `delivery-prompt.ts`) — completeness invariant, commitment tracking, handoff risk, delivery loop. Live and wired: `TrustPanel` on Dashboard, `week-check.ts` inside `WeekPlanningOverlay.tsx`, `delivery-prompt.ts` mounted globally in `(app)/layout.tsx`:
   - Every active task is either *triggered* (has a return date) or *dormant* (parked, swept at review) — never lost
   - `TrustPanel` on Dashboard surfaces only genuine risks — not dormant work
   - Done tasks with an undelivered person show a quiet "sent ✓" row (not counted in "things need you")
   - `allClear` triggers only when nothing genuinely needs you
-- **Nudges** — `src/lib/nudges.ts` — unplanned day nudge, defer-today logic
+  - **Recurring obligations are wired into completeness** — `completeness.ts` calls `nextOccurrenceOffset` so a recurring task always has a trigger and can never go dormant. This closes a gap `TRUST-CORE.md` §10 flagged as "confirmed for v1" and not yet built as of July 26.
+  - **`waitingOn.direction` exists** (`WaitingDirection` on `Task`) — the other §10 "confirmed for v1" gap. Distinguishes "I'm blocked on them" from "they're waiting on me" (a protected commitment).
+  - Week planning's trust check (`week-check.ts`) runs over *all* tasks, not just already-approved ones, and warns (never blocks) on un-approving a commitment — items 1 and 3 of the `TRUST-CORE.md` §6 "Week planning integration" table. Items 2/4/5/6 (window counting, mode-sufficiency, whole-week feasibility) are still open — they need server-side calendar access, which isn't built.
+- **Nudges** — `src/lib/nudges.ts` — unplanned day nudge, wired into task cards/detail sheet
 - **Journal section** — `/journal` route:
   - List view grouped by Today / Yesterday / This week / Earlier
   - Calendar view with mood dots
@@ -75,12 +80,14 @@ Studio OS is an external brain for an autistic musician managing parallel commit
   - Daily / Stability / Mobility tabs, each with items, per-item multi-phase countdown timers (Web Audio beep, screen wake lock while running), weekly compliance grid (per-track target vs. actual, capped at "this week"), and a Notes/reference tab with a JSON export button
   - Fully self-contained and device-only (own localStorage key, not synced to Sheet/Supabase/global export), same posture as Journal
   - Participates in the app's existing light/dark theme system via new `--color-track-*` tokens in `globals.css`, rather than the original's hardcoded dark theme
-- **Habits system** — ⚠️ **built + locally verified, uncommitted, not deployed.** `/habits` route, `src/lib/habits.ts` + `src/components/HabitsView.tsx`:
+- **Multi-mode day focus** — `src/lib/week-focus.ts` (`DayFocus` gained a `{kind: "modes", ids: string[]}` variant alongside the legacy single-`mode` and `project` kinds; `normalizeDayFocus` upgrades old single-mode data on read). Week planning (`DayPlanningPanel.tsx`) now lets a day be stamped with *several* work modes by clicking more than one mode chip (`toggleModeFocus`), not just one — a task matches the day if its mode is any of the stamped set (`taskMatchesFocus`). This is the "work-mode days should be load-bearing, not decorative" direction from `TRUST-CORE.md` §3.1.
+- **Today-bench Defer** — `src/lib/defer-today.ts`, wired into `TodayView.tsx` and the "Defer" button on `TaskCard.tsx`. Distinct from the older "needs-reply" defer: clicking Defer on a Today task clears it from today's bench and re-aims its `doPlan` at the next day *this week* whose stamped focus matches the task's mode or project (`resurfaceFocusForTask` + `nextMatchingFocusDayOffset`) — so it quietly resurfaces on a matching day without another trip through the planning wizard. Deferred ids are tracked per-day (`WeekDayFocusEntry.deferredTaskIds`) so a deferred task drops off today's mode bench but stays approval-eligible.
+- **Habits system** — `/habits` route, `src/lib/habits.ts` + `src/components/HabitsView.tsx`:
   - A real, general, user-editable habit tracker — deliberately separate from Practice (no shared data model, Practice stays hardcoded/personal)
   - Habits have a `type: "break" | "routine"`; break-type habits are what the session nudge banner (below) suggests mid-session
   - Add/edit/archive/restore, check off today, optional weekly target, 7-day history dot strip, empty-state suggestion chips for common break activities
   - Own localStorage key, device-only, same posture as Journal/Practice
-- **Session timer + transition warning + break-habit loop** — ⚠️ **core built + locally verified, uncommitted, not deployed. Push/Supabase portion not yet started.**
+- **Session timer + transition warning + break-habit loop** — core is committed and live. **Push/Supabase send-side portion not yet started** (see below).
   - `src/lib/sessions.ts` — `ActiveSession` gained optional timed fields (`targetDurationMs`, `warnBeforeMs`, one-shot `warningFiredAtIso`/`timesUpFiredAtIso`) and ambient fields (`ambientThresholdMs`, `ambientRepeatMs`, `ambientLastFiredAtIso`, `ambientAcknowledgedAtIso`) — kept separate because timed nudges fire once, ambient ones repeat until acknowledged
   - `src/lib/session-nudge.ts` — pure timing logic (`timedNudgeDue`, `ambientNudgeDue`, `msUntilNext*`), unit tested
   - `src/components/SessionStartSheet.tsx` — "Sit with this" now always opens a duration picker (quick-pick chips seeded from `duration-memory.ts` history + generic 25/45/90m, warn-before selector, one-tap "No timer, just start")
@@ -102,10 +109,15 @@ Studio OS is an external brain for an autistic musician managing parallel commit
 | `studio-os.activityLog.v1` | Sessions, completions, day-close retro |
 | `studio-os.logbook.v1` | Logbook lines by date |
 | `studio-os.recipes.v1` | Release recipes |
-| `studio-os.settings.v2` | Week start, week planning, life areas, nudges |
+| `studio-os.settings.v2` | Week start, week planning record, life areas, contacts, `planningDeclinedAt`, `unplannedNudgeDismissedIds`, plus session-timer fields (`defaultSessionWarnBeforeMs`, `ambientHyperfocusThresholdMs`, `ambientHyperfocusRepeatMs`) |
 | `studio-os.activeSession.v1` | In-progress Work View session — now also carries optional timer/warning fields and ambient-nudge state |
-| `studio-os.project-links.v2` | Project Drive links + local project meta |
+| `studio-os.project-links.v2` | Project Drive links + local project meta (v1 also exists, read-only, kept solely so v1→v2 migration can run once) |
+| `studio-os.project-meta.v1` | Local project metadata overrides — created/hidden projects |
+| `studio-os.sheet-projects.v1` | Projects synced from the Sheet's `_AppData` tab |
 | `studio-os.today-captures` | Today capture chips |
+| `studio-os.today-shape-day.v1` | Today's "shape day" panel expanded/collapsed toggle |
+| `studio-os.onboarding-card.v1` | Dismissal state for the dashboard onboarding card |
+| `studio-os.life-areas-handoff.v1` | One-shot marker consumed by a July 2026 life-areas data repair — safe to ignore |
 | `studio-os.sheet.v1` | Sheet connection metadata |
 | `studio-os.gcal-events.v1` | Cached calendar events (when connected) |
 | `studio-os:journal-entries` | Journal entries (text, html, mood, source, date) — ⚠️ **device-only, never synced or exported** |
@@ -113,7 +125,7 @@ Studio OS is an external brain for an autistic musician managing parallel commit
 | `studio-os.habits.v1` | Habits — habit list + daily checks, keyed by date — ⚠️ **device-only, never synced or exported** |
 | `studio-os:theme` | Theme preference (light / dark / system) |
 | `studio-os.data-source.v1` | Vault ownership — `local` / `sheet` / `cloud` |
-| `studio-os.google-*` | Google OAuth tokens + opt-outs |
+| `studio-os.google-*` | Google OAuth tokens + opt-outs — one token/opt-out pair per service (calendar, drive, sheets, contacts) plus a newer unified pair; `google-oauth-pending*` and `google-oauth-done.v1` are transient flow state, not user data |
 
 **Sheet connected:** Tasks, reviews, activity log, logbook, and recipes also sync via the `_AppData` tab on your linked Google Sheet.  
 **Supabase:** Auth session (cookie) + cloud push queue when configured.
@@ -176,7 +188,7 @@ that sounds, for one specific reason:
 `"use client"`, state lives in localStorage, and the trust core is pure functions in
 `src/lib/`. Those port to Astro islands close to unchanged. The genuinely server-shaped
 surface is small: 5 API routes (`briefing`, `capture`, 3 Google OAuth) and the auth
-guard in `src/proxy.ts`. **`src/lib/` — the whole trust core, 39 test files, 274 tests —
+guard in `src/proxy.ts`. **`src/lib/` — the whole trust core, 42 test files, 303 tests —
 should survive the port intact.** That is the bulk of the actual thinking in this repo.
 
 ### ⚠️ The one thing that gets *worse*: no RLS
@@ -323,7 +335,7 @@ Ordered so the risky, decision-heavy work happens before the volume work.
 | 1.0 | **Design the scoped-query mechanism** | The no-RLS problem above. Must make an unscoped query unwriteable. Nothing else starts until this exists. |
 | 1.1 | Port the D1 schema | 7 `sos_*` tables, Postgres → SQLite. Watch types: no native `jsonb`, no `timestamptz`. Migrations live in `apps/studio-os/migrations/`. |
 | 1.2 | Stand up `apps/studio-os` — Astro + `@astrojs/react` + Cloudflare, wired to authstar | Follow `apps/portal` for auth/D1/wrangler/middleware. First React app in the monorepo. |
-| 1.3 | Move `src/lib/` across intact | The trust core + 274 tests. Should be near-lift-and-shift; treat any test that *needs* changing as a signal something was framework-coupled that shouldn't have been. |
+| 1.3 | Move `src/lib/` across intact | The trust core + 303 tests. Should be near-lift-and-shift; treat any test that *needs* changing as a signal something was framework-coupled that shouldn't have been. |
 | 1.4 | Mount the app as one `client:only="react"` island + client-side router | Not a page-by-page island port — see the context constraint above. Replaces Next's file routing. |
 | 1.5 | Rewrite the 5 API routes as Astro endpoints | Narrow the Google OAuth scopes here (Phase 2) rather than porting `drive.readonly` forward. |
 | 1.6 | Replace `src/proxy.ts` guard with Astro middleware | Drop `SKIP_AUTH` entirely — don't port known issue 7. |
@@ -404,7 +416,7 @@ Deferred behind the market-readiness phases above. Can be built in parallel once
 | Journal → day-close / weekly review auto-pull | ⚠️ Plumbing only | Source badge renders but pull logic is not wired |
 | Journal voice capture | ❌ Not built | Button present in design, omitted from implementation |
 | Journal edit existing entry | ❌ Not built | Delete works; edit opens task detail but doesn't save |
-| Goals screen | ❌ Not built | `src/app/(app)/goals/` exists but holds no `page.tsx` — the route does not build or resolve |
+| Goals screen | ❌ Not built | `src/app/(app)/goals/` does not exist at all (removed at some point, not merely missing a `page.tsx`) — `/goals` 404s |
 | Settings — full sheet project write | ❌ Not built | |
 | Push notification scheduling (not just registration) | ⚠️ Partial | Queue exists; daily trigger timing TBD |
 
@@ -423,6 +435,19 @@ error boundaries — came within one `git stash drop` of being lost entirely; it
 recovered and merged. Both efforts had independently built the same dateKey design; the
 more defensive version (validates malformed data instead of propagating `NaN`) was kept.
 `303/303` tests pass, `tsc --noEmit` is clean, production build succeeds.
+
+**August 18 follow-up — full app-wide audit.** Every route, every row of the "Missing /
+partial features" table below, and every localStorage key were checked directly against
+the code (not against this doc's own prior claims). Findings: the nav table and the
+12-row features table were both still accurate except `/habits` (now live, doc said
+uncommitted — fixed above) and the `/goals` wording (the directory doesn't exist at all,
+not "exists but no page.tsx" — fixed above). **No orphaned code** — every file recovered
+in the Aug 18 merge (trust core, nudges, defer-today, habits, session nudges, delivery
+prompt, settings-merge, audio-cue) is imported and reachable from a live route or
+globally mounted; nothing is dead weight. Two real features were undocumented until now:
+multi-mode day focus and Today-bench Defer (both added above). The localStorage table
+was missing 6 real keys (added above) — the rest of the gap was Google OAuth keys
+already covered by the `studio-os.google-*` wildcard.
 
 **Green:**
 - `npm run build` passes clean; 33 routes generate (added `/habits`).

@@ -8,7 +8,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 **Start here:** [`docs/REVIEW_GUIDE.md`](docs/REVIEW_GUIDE.md) — local storage, architecture map, test commands.
 
-**Roadmap:** [`docs/BUILD_ROADMAP.md`](docs/BUILD_ROADMAP.md) — Layers 1–6 shipped; Layer 7 (Daylight) is next.
+**Roadmap:** [`docs/BUILD_ROADMAP.md`](docs/BUILD_ROADMAP.md) — Layers 1–6 and 7A (Trust Core) shipped; next priority is the Duvet Department port (Astro/Cloudflare/D1), not Layer 7B (Daylight/visual polish) — that's deferred to last. Check `git log -1` before trusting any "shipped" claim: this repo's local working tree has a history of drifting ahead of what's committed.
 
 **Sprint specs (all DONE):** `docs/SPRINT-A.md` … `docs/SPRINT-E.md`
 
@@ -22,6 +22,8 @@ This version has breaking changes — APIs, conventions, and file structure may 
 ## Current state
 
 Sprints A–E shipped: timestamps, sessions, waiting-on, archive wing, duration memory, Day Ledger, day-close with yesterday note. Weekly Review uses a wide collapsible 3-column board layout.
+
+Also shipped (Layer 7A): Trust Core (`src/lib/trust/` — completeness invariant, commitment/handoff tracking, delivery loop, week-check), multi-mode day focus (a day can be stamped with several work modes), Today-bench Defer, Habits tracker (`/habits`), session timer + transition warnings + break-habit nudges, Practice tracker (`/practice`), Journal (`/journal`). 303/303 tests pass. Full detail in `docs/BUILD_ROADMAP.md`.
 
 ## End-of-session rule
 
