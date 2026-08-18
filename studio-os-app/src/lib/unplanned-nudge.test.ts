@@ -3,7 +3,6 @@ import { shouldShowUnplannedNudge, unplannedModeTasks } from "./unplanned-nudge"
 import { taskOnTodayModeBench } from "./week-focus";
 import { dayPlan } from "./do-plan";
 import type { Task } from "./types";
-import { dayPlan } from "./do-plan";
 
 const task = (
   id: string,

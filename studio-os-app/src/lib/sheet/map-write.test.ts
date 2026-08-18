@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { taskToSheetRow, isSheetTaskId } from "./map-write";
 import { dayPlan } from "@/lib/do-plan";
 import type { Task } from "@/lib/types";
-import { dayPlan } from "@/lib/do-plan";
 
 const PROJECTS = [
   { id: "proj-1", name: "Spring EP", lifeAreaId: "music", why: null },
