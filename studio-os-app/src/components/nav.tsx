@@ -42,6 +42,11 @@ export const BOTTOM_NAV: NavItem[] = [
   { href: "/weekly-review", label: "Review", icon: ReviewIcon },
 ];
 
+/** Everything else, surfaced behind the mobile bottom bar's "More" sheet. */
+export const MORE_NAV: NavItem[] = SIDEBAR_NAV.filter(
+  (item) => !BOTTOM_NAV.some((b) => b.href === item.href)
+);
+
 export function isActive(pathname: string, href: string): boolean {
   return href === "/" ? pathname === "/" : pathname.startsWith(href);
 }

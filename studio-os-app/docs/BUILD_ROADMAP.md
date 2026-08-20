@@ -1,6 +1,6 @@
 # Studio OS — Build Roadmap
 
-*Last updated: August 18, 2026 (full app-wide audit — every route, feature claim, and localStorage key checked against the actual code, not memory)*  
+*Last updated: August 20, 2026 (mobile bottom nav "More" sheet added)*  
 *Single source of truth — what's live, what's next, and why it's ordered the way it is.*
 
 ---
@@ -21,6 +21,7 @@ Studio OS is an external brain for an autistic musician managing parallel commit
 - ⚠️ **Git status as of Aug 18, 2026: everything below is committed to branch `claude/vigilant-yonath-e0d8d2`, but `main` has not been fast-forwarded to it yet, and neither has been deployed.** The Aug 17 incident (a large amount of work — Trust Core, nudges, delivery prompt, error boundaries, settings-merge, defer-today, Habits, multi-mode day focus, session nudges — sitting uncommitted, one `git stash drop` away from total loss) is resolved: everything was recovered and merged. Before trusting any "✅ Live" claim in this doc, confirm which branch you're actually running — `git log -1` — since "committed" and "on `main`" and "deployed" are three different, currently-different things.
 - **Dark mode** — system auto (time-based: light 7am–8pm, dark otherwise), manual ☀︎/Auto/☽ toggle in sidebar
 - **Source Serif 4** loaded via Next.js font pipeline (used in Journal compose)
+- **Mobile nav** — bottom bar (`BottomNav.tsx`) only ever showed 4 of the 11 sidebar routes (Today, Tasks, Projects, Weekly Review); Journal, Practice, Habits, Dashboard, Inbox, Archive, and Settings were unreachable on mobile. Fixed Aug 20, 2026: added a "More" tab (6th slot in the bottom bar) that opens a bottom sheet listing every `SIDEBAR_NAV` route not already pinned to the bar (`MORE_NAV` in `nav.tsx`) — so adding a new top-level route no longer requires remembering to also wire up mobile.
 
 ### Navigation
 | Route | Screen | Status |
