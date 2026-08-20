@@ -281,11 +281,29 @@ export function countFocusDays(draft: WeekFocusDraft): number {
   return Object.values(draft.days).filter((d) => normalizeDayFocus(d.focus) !== null).length;
 }
 
+/**
+ * True once a task's own doing-date or deadline has arrived (today or overdue).
+ * These always belong in Today — even when nobody explicitly added the task
+ * and its work mode doesn't match today's stamp — so a "Doing: Today" or a
+ * deadline of today can't silently fall through a mismatched day mode.
+ */
+export function taskHasArrivedToday(task: Task): boolean {
+  const doOffset = doPlanDayOffset(task.doPlan);
+  if (doOffset !== null && doOffset <= 0) return true;
+  return task.deadlineInDays !== null && task.deadlineInDays <= 0;
+}
+
 export function partitionInTodayByFocus(
   tasks: Task[],
-  focus: DayFocus | null
+  focus: DayFocus | null,
+  deferredIds: Set<string> = new Set()
 ): { inFocus: Task[]; outsideFocus: Task[] } {
-  const inToday = tasks.filter((t) => t.inToday && t.status !== "done" && !isWaitingTask(t));
+  const inToday = tasks.filter(
+    (t) =>
+      (t.inToday || (taskHasArrivedToday(t) && !deferredIds.has(t.id))) &&
+      t.status !== "done" &&
+      !isWaitingTask(t)
+  );
   if (!focus) return { inFocus: inToday, outsideFocus: [] };
   const inFocus: Task[] = [];
   const outsideFocus: Task[] = [];

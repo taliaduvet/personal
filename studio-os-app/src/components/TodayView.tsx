@@ -12,6 +12,7 @@ import {
   focusLabel,
   mergeWeekFocusDraft,
   partitionInTodayByFocus,
+  taskHasArrivedToday,
   tasksForTodayModeBench,
   todayFocusEntry,
   weekDaySlots,
@@ -133,18 +134,23 @@ export function TodayView() {
   }, [all, todayFocus.focus, weekStartsOn, approved, deferredToday]);
 
   const { outsideFocus: alsoToday } = useMemo(
-    () => partitionInTodayByFocus(all, todayFocus.focus),
-    [all, todayFocus.focus]
+    () => partitionInTodayByFocus(all, todayFocus.focus, deferredToday),
+    [all, todayFocus.focus, deferredToday]
+  );
+
+  const isSurfacedToday = useCallback(
+    (t: Task) => t.inToday || (taskHasArrivedToday(t) && !deferredToday.has(t.id)),
+    [deferredToday]
   );
 
   const openDayTasks = useMemo(
-    () => all.filter((t) => t.inToday && t.status !== "done" && !isWaitingTask(t)),
-    [all]
+    () => all.filter((t) => isSurfacedToday(t) && t.status !== "done" && !isWaitingTask(t)),
+    [all, isSurfacedToday]
   );
 
   const openDayTasksByArea = useMemo(() => {
     const map: Record<string, Task[]> = {};
-    const active = all.filter((t) => t.status !== "done" && !t.inToday);
+    const active = all.filter((t) => t.status !== "done" && !isSurfacedToday(t));
     for (const t of active) {
       if (!t.lifeAreaId) continue;
       if (!map[t.lifeAreaId]) map[t.lifeAreaId] = [];

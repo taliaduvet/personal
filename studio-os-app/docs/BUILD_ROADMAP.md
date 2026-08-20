@@ -1,6 +1,6 @@
 # Studio OS — Build Roadmap
 
-*Last updated: August 20, 2026 (mobile bottom nav "More" sheet added)*  
+*Last updated: August 20, 2026 (mobile bottom nav "More" sheet; Today no longer drops doing-today/deadline-today tasks in a mismatched day mode)*  
 *Single source of truth — what's live, what's next, and why it's ordered the way it is.*
 
 ---
@@ -22,6 +22,7 @@ Studio OS is an external brain for an autistic musician managing parallel commit
 - **Dark mode** — system auto (time-based: light 7am–8pm, dark otherwise), manual ☀︎/Auto/☽ toggle in sidebar
 - **Source Serif 4** loaded via Next.js font pipeline (used in Journal compose)
 - **Mobile nav** — bottom bar (`BottomNav.tsx`) only ever showed 4 of the 11 sidebar routes (Today, Tasks, Projects, Weekly Review); Journal, Practice, Habits, Dashboard, Inbox, Archive, and Settings were unreachable on mobile. Fixed Aug 20, 2026: added a "More" tab (6th slot in the bottom bar) that opens a bottom sheet listing every `SIDEBAR_NAV` route not already pinned to the bar (`MORE_NAV` in `nav.tsx`) — so adding a new top-level route no longer requires remembering to also wire up mobile.
+- **Today completeness gap (mode day)** — on a mode day, a task whose "Doing" date or deadline is today (or overdue) only surfaced if it happened to match today's stamped mode(s), or was manually added via "Add to Today". A task in a mode outside today's stamp (e.g. an Errands task due today, on a Creative day) silently never appeared anywhere on Today. Fixed Aug 20, 2026: added `taskHasArrivedToday()` (`src/lib/week-focus.ts`) — true when `doPlan` is today-or-earlier or `deadlineInDays <= 0` — and used it to broaden both `partitionInTodayByFocus` ("Also today") and the open-day bench (`TodayView.tsx`) so arrived tasks always surface regardless of mode match, while still respecting an explicit Today-bench Defer for that day.
 
 ### Navigation
 | Route | Screen | Status |
