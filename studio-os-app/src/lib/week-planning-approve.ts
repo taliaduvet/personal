@@ -39,9 +39,9 @@ export function tasksForLifeArea(tasks: Task[], areaId: string): Task[] {
 }
 
 /** Sensible first-pass approval: in progress, carried, deadlines this week. */
-export function defaultApprovedTaskIds(tasks: Task[], weekStartsOn: WeekStartDay): string[] {
-  const { start, end } = weekRange(weekStartsOn, 0);
-  const carried = new Set(carryOver(tasks, weekStartsOn, 0).map((t) => t.id));
+export function defaultApprovedTaskIds(tasks: Task[], weekStartsOn: WeekStartDay, weekOffset = 0): string[] {
+  const { start, end } = weekRange(weekStartsOn, weekOffset);
+  const carried = new Set(carryOver(tasks, weekStartsOn, weekOffset).map((t) => t.id));
   return tasks
     .filter((t) => {
       if (t.status === "done") return false;
@@ -97,10 +97,11 @@ export function trustCheckLines(
   approvedIds: string[],
   draft: WeekFocusDraft,
   slots: WeekDaySlot[],
-  weekStartsOn: WeekStartDay
+  weekStartsOn: WeekStartDay,
+  weekOffset = 0
 ): TrustCheckLine[] {
   const set = new Set(approvedIds);
-  const { start, end } = weekRange(weekStartsOn, 0);
+  const { start, end } = weekRange(weekStartsOn, weekOffset);
   const urgent = tasks.filter(
     (t) =>
       set.has(t.id) &&

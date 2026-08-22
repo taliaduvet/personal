@@ -55,6 +55,8 @@ type Props = {
   initialDraft: WeekFocusDraft;
   initialStep?: WizardStep;
   intentionReminder?: string;
+  /** 0 = this week (default), 1 = next week. */
+  weekOffset?: number;
   onDone: (draft: WeekFocusDraft) => void;
 };
 
@@ -64,6 +66,7 @@ export function WeekPlanningOverlay({
   initialDraft,
   initialStep = 1,
   intentionReminder,
+  weekOffset = 0,
   onDone,
 }: Props) {
   const { tasks, openQuickEdit, quickEditId } = useTasks();
@@ -76,8 +79,8 @@ export function WeekPlanningOverlay({
   const [selectedDateKeys, setSelectedDateKeys] = useState<string[]>([]);
   const wasOpenRef = useRef(false);
 
-  const slots = useMemo(() => weekDaySlots(weekStartsOn), [weekStartsOn]);
-  const range = useMemo(() => weekRange(weekStartsOn, 0), [weekStartsOn]);
+  const slots = useMemo(() => weekDaySlots(weekStartsOn, weekOffset), [weekStartsOn, weekOffset]);
+  const range = useMemo(() => weekRange(weekStartsOn, weekOffset), [weekStartsOn, weekOffset]);
 
   // Only re-hydrate when the overlay opens — not when tasks refresh mid-plan
   // (that was wiping stacked modes before Lock).
@@ -117,14 +120,14 @@ export function WeekPlanningOverlay({
     [tasks, draft.approvedTaskIds]
   );
   const trustLines = useMemo(
-    () => trustCheckLines(tasks, draft.approvedTaskIds, draft, slots, weekStartsOn),
-    [tasks, draft.approvedTaskIds, draft, slots, weekStartsOn]
+    () => trustCheckLines(tasks, draft.approvedTaskIds, draft, slots, weekStartsOn, weekOffset),
+    [tasks, draft.approvedTaskIds, draft, slots, weekStartsOn, weekOffset]
   );
   // Runs over ALL tasks, not just approved ones — the point is to catch the
   // commitment you forgot to tick (docs/TRUST-CORE.md §6).
   const weekCheck = useMemo(
-    () => weekTrustCheck(tasks, draft.approvedTaskIds, weekStartsOn),
-    [tasks, draft.approvedTaskIds, weekStartsOn]
+    () => weekTrustCheck(tasks, draft.approvedTaskIds, weekStartsOn, undefined, weekOffset),
+    [tasks, draft.approvedTaskIds, weekStartsOn, weekOffset]
   );
   const deadlineDots = useMemo(
     () => deadlineDotsByDay(tasks, draft.approvedTaskIds, slots),
@@ -218,7 +221,9 @@ export function WeekPlanningOverlay({
       <header className="shrink-0 border-b border-border bg-surface px-4 py-3">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-3">
           <div>
-            <h2 className="font-display text-lg font-semibold text-ink">Plan your week</h2>
+            <h2 className="font-display text-lg font-semibold text-ink">
+              {weekOffset === 0 ? "Plan your week" : "Plan next week"}
+            </h2>
             <p className="text-xs text-muted">
               {range.label} · step {step} of 4
             </p>
@@ -236,6 +241,7 @@ export function WeekPlanningOverlay({
             <ReceiptStep
               tasks={tasks}
               weekStartsOn={weekStartsOn}
+              weekOffset={weekOffset}
               lifeAreas={lifeAreas}
               onOpenTask={openQuickEdit}
             />
@@ -318,7 +324,7 @@ export function WeekPlanningOverlay({
         {step === 2 && (
           <p className="mx-auto mt-2 max-w-3xl text-center text-xs text-muted">
             <strong className="text-ink">{approvedCount}</strong> task{approvedCount !== 1 ? "s" : ""} approved for
-            this week
+            {weekOffset === 0 ? " this week" : " next week"}
           </p>
         )}
       </footer>
@@ -347,29 +353,35 @@ function WizardNav({ current }: { current: WizardStep }) {
 function ReceiptStep({
   tasks,
   weekStartsOn,
+  weekOffset,
   lifeAreas,
   onOpenTask,
 }: {
   tasks: Task[];
   weekStartsOn: import("@/lib/week").WeekStartDay;
+  weekOffset: number;
   lifeAreas: { id: string; name: string; color: string }[];
   onOpenTask: (id: string) => void;
 }) {
-  const shipped = useMemo(() => shippedThisWeek(tasks, weekStartsOn, -1), [tasks, weekStartsOn]);
-  const carried = useMemo(() => carryOver(tasks, weekStartsOn, 0), [tasks, weekStartsOn]);
-  const balance = useMemo(() => lifeBalanceWeek(tasks, weekStartsOn, -1), [tasks, weekStartsOn]);
+  const shipped = useMemo(() => shippedThisWeek(tasks, weekStartsOn, weekOffset - 1), [tasks, weekStartsOn, weekOffset]);
+  const carried = useMemo(() => carryOver(tasks, weekStartsOn, weekOffset), [tasks, weekStartsOn, weekOffset]);
+  const balance = useMemo(() => lifeBalanceWeek(tasks, weekStartsOn, weekOffset - 1), [tasks, weekStartsOn, weekOffset]);
   const maxBalance = balance.reduce((m, r) => Math.max(m, r.shipped + r.active), 0) || 1;
 
   return (
     <>
       <section className="rounded-xl border border-border bg-surface p-4">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-faint">Last week · proof</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-faint">
+          {weekOffset === 0 ? "Last week · proof" : "This week so far · proof"}
+        </h3>
         <p className="mt-2 text-2xl font-semibold tabular-nums text-ink">{shipped.length}</p>
         <p className="text-sm text-muted">tasks shipped</p>
       </section>
 
       <section className="rounded-xl border border-border bg-surface p-4">
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-faint">Carried into this week</h3>
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-faint">
+          {weekOffset === 0 ? "Carried into this week" : "Carried into next week"}
+        </h3>
         {carried.length > 0 ? (
           <ul className="mt-3 space-y-1.5">
             {carried.slice(0, 6).map((t) => (
@@ -397,7 +409,9 @@ function ReceiptStep({
       {balance.length > 0 && (
         <section className="rounded-xl border border-border bg-surface p-4">
           <h3 className="text-xs font-semibold uppercase tracking-wide text-faint">Life balance mirror</h3>
-          <p className="mt-1 text-xs text-muted">Reflective only — which areas were loud or quiet last week.</p>
+          <p className="mt-1 text-xs text-muted">
+            Reflective only — which areas were loud or quiet {weekOffset === 0 ? "last week" : "this week so far"}.
+          </p>
           <div className="mt-3 space-y-2">
             {balance.map((r) => (
               <div key={r.id} className="flex items-center gap-3">

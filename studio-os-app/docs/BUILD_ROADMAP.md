@@ -1,6 +1,6 @@
 # Studio OS — Build Roadmap
 
-*Last updated: August 20, 2026 (mobile bottom nav "More" sheet; Today no longer drops doing-today/deadline-today tasks in a mismatched day mode)*  
+*Last updated: August 21, 2026 (plan next week independently of this week's locked plan)*  
 *Single source of truth — what's live, what's next, and why it's ordered the way it is.*
 
 ---
@@ -99,6 +99,7 @@ Not in the table above (deliberately — pre-auth infrastructure, not app screen
   - New `AppSettings` fields: `defaultSessionWarnBeforeMs`, `ambientHyperfocusThresholdMs`, `ambientHyperfocusRepeatMs`
   - Shared `src/lib/audio-cue.ts` beep helper, extracted out of Practice's timer so both use the identical cue
   - **Not yet built**: real server-sent push for the warning/times-up/ambient moments (reaching the user with the browser fully closed). Research found no send-side push infrastructure exists anywhere in this repo despite being described as shipped elsewhere in this doc — see Known issues below. A `reminders` table already exists live in Supabase with almost the right shape for this, and `pg_cron`/`pg_net` are already-installed extensions, but the migration, Edge Function, cron wiring, and a new VAPID key pair (no private key exists anywhere) are all still pending.
+- **Plan next week (independent of this week)** — the week-planning wizard was entirely hardcoded to `weekOffset 0`, so there was no way to shape next week ahead of time without re-opening this week's already-locked plan. `weekPlanning` storage was always keyed by the literal current week (`weekKey(weekStartsOn, 0)`) in `WeekPlanningLauncher.tsx`, and every helper it called (`weekDaySlots`, `computeWeekPlanningSummary`, `weekPlanningMode`, `defaultApprovedTaskIds`, `trustCheckLines`, `isCurrentWeekPlan`) silently assumed the same. Added an optional `weekOffset` param (default `0`, fully backward compatible) through all of those plus `WeekPlanningOverlay.tsx`'s receipt/trust-check calcs, and `PlanningOpenOptions.weekOffset` on `openPlanning()`. `WeekPlanningCard.tsx` (Dashboard) now has an always-visible "Plan next week →" / "Re-plan next week" row alongside the existing this-week card, independent of whether this week is locked. Storage was already keyed per-week (`Record<string, WeekPlanningRecord>`), so this week's record is untouched when next week's plan is saved — verified via localStorage inspection in the running app.
 
 ---
 

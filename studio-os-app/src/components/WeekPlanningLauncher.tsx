@@ -12,6 +12,8 @@ import { WeekPlanningOverlay } from "@/components/WeekPlanningOverlay";
 export type PlanningOpenOptions = {
   intentionReminder?: string;
   initialStep?: 1 | 2 | 3 | 4;
+  /** 0 = this week (default), 1 = next week. This week's plan is untouched either way. */
+  weekOffset?: number;
 };
 
 type LauncherContextValue = {
@@ -26,9 +28,10 @@ export function WeekPlanningLauncherProvider({ children }: { children: React.Rea
   const [open, setOpen] = useState(false);
   const [options, setOptions] = useState<PlanningOpenOptions>({});
 
-  const weekKeyNow = useMemo(() => weekKey(weekStartsOn, 0), [weekStartsOn]);
-  const slots = useMemo(() => weekDaySlots(weekStartsOn), [weekStartsOn]);
-  const record = weekPlanning[weekKeyNow];
+  const weekOffset = options.weekOffset ?? 0;
+  const targetWeekKey = useMemo(() => weekKey(weekStartsOn, weekOffset), [weekStartsOn, weekOffset]);
+  const slots = useMemo(() => weekDaySlots(weekStartsOn, weekOffset), [weekStartsOn, weekOffset]);
+  const record = weekPlanning[targetWeekKey];
 
   const initialDraft = useMemo(() => {
     const merged = mergeWeekFocusDraft(
@@ -44,10 +47,10 @@ export function WeekPlanningLauncherProvider({ children }: { children: React.Rea
       slots
     );
     if (merged.approvedTaskIds.length === 0) {
-      return { ...merged, approvedTaskIds: defaultApprovedTaskIds(tasks, weekStartsOn) };
+      return { ...merged, approvedTaskIds: defaultApprovedTaskIds(tasks, weekStartsOn, weekOffset) };
     }
     return merged;
-  }, [record, slots, tasks, weekStartsOn]);
+  }, [record, slots, tasks, weekStartsOn, weekOffset]);
 
   const openPlanning = useCallback((opts?: PlanningOpenOptions) => {
     setOptions(opts ?? {});
@@ -63,14 +66,14 @@ export function WeekPlanningLauncherProvider({ children }: { children: React.Rea
         ])
       );
       completeWeekPlanning(
-        weekKeyNow,
-        computeWeekPlanningSummary(tasks, weekStartsOn, countFocusDays(draft)),
+        targetWeekKey,
+        computeWeekPlanningSummary(tasks, weekStartsOn, countFocusDays(draft), weekOffset),
         { ...draft, days: normalizedDays }
       );
       setOpen(false);
       setOptions({});
     },
-    [completeWeekPlanning, tasks, weekKeyNow, weekStartsOn]
+    [completeWeekPlanning, tasks, targetWeekKey, weekStartsOn, weekOffset]
   );
 
   return (
@@ -85,6 +88,7 @@ export function WeekPlanningLauncherProvider({ children }: { children: React.Rea
         initialDraft={initialDraft}
         initialStep={options.initialStep ?? 1}
         intentionReminder={options.intentionReminder}
+        weekOffset={weekOffset}
         onDone={handleDone}
       />
     </WeekPlanningLauncherContext.Provider>

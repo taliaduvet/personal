@@ -55,8 +55,8 @@ export function dateKeyFromOffset(offset: number, now: Date = new Date()): strin
   return localDateKey(dateWithOffset(offset, now));
 }
 
-export function weekDaySlots(weekStartsOn: WeekStartDay): WeekDaySlot[] {
-  const { start, end } = weekRange(weekStartsOn, 0);
+export function weekDaySlots(weekStartsOn: WeekStartDay, weekOffset = 0): WeekDaySlot[] {
+  const { start, end } = weekRange(weekStartsOn, weekOffset);
   const slots: WeekDaySlot[] = [];
   for (let offset = start; offset <= end; offset++) {
     const d = dateWithOffset(offset);

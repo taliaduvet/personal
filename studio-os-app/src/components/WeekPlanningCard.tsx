@@ -29,6 +29,15 @@ export function WeekPlanningCard() {
   );
   const deadlines = useMemo(() => deadlinesInWeek(tasks, weekStartsOn), [tasks, weekStartsOn]);
 
+  const nextWeekKey = useMemo(() => weekKey(weekStartsOn, 1), [weekStartsOn]);
+  const nextWeekRange = useMemo(() => weekRange(weekStartsOn, 1), [weekStartsOn]);
+  const nextWeekRecord = weekPlanning[nextWeekKey];
+  const nextWeekMode = useMemo(
+    () => weekPlanningMode(tasks, weekStartsOn, weekPlanning, 1),
+    [tasks, weekStartsOn, weekPlanning]
+  );
+  const nextWeekShaped = nextWeekMode === "shaped" && nextWeekRecord;
+
   // Wait for settings so SSR defaults don't flash a different week strip than localStorage.
   const [ready, setReady] = useState(false);
   useEffect(() => {
@@ -152,6 +161,23 @@ export function WeekPlanningCard() {
           </p>
         </div>
       )}
+
+      <div className="border-t border-line px-4 py-2.5">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs text-muted">
+            {nextWeekShaped
+              ? `Next week planned · ${nextWeekRecord.summary.focusDays} mode day${nextWeekRecord.summary.focusDays !== 1 ? "s" : ""}`
+              : `Get a head start on ${nextWeekRange.label}`}
+          </p>
+          <button
+            type="button"
+            onClick={() => openPlanning({ weekOffset: 1 })}
+            className="shrink-0 text-xs font-semibold text-accent hover:underline"
+          >
+            {nextWeekShaped ? "Re-plan next week" : "Plan next week →"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

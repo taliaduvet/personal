@@ -155,9 +155,9 @@ function weekRangeForKey(weekStartKey: string, weekStartsOn: WeekStartDay) {
   return { start: offset, end: offset + 6, label: "", weekStartKey };
 }
 
-export function isCurrentWeekPlan(plan: DoPlan, weekStartsOn: WeekStartDay): boolean {
+export function isCurrentWeekPlan(plan: DoPlan, weekStartsOn: WeekStartDay, weekOffset = 0): boolean {
   if (plan?.kind !== "week") return false;
-  const { start, end } = weekRange(weekStartsOn, 0);
+  const { start, end } = weekRange(weekStartsOn, weekOffset);
   const planStart = doPlanSortKey(plan, weekStartsOn);
   return planStart !== null && planStart >= start && planStart <= end;
 }

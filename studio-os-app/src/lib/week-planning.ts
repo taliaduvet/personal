@@ -5,10 +5,10 @@ import { isDayInWeek, weekKey, weekRange } from "./week";
 import { dateWithOffset, doPlanDayOffset, doPlanSortKey, isCurrentWeekPlan } from "./do-plan";
 import { carryOver } from "./weekly-review";
 
-/** Active task with any doing plan that falls in the current week window. */
-export function isTaskInCurrentWeek(t: Task, weekStartsOn: WeekStartDay): boolean {
+/** Active task with any doing plan that falls in the target week window. */
+export function isTaskInCurrentWeek(t: Task, weekStartsOn: WeekStartDay, weekOffset = 0): boolean {
   if (t.status === "done" || t.doPlan == null) return false;
-  const { start, end } = weekRange(weekStartsOn, 0);
+  const { start, end } = weekRange(weekStartsOn, weekOffset);
   if (t.doPlan.kind === "week") {
     const planStart = doPlanSortKey(t.doPlan, weekStartsOn);
     return planStart !== null && planStart >= start && planStart <= end;
@@ -16,16 +16,16 @@ export function isTaskInCurrentWeek(t: Task, weekStartsOn: WeekStartDay): boolea
   return isDayInWeek(doPlanDayOffset(t.doPlan) ?? NaN, start, end);
 }
 
-export function tasksInCurrentWeek(tasks: Task[], weekStartsOn: WeekStartDay): Task[] {
-  return tasks.filter((t) => isTaskInCurrentWeek(t, weekStartsOn));
+export function tasksInCurrentWeek(tasks: Task[], weekStartsOn: WeekStartDay, weekOffset = 0): Task[] {
+  return tasks.filter((t) => isTaskInCurrentWeek(t, weekStartsOn, weekOffset));
 }
 
-export function currentWeekBucketTasks(tasks: Task[], weekStartsOn: WeekStartDay): Task[] {
-  return tasks.filter((t) => t.status !== "done" && isCurrentWeekPlan(t.doPlan, weekStartsOn));
+export function currentWeekBucketTasks(tasks: Task[], weekStartsOn: WeekStartDay, weekOffset = 0): Task[] {
+  return tasks.filter((t) => t.status !== "done" && isCurrentWeekPlan(t.doPlan, weekStartsOn, weekOffset));
 }
 
-export function currentWeekDayTasks(tasks: Task[], weekStartsOn: WeekStartDay): Task[] {
-  const { start, end } = weekRange(weekStartsOn, 0);
+export function currentWeekDayTasks(tasks: Task[], weekStartsOn: WeekStartDay, weekOffset = 0): Task[] {
+  const { start, end } = weekRange(weekStartsOn, weekOffset);
   return tasks.filter(
     (t) =>
       t.status !== "done" &&
@@ -37,22 +37,23 @@ export function currentWeekDayTasks(tasks: Task[], weekStartsOn: WeekStartDay): 
 export function computeWeekPlanningSummary(
   tasks: Task[],
   weekStartsOn: WeekStartDay,
-  focusDays: number
+  focusDays: number,
+  weekOffset = 0
 ): WeekPlanningSummary {
-  const { start, end } = weekRange(weekStartsOn, 0);
+  const { start, end } = weekRange(weekStartsOn, weekOffset);
   const active = tasks.filter((t) => t.status !== "done");
 
   const placed = active.filter(
     (t) => t.doPlan?.kind === "day" && isDayInWeek(doPlanDayOffset(t.doPlan) ?? NaN, start, end)
   ).length;
 
-  const stillOpen = currentWeekBucketTasks(tasks, weekStartsOn).length;
+  const stillOpen = currentWeekBucketTasks(tasks, weekStartsOn, weekOffset).length;
 
   const pulledToToday = active.filter(
     (t) =>
       t.inToday &&
       ((t.doPlan?.kind === "day" && isDayInWeek(doPlanDayOffset(t.doPlan) ?? NaN, start, end)) ||
-        isCurrentWeekPlan(t.doPlan, weekStartsOn))
+        isCurrentWeekPlan(t.doPlan, weekStartsOn, weekOffset))
   ).length;
 
   return { focusDays, placed, stillOpen, pulledToToday };
@@ -64,17 +65,18 @@ export type WeekPlanningMode = "active" | "shaped";
 export function weekPlanningMode(
   tasks: Task[],
   weekStartsOn: WeekStartDay,
-  weekPlanning: Record<string, { completedAt: string; summary: WeekPlanningSummary }>
+  weekPlanning: Record<string, { completedAt: string; summary: WeekPlanningSummary }>,
+  weekOffset = 0
 ): WeekPlanningMode {
-  const key = weekKey(weekStartsOn, 0);
+  const key = weekKey(weekStartsOn, weekOffset);
   const record = weekPlanning[key];
-  const bucketCount = currentWeekBucketTasks(tasks, weekStartsOn).length;
+  const bucketCount = currentWeekBucketTasks(tasks, weekStartsOn, weekOffset).length;
   if (!record || bucketCount > 0) return "active";
   return "shaped";
 }
 
-export function weekDayOptions(weekStartsOn: WeekStartDay): { offset: number; label: string }[] {
-  const { start, end } = weekRange(weekStartsOn, 0);
+export function weekDayOptions(weekStartsOn: WeekStartDay, weekOffset = 0): { offset: number; label: string }[] {
+  const { start, end } = weekRange(weekStartsOn, weekOffset);
   const options: { offset: number; label: string }[] = [];
   for (let offset = start; offset <= end; offset++) {
     let label: string;
@@ -86,8 +88,8 @@ export function weekDayOptions(weekStartsOn: WeekStartDay): { offset: number; la
   return options;
 }
 
-export function carriedForPlanning(tasks: Task[], weekStartsOn: WeekStartDay): Task[] {
-  return carryOver(tasks, weekStartsOn, 0);
+export function carriedForPlanning(tasks: Task[], weekStartsOn: WeekStartDay, weekOffset = 0): Task[] {
+  return carryOver(tasks, weekStartsOn, weekOffset);
 }
 
 export type WeekDayGroup = {
