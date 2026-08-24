@@ -4,11 +4,21 @@ import { useSettings } from "@/lib/settings-store";
 import { WEEK_START_OPTIONS } from "@/lib/week";
 import { GoogleConnect } from "@/components/GoogleConnect";
 import { LifeAreasSettings } from "@/components/LifeAreasSettings";
+import { WorkModesSettings } from "@/components/WorkModesSettings";
 import { SheetConnect } from "@/components/SheetConnect";
 import { AccountSection } from "@/components/AccountSection";
 
 export function SettingsView() {
-  const { weekStartsOn, setWeekStartsOn, lifeAreas, upsertLifeArea, removeLifeArea } = useSettings();
+  const {
+    weekStartsOn,
+    setWeekStartsOn,
+    lifeAreas,
+    upsertLifeArea,
+    removeLifeArea,
+    workModes,
+    upsertWorkMode,
+    removeWorkMode,
+  } = useSettings();
 
   return (
     <section className="mx-auto max-w-2xl space-y-6">
@@ -44,6 +54,8 @@ export function SettingsView() {
       </div>
 
       <LifeAreasSettings lifeAreas={lifeAreas} onSave={upsertLifeArea} onRemove={removeLifeArea} />
+
+      <WorkModesSettings workModes={workModes} onSave={upsertWorkMode} onRemove={removeWorkMode} />
 
       <div className="rounded-xl border border-border bg-surface p-4">
         <h2 className="font-display text-base font-semibold text-ink">Google account</h2>

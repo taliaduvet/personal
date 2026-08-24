@@ -3,9 +3,10 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import type { WeekStartDay } from "./week";
 import type { Contact } from "./sheet/app-data";
-import type { LifeArea } from "./types";
-import { LIFE_AREAS as SEED_LIFE_AREAS } from "./sample-data";
+import type { LifeArea, WorkMode } from "./types";
+import { LIFE_AREAS as SEED_LIFE_AREAS, WORK_MODES as SEED_WORK_MODES } from "./sample-data";
 import { setActiveLifeAreas } from "./life-area-registry";
+import { setActiveWorkModes } from "./work-mode-registry";
 import {
   notifyAppDataContacts,
   notifyAppDataLifeAreas,
@@ -60,6 +61,7 @@ export type AppSettings = {
   unplannedNudgeDismissedIds: Record<string, string[]>;
   contacts: Contact[];
   lifeAreas: LifeArea[];
+  workModes: WorkMode[];
   /** Default lead time before a session's target duration to fire the transition warning. */
   defaultSessionWarnBeforeMs: number;
   /** Elapsed time on an untimed session before the ambient hyperfocus nudge first fires. */
@@ -75,6 +77,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   unplannedNudgeDismissedIds: {},
   contacts: [],
   lifeAreas: SEED_LIFE_AREAS,
+  workModes: SEED_WORK_MODES,
   defaultSessionWarnBeforeMs: 5 * 60_000,
   ambientHyperfocusThresholdMs: 90 * 60_000,
   ambientHyperfocusRepeatMs: 10 * 60_000,
@@ -130,6 +133,8 @@ type SettingsContextValue = AppSettings & {
   applySettingsFromCloud: (data: Partial<AppSettings>) => void;
   upsertLifeArea: (area: LifeArea) => void;
   removeLifeArea: (id: string) => string | null;
+  upsertWorkMode: (mode: WorkMode) => void;
+  removeWorkMode: (id: string) => string | null;
 };
 
 const SettingsContext = createContext<SettingsContextValue | null>(null);
@@ -162,6 +167,9 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
           lifeAreas: Array.isArray(parsed.lifeAreas) && parsed.lifeAreas.length > 0
             ? parsed.lifeAreas
             : DEFAULT_SETTINGS.lifeAreas,
+          workModes: Array.isArray(parsed.workModes) && parsed.workModes.length > 0
+            ? parsed.workModes
+            : DEFAULT_SETTINGS.workModes,
           defaultSessionWarnBeforeMs:
             typeof parsed.defaultSessionWarnBeforeMs === "number"
               ? parsed.defaultSessionWarnBeforeMs
@@ -209,6 +217,11 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     if (!hydrated) return;
     setActiveLifeAreas(settings.lifeAreas);
   }, [settings.lifeAreas, hydrated]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    setActiveWorkModes(settings.workModes);
+  }, [settings.workModes, hydrated]);
 
   const setWeekStartsOn = useCallback((day: WeekStartDay) => {
     setSettings((s) => ({ ...s, weekStartsOn: day }));
@@ -445,6 +458,30 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     return err;
   }, []);
 
+  const upsertWorkMode = useCallback((mode: WorkMode) => {
+    setSettings((s) => {
+      const idx = s.workModes.findIndex((m) => m.id === mode.id);
+      const workModes =
+        idx >= 0
+          ? s.workModes.map((m) => (m.id === mode.id ? mode : m))
+          : [...s.workModes, mode];
+      return { ...s, workModes };
+    });
+  }, []);
+
+  const removeWorkMode = useCallback((id: string): string | null => {
+    let err: string | null = null;
+    setSettings((s) => {
+      if (s.workModes.length <= 1) {
+        err = "Keep at least one mode.";
+        return s;
+      }
+      const workModes = s.workModes.filter((m) => m.id !== id);
+      return { ...s, workModes };
+    });
+    return err;
+  }, []);
+
   return (
     <SettingsContext.Provider
       value={{
@@ -468,6 +505,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         applySettingsFromCloud,
         upsertLifeArea,
         removeLifeArea,
+        upsertWorkMode,
+        removeWorkMode,
       }}
     >
       {children}

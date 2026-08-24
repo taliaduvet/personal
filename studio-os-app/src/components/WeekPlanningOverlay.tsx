@@ -18,7 +18,6 @@ import {
   workModeName,
 } from "@/lib/lenses";
 import type { Task } from "@/lib/types";
-import { WORK_MODES } from "@/lib/sample-data";
 import {
   countFocusDays,
   dayModeIds,
@@ -70,11 +69,13 @@ export function WeekPlanningOverlay({
   onDone,
 }: Props) {
   const { tasks, openQuickEdit, quickEditId } = useTasks();
-  const { weekStartsOn, lifeAreas } = useSettings();
+  const { weekStartsOn, lifeAreas, workModes } = useSettings();
   const [step, setStep] = useState<WizardStep>(initialStep);
   const [draft, setDraft] = useState(initialDraft);
   /** Multi-select stamp brushes — paint several modes onto selected days. */
   const [stampingModeIds, setStampingModeIds] = useState<string[]>([]);
+  /** Single-select area brush — exclusive with mode brushes, like a day's project override. */
+  const [stampingAreaId, setStampingAreaId] = useState<string | null>(null);
   /** Multi-select week days to receive the stamp in one apply. */
   const [selectedDateKeys, setSelectedDateKeys] = useState<string[]>([]);
   const wasOpenRef = useRef(false);
@@ -89,6 +90,7 @@ export function WeekPlanningOverlay({
       setDraft(mergeWeekFocusDraft(initialDraft, slots));
       setStep(initialStep);
       setStampingModeIds([]);
+      setStampingAreaId(null);
       setSelectedDateKeys([]);
     }
     wasOpenRef.current = open;
@@ -149,9 +151,15 @@ export function WeekPlanningOverlay({
   };
 
   const toggleStampingMode = (modeId: string) => {
+    setStampingAreaId(null);
     setStampingModeIds((ids) =>
       ids.includes(modeId) ? ids.filter((id) => id !== modeId) : [...ids, modeId]
     );
+  };
+
+  const toggleStampingArea = (areaId: string) => {
+    setStampingModeIds([]);
+    setStampingAreaId((id) => (id === areaId ? null : areaId));
   };
 
   const toggleDaySelected = (dateKey: string) => {
@@ -189,8 +197,27 @@ export function WeekPlanningOverlay({
     });
   };
 
+  /** Set a life-area override onto every selected day, replacing whatever focus was there. */
+  const stampAreaOntoDays = (dateKeys: string[], areaId: string) => {
+    if (dateKeys.length === 0) return;
+    setDraft((d) => {
+      const days = { ...d.days };
+      for (const dateKey of dateKeys) {
+        const prev = days[dateKey];
+        days[dateKey] = {
+          focus: { kind: "area", id: areaId },
+          note: prev?.note ?? "",
+          shapeBlockTasks: prev?.shapeBlockTasks,
+          deferredTaskIds: prev?.deferredTaskIds,
+        };
+      }
+      return { ...d, days };
+    });
+  };
+
   const applyStampToSelectedDays = () => {
-    stampModesOntoDays(selectedDateKeys, stampingModeIds);
+    if (stampingAreaId) stampAreaOntoDays(selectedDateKeys, stampingAreaId);
+    else stampModesOntoDays(selectedDateKeys, stampingModeIds);
   };
 
   const clearDayMode = (dateKey: string) => {
@@ -263,9 +290,13 @@ export function WeekPlanningOverlay({
               setDraft={setDraft}
               groupedApproved={groupedApproved}
               modeLoads={modeLoads}
+              workModes={workModes}
+              lifeAreas={lifeAreas}
               slots={slots}
               stampingModeIds={stampingModeIds}
               onToggleStampingMode={toggleStampingMode}
+              stampingAreaId={stampingAreaId}
+              onToggleStampingArea={toggleStampingArea}
               selectedDateKeys={selectedDateKeys}
               onDayClick={handleDayClick}
               onClearDay={clearDayMode}
@@ -630,9 +661,13 @@ function PlaceStep({
   setDraft,
   groupedApproved,
   modeLoads,
+  workModes,
+  lifeAreas,
   slots,
   stampingModeIds,
   onToggleStampingMode,
+  stampingAreaId,
+  onToggleStampingArea,
   selectedDateKeys,
   onDayClick,
   onClearDay,
@@ -647,9 +682,13 @@ function PlaceStep({
   setDraft: React.Dispatch<React.SetStateAction<WeekFocusDraft>>;
   groupedApproved: ReturnType<typeof tasksGroupedByMode>;
   modeLoads: ReturnType<typeof modeLoadFromApproved>;
+  workModes: import("@/lib/types").WorkMode[];
+  lifeAreas: import("@/lib/types").LifeArea[];
   slots: WeekDaySlot[];
   stampingModeIds: string[];
   onToggleStampingMode: (modeId: string) => void;
+  stampingAreaId: string | null;
+  onToggleStampingArea: (areaId: string) => void;
   selectedDateKeys: string[];
   onDayClick: (slot: WeekDaySlot) => void;
   onClearDay: (dateKey: string) => void;
@@ -661,7 +700,7 @@ function PlaceStep({
   onOpenTask: (id: string) => void;
 }) {
   const loadCount = (modeId: string) => modeLoads.find((m) => m.modeId === modeId)?.count ?? 0;
-  const canApply = selectedDateKeys.length > 0 && stampingModeIds.length > 0;
+  const canApply = selectedDateKeys.length > 0 && (stampingModeIds.length > 0 || stampingAreaId !== null);
   const selectedSet = new Set(selectedDateKeys);
   return (
     <>
@@ -722,7 +761,7 @@ function PlaceStep({
           1 · Pick modes (multi-select)
         </h3>
         <div className="mt-2 flex flex-wrap gap-2">
-          {WORK_MODES.map((m) => {
+          {workModes.map((m) => {
             const count = loadCount(m.id);
             return (
               <button
@@ -741,6 +780,27 @@ function PlaceStep({
               </button>
             );
           })}
+        </div>
+
+        <p className="mt-3 text-[11px] text-muted">
+          Or stamp a life area instead — for areas like Home that don&apos;t need a work mode.
+        </p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {lifeAreas.map((a) => (
+            <button
+              key={a.id}
+              type="button"
+              onClick={() => onToggleStampingArea(a.id)}
+              className={[
+                "rounded-full border-2 px-4 py-2 text-sm font-medium transition-colors",
+                stampingAreaId === a.id
+                  ? "border-accent bg-accent text-white shadow-md"
+                  : "border-border bg-surface text-ink hover:border-accent/60",
+              ].join(" ")}
+            >
+              {a.name}
+            </button>
+          ))}
         </div>
 
         <h3 className="mt-4 text-xs font-semibold uppercase tracking-wide text-faint">
@@ -855,9 +915,13 @@ function PlaceStep({
                 : "cursor-not-allowed bg-line text-faint",
             ].join(" ")}
           >
-            Apply {stampingModeIds.length || "…"} mode
-            {stampingModeIds.length === 1 ? "" : "s"} → {selectedDateKeys.length || "…"} day
-            {selectedDateKeys.length === 1 ? "" : "s"}
+            {stampingAreaId
+              ? `Apply ${lifeAreas.find((a) => a.id === stampingAreaId)?.name ?? "area"} → ${
+                  selectedDateKeys.length || "…"
+                } day${selectedDateKeys.length === 1 ? "" : "s"}`
+              : `Apply ${stampingModeIds.length || "…"} mode${
+                  stampingModeIds.length === 1 ? "" : "s"
+                } → ${selectedDateKeys.length || "…"} day${selectedDateKeys.length === 1 ? "" : "s"}`}
           </button>
           {selectedDateKeys.length > 0 && (
             <button

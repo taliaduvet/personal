@@ -1,8 +1,8 @@
 import type { Task, LensId, LifeArea, TaskGroup, DoPlan } from "./types";
 import type { WeekStartDay } from "./week";
 import { formatDeadlineDisplay } from "./time-display";
-import { WORK_MODES } from "./sample-data";
 import { getActiveLifeAreas } from "./life-area-registry";
+import { getActiveWorkModes } from "./work-mode-registry";
 import { activeProjectName, activeProjectWhy, getActiveProjects } from "./project-registry";
 import { doPlanLabel, doPlanSortKey, isCarriedDoPlan } from "./do-plan";
 import { weekRange } from "./week";
@@ -11,7 +11,6 @@ import { isWaitingTask, waitingTasks } from "./waiting-on";
 export { isWaitingTask } from "./waiting-on";
 
 const NEUTRAL = "#8b95a1";
-const modeById = Object.fromEntries(WORK_MODES.map((m) => [m.id, m]));
 
 /**
  * Life areas are user-defined, so they must be passed in wherever the caller
@@ -47,7 +46,8 @@ export function projectWhy(id: string | null): string | null {
   return activeProjectWhy(id);
 }
 export function workModeName(id: string | null): string {
-  return id ? modeById[id]?.name ?? id : "No mode";
+  if (!id) return "No mode";
+  return getActiveWorkModes().find((m) => m.id === id)?.name ?? "No mode";
 }
 
 function effectiveWhen(t: Task, weekStartsOn: WeekStartDay): number | null {
@@ -207,7 +207,7 @@ export function groupTasks(
   }
 
   const lot = activeLot(tasks);
-  const modes = WORK_MODES.map((m) =>
+  const modes = getActiveWorkModes().map((m) =>
     buildGroup(m.id, m.name, lot.filter((t) => t.workModeId === m.id), weekStartsOn)
   );
   const none = buildGroup(

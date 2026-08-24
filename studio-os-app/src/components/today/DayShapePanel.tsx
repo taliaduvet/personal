@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { CalendarConnect } from "@/components/CalendarConnect";
 import { TaskCard } from "@/components/TaskCard";
-import { WORK_MODES } from "@/lib/sample-data";
+import { useSettings } from "@/lib/settings-store";
 import { useProjects } from "@/lib/projects-store";
 import { commitmentBarFill } from "@/lib/calendar/commitment";
 import type { AllDayDisposition, DayCommitment } from "@/lib/calendar/types";
@@ -66,6 +66,7 @@ export function DayShapePanel({
   isOpenDay = false,
 }: DayShapePanelProps) {
   const { projects } = useProjects();
+  const { workModes, lifeAreas } = useSettings();
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   const shapeBlockTasks = normalizeShapeBlockTasks(entry.shapeBlockTasks);
@@ -133,7 +134,7 @@ export function DayShapePanel({
         <section>
           <p className="text-[10px] font-semibold uppercase tracking-wide text-faint">Day focus</p>
           <div className="mt-2 flex flex-wrap gap-1.5">
-            {WORK_MODES.map((m) => (
+            {workModes.map((m) => (
               <button
                 key={m.id}
                 type="button"
@@ -161,6 +162,21 @@ export function DayShapePanel({
                 ].join(" ")}
               >
                 {p.name}
+              </button>
+            ))}
+            {lifeAreas.map((a) => (
+              <button
+                key={a.id}
+                type="button"
+                onClick={() => onFocus({ kind: "area", id: a.id })}
+                className={[
+                  "rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors",
+                  entry.focus?.kind === "area" && entry.focus.id === a.id
+                    ? "border-accent bg-accent-soft text-accent"
+                    : "border-border text-muted hover:border-accent hover:text-ink",
+                ].join(" ")}
+              >
+                {a.name}
               </button>
             ))}
             <button

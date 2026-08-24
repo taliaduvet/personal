@@ -1,6 +1,6 @@
-import type { LifeArea } from "./types";
+import type { LifeArea, WorkMode } from "./types";
 import type { AppSettings } from "./settings-store";
-import { LIFE_AREAS as SEED_LIFE_AREAS } from "./sample-data";
+import { LIFE_AREAS as SEED_LIFE_AREAS, WORK_MODES as SEED_WORK_MODES } from "./sample-data";
 
 /**
  * Merging device settings with cloud settings.
@@ -66,6 +66,38 @@ export function pickLifeAreas(
   return mergeLifeAreas(local, cloud, preferLocal);
 }
 
+/** True when `modes` is the untouched sample seed — nobody has edited work modes yet. */
+export function isSeedWorkModes(modes: WorkMode[] | null | undefined): boolean {
+  if (!modes || modes.length !== SEED_WORK_MODES.length) return false;
+  return SEED_WORK_MODES.every((seed, i) => {
+    const m = modes[i];
+    return !!m && m.id === seed.id && m.name === seed.name;
+  });
+}
+
+/** Same seed-vs-edited protection as `mergeLifeAreas`, applied to work modes. */
+export function mergeWorkModes(
+  local: WorkMode[] | null | undefined,
+  cloud: WorkMode[] | null | undefined,
+  preferLocal: boolean
+): WorkMode[] {
+  const l = local ?? [];
+  const c = cloud ?? [];
+  if (l.length === 0) return c;
+  if (c.length === 0) return l;
+
+  const localIsSeed = isSeedWorkModes(l);
+  const cloudIsSeed = isSeedWorkModes(c);
+  const localWins = localIsSeed !== cloudIsSeed ? !localIsSeed : preferLocal;
+
+  const winner = localWins ? l : c;
+  const loser = localWins ? c : l;
+  if (localWins ? cloudIsSeed : localIsSeed) return winner;
+
+  const seen = new Set(winner.map((m) => m.id));
+  return [...winner, ...loser.filter((m) => !seen.has(m.id))];
+}
+
 /**
  * Merge a cloud settings blob into this device's settings.
  *
@@ -111,5 +143,6 @@ export function mergeSettings(
       preferLocal,
       forceCloudLifeAreas
     ),
+    workModes: mergeWorkModes(local.workModes, cloud.workModes, preferLocal),
   };
 }

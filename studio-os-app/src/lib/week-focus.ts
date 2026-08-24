@@ -3,15 +3,19 @@ import type { WeekStartDay } from "./week";
 import { isDayInWeek, weekRange } from "./week";
 import { localDateKey } from "./local-date";
 import { dateWithOffset, doPlanDayOffset, doPlanSortKey, hasDoPlanWithinWeek, isCarriedDoPlan, isCurrentWeekPlan } from "./do-plan";
-import { deadlineLabel, projectName, workModeName } from "./lenses";
+import { deadlineLabel, lifeAreaName, projectName, workModeName } from "./lenses";
 import { isWaitingTask } from "./waiting-on";
 import type { AllDayDisposition } from "./calendar/types";
 
-/** Mode-first day focus — one or more modes, or a project override. */
+/**
+ * Mode-first day focus — one or more modes, a project override, or a life-area
+ * override for areas (e.g. Home) that don't map to a work mode at all.
+ */
 export type DayFocus =
   | { kind: "mode"; id: string }
   | { kind: "modes"; ids: string[] }
-  | { kind: "project"; id: string };
+  | { kind: "project"; id: string }
+  | { kind: "area"; id: string };
 
 export type DayShapeIntent =
   | { kind: "mode"; id: string }
@@ -139,6 +143,7 @@ export function focusLabel(focus: DayFocus | null): string {
   const n = normalizeDayFocus(focus);
   if (!n) return "Open";
   if (n.kind === "modes") return n.ids.map((id) => workModeName(id)).join(" · ");
+  if (n.kind === "area") return lifeAreaName(n.id);
   return projectName(n.id);
 }
 
@@ -152,6 +157,7 @@ export function taskMatchesFocus(task: Task, focus: DayFocus): boolean {
   const n = normalizeDayFocus(focus);
   if (!n) return false;
   if (n.kind === "modes") return Boolean(task.workModeId && n.ids.includes(task.workModeId));
+  if (n.kind === "area") return task.lifeAreaId === n.id;
   return task.projectId === n.id;
 }
 
@@ -160,6 +166,7 @@ export function focusEquals(a: DayFocus | null | undefined, b: DayFocus | null |
   const nb = normalizeDayFocus(b ?? null);
   if (!na || !nb) return false;
   if (na.kind === "project" && nb.kind === "project") return na.id === nb.id;
+  if (na.kind === "area" && nb.kind === "area") return na.id === nb.id;
   if (na.kind === "modes" && nb.kind === "modes") {
     if (na.ids.length !== nb.ids.length) return false;
     const set = new Set(na.ids);
@@ -174,6 +181,7 @@ export function dayFocusIncludes(dayFocus: DayFocus | null | undefined, target: 
   const want = normalizeDayFocus(target);
   if (!day || !want) return false;
   if (want.kind === "project") return day.kind === "project" && day.id === want.id;
+  if (want.kind === "area") return day.kind === "area" && day.id === want.id;
   if (want.kind === "modes" && day.kind === "modes") {
     return want.ids.some((id) => day.ids.includes(id));
   }

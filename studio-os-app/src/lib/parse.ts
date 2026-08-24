@@ -1,4 +1,4 @@
-import { WORK_MODES } from "./sample-data";
+import { getActiveWorkModes } from "./work-mode-registry";
 import { activeProjectById, getActiveProjects } from "./project-registry";
 import type { DoPlan, Task } from "./types";
 import type { WeekStartDay } from "./week";
@@ -43,8 +43,15 @@ function projectMatchers(): [string, string][] {
   return matchers;
 }
 
-const MODE_PREFIX = /^(admin|creative|outreach|errands)\s*:\s*/i;
+/** Built from the live mode list so "admin: ..." style prefixes track renamed/custom modes. */
+function modePrefixPattern(): RegExp {
+  const ids = getActiveWorkModes().map((m) => escapeRegExp(m.id));
+  if (ids.length === 0) return /^(?!)/;
+  return new RegExp(`^(${ids.join("|")})\\s*:\\s*`, "i");
+}
 
+// Best-effort keyword guesses for the seed mode set — harmless for custom
+// modes since the validity check below drops any id that isn't active.
 const MODE_WORDS: [RegExp, string][] = [
   [/\b(email|outreach|venues?)\b/i, "outreach"],
   [/\b(creative|mix|master|write|draft)\b/i, "creative"],
@@ -74,7 +81,7 @@ export function parseTaskTitle(raw: string, weekStartsOn: WeekStartDay = 0): Par
   let doPlan: DoPlan = null;
   let deadlineInDays: number | null = null;
 
-  const prefix = title.match(MODE_PREFIX);
+  const prefix = title.match(modePrefixPattern());
   if (prefix) {
     workModeId = prefix[1].toLowerCase();
     title = title.slice(prefix[0].length).trim();
@@ -134,7 +141,7 @@ export function parseTaskTitle(raw: string, weekStartsOn: WeekStartDay = 0): Par
   }
 
   if (!workModeId) {
-    for (const m of WORK_MODES) {
+    for (const m of getActiveWorkModes()) {
       const re = new RegExp(`\\b${escapeRegExp(m.name)}\\b`, "i");
       if (re.test(title)) {
         workModeId = m.id;
@@ -156,7 +163,7 @@ export function parseTaskTitle(raw: string, weekStartsOn: WeekStartDay = 0): Par
   const project = projectId ? activeProjectById(projectId) : null;
   const lifeAreaId = project?.lifeAreaId ?? "";
 
-  if (workModeId && !WORK_MODES.some((m) => m.id === workModeId)) {
+  if (workModeId && !getActiveWorkModes().some((m) => m.id === workModeId)) {
     workModeId = null;
   }
 
@@ -219,7 +226,7 @@ export function classifyChipLabels(
     else chips.deadline = `Due in ${task.deadlineInDays}d`;
   }
   if (task.workModeId) {
-    const m = WORK_MODES.find((x) => x.id === task.workModeId);
+    const m = getActiveWorkModes().find((x) => x.id === task.workModeId);
     if (m) chips.mode = m.name;
   }
   return chips;

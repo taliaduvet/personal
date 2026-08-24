@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { isSeedLifeAreas, mergeLifeAreas, mergeSettings } from "./settings-merge";
-import { LIFE_AREAS as SEED } from "./sample-data";
+import { LIFE_AREAS as SEED, WORK_MODES as SEED_MODES } from "./sample-data";
 import type { AppSettings } from "./settings-store";
 import type { LifeArea } from "./types";
 
@@ -18,6 +18,7 @@ function settings(over: Partial<AppSettings> = {}): AppSettings {
     unplannedNudgeDismissedIds: {},
     contacts: [],
     lifeAreas: SEED,
+    workModes: SEED_MODES,
     defaultSessionWarnBeforeMs: 5 * 60_000,
     ambientHyperfocusThresholdMs: 90 * 60_000,
     ambientHyperfocusRepeatMs: 10 * 60_000,

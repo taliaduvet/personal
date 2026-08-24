@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { WORK_MODES } from "@/lib/sample-data";
 import { useProjects } from "@/lib/projects-store";
 import { classifyChipLabels } from "@/lib/parse";
 import { lifeAreaColor, lifeAreaName } from "@/lib/lenses";
@@ -30,7 +29,7 @@ export function TaskClassifyDropdowns({
   onChange: (patch: Partial<Task>) => void;
   label?: string;
 }) {
-  const { weekStartsOn, contacts, setGoogleContacts, lifeAreas } = useSettings();
+  const { weekStartsOn, contacts, setGoogleContacts, lifeAreas, workModes } = useSettings();
   const { projects } = useProjects();
   const [open, setOpen] = useState<FieldKey | null>(null);
   const [personQuery, setPersonQuery] = useState("");
@@ -243,7 +242,7 @@ export function TaskClassifyDropdowns({
 
       {open === "mode" && (
         <DropdownPanel title="Mode">
-          {WORK_MODES.map((m) => (
+          {workModes.map((m) => (
             <DropdownOption
               key={m.id}
               selected={task.workModeId === m.id}

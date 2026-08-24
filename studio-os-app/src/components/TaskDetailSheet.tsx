@@ -62,13 +62,17 @@ export function TaskDetailSheet() {
       deleteTask(task.id);
       return;
     }
+    // Re-parsing here would blow away any field the user hand-picked via the
+    // classify dropdowns — merge through manualClassify like the live-update
+    // effect above does, so Confirm never overwrites a manual choice.
+    const merged = taskWithCaptureParse(task, raw, weekStartsOn, manualClassify.current);
     updateTask(task.id, {
       title: parsed.title,
-      projectId: parsed.projectId,
-      lifeAreaId: parsed.lifeAreaId,
-      workModeId: parsed.workModeId,
-      doPlan: parsed.doPlan,
-      deadlineInDays: parsed.deadlineInDays,
+      projectId: merged.projectId,
+      lifeAreaId: merged.lifeAreaId,
+      workModeId: merged.workModeId,
+      doPlan: merged.doPlan,
+      deadlineInDays: merged.deadlineInDays,
     });
     closeQuickEdit();
   }, [task, draftTitle, captureDraft, weekStartsOn, updateTask, deleteTask, closeQuickEdit]);

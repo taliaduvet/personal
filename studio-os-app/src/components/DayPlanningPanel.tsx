@@ -1,7 +1,7 @@
 "use client";
 
 import { CalendarConnect } from "@/components/CalendarConnect";
-import { WORK_MODES } from "@/lib/sample-data";
+import { useSettings } from "@/lib/settings-store";
 import { useProjects } from "@/lib/projects-store";
 import { commitmentBarFill } from "@/lib/calendar/commitment";
 import type { AllDayDisposition, DayCommitment } from "@/lib/calendar/types";
@@ -50,6 +50,7 @@ export function DayPlanningPanel({
   onClose,
 }: Props) {
   const { projects } = useProjects();
+  const { workModes, lifeAreas } = useSettings();
   const matching = entry.focus
     ? tasksForDayFocus(tasks, entry.focus, slot.offset, weekStartsOn).slice(0, 5)
     : [];
@@ -166,7 +167,7 @@ export function DayPlanningPanel({
         <section>
           <p className="text-[11px] font-semibold uppercase tracking-wide text-faint">Day focus</p>
           <div className="mt-2 flex flex-wrap gap-1.5">
-            {WORK_MODES.map((m) => (
+            {workModes.map((m) => (
               <button
                 key={m.id}
                 type="button"
@@ -205,6 +206,28 @@ export function DayPlanningPanel({
                 ].join(" ")}
               >
                 {p.name}
+              </button>
+            ))}
+          </div>
+
+          <p className="mt-3 text-[11px] font-semibold uppercase tracking-wide text-faint">Area override</p>
+          <p className="mt-0.5 text-[11px] text-faint">
+            For areas like Home that don&apos;t need a work mode.
+          </p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {lifeAreas.map((a) => (
+              <button
+                key={a.id}
+                type="button"
+                onClick={() => onFocus({ kind: "area", id: a.id })}
+                className={[
+                  "rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors",
+                  entry.focus?.kind === "area" && entry.focus.id === a.id
+                    ? "border-accent bg-accent-soft text-accent"
+                    : "border-border text-muted hover:border-accent hover:text-ink",
+                ].join(" ")}
+              >
+                {a.name}
               </button>
             ))}
           </div>
