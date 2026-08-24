@@ -83,3 +83,13 @@ export function msUntilNextAmbientEvent(session: ActiveSession, nowMs: number): 
   const repeatMs = session.ambientRepeatMs && session.ambientRepeatMs > 0 ? session.ambientRepeatMs : threshold;
   return Math.max(0, lastFiredMs + repeatMs - nowMs);
 }
+
+export type SessionNudgeKind = "warning" | "times-up" | "ambient-checkin";
+
+/** Human copy for a fired nudge — shared by the in-app banner and the OS notification, so they can't drift. */
+export function nudgeMessage(kind: SessionNudgeKind, taskTitle: string): string {
+  const t = taskTitle.trim() || "this";
+  if (kind === "warning") return `5 min left on ${t} — start wrapping up?`;
+  if (kind === "times-up") return `Time's up on ${t}.`;
+  return `You've been sitting with ${t} a while — need a reset?`;
+}

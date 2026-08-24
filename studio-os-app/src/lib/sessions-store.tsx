@@ -19,12 +19,15 @@ import { registerCompletionContext } from "@/lib/completion-context";
 import { registerSessionBridge } from "@/lib/session-bridge";
 import { newActivityLogId } from "@/lib/activity-log";
 import { playBeep as playAudioCue } from "@/lib/audio-cue";
+import { notifyBrowser } from "@/lib/browser-notify";
 import {
   ambientNudgeDue,
   clampWarnBeforeMs,
   msUntilNextAmbientEvent,
   msUntilNextTimedEvent,
+  nudgeMessage,
   timedNudgeDue,
+  type SessionNudgeKind,
 } from "@/lib/session-nudge";
 import {
   formatSessionElapsed,
@@ -34,7 +37,7 @@ import {
   type ActiveSession,
 } from "@/lib/sessions";
 
-export type SessionNudgeKind = "warning" | "times-up" | "ambient-checkin";
+export type { SessionNudgeKind } from "@/lib/session-nudge";
 
 type SessionsContextValue = {
   activeSession: ActiveSession | null;
@@ -78,6 +81,13 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
 
   const nudgeTimeoutRef = useRef<number | null>(null);
   const nudgeAudioCtxRef = useRef<AudioContext | null>(null);
+  // Both refs mirror the latest values so callbacks below (a stable
+  // useCallback, a setInterval, a visibilitychange listener) never act on a
+  // stale closure without having to re-arm on every render.
+  const activeSessionRef = useRef(activeSession);
+  activeSessionRef.current = activeSession;
+  const tasksRef = useRef(tasks);
+  tasksRef.current = tasks;
 
   useEffect(() => {
     setActiveSession(loadActiveSession());
@@ -89,11 +99,64 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
     saveActiveSession(activeSession);
   }, [activeSession, hydrated]);
 
+  // Checks the current session against wall-clock time and fires whichever
+  // nudge is due, if any. Idempotent — timed nudges are one-shot latches and
+  // ambient ones gate on their own repeat interval, so calling this more
+  // than once for the same due event is harmless. Stable identity (reads
+  // everything through refs) so it's safe to call from a precise timer, a
+  // recurring interval, and a visibility listener alike.
+  const fireDueNudge = useCallback(() => {
+    const session = activeSessionRef.current;
+    if (!session) return;
+    const nowMs = Date.now();
+    const title = tasksRef.current.find((t) => t.id === session.taskId)?.title?.trim() || "this";
+
+    const timedKind = timedNudgeDue(session, nowMs);
+    if (timedKind) {
+      playAudioCue(() => (nudgeAudioCtxRef.current ??= new AudioContext()), timedKind === "times-up" ? "end" : "phase");
+      notifyBrowser("Studio OS", nudgeMessage(timedKind, title));
+      setActiveNudge(timedKind);
+      setActiveSession({
+        ...session,
+        ...(timedKind === "warning"
+          ? { warningFiredAtIso: new Date(nowMs).toISOString() }
+          : { timesUpFiredAtIso: new Date(nowMs).toISOString() }),
+      });
+      return;
+    }
+    if (ambientNudgeDue(session, nowMs)) {
+      playAudioCue(() => (nudgeAudioCtxRef.current ??= new AudioContext()), "phase");
+      notifyBrowser("Studio OS", nudgeMessage("ambient-checkin", title));
+      setActiveNudge("ambient-checkin");
+      setActiveSession({ ...session, ambientLastFiredAtIso: new Date(nowMs).toISOString() });
+    }
+  }, []);
+
+  // Safety net for the precise timer below: browsers throttle or deprioritize
+  // JS timers in backgrounded/unfocused windows, which can silently swallow a
+  // single long setTimeout over a 60-90 minute session. Piggybacking a due-check
+  // on the existing 60s display tick means a nudge still fires within ~60s even
+  // if the precise timer got throttled.
   useEffect(() => {
     if (!activeSession) return;
-    const id = window.setInterval(() => setTick((t) => t + 1), 60_000);
+    const id = window.setInterval(() => {
+      setTick((t) => t + 1);
+      fireDueNudge();
+    }, 60_000);
     return () => window.clearInterval(id);
-  }, [activeSession]);
+  }, [activeSession, fireDueNudge]);
+
+  // Second safety net: catch up immediately when the tab regains visibility,
+  // rather than waiting for the next 60s tick — covers a session left
+  // unattended in a backgrounded/minimized window.
+  useEffect(() => {
+    if (!activeSession) return;
+    const onVisible = () => {
+      if (document.visibilityState === "visible") fireDueNudge();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [activeSession, fireDueNudge]);
 
   // A genuinely new session (different task or restart) clears any leftover banner.
   // Deliberately NOT keyed on the latch fields below — those change *because* a
@@ -104,7 +167,10 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
   }, [activeSession?.taskId, activeSession?.startedAtIso]);
 
   // Arms (and re-arms) a single precise setTimeout for the next unfired
-  // timed or ambient nudge — decoupled from the 60s display tick above.
+  // timed or ambient nudge — decoupled from the 60s display tick above. The
+  // interval + visibilitychange effects above exist because this can be
+  // throttled or dropped in a backgrounded window; this stays as the
+  // snappy on-time path when the tab is actively running.
   useEffect(() => {
     if (nudgeTimeoutRef.current !== null) {
       window.clearTimeout(nudgeTimeoutRef.current);
@@ -112,31 +178,10 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
     }
     if (!activeSession) return;
 
-    const session = activeSession;
-    const now = Date.now();
-    const delay = msUntilNextTimedEvent(session, now) ?? msUntilNextAmbientEvent(session, now);
+    const delay = msUntilNextTimedEvent(activeSession, Date.now()) ?? msUntilNextAmbientEvent(activeSession, Date.now());
     if (delay === null) return;
 
-    nudgeTimeoutRef.current = window.setTimeout(() => {
-      const nowMs = Date.now();
-      const timedKind = timedNudgeDue(session, nowMs);
-      if (timedKind) {
-        playAudioCue(() => (nudgeAudioCtxRef.current ??= new AudioContext()), timedKind === "times-up" ? "end" : "phase");
-        setActiveNudge(timedKind);
-        setActiveSession({
-          ...session,
-          ...(timedKind === "warning"
-            ? { warningFiredAtIso: new Date(nowMs).toISOString() }
-            : { timesUpFiredAtIso: new Date(nowMs).toISOString() }),
-        });
-        return;
-      }
-      if (ambientNudgeDue(session, nowMs)) {
-        playAudioCue(() => (nudgeAudioCtxRef.current ??= new AudioContext()), "phase");
-        setActiveNudge("ambient-checkin");
-        setActiveSession({ ...session, ambientLastFiredAtIso: new Date(nowMs).toISOString() });
-      }
-    }, delay);
+    nudgeTimeoutRef.current = window.setTimeout(fireDueNudge, delay);
 
     return () => {
       if (nudgeTimeoutRef.current !== null) {
@@ -145,16 +190,8 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
       }
     };
   }, [
-    activeSession?.taskId,
-    activeSession?.startedAtIso,
-    activeSession?.targetDurationMs,
-    activeSession?.warnBeforeMs,
-    activeSession?.warningFiredAtIso,
-    activeSession?.timesUpFiredAtIso,
-    activeSession?.ambientThresholdMs,
-    activeSession?.ambientRepeatMs,
-    activeSession?.ambientLastFiredAtIso,
-    activeSession?.ambientAcknowledgedAtIso,
+    activeSession,
+    fireDueNudge,
   ]);
 
   const dismissNudge = useCallback(() => setActiveNudge(null), []);
@@ -234,6 +271,12 @@ export function SessionsProvider({ children }: { children: ReactNode }) {
             options.targetDurationMs,
             options.warnBeforeMs ?? defaultSessionWarnBeforeMs
           );
+          // Ask once, at the moment a timer nudge actually becomes relevant —
+          // so the warning/times-up can reach the user via OS notification
+          // even if this window isn't focused when it fires.
+          if (typeof Notification !== "undefined" && Notification.permission === "default") {
+            void Notification.requestPermission();
+          }
         } else {
           next.ambientThresholdMs = ambientHyperfocusThresholdMs;
           next.ambientRepeatMs = ambientHyperfocusRepeatMs;

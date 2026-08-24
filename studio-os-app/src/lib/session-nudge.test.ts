@@ -4,6 +4,7 @@ import {
   clampWarnBeforeMs,
   msUntilNextAmbientEvent,
   msUntilNextTimedEvent,
+  nudgeMessage,
   timedNudgeDue,
 } from "./session-nudge";
 import type { ActiveSession } from "./sessions";
@@ -128,5 +129,17 @@ describe("ambientNudgeDue / msUntilNextAmbientEvent", () => {
     });
     expect(ambientNudgeDue(s, START + 500 * 60_000)).toBe(false);
     expect(msUntilNextAmbientEvent(s, START + 500 * 60_000)).toBeNull();
+  });
+});
+
+describe("nudgeMessage", () => {
+  it("names the task for each kind", () => {
+    expect(nudgeMessage("warning", "Master the mix")).toContain("Master the mix");
+    expect(nudgeMessage("times-up", "Master the mix")).toContain("Master the mix");
+    expect(nudgeMessage("ambient-checkin", "Master the mix")).toContain("Master the mix");
+  });
+
+  it("falls back to 'this' for a blank title", () => {
+    expect(nudgeMessage("warning", "  ")).toContain("this");
   });
 });

@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useSessions, type SessionNudgeKind } from "@/lib/sessions-store";
+import { useSessions } from "@/lib/sessions-store";
 import { useTasks } from "@/lib/store";
 import { newActivityLogId } from "@/lib/activity-log";
+import { nudgeMessage } from "@/lib/session-nudge";
 import {
   breakHabits,
   loadHabitsState,
@@ -15,12 +16,6 @@ import {
 } from "@/lib/habits";
 
 const EMPTY: HabitsState = { habits: [], days: {} };
-
-const TITLE: Record<SessionNudgeKind, (task: string) => string> = {
-  warning: (t) => `5 min left on ${t} — start wrapping up?`,
-  "times-up": (t) => `Time's up on ${t}.`,
-  "ambient-checkin": (t) => `You've been sitting with ${t} a while — need a reset?`,
-};
 
 /**
  * Non-modal, globally mounted. Shows the session transition-warning /
@@ -63,7 +58,7 @@ export function SessionNudgeBanner() {
   return (
     <div className="fixed inset-x-0 bottom-32 z-40 flex justify-center px-4 md:bottom-6">
       <div className="w-full max-w-sm rounded-xl border border-border bg-surface p-4 shadow-lg">
-        <p className="text-sm font-medium text-ink">{TITLE[nudge](title)}</p>
+        <p className="text-sm font-medium text-ink">{nudgeMessage(nudge, title)}</p>
 
         {suggestions.length > 0 ? (
           <div className="mt-3 space-y-1.5">
