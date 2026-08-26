@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTasks } from "@/lib/store";
 import { useProjects } from "@/lib/projects-store";
@@ -20,10 +21,14 @@ export function ProjectsView() {
 
   const areas = useMemo(
     () =>
-      lifeAreas.map((a) => ({
-        area: a,
-        projects: projects.filter((p) => p.lifeAreaId === a.id),
-      })),
+      lifeAreas.map((a) => {
+        const areaProjects = projects.filter((p) => p.lifeAreaId === a.id);
+        return {
+          area: a,
+          projects: areaProjects.filter((p) => p.status !== "done"),
+          completed: areaProjects.filter((p) => p.status === "done"),
+        };
+      }),
     [lifeAreas, projects]
   );
 
@@ -66,7 +71,7 @@ export function ProjectsView() {
         </div>
       )}
 
-      {areas.map(({ area, projects: areaProjects }) => (
+      {areas.map(({ area, projects: areaProjects, completed }) => (
         <div key={area.id} className="mt-7">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
@@ -100,7 +105,7 @@ export function ProjectsView() {
             </div>
           )}
 
-          {areaProjects.length === 0 ? (
+          {areaProjects.length === 0 && completed.length === 0 ? (
             <p className="mt-3 text-sm text-muted">No projects here yet.</p>
           ) : (
             <div className="mt-3 space-y-2">
@@ -114,6 +119,31 @@ export function ProjectsView() {
                 />
               ))}
             </div>
+          )}
+
+          {completed.length > 0 && (
+            <details className="mt-3 group">
+              <summary className="cursor-pointer text-xs font-medium text-muted hover:text-ink">
+                Completed ({completed.length})
+              </summary>
+              <div className="mt-2 space-y-2 opacity-80">
+                {completed.map((p) => (
+                  <ProjectRow
+                    key={p.id}
+                    project={p}
+                    color={area.color}
+                    activeCount={0}
+                    onOpen={() => openProjectDetail(router, p.id)}
+                  />
+                ))}
+              </div>
+              <Link
+                href="/archive?tab=projects"
+                className="mt-2 inline-block text-xs font-medium text-accent hover:text-accent-ink"
+              >
+                See all completed projects in Archive →
+              </Link>
+            </details>
           )}
         </div>
       ))}
@@ -157,7 +187,7 @@ function ProjectRow({
         <div className="flex items-baseline justify-between gap-3">
           <h3 className="font-display text-base font-semibold text-ink">{project.name}</h3>
           <span className="shrink-0 text-xs text-muted">
-            {activeCount > 0 ? `${activeCount} active` : "Open"}
+            {project.status === "done" ? "Completed" : activeCount > 0 ? `${activeCount} active` : "Open"}
           </span>
         </div>
         {project.why && (

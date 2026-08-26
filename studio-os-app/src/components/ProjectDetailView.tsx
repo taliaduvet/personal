@@ -17,7 +17,7 @@ import { ProjectForm } from "@/components/ProjectForm";
 export function ProjectDetailView({ projectId }: { projectId: string }) {
   const router = useRouter();
   const returnTo = useCallback(() => returnFromProjectDetail(router), [router]);
-  const { getProject, updateProject, deleteProject, isLocalProject } = useProjects();
+  const { getProject, updateProject, completeProject, reopenProject, deleteProject, isLocalProject } = useProjects();
   const { lifeAreas } = useSettings();
   const { tasks, completeTask, activityLog } = useTasks();
   const [editing, setEditing] = useState(false);
@@ -77,6 +77,11 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
           ← Back
         </button>
         <div className="flex items-center gap-3">
+          {project.status === "done" && (
+            <span className="rounded-full bg-accent-soft px-2 py-0.5 text-xs font-medium text-accent">
+              Completed
+            </span>
+          )}
           {area && (
             <span className="flex items-center gap-1.5 text-xs font-medium text-muted">
               <span className="h-2 w-2 rounded-full" style={{ background: color }} />
@@ -129,7 +134,34 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
                 {sessionRollup.taskCount === 1 ? "task" : "tasks"}
               </p>
             ) : null}
-            <div className="mt-4 flex flex-wrap gap-3">
+            {project.status === "done" && project.completedAt && (
+              <p className="mt-3 text-xs text-faint">
+                Completed{" "}
+                {new Date(project.completedAt).toLocaleDateString(undefined, {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                })}
+              </p>
+            )}
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              {project.status === "done" ? (
+                <button
+                  type="button"
+                  onClick={() => reopenProject(projectId)}
+                  className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-muted hover:border-accent hover:text-accent"
+                >
+                  Reopen project
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => completeProject(projectId)}
+                  className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
+                >
+                  Mark complete
+                </button>
+              )}
               {isLocalProject(projectId) && (
                 <button
                   type="button"

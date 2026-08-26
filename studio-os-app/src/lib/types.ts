@@ -159,6 +159,10 @@ export type Project = {
   name: string;
   lifeAreaId: string;
   why: string | null;
+  /** Absent/"active" = ongoing. "done" projects stay visible for history but drop out of new-work pickers. */
+  status?: "active" | "done";
+  /** Set when status flips to "done"; cleared on reopen. */
+  completedAt?: string | null;
   /** User-linked Drive folder — optional, user picks location in Drive. */
   driveFolder?: DriveFolderLink | null;
   /** User-linked Google Docs — optional. */

@@ -149,7 +149,10 @@ export function DayShapePanel({
                 {m.name}
               </button>
             ))}
-            {projects.slice(0, 6).map((p) => (
+            {projects
+              .filter((p) => p.status !== "done" || (entry.focus?.kind === "project" && entry.focus.id === p.id))
+              .slice(0, 6)
+              .map((p) => (
               <button
                 key={p.id}
                 type="button"

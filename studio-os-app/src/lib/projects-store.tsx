@@ -28,6 +28,8 @@ type ProjectOverride = {
   name?: string;
   why?: string | null;
   lifeAreaId?: string;
+  status?: "active" | "done";
+  completedAt?: string | null;
 };
 
 type LocalProjectMeta = {
@@ -140,6 +142,8 @@ type ProjectsContextValue = {
   getProject: (id: string) => Project | undefined;
   createProject: (draft: ProjectDraft) => Project;
   updateProject: (id: string, patch: Partial<ProjectDraft>) => void;
+  completeProject: (id: string) => void;
+  reopenProject: (id: string) => void;
   deleteProject: (id: string) => string | null;
   isLocalProject: (id: string) => boolean;
   setProjectDriveFolder: (projectId: string, folder: DriveFolderLink) => void;
@@ -280,6 +284,30 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const setProjectStatus = useCallback((id: string, status: "active" | "done") => {
+    const completedAt = status === "done" ? new Date().toISOString() : null;
+    setMeta((prev) => {
+      const nextOverride: ProjectOverride = { ...prev.overrides[id], status, completedAt };
+      const createdIdx = prev.created.findIndex((p) => p.id === id);
+      if (createdIdx >= 0) {
+        const created = [...prev.created];
+        created[createdIdx] = { ...created[createdIdx]!, status, completedAt };
+        return {
+          ...prev,
+          created,
+          overrides: { ...prev.overrides, [id]: nextOverride },
+        };
+      }
+      return {
+        ...prev,
+        overrides: { ...prev.overrides, [id]: nextOverride },
+      };
+    });
+  }, []);
+
+  const completeProject = useCallback((id: string) => setProjectStatus(id, "done"), [setProjectStatus]);
+  const reopenProject = useCallback((id: string) => setProjectStatus(id, "active"), [setProjectStatus]);
+
   const deleteProject = useCallback((id: string): string | null => {
     let err: string | null = null;
     setMeta((prev) => {
@@ -400,6 +428,8 @@ export function ProjectsProvider({ children }: { children: React.ReactNode }) {
         getProject,
         createProject,
         updateProject,
+        completeProject,
+        reopenProject,
         deleteProject,
         isLocalProject,
         setProjectDriveFolder,

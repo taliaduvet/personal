@@ -8,7 +8,8 @@ export default async function ArchivePage({
   searchParams: Promise<Search>;
 }) {
   const params = await searchParams;
-  const tab = params.tab === "logbook" || params.tab === "recipes" ? params.tab : "shelf";
+  const tab =
+    params.tab === "logbook" || params.tab === "recipes" || params.tab === "projects" ? params.tab : "shelf";
   return (
     <ArchivePageClient
       tab={tab}

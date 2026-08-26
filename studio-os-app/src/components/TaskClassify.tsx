@@ -206,7 +206,7 @@ export function TaskClassifyDropdowns({
 
       {open === "project" && (
         <DropdownPanel title="Project">
-          {projects.map((p) => (
+          {projects.filter((p) => p.status !== "done" || p.id === task.projectId).map((p) => (
             <DropdownOption
               key={p.id}
               selected={task.projectId === p.id}

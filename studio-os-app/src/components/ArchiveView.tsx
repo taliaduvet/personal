@@ -4,13 +4,15 @@ import { useEffect, useState } from "react";
 import { ShelfView } from "@/components/ShelfView";
 import { LogbookView } from "@/components/LogbookView";
 import { RecipesView } from "@/components/RecipesView";
+import { CompletedProjectsView } from "@/components/CompletedProjectsView";
 
-export type ArchiveTab = "shelf" | "logbook" | "recipes";
+export type ArchiveTab = "shelf" | "logbook" | "recipes" | "projects";
 
 const TABS: { id: ArchiveTab; label: string }[] = [
   { id: "shelf", label: "Shelf" },
   { id: "logbook", label: "Logbook" },
   { id: "recipes", label: "Recipes" },
+  { id: "projects", label: "Projects" },
 ];
 
 export function ArchiveView({
@@ -51,6 +53,7 @@ export function ArchiveView({
       )}
       {tab === "logbook" && <LogbookView />}
       {tab === "recipes" && <RecipesView />}
+      {tab === "projects" && <CompletedProjectsView />}
     </div>
   );
 }

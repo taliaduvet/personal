@@ -193,7 +193,9 @@ export function DayPlanningPanel({
 
           <p className="mt-3 text-[11px] font-semibold uppercase tracking-wide text-faint">Project override</p>
           <div className="mt-2 flex flex-wrap gap-1.5">
-            {projects.map((p) => (
+            {projects
+              .filter((p) => p.status !== "done" || (entry.focus?.kind === "project" && entry.focus.id === p.id))
+              .map((p) => (
               <button
                 key={p.id}
                 type="button"
