@@ -44,6 +44,11 @@ export function applyRecipeMilestones(
         title: milestone.title,
         workModeId: milestone.workModeId ?? existing.workModeId,
         deadlineInDays: deadline,
+        // Several readers (nudges, trust/commitments, the briefing route) prefer
+        // deadlineDateKey over deadlineInDays when present — clear it so a stale
+        // absolute date from an earlier manual edit can't silently outrank the
+        // freshly recomputed offset above.
+        deadlineDateKey: null,
         projectId: recipe.projectId ?? existing.projectId,
         lifeAreaId: recipe.lifeAreaId,
       });
