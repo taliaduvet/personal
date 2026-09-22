@@ -190,6 +190,10 @@ export function CloudSyncBridge() {
         if (seedLocalOnlyUp) {
           mergedTasks.push(L);
           queueCloudTask(L);
+        } else if (hasPendingCloudOp("sos_tasks", id)) {
+          // A push for this task hasn't landed yet — the cloud row is stale.
+          // Keep local (e.g. a completion) rather than let the pull undo it.
+          mergedTasks.push(L);
         } else {
           mergedTasks.push(C);
         }
@@ -218,6 +222,8 @@ export function CloudSyncBridge() {
         if (seedLocalOnlyUp) {
           mergedProjects.push(L);
           queueCloudProject(L);
+        } else if (hasPendingCloudOp("sos_projects", id)) {
+          mergedProjects.push(L);
         } else {
           mergedProjects.push(C);
         }
@@ -245,6 +251,8 @@ export function CloudSyncBridge() {
         if (seedLocalOnlyUp) {
           mergedRecipes.push(L);
           queueCloudRecipe(L);
+        } else if (hasPendingCloudOp("sos_recipes", id)) {
+          mergedRecipes.push(L);
         } else {
           mergedRecipes.push(C);
         }
