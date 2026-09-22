@@ -7,6 +7,7 @@ import { TaskCard } from "@/components/TaskCard";
 import { RailUnplannedNudge } from "@/components/today/RailUnplannedNudge";
 import { OpenDayAreaPicker } from "@/components/today/OpenDayAreaPicker";
 import { DayShapePanel, type DayShapePanelProps } from "@/components/today/DayShapePanel";
+import { DayStartGate, type DayStartGateProps } from "@/components/today/DayStartGate";
 import { DayCloseSheet } from "@/components/DayCloseSheet";
 import { YesterdayNoteCard } from "@/components/today/YesterdayNoteCard";
 import { RespondContextRail } from "@/components/today/RespondContextRail";
@@ -52,6 +53,9 @@ export type TodayScreenProps = {
   shapeOpen?: boolean;
   onShapeOpenChange?: (open: boolean) => void;
   dayShape?: DayShapePanelProps | null;
+  /** Start-your-day gate: shown ahead of the normal workspace on an unconfirmed mode day. */
+  dayStartGateOpen?: boolean;
+  dayStartGate?: DayStartGateProps | null;
   onDayCloseRetro?: (input: DayCloseRetroInput) => void;
   dayCloseAssignableTasks?: Task[];
   dayCloseExisting?: DayCloseRetroInput | null;
@@ -245,6 +249,8 @@ export function TodayScreen({
   shapeOpen: shapeOpenProp,
   onShapeOpenChange,
   dayShape,
+  dayStartGateOpen = false,
+  dayStartGate,
   onDayCloseRetro,
   dayCloseAssignableTasks = [],
   dayCloseExisting,
@@ -284,20 +290,22 @@ export function TodayScreen({
             <p className="mt-1 text-sm italic text-faint">open day — pick from your areas</p>
           ) : null}
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setShapeOpen(!shapeOpen)}
-            className={[
-              "rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors",
-              shapeOpen
-                ? "border-border bg-surface text-muted hover:text-ink"
-                : "border-accent bg-accent-soft text-accent",
-            ].join(" ")}
-          >
-            {shapeOpen ? "List view" : "Shape today"}
-          </button>
-        </div>
+        {!dayStartGateOpen && (
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShapeOpen(!shapeOpen)}
+              className={[
+                "rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors",
+                shapeOpen
+                  ? "border-border bg-surface text-muted hover:text-ink"
+                  : "border-accent bg-accent-soft text-accent",
+              ].join(" ")}
+            >
+              {shapeOpen ? "List view" : "Shape today"}
+            </button>
+          </div>
+        )}
       </header>
 
       {yesterdayNote ? (
@@ -322,7 +330,9 @@ export function TodayScreen({
               : "",
           ].join(" ")}
         >
-          {shapeOpen && dayShape ? (
+          {dayStartGateOpen && dayStartGate ? (
+            <DayStartGate {...dayStartGate} />
+          ) : shapeOpen && dayShape ? (
             <DayShapePanel
               {...dayShape}
               onComplete={onComplete}

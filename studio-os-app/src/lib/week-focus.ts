@@ -36,6 +36,10 @@ export type WeekDayFocusEntry = {
    * Still approved / eligible — they resurface on a later matching mode day.
    */
   deferredTaskIds?: string[];
+  /** Task ids explicitly placed on this day during week planning (per-day slotting). */
+  slottedTaskIds?: string[];
+  /** ISO timestamp — set when the user confirms today's plan via the Today start-of-day gate. */
+  planConfirmedAt?: string;
 };
 
 export type WeekFocusDraft = {
@@ -236,10 +240,10 @@ export function tasksForDayFocus(
 
 export function todayFocusEntry(
   draft: WeekFocusDraft,
-  weekStartsOn: WeekStartDay
+  weekStartsOn: WeekStartDay,
+  todayDateKey: string = dateKeyFromOffset(0)
 ): { focus: DayFocus | null; note: string } {
-  const key = dateKeyFromOffset(0);
-  return draft.days[key] ?? { focus: null, note: "" };
+  return draft.days[todayDateKey] ?? { focus: null, note: "" };
 }
 
 export type WeekDeadlineRow = {
@@ -338,16 +342,48 @@ export function taskOnTodayModeBench(
   return hasDoPlanWithinWeek(task.doPlan, weekStartsOn);
 }
 
+/**
+ * Per-day slotting signal for a mode's bench. `isExplicitlySlotted` is
+ * mode+week scoped: true once ANY day stamped with this mode this week has
+ * a non-empty `slottedTaskIds` — not per-day. Once slotting has started for
+ * a mode, an untouched day in that mode shows empty (nothing placed there
+ * yet) rather than silently falling back to the full pool — unslotted tasks
+ * stay visible in the unslotted pile instead of scattering onto days the
+ * user hasn't decided about.
+ */
+export function modeSlottingForToday(
+  draft: WeekFocusDraft,
+  focus: DayFocus,
+  weekStartsOn: WeekStartDay,
+  todayDateKey: string
+): { isExplicitlySlotted: boolean; slottedTodayIds: Set<string> } {
+  const isExplicitlySlotted = weekDaySlots(weekStartsOn).some((slot) => {
+    const entry = draft.days[slot.dateKey];
+    if (!entry || !dayFocusIncludes(entry.focus, focus)) return false;
+    return (entry.slottedTaskIds?.length ?? 0) > 0;
+  });
+  const slottedTodayIds = new Set(draft.days[todayDateKey]?.slottedTaskIds ?? []);
+  return { isExplicitlySlotted, slottedTodayIds };
+}
+
 /** Mode day bench — approved or do-plan this week, matching today's mode. */
 export function tasksForTodayModeBench(
   tasks: Task[],
   focus: DayFocus,
   weekStartsOn: WeekStartDay,
   approvedIds: Set<string> = new Set(),
-  deferredIds: Set<string> = new Set()
+  deferredIds: Set<string> = new Set(),
+  slotting?: { isExplicitlySlotted: boolean; slottedTodayIds: Set<string> }
 ): Task[] {
   return tasks
     .filter((t) => taskOnTodayModeBench(t, focus, weekStartsOn, approvedIds, deferredIds))
+    .filter((t) => {
+      if (!slotting?.isExplicitlySlotted) return true;
+      if (slotting.slottedTodayIds.has(t.id)) return true;
+      if (t.status === "in_progress") return true;
+      if (isCarriedDoPlan(t.doPlan, weekStartsOn)) return true;
+      return false;
+    })
     .sort((a, b) => {
     const rank = (t: Task) => {
       if (t.deadlineInDays !== null && t.deadlineInDays <= 3) return 0;
@@ -362,4 +398,43 @@ export function tasksForTodayModeBench(
     const db = b.deadlineInDays ?? 9999;
     return da - db;
   });
+}
+
+/**
+ * Shared source of truth for "what does today actually look like" — used by
+ * both the Today page and the Dashboard preview so they can never disagree.
+ */
+export function computeTodayBench(
+  tasks: Task[],
+  weekDraft: WeekFocusDraft,
+  weekStartsOn: WeekStartDay,
+  todayDateKey: string
+): {
+  hasModeDay: boolean;
+  todayFocus: DayFocus | null;
+  modeBench: Task[];
+  alsoToday: Task[];
+  openDayTasks: Task[];
+} {
+  const approved = new Set(weekDraft.approvedTaskIds);
+  const todayEntry = todayFocusEntry(weekDraft, weekStartsOn, todayDateKey);
+  const hasModeDay = todayEntry.focus !== null;
+  const deferredToday = new Set(weekDraft.days[todayDateKey]?.deferredTaskIds ?? []);
+
+  let modeBench: Task[] = [];
+  let alsoToday: Task[] = [];
+  if (todayEntry.focus) {
+    const slotting = modeSlottingForToday(weekDraft, todayEntry.focus, weekStartsOn, todayDateKey);
+    modeBench = tasksForTodayModeBench(tasks, todayEntry.focus, weekStartsOn, approved, deferredToday, slotting);
+    alsoToday = partitionInTodayByFocus(tasks, todayEntry.focus, deferredToday).outsideFocus;
+  }
+
+  const openDayTasks = tasks.filter(
+    (t) =>
+      (t.inToday || (taskHasArrivedToday(t) && !deferredToday.has(t.id))) &&
+      t.status !== "done" &&
+      !isWaitingTask(t)
+  );
+
+  return { hasModeDay, todayFocus: todayEntry.focus, modeBench, alsoToday, openDayTasks };
 }

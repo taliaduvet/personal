@@ -26,6 +26,7 @@ import {
   modeSelectedOnFocus,
   normalizeDayFocus,
   toggleModeFocus,
+  type DayFocus,
   type WeekDaySlot,
   type WeekFocusDraft,
   weekDaySlots,
@@ -38,6 +39,8 @@ import {
   tasksGroupedByMode,
   trustCheckLines,
 } from "@/lib/week-planning-approve";
+import { daySlotDateKeysForFocus, daySlotMapForDays, moveTaskToDaySlot } from "@/lib/day-slots";
+import { WeekPlaceTasksPanel } from "@/components/WeekPlaceTasksPanel";
 
 const WIZARD_STEPS = [
   { n: 1, label: "Receipt" },
@@ -191,6 +194,8 @@ export function WeekPlanningOverlay({
           note: prev?.note ?? "",
           shapeBlockTasks: prev?.shapeBlockTasks,
           deferredTaskIds: prev?.deferredTaskIds,
+          slottedTaskIds: prev?.slottedTaskIds,
+          planConfirmedAt: prev?.planConfirmedAt,
         };
       }
       return { ...d, days };
@@ -209,6 +214,8 @@ export function WeekPlanningOverlay({
           note: prev?.note ?? "",
           shapeBlockTasks: prev?.shapeBlockTasks,
           deferredTaskIds: prev?.deferredTaskIds,
+          slottedTaskIds: prev?.slottedTaskIds,
+          planConfirmedAt: prev?.planConfirmedAt,
         };
       }
       return { ...d, days };
@@ -218,6 +225,21 @@ export function WeekPlanningOverlay({
   const applyStampToSelectedDays = () => {
     if (stampingAreaId) stampAreaOntoDays(selectedDateKeys, stampingAreaId);
     else stampModesOntoDays(selectedDateKeys, stampingModeIds);
+  };
+
+  /** Place (or unplace, when dateKey is null) an approved task onto a specific day within a mode's stamped days. */
+  const handlePlaceModeTask = (modeId: string, taskId: string, dateKey: string | null) => {
+    setDraft((d) => {
+      const focus: DayFocus = { kind: "modes", ids: [modeId] };
+      const dateKeys = daySlotDateKeysForFocus(weekStartsOn, weekOffset, d, focus);
+      const slotMap = daySlotMapForDays(d.days, dateKeys);
+      const next = moveTaskToDaySlot(slotMap, taskId, dateKey);
+      const days = { ...d.days };
+      for (const key of Object.keys(next)) {
+        days[key] = { ...(days[key] ?? { focus: null, note: "" }), slottedTaskIds: next[key] };
+      }
+      return { ...d, days };
+    });
   };
 
   const clearDayMode = (dateKey: string) => {
@@ -230,6 +252,8 @@ export function WeekPlanningOverlay({
           note: d.days[dateKey]?.note ?? "",
           shapeBlockTasks: d.days[dateKey]?.shapeBlockTasks,
           deferredTaskIds: d.days[dateKey]?.deferredTaskIds,
+          slottedTaskIds: d.days[dateKey]?.slottedTaskIds,
+          planConfirmedAt: d.days[dateKey]?.planConfirmedAt,
         },
       },
     }));
@@ -288,6 +312,8 @@ export function WeekPlanningOverlay({
             <PlaceStep
               draft={draft}
               setDraft={setDraft}
+              weekStartsOn={weekStartsOn}
+              weekOffset={weekOffset}
               groupedApproved={groupedApproved}
               modeLoads={modeLoads}
               workModes={workModes}
@@ -306,6 +332,7 @@ export function WeekPlanningOverlay({
               trustLines={trustLines}
               intentionReminder={intentionReminder}
               onOpenTask={openQuickEdit}
+              onPlaceTask={handlePlaceModeTask}
             />
           )}
           {step === 4 && (
@@ -659,6 +686,8 @@ function ApproveRow({
 function PlaceStep({
   draft,
   setDraft,
+  weekStartsOn,
+  weekOffset,
   groupedApproved,
   modeLoads,
   workModes,
@@ -677,9 +706,12 @@ function PlaceStep({
   trustLines,
   intentionReminder,
   onOpenTask,
+  onPlaceTask,
 }: {
   draft: WeekFocusDraft;
   setDraft: React.Dispatch<React.SetStateAction<WeekFocusDraft>>;
+  weekStartsOn: import("@/lib/week").WeekStartDay;
+  weekOffset: number;
   groupedApproved: ReturnType<typeof tasksGroupedByMode>;
   modeLoads: ReturnType<typeof modeLoadFromApproved>;
   workModes: import("@/lib/types").WorkMode[];
@@ -698,6 +730,7 @@ function PlaceStep({
   trustLines: ReturnType<typeof trustCheckLines>;
   intentionReminder?: string;
   onOpenTask: (id: string) => void;
+  onPlaceTask: (modeId: string, taskId: string, dateKey: string | null) => void;
 }) {
   const loadCount = (modeId: string) => modeLoads.find((m) => m.modeId === modeId)?.count ?? 0;
   const canApply = selectedDateKeys.length > 0 && (stampingModeIds.length > 0 || stampingAreaId !== null);
@@ -937,6 +970,17 @@ function PlaceStep({
 
       {groupedApproved.length === 0 && (
         <p className="text-sm text-muted">No approved tasks with modes — you can still stamp an open week.</p>
+      )}
+
+      {groupedApproved.length > 0 && (
+        <WeekPlaceTasksPanel
+          draft={draft}
+          weekStartsOn={weekStartsOn}
+          weekOffset={weekOffset}
+          groupedApproved={groupedApproved}
+          onPlaceTask={onPlaceTask}
+          onOpenTask={onOpenTask}
+        />
       )}
 
       {trustLines.length > 0 && (

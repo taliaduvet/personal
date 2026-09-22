@@ -6,6 +6,7 @@ import {
   nextMatchingFocusDayOffset,
   resurfaceFocusForTask,
   taskOnTodayModeBench,
+  tasksForTodayModeBench,
   weekDaySlots,
   type WeekFocusDraft,
 } from "./week-focus";
@@ -123,6 +124,16 @@ describe("deferredTaskIds + mode bench", () => {
     const approved = new Set(["a"]);
     expect(taskOnTodayModeBench(t, focus, weekStartsOn, approved)).toBe(true);
     expect(taskOnTodayModeBench(t, focus, weekStartsOn, approved, new Set(["a"]))).toBe(false);
+  });
+
+  it("a deferred task is excluded from the bench even if it's also slotted for today", () => {
+    const focus = { kind: "mode" as const, id: "creative" };
+    const t = task({ id: "a", title: "Mix", workModeId: "creative" });
+    const approved = new Set(["a"]);
+    const slotting = { isExplicitlySlotted: true, slottedTodayIds: new Set(["a"]) };
+    expect(
+      tasksForTodayModeBench([t], focus, weekStartsOn, approved, new Set(["a"]), slotting)
+    ).toEqual([]);
   });
 
   it("withDeferredTaskId is idempotent", () => {

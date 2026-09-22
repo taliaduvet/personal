@@ -368,6 +368,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
             ? { ...prevDay.shapeBlockTasks, ...patch.shapeBlockTasks }
             : prevDay.shapeBlockTasks,
           deferredTaskIds: patch.deferredTaskIds ?? prevDay.deferredTaskIds,
+          slottedTaskIds: patch.slottedTaskIds ?? prevDay.slottedTaskIds,
+          planConfirmedAt: patch.planConfirmedAt ?? prevDay.planConfirmedAt,
         };
         const weekPlanning = {
           ...s.weekPlanning,

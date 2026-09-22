@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useTasks } from "@/lib/store";
 import { shippedTasks } from "@/lib/shelf";
 import { useSettings } from "@/lib/settings-store";
-import { doPlanSortKey } from "@/lib/do-plan";
+import { weekKey } from "@/lib/week";
+import { computeTodayBench, dateKeyFromOffset, mergeWeekFocusDraft, weekDaySlots } from "@/lib/week-focus";
 import { deadlineLabel, deadlineTasks, isInboxTask, lifeAreaColor, planLabel, projectName } from "@/lib/lenses";
 import { waitingCount } from "@/lib/waiting-on";
 import { WeekPlanningCard } from "@/components/WeekPlanningCard";
@@ -22,10 +23,7 @@ function greetingFor(hour: number): string {
 
 export function DashboardView() {
   const { tasks, completeTask } = useTasks();
-  const { weekStartsOn, lifeAreas } = useSettings();
-
-  const sortWhen = (t: (typeof tasks)[number]) =>
-    doPlanSortKey(t.doPlan, weekStartsOn) ?? t.deadlineInDays ?? 99;
+  const { weekStartsOn, lifeAreas, weekPlanning, settingsHydrated } = useSettings();
 
   // Time-of-day greeting is client-only to avoid SSR/client hydration drift.
   const [now, setNow] = useState<Date | null>(null);
@@ -38,13 +36,35 @@ export function DashboardView() {
 
   const active = useMemo(() => tasks.filter((t) => t.status !== "done"), [tasks]);
 
-  const todayTasks = useMemo(
+  // Mirrors TodayView.tsx's own weekDraft construction so this preview can
+  // never disagree with what Today actually shows.
+  const weekKeyNow = useMemo(() => weekKey(weekStartsOn, 0), [weekStartsOn]);
+  const record = weekPlanning[weekKeyNow];
+  const slots = useMemo(() => weekDaySlots(weekStartsOn), [weekStartsOn]);
+  const weekDraft = useMemo(
     () =>
-      active
-        .filter((t) => t.inToday)
-        .sort((a, b) => sortWhen(a) - sortWhen(b)),
-    [active, weekStartsOn]
+      mergeWeekFocusDraft(
+        record
+          ? {
+              theme: record.theme,
+              intention: record.intention,
+              approvedTaskIds: record.approvedTaskIds,
+              days: record.days,
+              allDayDispositions: record.allDayDispositions,
+            }
+          : undefined,
+        slots
+      ),
+    [record, slots]
   );
+  const todayDateKey = dateKeyFromOffset(0);
+  const { hasModeDay, modeBench, openDayTasks } = useMemo(
+    () => computeTodayBench(tasks, weekDraft, weekStartsOn, todayDateKey),
+    [tasks, weekDraft, weekStartsOn, todayDateKey]
+  );
+  // Wait for weekPlanning to hydrate from localStorage before trusting the
+  // mode-day computation — otherwise a mode day flashes as "open" for a beat.
+  const todayTasks = settingsHydrated ? (hasModeDay ? modeBench : openDayTasks) : [];
 
   const deadlines = useMemo(() => deadlineTasks(active), [active]);
 
@@ -174,6 +194,8 @@ export function DashboardView() {
                 <li className="pt-1 text-xs text-faint">+{todayTasks.length - 4} more in Today</li>
               )}
             </ul>
+          ) : hasModeDay ? (
+            <Empty>Nothing planned yet — open Today to set up your day.</Empty>
           ) : (
             <Empty>Nothing queued yet. Pull a few in from the Lot to shape your day.</Empty>
           )}
