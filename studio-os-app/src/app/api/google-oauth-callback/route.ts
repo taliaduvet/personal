@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  OAUTH_REFRESH_COOKIE,
   OAUTH_STATE_COOKIE,
   OAUTH_VERIFIER_COOKIE,
 } from "@/lib/google/oauth-pkce";
+import { refreshCookieAttributes } from "@/lib/google/oauth-refresh-cookie";
 import { exchangeGoogleAuthCode } from "@/lib/google/oauth-server";
 
 const CALLBACK_PAGE = "/auth/google-token";
@@ -10,13 +12,18 @@ const REDIRECT_PATH = "/api/google-oauth-callback";
 
 function finishRedirect(
   request: NextRequest,
-  params: { access_token?: string | null; expires_in?: string | null; error?: string | null }
+  params: {
+    access_token?: string | null;
+    expires_in?: string | null;
+    error?: string | null;
+    refresh_token?: string | null;
+  }
 ) {
   const url = request.nextUrl.clone();
   url.pathname = CALLBACK_PAGE;
   url.search = "";
 
-  const { access_token, expires_in, error } = params;
+  const { access_token, expires_in, error, refresh_token } = params;
 
   if (error) {
     url.searchParams.set("error", error);
@@ -29,6 +36,11 @@ function finishRedirect(
     const response = NextResponse.redirect(url);
     response.cookies.delete(OAUTH_VERIFIER_COOKIE);
     response.cookies.delete(OAUTH_STATE_COOKIE);
+    // The refresh token is a long-lived secret — it goes straight into the
+    // httpOnly cookie, never through the URL like the access token above.
+    if (refresh_token) {
+      response.cookies.set(OAUTH_REFRESH_COOKIE, refresh_token, refreshCookieAttributes(request));
+    }
     return response;
   }
 
@@ -77,6 +89,7 @@ export async function GET(request: NextRequest) {
       return finishRedirect(request, {
         access_token: tokens.access_token,
         expires_in: String(tokens.expires_in),
+        refresh_token: tokens.refresh_token,
       });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "token_exchange_failed";

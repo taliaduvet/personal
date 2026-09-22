@@ -6,7 +6,8 @@ import {
 } from "./gis-oauth";
 import { getStoredCalendarClientId, saveCalendarClientId } from "./calendar-auth";
 import { getUnifiedGoogleToken } from "./google-unified-auth";
-import { DRIVE_READONLY_SCOPE } from "./google-scopes";
+import { DRIVE_READONLY_SCOPE, GOOGLE_UNIFIED_SCOPES } from "./google-scopes";
+import { refreshViaCookie } from "./oauth-refresh-client";
 
 export { DRIVE_READONLY_SCOPE };
 
@@ -24,7 +25,9 @@ function drivePending(): OAuthPending {
   return {
     storageKey: STORAGE_TOKEN_KEY,
     optOutKey: OPT_OUT_KEY,
-    scope: DRIVE_READONLY_SCOPE,
+    // Full unified bundle, not just drive — see calendar-auth.ts's calendarPending()
+    // for why (one shared refresh cookie needs one consistent scope grant).
+    scope: GOOGLE_UNIFIED_SCOPES,
     returnUrl: path,
   };
 }
@@ -58,6 +61,7 @@ export function disconnectDriveDirect() {
   store.clear();
   localStorage.setItem(OPT_OUT_KEY, "1");
   bus.emit();
+  void fetch("/api/google-token-refresh", { method: "DELETE" }).catch(() => {});
 }
 
 export async function connectDriveDirect(clientId?: string): Promise<string> {
@@ -69,7 +73,7 @@ export async function connectDriveDirect(clientId?: string): Promise<string> {
   localStorage.removeItem(OPT_OUT_KEY);
 
   try {
-    const resp = await requestGisToken(id, DRIVE_READONLY_SCOPE, "consent", drivePending());
+    const resp = await requestGisToken(id, GOOGLE_UNIFIED_SCOPES, "consent", drivePending());
     store.write(resp.access_token, resp.expires_in);
     bus.emit();
     return resp.access_token;
@@ -83,6 +87,12 @@ export async function connectDriveDirect(clientId?: string): Promise<string> {
 
 export async function refreshDriveDirectSilent(): Promise<string | null> {
   if (isDriveOptOut()) return null;
+  const viaCookie = await refreshViaCookie();
+  if (viaCookie) {
+    store.write(viaCookie.access_token, viaCookie.expires_in);
+    bus.emit();
+    return viaCookie.access_token;
+  }
   const id = getStoredCalendarClientId();
   if (!id) return null;
   try {

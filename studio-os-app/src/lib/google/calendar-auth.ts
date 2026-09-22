@@ -6,6 +6,8 @@ import {
   type OAuthPending,
 } from "./gis-oauth";
 import { getUnifiedGoogleToken } from "./google-unified-auth";
+import { GOOGLE_UNIFIED_SCOPES } from "./google-scopes";
+import { refreshViaCookie } from "./oauth-refresh-client";
 
 const STORAGE_TOKEN_KEY = "studio-os.gcal-token.v1";
 const STORAGE_CLIENT_KEY = "studio-os.gcal-client-id";
@@ -24,7 +26,10 @@ function calendarPending(): OAuthPending {
   return {
     storageKey: STORAGE_TOKEN_KEY,
     optOutKey: OPT_OUT_KEY,
-    scope: CALENDAR_WRITE_SCOPE,
+    // Requesting the full unified bundle (not just calendar) here means the
+    // resulting refresh token — shared via one cookie across all direct-connect
+    // flows — actually covers whichever service asks to silently refresh next.
+    scope: GOOGLE_UNIFIED_SCOPES,
     returnUrl: path,
   };
 }
@@ -64,6 +69,9 @@ export function disconnectCalendarDirect() {
   store.clear();
   localStorage.setItem(OPT_OUT_KEY, "1");
   bus.emit();
+  // Fire-and-forget: kill the shared refresh cookie too, not just the local
+  // access token, so "Disconnect" actually stops silent re-access.
+  void fetch("/api/google-token-refresh", { method: "DELETE" }).catch(() => {});
 }
 
 export async function connectCalendarDirect(clientId?: string): Promise<string> {
@@ -75,7 +83,7 @@ export async function connectCalendarDirect(clientId?: string): Promise<string> 
   localStorage.removeItem(OPT_OUT_KEY);
   const resp = await requestGisToken(
     id,
-    CALENDAR_WRITE_SCOPE,
+    GOOGLE_UNIFIED_SCOPES,
     "consent",
     calendarPending()
   );
@@ -86,6 +94,12 @@ export async function connectCalendarDirect(clientId?: string): Promise<string> 
 
 export async function refreshCalendarDirectSilent(): Promise<string | null> {
   if (isCalendarOptOut()) return null;
+  const viaCookie = await refreshViaCookie();
+  if (viaCookie) {
+    store.write(viaCookie.access_token, viaCookie.expires_in);
+    bus.emit();
+    return viaCookie.access_token;
+  }
   const id = getStoredCalendarClientId();
   if (!id) return null;
   try {

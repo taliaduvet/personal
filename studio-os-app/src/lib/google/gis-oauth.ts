@@ -83,18 +83,25 @@ export function redirectUri(): string {
   return `${window.location.origin}${GOOGLE_TOKEN_CALLBACK_PATH}`;
 }
 
-/** Build authorization-code OAuth URL (Google requires this — implicit token flow is blocked). */
+/**
+ * Build authorization-code OAuth URL (Google requires this — implicit token flow is blocked).
+ * `access_type: "offline"` is what makes Google issue a refresh_token alongside the code
+ * exchange — without it, every connect is a dead-end access-only token that can never be
+ * silently renewed.
+ */
 export function buildGoogleOAuthUrl(
   clientId: string,
   scope: string,
+  redirectUri: string,
   pkce: { challenge: string; state: string }
 ): string {
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: redirectUri(),
+    redirect_uri: redirectUri,
     response_type: "code",
     scope,
     prompt: "consent",
+    access_type: "offline",
     code_challenge: pkce.challenge,
     code_challenge_method: "S256",
     state: pkce.state,
@@ -110,7 +117,7 @@ export async function startRedirectOAuth(clientId: string, scope: string, pendin
   const state = crypto.randomUUID();
   savePendingOAuth({ ...pending, codeVerifier: verifier, oauthState: state });
   setOAuthCookies(verifier, state);
-  window.location.replace(buildGoogleOAuthUrl(clientId, scope, { challenge, state }));
+  window.location.replace(buildGoogleOAuthUrl(clientId, scope, redirectUri(), { challenge, state }));
 }
 
 export async function requestGisToken(

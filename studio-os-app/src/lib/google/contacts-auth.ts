@@ -7,7 +7,8 @@ import {
 } from "./gis-oauth";
 import { getStoredCalendarClientId, saveCalendarClientId } from "./calendar-auth";
 import { getUnifiedGoogleToken } from "./google-unified-auth";
-import { CONTACTS_READONLY_SCOPE } from "./google-scopes";
+import { CONTACTS_READONLY_SCOPE, GOOGLE_UNIFIED_SCOPES } from "./google-scopes";
+import { refreshViaCookie } from "./oauth-refresh-client";
 
 export { CONTACTS_READONLY_SCOPE };
 
@@ -25,7 +26,9 @@ function contactsPending(): OAuthPending {
   return {
     storageKey: STORAGE_TOKEN_KEY,
     optOutKey: OPT_OUT_KEY,
-    scope: CONTACTS_READONLY_SCOPE,
+    // Full unified bundle, not just contacts — see calendar-auth.ts's calendarPending()
+    // for why (one shared refresh cookie needs one consistent scope grant).
+    scope: GOOGLE_UNIFIED_SCOPES,
     returnUrl: path,
   };
 }
@@ -68,6 +71,7 @@ export function disconnectContactsDirect() {
   store.clear();
   localStorage.setItem(OPT_OUT_KEY, "1");
   bus.emit();
+  void fetch("/api/google-token-refresh", { method: "DELETE" }).catch(() => {});
 }
 
 export async function connectContactsDirect(clientId?: string): Promise<string> {
@@ -79,7 +83,7 @@ export async function connectContactsDirect(clientId?: string): Promise<string> 
   localStorage.removeItem(OPT_OUT_KEY);
   const resp = await requestGisToken(
     id,
-    CONTACTS_READONLY_SCOPE,
+    GOOGLE_UNIFIED_SCOPES,
     "consent",
     contactsPending()
   );
@@ -90,6 +94,12 @@ export async function connectContactsDirect(clientId?: string): Promise<string> 
 
 export async function refreshContactsDirectSilent(): Promise<string | null> {
   if (isContactsOptOut()) return null;
+  const viaCookie = await refreshViaCookie();
+  if (viaCookie) {
+    store.write(viaCookie.access_token, viaCookie.expires_in);
+    bus.emit();
+    return viaCookie.access_token;
+  }
   const id = getStoredCalendarClientId();
   if (!id) return null;
   try {

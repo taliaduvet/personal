@@ -4,8 +4,11 @@ import { useCallback, useEffect, useState } from "react";
 import {
   connectGoogleUnified,
   disconnectGoogleUnified,
+  getUnifiedGoogleToken,
   invalidateUnifiedTokenCache,
   isGoogleUnifiedConnected,
+  isGoogleUnifiedOptOut,
+  refreshGoogleUnifiedSilent,
 } from "./google-unified-auth";
 import { subscribeGoogleAuthChange } from "./oauth-callback";
 import { UNIFIED_TOKEN_KEY } from "./google-unified-auth";
@@ -39,6 +42,23 @@ export function useGoogleUnifiedAuth() {
   useEffect(() => {
     invalidateUnifiedTokenCache();
     setConnected(isGoogleUnifiedConnected());
+  }, [rev]);
+
+  // Attempt a silent refresh on mount if there's no cached token — mirrors
+  // useCalendarAccessToken's pattern. Previously Unified had no refresh path
+  // at all: once the token expired, the UI just sat "disconnected."
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (isGoogleUnifiedOptOut()) return;
+      const existing = getUnifiedGoogleToken();
+      if (existing || cancelled) return;
+      await refreshGoogleUnifiedSilent();
+      if (!cancelled) setRev((v) => v + 1);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [rev]);
 
   const connect = useCallback(async (clientId?: string) => {

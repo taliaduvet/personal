@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { OAUTH_REFRESH_COOKIE } from "@/lib/google/oauth-pkce";
+import { refreshCookieAttributes } from "@/lib/google/oauth-refresh-cookie";
 import { refreshGoogleAccessToken } from "@/lib/google/oauth-server";
 
-const REFRESH_MAX_AGE = 60 * 60 * 24 * 180;
-
-function clearRefreshCookie(response: NextResponse) {
+function clearRefreshCookie(request: NextRequest, response: NextResponse) {
   response.cookies.set(OAUTH_REFRESH_COOKIE, "", {
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/",
+    ...refreshCookieAttributes(request),
     maxAge: 0,
   });
 }
@@ -37,14 +34,7 @@ export async function POST(request: NextRequest) {
     });
     // Google may rotate refresh tokens — keep the cookie current.
     if (tokens.refresh_token) {
-      const secure = request.nextUrl.protocol === "https:";
-      response.cookies.set(OAUTH_REFRESH_COOKIE, tokens.refresh_token, {
-        httpOnly: true,
-        sameSite: "lax",
-        path: "/",
-        secure,
-        maxAge: REFRESH_MAX_AGE,
-      });
+      response.cookies.set(OAUTH_REFRESH_COOKIE, tokens.refresh_token, refreshCookieAttributes(request));
     }
     return response;
   } catch (e) {
@@ -52,14 +42,14 @@ export async function POST(request: NextRequest) {
       { error: e instanceof Error ? e.message : "refresh_failed" },
       { status: 401 }
     );
-    clearRefreshCookie(response);
+    clearRefreshCookie(request, response);
     return response;
   }
 }
 
 /** DELETE — clear remembered Google session (Disconnect). */
-export async function DELETE() {
+export async function DELETE(request: NextRequest) {
   const response = NextResponse.json({ ok: true });
-  clearRefreshCookie(response);
+  clearRefreshCookie(request, response);
   return response;
 }

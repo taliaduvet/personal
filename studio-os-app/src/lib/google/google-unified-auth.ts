@@ -5,6 +5,7 @@ import {
 } from "./gis-oauth";
 import { getStoredCalendarClientId, saveCalendarClientId } from "./calendar-auth";
 import { GOOGLE_UNIFIED_SCOPES } from "./google-scopes";
+import { refreshViaCookie } from "./oauth-refresh-client";
 
 export { GOOGLE_UNIFIED_SCOPES };
 
@@ -48,6 +49,33 @@ export function disconnectGoogleUnified() {
   localStorage.setItem("studio-os.gdrive-opt-out.v1", "1");
   localStorage.setItem("studio-os.gcontacts-opt-out.v1", "1");
   window.dispatchEvent(new Event("studio-os.google-auth-changed"));
+  void fetch("/api/google-token-refresh", { method: "DELETE" }).catch(() => {});
+}
+
+/**
+ * Mint a fresh unified access token via the shared refresh cookie, falling
+ * back to Google's browser-session silent reauth. Unified had no refresh
+ * path at all before this — once its token expired the UI just sat
+ * "disconnected" until the user clicked Connect again.
+ */
+export async function refreshGoogleUnifiedSilent(): Promise<string | null> {
+  if (isGoogleUnifiedOptOut()) return null;
+  const viaCookie = await refreshViaCookie();
+  if (viaCookie) {
+    unifiedStore.write(viaCookie.access_token, viaCookie.expires_in);
+    window.dispatchEvent(new Event("studio-os.google-auth-changed"));
+    return viaCookie.access_token;
+  }
+  const id = getStoredCalendarClientId();
+  if (!id) return null;
+  try {
+    const resp = await requestGisToken(id, GOOGLE_UNIFIED_SCOPES, "");
+    unifiedStore.write(resp.access_token, resp.expires_in);
+    window.dispatchEvent(new Event("studio-os.google-auth-changed"));
+    return resp.access_token;
+  } catch {
+    return null;
+  }
 }
 
 function unifiedPending(): OAuthPending {
