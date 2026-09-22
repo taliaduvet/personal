@@ -201,7 +201,10 @@ export function CloudSyncBridge() {
         mergedTasks.push(L);
         if (seedLocalOnlyUp) queueCloudTask(L);
       } else if (C) {
-        mergedTasks.push(C);
+        // Cloud has it, local doesn't — normally means "not yours yet," but if
+        // a delete for this id is still in flight, the cloud row is the stale
+        // pre-delete state. Don't resurrect it.
+        if (!hasPendingCloudOp("sos_tasks", id)) mergedTasks.push(C);
       }
     }
     a.replaceTasksFromSheet(mergedTasks);
@@ -231,7 +234,7 @@ export function CloudSyncBridge() {
         mergedProjects.push(L);
         if (seedLocalOnlyUp) queueCloudProject(L);
       } else if (C) {
-        mergedProjects.push(C);
+        if (!hasPendingCloudOp("sos_projects", id)) mergedProjects.push(C);
       }
     }
     if (mergedProjects.length > 0) {
@@ -260,7 +263,7 @@ export function CloudSyncBridge() {
         mergedRecipes.push(L);
         if (seedLocalOnlyUp) queueCloudRecipe(L);
       } else if (C) {
-        mergedRecipes.push(C);
+        if (!hasPendingCloudOp("sos_recipes", id)) mergedRecipes.push(C);
       }
     }
     if (mergedRecipes.length > 0) {
