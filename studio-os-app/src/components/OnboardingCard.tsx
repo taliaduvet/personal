@@ -9,11 +9,13 @@ import {
   saveSheetsClientId,
 } from "@/lib/google/sheets-auth";
 import { GOOGLE_CLIENT_ID } from "@/lib/google/calendar-auth";
+import { useGoogleSignedIn } from "@/lib/google/use-google-access-token";
 
 const DISMISS_KEY = "studio-os.onboarding-card.v1";
 
 export function OnboardingCard() {
   const { connection, cloudPrimary, connectAndSync, syncing } = useSheet();
+  const signedIn = useGoogleSignedIn();
   const [dismissed, setDismissed] = useState(() => {
     try {
       return localStorage.getItem(DISMISS_KEY) === "1";
@@ -26,7 +28,7 @@ export function OnboardingCard() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  if (connection || cloudPrimary || dismissed) return null;
+  if (connection || cloudPrimary || signedIn || dismissed) return null;
 
   const needsClientId = !GOOGLE_CLIENT_ID && !clientId.trim();
 

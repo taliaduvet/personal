@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { useSheet } from "@/lib/sheet-store";
+import { useGoogleSignedIn } from "@/lib/google/use-google-access-token";
 
 export function SetupBanner() {
   const { connection, cloudPrimary } = useSheet();
-  if (connection || cloudPrimary) return null;
+  const signedIn = useGoogleSignedIn();
+  if (connection || cloudPrimary || signedIn) return null;
 
   return (
     <div className="rounded-xl border border-accent/30 bg-accent-soft/50 px-4 py-3">
