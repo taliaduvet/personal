@@ -95,7 +95,7 @@ src/
 
 ## Test coverage
 
-Tests live next to lib modules (`*.test.ts`) — 47 files, 337 tests. Focus areas:
+Tests live next to lib modules (`*.test.ts`) — 47 files, 339 tests. Focus areas:
 
 - Week boundaries, do-plan (absolute dateKey model), completion attribution
 - Activity log merge + day-close retro

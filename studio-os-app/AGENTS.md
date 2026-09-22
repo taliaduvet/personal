@@ -23,7 +23,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 Sprints A–E shipped: timestamps, sessions, waiting-on, archive wing, duration memory, Day Ledger, day-close with yesterday note. Weekly Review uses a wide collapsible 3-column board layout.
 
-Also shipped (Layer 7A): Trust Core (`src/lib/trust/` — completeness invariant, commitment/handoff tracking, delivery loop, week-check), multi-mode day focus (a day can be stamped with several work modes), Today-bench Defer, Habits tracker (`/habits`), session timer + transition warnings + break-habit nudges, Practice tracker (`/practice`), Journal (`/journal`). Per-day task slotting in week planning + a Today "start your day" confirm gate + a Google OAuth refresh-token fix (Sep 21, 2026). 337/337 tests pass. Full detail in `docs/BUILD_ROADMAP.md`.
+Also shipped (Layer 7A): Trust Core (`src/lib/trust/` — completeness invariant, commitment/handoff tracking, delivery loop, week-check), multi-mode day focus (a day can be stamped with several work modes), Today-bench Defer, Habits tracker (`/habits`), session timer + transition warnings + break-habit nudges, Practice tracker (`/practice`), Journal (`/journal`). Per-day task slotting in week planning + a Today "start your day" confirm gate + a Google OAuth refresh-token fix + an app-wide functionality audit (Sep 21–22, 2026). 339/339 tests pass. Full detail in `docs/BUILD_ROADMAP.md`.
 
 ## End-of-session rule
 
