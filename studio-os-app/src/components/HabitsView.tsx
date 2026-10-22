@@ -42,12 +42,17 @@ export function HabitsView() {
     setHydrated(true);
   }, []);
 
-  useEffect(() => {
-    if (!hydrated) return;
-    saveHabitsState(state);
-  }, [state, hydrated]);
-
   if (!hydrated) return null;
+
+  // Every mutation reads the freshest on-disk state, applies its one change,
+  // writes it back, and updates local state from that result — never from a
+  // React state snapshot that might be stale relative to a write the
+  // globally-mounted SessionNudgeBanner made in the meantime.
+  function mutate(fn: (s: HabitsState) => HabitsState) {
+    const next = fn(loadHabitsState());
+    saveHabitsState(next);
+    setState(next);
+  }
 
   const today = localDateKey(new Date());
   const week = recentDateKeys(7);
@@ -70,10 +75,10 @@ export function HabitsView() {
   function saveDraft() {
     if (!draft || !draft.name.trim()) return;
     const targetPerWeek = draft.targetPerWeek.trim() ? Math.max(0, parseInt(draft.targetPerWeek, 10)) : null;
-    setState((prev) =>
+    mutate((s) =>
       draft.id
-        ? updateHabit(prev, draft.id, { name: draft.name, note: draft.note || undefined, type: draft.type, targetPerWeek })
-        : addHabit(prev, { name: draft.name, note: draft.note || undefined, type: draft.type, targetPerWeek })
+        ? updateHabit(s, draft.id, { name: draft.name, note: draft.note || undefined, type: draft.type, targetPerWeek })
+        : addHabit(s, { name: draft.name, note: draft.note || undefined, type: draft.type, targetPerWeek })
     );
     setDraft(null);
   }
@@ -94,9 +99,9 @@ export function HabitsView() {
         state={state}
         today={today}
         week={week}
-        onToggleToday={(id) => setState((prev) => toggleHabitToday(prev, id))}
+        onToggleToday={(id) => mutate((s) => toggleHabitToday(s, id))}
         onEdit={startEdit}
-        onArchive={(id) => setState((prev) => archiveHabit(prev, id))}
+        onArchive={(id) => mutate((s) => archiveHabit(s, id))}
         onAdd={() => startAdd("break")}
       />
 
@@ -107,9 +112,9 @@ export function HabitsView() {
         state={state}
         today={today}
         week={week}
-        onToggleToday={(id) => setState((prev) => toggleHabitToday(prev, id))}
+        onToggleToday={(id) => mutate((s) => toggleHabitToday(s, id))}
         onEdit={startEdit}
-        onArchive={(id) => setState((prev) => archiveHabit(prev, id))}
+        onArchive={(id) => mutate((s) => archiveHabit(s, id))}
         onAdd={() => startAdd("routine")}
       />
 
@@ -132,9 +137,7 @@ export function HabitsView() {
                   <span className="text-faint line-through">{h.name}</span>
                   <button
                     type="button"
-                    onClick={() =>
-                      setState((prev) => updateHabit(prev, h.id, { archivedAt: null }))
-                    }
+                    onClick={() => mutate((s) => updateHabit(s, h.id, { archivedAt: null }))}
                     className="text-xs font-medium text-accent hover:text-accent-ink"
                   >
                     Restore

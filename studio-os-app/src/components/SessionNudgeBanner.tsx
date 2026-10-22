@@ -40,9 +40,11 @@ export function SessionNudgeBanner() {
   const suggestions = breakHabits(habits).slice(0, 2);
 
   function markDone(habit: Habit) {
-    const next = toggleHabitToday(habits, habit.id);
-    setHabits(next);
+    // Read fresh rather than off the `habits` snapshot — HabitsView may have
+    // written a more recent change since this banner last loaded.
+    const next = toggleHabitToday(loadHabitsState(), habit.id);
     saveHabitsState(next);
+    setHabits(next);
     appendActivityLog({
       id: newActivityLogId(),
       atIso: new Date().toISOString(),
