@@ -11,6 +11,7 @@ import { DayStartGate, type DayStartGateProps } from "@/components/today/DayStar
 import { DayCloseSheet } from "@/components/DayCloseSheet";
 import { YesterdayNoteCard } from "@/components/today/YesterdayNoteCard";
 import { RespondContextRail } from "@/components/today/RespondContextRail";
+import { FunThingsRail } from "@/components/today/FunThingsRail";
 import type { DayCloseRetroInput, YesterdayNote } from "@/lib/day-close";
 
 export type LiftedItem = { id: string; title: string; timeLabel: string };
@@ -395,6 +396,8 @@ export function TodayScreen({
 
         <aside className="flex min-h-full flex-col gap-3 border-t border-border bg-[#e6eaee] p-4 min-[560px]:border-t-0">
           <p className="text-[10px] font-bold uppercase tracking-wider text-faint">Context</p>
+
+          <FunThingsRail />
 
           <RespondContextRail
             tasks={respondTasks}

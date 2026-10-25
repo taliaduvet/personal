@@ -51,6 +51,7 @@ Entry points for reading code:
 | `studio-os:journal-entries` | Journal entries — device-only, never synced or exported |
 | `studio-os.bodyprogram.v1` | Practice tracker daily checks — device-only, never synced or exported |
 | `studio-os.habits.v1` | Habits list + daily checks — device-only, never synced or exported |
+| `studio-os.fun-things.v1` | Fun things list + daily ticks (Today rail) — device-only, never synced or exported |
 | `studio-os:theme` | Theme preference (light / dark / system) |
 | `studio-os.data-source.v1` | Vault ownership — `local` / `sheet` / `cloud` |
 | Google OAuth keys | `studio-os.google-*` (tokens, opt-outs) |
